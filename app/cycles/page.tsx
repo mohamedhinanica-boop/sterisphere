@@ -14,7 +14,7 @@ type Cycle = {
 
 export default function CyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
-
+const [cycleCounter, setCycleCounter] = useState(1);
   const [form, setForm] = useState({
     sterilizer: "",
     cycleNumber: "",
@@ -33,7 +33,6 @@ export default function CyclesPage() {
   function saveCycle() {
     if (
     !form.sterilizer ||
-    !form.cycleNumber ||
     !form.operator ||
     !form.loadContents
   ) {
@@ -43,7 +42,7 @@ export default function CyclesPage() {
     const newCycle: Cycle = {
       id: `CYC-${Date.now()}`,
       sterilizer: form.sterilizer,
-      cycleNumber: form.cycleNumber,
+      cycleNumber: `STERI-2026-${String(cycleCounter).padStart(4, "0")}`,
       operator: form.operator,
       loadContents: form.loadContents,
       status: form.status,
@@ -51,6 +50,7 @@ export default function CyclesPage() {
     };
 
     setCycles((current) => [newCycle, ...current]);
+    setCycleCounter((current) => current + 1);
 
     setForm({
       sterilizer: "",
@@ -91,15 +91,7 @@ export default function CyclesPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Cycle Number</label>
-            <input
-              value={form.cycleNumber}
-              onChange={(e) => updateForm("cycleNumber", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: CYCLE-001"
-            />
-          </div>
+       
 
           <div>
             <label className="block text-sm font-medium mb-2">Operator</label>
