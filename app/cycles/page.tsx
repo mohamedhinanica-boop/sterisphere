@@ -9,6 +9,7 @@ type Cycle = {
   operator: string;
   loadContents: string;
   status: string;
+  createdAt: string;
 };
 
 export default function CyclesPage() {
@@ -30,6 +31,15 @@ export default function CyclesPage() {
   }
 
   function saveCycle() {
+    if (
+    !form.sterilizer ||
+    !form.cycleNumber ||
+    !form.operator ||
+    !form.loadContents
+  ) {
+    alert("Please fill all required fields.");
+    return;
+  }
     const newCycle: Cycle = {
       id: `CYC-${Date.now()}`,
       sterilizer: form.sterilizer,
@@ -37,6 +47,7 @@ export default function CyclesPage() {
       operator: form.operator,
       loadContents: form.loadContents,
       status: form.status,
+      createdAt: new Date().toLocaleString(),
     };
 
     setCycles((current) => [newCycle, ...current]);
@@ -157,6 +168,9 @@ export default function CyclesPage() {
                 <p className="text-sm text-slate-500 mt-2">
                   {cycle.loadContents}
                 </p>
+                <p className="text-xs text-slate-400 mt-3">
+  Created: {cycle.createdAt}
+</p>
               </div>
             ))}
           </div>
