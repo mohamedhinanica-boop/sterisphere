@@ -1,4 +1,5 @@
 "use client";
+import { QRCodeSVG } from "qrcode.react";
 
 import { useState } from "react";
 
@@ -163,6 +164,14 @@ const [cycleCounter, setCycleCounter] = useState(1);
                 <p className="text-xs text-slate-400 mt-3">
   Created: {cycle.createdAt}
 </p>
+<div className="mt-4">
+  <QRCodeSVG
+    value={cycle.cycleNumber}
+    size={90}
+    bgColor="#ffffff"
+    fgColor="#0f172a"
+  />
+</div>
               </div>
             ))}
           </div>
