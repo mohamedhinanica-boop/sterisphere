@@ -54,7 +54,7 @@ export default function PatientsPage() {
   async function fetchPacks() {
   const { data: allPacks, error: packsError } = await supabase
     .from("packs")
-    .select("id, pack_number")
+    .select("id, pack_number, cycle_number")
     .order("created_at", { ascending: false });
 
   if (packsError) {
@@ -73,12 +73,29 @@ export default function PatientsPage() {
     return;
   }
 
+  const { data: passedCycles, error: cyclesError } = await supabase
+    .from("cycles")
+    .select("cycle_number")
+    .eq("status", "Passed");
+
+  if (cyclesError) {
+    alert("Error checking cycle status.");
+    console.error(cyclesError);
+    return;
+  }
+
   const usedPackNumbers = new Set(
     (usedPacks || []).map((record) => record.pack_number)
   );
 
+  const passedCycleNumbers = new Set(
+    (passedCycles || []).map((cycle) => cycle.cycle_number)
+  );
+
   const availablePacks = (allPacks || []).filter(
-    (pack) => !usedPackNumbers.has(pack.pack_number)
+    (pack) =>
+      !usedPackNumbers.has(pack.pack_number) &&
+      passedCycleNumbers.has(pack.cycle_number)
   );
 
   setPacks(availablePacks);

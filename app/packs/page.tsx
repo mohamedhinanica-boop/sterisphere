@@ -54,8 +54,9 @@ export default function PacksPage() {
   async function fetchCycles() {
     const { data, error } = await supabase
       .from("cycles")
-      .select("id, cycle_number")
-      .order("created_at", { ascending: false });
+    .select("id, cycle_number")
+.eq("status", "Passed")
+.order("created_at", { ascending: false });
 
     if (error) {
       alert("Error loading cycles.");

@@ -94,6 +94,21 @@ export default function CyclesPage() {
     setLoading(false);
   }
 
+  async function updateCycleStatus(cycleId: string, newStatus: string) {
+  const { error } = await supabase
+    .from("cycles")
+    .update({ status: newStatus })
+    .eq("id", cycleId);
+
+  if (error) {
+    alert("Error updating cycle status.");
+    console.error(error);
+    return;
+  }
+
+  await fetchCycles();
+}
+
   return (
     <>
       <header className="mb-8">
@@ -201,6 +216,25 @@ export default function CyclesPage() {
                     <p className="text-xs text-slate-400 mt-3">
                       Created: {new Date(cycle.created_at).toLocaleString()}
                     </p>
+                    {cycle.status === "Pending" && (
+  <div className="flex gap-3 mt-4">
+    <button
+      type="button"
+      onClick={() => updateCycleStatus(cycle.id, "Passed")}
+      className="rounded-xl bg-green-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-green-700 transition"
+    >
+      Mark as Passed
+    </button>
+
+    <button
+      type="button"
+      onClick={() => updateCycleStatus(cycle.id, "Failed")}
+      className="rounded-xl bg-red-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-red-700 transition"
+    >
+      Mark as Failed
+    </button>
+  </div>
+)}
 
                     {cycle.status === "Failed" && (
                       <Link
