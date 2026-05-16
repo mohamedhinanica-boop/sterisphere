@@ -52,19 +52,37 @@ export default function PatientsPage() {
   }
 
   async function fetchPacks() {
-    const { data, error } = await supabase
-      .from("packs")
-      .select("id, pack_number")
-      .order("created_at", { ascending: false });
+  const { data: allPacks, error: packsError } = await supabase
+    .from("packs")
+    .select("id, pack_number")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      alert("Error loading packs.");
-      console.error(error);
-      return;
-    }
-
-    setPacks(data || []);
+  if (packsError) {
+    alert("Error loading packs.");
+    console.error(packsError);
+    return;
   }
+
+  const { data: usedPacks, error: usedError } = await supabase
+    .from("patient_traces")
+    .select("pack_number");
+
+  if (usedError) {
+    alert("Error checking used packs.");
+    console.error(usedError);
+    return;
+  }
+
+  const usedPackNumbers = new Set(
+    (usedPacks || []).map((record) => record.pack_number)
+  );
+
+  const availablePacks = (allPacks || []).filter(
+    (pack) => !usedPackNumbers.has(pack.pack_number)
+  );
+
+  setPacks(availablePacks);
+}
 
   function updateForm(field: string, value: string) {
     setForm((current) => ({
