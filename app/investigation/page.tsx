@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+
 import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 
 type Pack = {
   id: string;
@@ -25,6 +26,15 @@ export default function InvestigationPage() {
   const [patients, setPatients] = useState<PatientTrace[]>([]);
   const [searched, setSearched] = useState(false);
 
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const cycle = params.get("cycle");
+
+  if (cycle) {
+    setCycleNumber(cycle);
+  }
+}, []);
+  
   async function investigateCycle() {
     if (!cycleNumber) {
       alert("Please enter a cycle number.");

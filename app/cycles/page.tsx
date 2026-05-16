@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
@@ -197,6 +198,14 @@ export default function CyclesPage() {
                     <p className="text-xs text-slate-400 mt-3">
                       Created: {new Date(cycle.created_at).toLocaleString()}
                     </p>
+                    {cycle.status === "Failed" && (
+  <Link
+    href={`/investigation?cycle=${cycle.cycle_number}`}
+    className="inline-block mt-4 rounded-xl bg-red-600 text-white px-4 py-2 text-sm font-medium"
+  >
+    Investigate Failed Cycle
+  </Link>
+)}
                   </div>
 
                   <QRCodeSVG value={cycle.cycle_number} size={90} />
