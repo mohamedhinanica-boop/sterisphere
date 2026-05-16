@@ -60,7 +60,12 @@ export default function Home() {
         <StatCard icon={<ClipboardCheck />} title="Total Cycles" value={cyclesCount} />
         <StatCard icon={<PackageCheck />} title="Instrument Packs" value={packsCount} />
         <StatCard icon={<FileText />} title="Patient Records" value={patientRecordsCount} />
-        <StatCard icon={<ShieldCheck />} title="Failed Cycles" value={failedCyclesCount} />
+        <StatCard
+  icon={<ShieldCheck />}
+  title="Failed Cycles"
+  value={failedCyclesCount}
+  warning={failedCyclesCount > 0}
+/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -96,16 +101,30 @@ function StatCard({
   icon,
   title,
   value,
+  warning = false,
 }: {
   icon: React.ReactNode;
   title: string;
   value: number;
+  warning?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
-      <div className="text-blue-600 mb-4">{icon}</div>
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="text-3xl font-bold mt-1">{value}</p>
+    <div
+      className={`rounded-2xl shadow-sm p-6 border ${
+        warning
+          ? "bg-red-50 border-red-200"
+          : "bg-white border-slate-200"
+      }`}
+    >
+      <div className={warning ? "text-red-600 mb-4" : "text-blue-600 mb-4"}>
+        {icon}
+      </div>
+      <p className={warning ? "text-sm text-red-700" : "text-sm text-slate-500"}>
+        {title}
+      </p>
+      <p className={warning ? "text-3xl font-bold mt-1 text-red-700" : "text-3xl font-bold mt-1"}>
+        {value}
+      </p>
     </div>
   );
 }
