@@ -70,6 +70,12 @@ export default function ReportsPage() {
           Audit overview of sterilization cycles, instrument packs, and patient
           traceability records.
         </p>
+        <button
+  onClick={() => window.print()}
+  className="mt-4 rounded-xl bg-slate-950 text-white px-5 py-3 font-medium"
+>
+  Print / Save as PDF
+</button>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
