@@ -18,6 +18,7 @@ type Cycle = {
 export default function CyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [cycleCounter, setCycleCounter] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     sterilizer: "",
@@ -59,6 +60,8 @@ export default function CyclesPage() {
       return;
     }
 
+    setLoading(true);
+
     const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
       cycleCounter
     ).padStart(4, "0")}`;
@@ -76,6 +79,7 @@ export default function CyclesPage() {
     if (error) {
       alert("Error saving cycle.");
       console.error(error);
+      setLoading(false);
       return;
     }
 
@@ -86,7 +90,8 @@ export default function CyclesPage() {
       status: "Passed",
     });
 
-    fetchCycles();
+    await fetchCycles();
+    setLoading(false);
   }
 
   return (
@@ -155,9 +160,10 @@ export default function CyclesPage() {
           <button
             type="button"
             onClick={saveCycle}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+            disabled={loading}
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Cycle
+            {loading ? "Saving..." : "Save Cycle"}
           </button>
         </form>
       </section>
@@ -170,21 +176,18 @@ export default function CyclesPage() {
         ) : (
           <div className="space-y-3">
             {cycles.map((cycle) => (
-              <div
-                key={cycle.id}
-                className="rounded-xl border border-slate-200 p-4"
-              >
+              <div key={cycle.id} className="rounded-xl border border-slate-200 p-4">
                 <div className="flex justify-between gap-4">
                   <div>
                     <div className="flex justify-between">
                       <h3 className="font-semibold">{cycle.cycle_number}</h3>
-                     <span
-  className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
-    cycle.status
-  )}`}
->
-  {cycle.status}
-</span>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+                          cycle.status
+                        )}`}
+                      >
+                        {cycle.status}
+                      </span>
                     </div>
 
                     <p className="text-sm text-slate-600 mt-1">
@@ -198,14 +201,15 @@ export default function CyclesPage() {
                     <p className="text-xs text-slate-400 mt-3">
                       Created: {new Date(cycle.created_at).toLocaleString()}
                     </p>
+
                     {cycle.status === "Failed" && (
-  <Link
-    href={`/investigation?cycle=${cycle.cycle_number}`}
-    className="inline-block mt-4 rounded-xl bg-red-600 text-white px-4 py-2 text-sm font-medium"
-  >
-    Investigate Failed Cycle
-  </Link>
-)}
+                      <Link
+                        href={`/investigation?cycle=${cycle.cycle_number}`}
+                        className="inline-block mt-4 rounded-xl bg-red-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-red-700 transition"
+                      >
+                        Investigate Failed Cycle
+                      </Link>
+                    )}
                   </div>
 
                   <QRCodeSVG value={cycle.cycle_number} size={90} />
@@ -217,7 +221,9 @@ export default function CyclesPage() {
       </section>
     </>
   );
-  function getStatusBadgeClass(status: string) {
+}
+
+function getStatusBadgeClass(status: string) {
   if (status === "Passed") {
     return "bg-green-100 text-green-700 border-green-200";
   }
@@ -227,5 +233,4 @@ export default function CyclesPage() {
   }
 
   return "bg-yellow-100 text-yellow-700 border-yellow-200";
-}
 }

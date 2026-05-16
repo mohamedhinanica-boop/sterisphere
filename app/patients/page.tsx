@@ -21,6 +21,7 @@ type Pack = {
 export default function PatientsPage() {
   const [records, setRecords] = useState<PatientTrace[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     patientName: "",
@@ -84,6 +85,8 @@ export default function PatientsPage() {
       return;
     }
 
+    setLoading(true);
+
     const { error } = await supabase.from("patient_traces").insert([
       {
         patient_name: form.patientName,
@@ -97,6 +100,7 @@ export default function PatientsPage() {
     if (error) {
       alert("Error saving traceability record.");
       console.error(error);
+      setLoading(false);
       return;
     }
 
@@ -108,7 +112,8 @@ export default function PatientsPage() {
       procedure: "",
     });
 
-    fetchRecords();
+    await fetchRecords();
+    setLoading(false);
   }
 
   return (
@@ -191,9 +196,10 @@ export default function PatientsPage() {
           <button
             type="button"
             onClick={saveRecord}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+            disabled={loading}
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Traceability Record
+            {loading ? "Saving..." : "Save Traceability Record"}
           </button>
         </form>
       </section>

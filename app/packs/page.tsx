@@ -12,6 +12,7 @@ type Pack = {
   contents: string;
   created_at: string;
 };
+
 type Cycle = {
   id: string;
   cycle_number: string;
@@ -21,6 +22,7 @@ export default function PacksPage() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [packCounter, setPackCounter] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     cycleNumber: "",
@@ -29,23 +31,9 @@ export default function PacksPage() {
   });
 
   useEffect(() => {
-  fetchPacks();
-  async function fetchCycles() {
-  const { data, error } = await supabase
-    .from("cycles")
-    .select("id, cycle_number")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    alert("Error loading cycles.");
-    console.error(error);
-    return;
-  }
-
-  setCycles(data || []);
-}
-  fetchCycles();
-}, []);
+    fetchPacks();
+    fetchCycles();
+  }, []);
 
   async function fetchPacks() {
     const { data, error } = await supabase
@@ -63,6 +51,21 @@ export default function PacksPage() {
     setPackCounter((data?.length || 0) + 1);
   }
 
+  async function fetchCycles() {
+    const { data, error } = await supabase
+      .from("cycles")
+      .select("id, cycle_number")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      alert("Error loading cycles.");
+      console.error(error);
+      return;
+    }
+
+    setCycles(data || []);
+  }
+
   function updateForm(field: string, value: string) {
     setForm((current) => ({
       ...current,
@@ -75,6 +78,8 @@ export default function PacksPage() {
       alert("Please fill all required fields.");
       return;
     }
+
+    setLoading(true);
 
     const newPackNumber = `PACK-${new Date().getFullYear()}-${String(
       packCounter
@@ -92,6 +97,7 @@ export default function PacksPage() {
     if (error) {
       alert("Error saving pack.");
       console.error(error);
+      setLoading(false);
       return;
     }
 
@@ -101,7 +107,8 @@ export default function PacksPage() {
       contents: "",
     });
 
-    fetchPacks();
+    await fetchPacks();
+    setLoading(false);
   }
 
   return (
@@ -122,18 +129,17 @@ export default function PacksPage() {
               Sterilization Cycle ID
             </label>
             <select
-  value={form.cycleNumber}
-  onChange={(e) => updateForm("cycleNumber", e.target.value)}
-  className="w-full rounded-xl border border-slate-300 px-4 py-3"
->
-  <option value="">Select a sterilization cycle</option>
-
-  {cycles.map((cycle) => (
-    <option key={cycle.id} value={cycle.cycle_number}>
-      {cycle.cycle_number}
-    </option>
-  ))}
-</select>
+              value={form.cycleNumber}
+              onChange={(e) => updateForm("cycleNumber", e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            >
+              <option value="">Select a sterilization cycle</option>
+              {cycles.map((cycle) => (
+                <option key={cycle.id} value={cycle.cycle_number}>
+                  {cycle.cycle_number}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -164,9 +170,10 @@ export default function PacksPage() {
           <button
             type="button"
             onClick={savePack}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+            disabled={loading}
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Pack
+            {loading ? "Saving..." : "Save Pack"}
           </button>
         </form>
       </section>
