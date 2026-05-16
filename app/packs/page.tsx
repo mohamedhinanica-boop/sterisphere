@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
+import toast from "react-hot-toast";
 
 type Pack = {
   id: string;
@@ -42,7 +43,7 @@ export default function PacksPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      alert("Error loading packs.");
+      toast.error("Error loading packs.");
       console.error(error);
       return;
     }
@@ -59,7 +60,7 @@ export default function PacksPage() {
 .order("created_at", { ascending: false });
 
     if (error) {
-      alert("Error loading cycles.");
+      toast.error("Error loading cycles.");
       console.error(error);
       return;
     }
@@ -76,7 +77,7 @@ export default function PacksPage() {
 
   async function savePack() {
     if (!form.cycleNumber || !form.packType || !form.contents) {
-      alert("Please fill all required fields.");
+      toast.error("Please fill all required fields.");
       return;
     }
 
@@ -96,7 +97,7 @@ export default function PacksPage() {
     ]);
 
     if (error) {
-      alert("Error saving pack.");
+      toast.error("Error saving pack.");
       console.error(error);
       setLoading(false);
       return;
@@ -109,6 +110,7 @@ export default function PacksPage() {
     });
 
     await fetchPacks();
+    toast.success("Pack saved successfully.");
     setLoading(false);
   }
 

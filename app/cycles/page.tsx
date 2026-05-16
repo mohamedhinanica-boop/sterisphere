@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
+import toast from "react-hot-toast";
 
 type Cycle = {
   id: string;
@@ -56,7 +57,7 @@ export default function CyclesPage() {
 
   async function saveCycle() {
     if (!form.sterilizer || !form.operator || !form.loadContents) {
-      alert("Please fill all required fields.");
+      toast.error("Please fill all required fields.");
       return;
     }
 
@@ -77,7 +78,7 @@ export default function CyclesPage() {
     ]);
 
     if (error) {
-      alert("Error saving cycle.");
+      toast.error("Error saving cycle.");
       console.error(error);
       setLoading(false);
       return;
@@ -91,6 +92,7 @@ export default function CyclesPage() {
     });
 
     await fetchCycles();
+    toast.success("Cycle saved successfully.");
     setLoading(false);
   }
 
@@ -101,12 +103,17 @@ export default function CyclesPage() {
     .eq("id", cycleId);
 
   if (error) {
-    alert("Error updating cycle status.");
+    toast.error("Error updating cycle status.");
     console.error(error);
     return;
   }
 
   await fetchCycles();
+  if (newStatus === "Failed") {
+  toast.error("Cycle marked as Failed.");
+} else {
+  toast.success("Cycle marked as Passed.");
+}
 }
 
   return (

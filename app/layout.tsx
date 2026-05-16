@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "SteriSphere",
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <Toaster position="top-right" />
         <div className="min-h-screen bg-slate-100 text-slate-950 flex">
           <aside className="w-64 bg-slate-950 text-white p-6 hidden md:block">
             <h1 className="text-2xl font-bold mb-8">SteriSphere</h1>
