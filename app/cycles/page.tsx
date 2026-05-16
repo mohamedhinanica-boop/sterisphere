@@ -1,28 +1,49 @@
 "use client";
-import { QRCodeSVG } from "qrcode.react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { supabase } from "@/lib/supabase";
 
 type Cycle = {
   id: string;
+  cycle_number: string;
   sterilizer: string;
-  cycleNumber: string;
   operator: string;
-  loadContents: string;
+  load_contents: string;
   status: string;
-  createdAt: string;
+  created_at: string;
 };
 
 export default function CyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
-const [cycleCounter, setCycleCounter] = useState(1);
+  const [cycleCounter, setCycleCounter] = useState(1);
+
   const [form, setForm] = useState({
     sterilizer: "",
-    cycleNumber: "",
     operator: "",
     loadContents: "",
     status: "Passed",
   });
+
+  useEffect(() => {
+    fetchCycles();
+  }, []);
+
+  async function fetchCycles() {
+    const { data, error } = await supabase
+      .from("cycles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      alert("Error loading cycles.");
+      console.error(error);
+      return;
+    }
+
+    setCycles(data || []);
+    setCycleCounter((data?.length || 0) + 1);
+  }
 
   function updateForm(field: string, value: string) {
     setForm((current) => ({
@@ -31,35 +52,40 @@ const [cycleCounter, setCycleCounter] = useState(1);
     }));
   }
 
-  function saveCycle() {
-    if (
-    !form.sterilizer ||
-    !form.operator ||
-    !form.loadContents
-  ) {
-    alert("Please fill all required fields.");
-    return;
-  }
-    const newCycle: Cycle = {
-      id: `CYC-${Date.now()}`,
-      sterilizer: form.sterilizer,
-      cycleNumber: `STERI-2026-${String(cycleCounter).padStart(4, "0")}`,
-      operator: form.operator,
-      loadContents: form.loadContents,
-      status: form.status,
-      createdAt: new Date().toLocaleString(),
-    };
+  async function saveCycle() {
+    if (!form.sterilizer || !form.operator || !form.loadContents) {
+      alert("Please fill all required fields.");
+      return;
+    }
 
-    setCycles((current) => [newCycle, ...current]);
-    setCycleCounter((current) => current + 1);
+    const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
+      cycleCounter
+    ).padStart(4, "0")}`;
+
+    const { error } = await supabase.from("cycles").insert([
+      {
+        cycle_number: newCycleNumber,
+        sterilizer: form.sterilizer,
+        operator: form.operator,
+        load_contents: form.loadContents,
+        status: form.status,
+      },
+    ]);
+
+    if (error) {
+      alert("Error saving cycle.");
+      console.error(error);
+      return;
+    }
 
     setForm({
       sterilizer: "",
-      cycleNumber: "",
       operator: "",
       loadContents: "",
       status: "Passed",
     });
+
+    fetchCycles();
   }
 
   return (
@@ -91,8 +117,6 @@ const [cycleCounter, setCycleCounter] = useState(1);
               placeholder="Example: Statim 5000 / Autoclave 1"
             />
           </div>
-
-       
 
           <div>
             <label className="block text-sm font-medium mb-2">Operator</label>
@@ -149,29 +173,30 @@ const [cycleCounter, setCycleCounter] = useState(1);
                 key={cycle.id}
                 className="rounded-xl border border-slate-200 p-4"
               >
-                <div className="flex justify-between">
-                  <h3 className="font-semibold">{cycle.cycleNumber}</h3>
-                  <span className="text-sm text-slate-500">{cycle.status}</span>
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <div className="flex justify-between">
+                      <h3 className="font-semibold">{cycle.cycle_number}</h3>
+                      <span className="text-sm text-slate-500">
+                        {cycle.status}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-slate-600 mt-1">
+                      {cycle.sterilizer} · Operator: {cycle.operator}
+                    </p>
+
+                    <p className="text-sm text-slate-500 mt-2">
+                      {cycle.load_contents}
+                    </p>
+
+                    <p className="text-xs text-slate-400 mt-3">
+                      Created: {new Date(cycle.created_at).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <QRCodeSVG value={cycle.cycle_number} size={90} />
                 </div>
-
-                <p className="text-sm text-slate-600 mt-1">
-                  {cycle.sterilizer} · Operator: {cycle.operator}
-                </p>
-
-                <p className="text-sm text-slate-500 mt-2">
-                  {cycle.loadContents}
-                </p>
-                <p className="text-xs text-slate-400 mt-3">
-  Created: {cycle.createdAt}
-</p>
-<div className="mt-4">
-  <QRCodeSVG
-    value={cycle.cycleNumber}
-    size={90}
-    bgColor="#ffffff"
-    fgColor="#0f172a"
-  />
-</div>
               </div>
             ))}
           </div>
