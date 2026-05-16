@@ -155,7 +155,7 @@ export default function CyclesPage() {
           <button
             type="button"
             onClick={saveCycle}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium"
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
           >
             Save Cycle
           </button>

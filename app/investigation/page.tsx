@@ -26,55 +26,61 @@ export default function InvestigationPage() {
   const [patients, setPatients] = useState<PatientTrace[]>([]);
   const [searched, setSearched] = useState(false);
 
-  useEffect(() => {
+ useEffect(() => {
   const params = new URLSearchParams(window.location.search);
   const cycle = params.get("cycle");
 
   if (cycle) {
     setCycleNumber(cycle);
+    investigateCycle(cycle);
   }
 }, []);
-  
-  async function investigateCycle() {
-    if (!cycleNumber) {
-      alert("Please enter a cycle number.");
-      return;
-    }
 
-    setSearched(true);
+  async function investigateCycle(selectedCycle?: string) {
+  const cycleToInvestigate = selectedCycle || cycleNumber;
 
-    const { data: packsData, error: packsError } = await supabase
-      .from("packs")
-      .select("*")
-      .eq("cycle_number", cycleNumber);
+  if (!cycleToInvestigate) {
+    alert("Please enter a cycle number.");
+    return;
+  }
 
-    if (packsError) {
-      alert("Error loading packs.");
-      console.error(packsError);
-      return;
-    }
+  setSearched(true);
 
-    setPacks(packsData || []);
+  const { data: packsData, error: packsError } = await supabase
+    .from("packs")
+    .select("*")
+    .eq("cycle_number", cycleToInvestigate);
 
-    if (!packsData || packsData.length === 0) {
-      setPatients([]);
-      return;
-    }
+  if (packsError) {
+    alert("Error loading packs.");
+    console.error(packsError);
+    return;
+  }
 
-    const packNumbers = packsData.map((pack) => pack.pack_number);
+  setPacks(packsData || []);
 
-    const { data: patientData, error: patientError } = await supabase
-      .from("patient_traces")
-      .select("*")
-      .in("pack_number", packNumbers);
+  if (!packsData || packsData.length === 0) {
+    setPatients([]);
+    return;
+  }
 
-    if (patientError) {
-      alert("Error loading patient records.");
-      console.error(patientError);
-      return;
-    }
+  const packNumbers = packsData.map((pack) => pack.pack_number);
 
-    setPatients(patientData || []);
+  const { data: patientData, error: patientError } = await supabase
+    .from("patient_traces")
+    .select("*")
+    .in("pack_number", packNumbers);
+
+  if (patientError) {
+    alert("Error loading patient records.");
+    console.error(patientError);
+    return;
+  }
+
+  setPatients(patientData || []);
+
+
+   
   }
 
   return (
@@ -101,8 +107,8 @@ export default function InvestigationPage() {
           />
 
           <button
-            onClick={investigateCycle}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium"
+            onClick={() => investigateCycle()}
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
           >
             Investigate
           </button>

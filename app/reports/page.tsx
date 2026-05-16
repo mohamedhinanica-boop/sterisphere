@@ -72,7 +72,7 @@ export default function ReportsPage() {
         </p>
         <button
   onClick={() => window.print()}
-  className="mt-4 rounded-xl bg-slate-950 text-white px-5 py-3 font-medium"
+  className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
 >
   Print / Save as PDF
 </button>
