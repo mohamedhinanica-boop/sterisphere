@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import toast from "react-hot-toast";
 
 type PatientTrace = {
   id: string;
@@ -43,7 +44,7 @@ export default function PatientsPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      alert("Error loading patient traceability records.");
+      toast.error("Error loading patient traceability records.");
       console.error(error);
       return;
     }
@@ -58,7 +59,7 @@ export default function PatientsPage() {
     .order("created_at", { ascending: false });
 
   if (packsError) {
-    alert("Error loading packs.");
+    toast.error("Error loading packs.");
     console.error(packsError);
     return;
   }
@@ -116,7 +117,7 @@ export default function PatientsPage() {
       !form.packNumber ||
       !form.procedure
     ) {
-      alert("Please fill all required fields.");
+      toast.error("Please fill all required fields.");
       return;
     }
 const { data: existingUse, error: checkError } = await supabase
@@ -132,7 +133,7 @@ if (checkError) {
 }
 
 if (existingUse) {
-  alert("This pack has already been assigned to a patient.");
+  toast.error("This pack has already been assigned to a patient.");
   await fetchPacks();
   return;
 }
@@ -149,7 +150,7 @@ if (existingUse) {
     ]);
 
     if (error) {
-      alert("Error saving traceability record.");
+      toast.error("Error saving traceability record.");
       console.error(error);
       setLoading(false);
       return;
@@ -165,6 +166,7 @@ if (existingUse) {
 
    await fetchRecords();
 await fetchPacks();
+toast.success("Traceability record saved successfully.");
 setLoading(false);
   }
 
