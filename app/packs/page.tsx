@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { supabase } from "@/lib/supabase";
 
 type Pack = {
   id: string;
-  packNumber: string;
-  cycleNumber: string;
-  packType: string;
+  pack_number: string;
+  cycle_number: string;
+  pack_type: string;
   contents: string;
-  createdAt: string;
+  created_at: string;
 };
 
 export default function PacksPage() {
@@ -22,6 +23,26 @@ export default function PacksPage() {
     contents: "",
   });
 
+  useEffect(() => {
+    fetchPacks();
+  }, []);
+
+  async function fetchPacks() {
+    const { data, error } = await supabase
+      .from("packs")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      alert("Error loading packs.");
+      console.error(error);
+      return;
+    }
+
+    setPacks(data || []);
+    setPackCounter((data?.length || 0) + 1);
+  }
+
   function updateForm(field: string, value: string) {
     setForm((current) => ({
       ...current,
@@ -29,29 +50,38 @@ export default function PacksPage() {
     }));
   }
 
-  function savePack() {
+  async function savePack() {
     if (!form.cycleNumber || !form.packType || !form.contents) {
       alert("Please fill all required fields.");
       return;
     }
 
-    const newPack: Pack = {
-      id: `PACK-${Date.now()}`,
-      packNumber: `PACK-${new Date().getFullYear()}-${String(packCounter).padStart(4, "0")}`,
-      cycleNumber: form.cycleNumber,
-      packType: form.packType,
-      contents: form.contents,
-      createdAt: new Date().toLocaleString(),
-    };
+    const newPackNumber = `PACK-${new Date().getFullYear()}-${String(
+      packCounter
+    ).padStart(4, "0")}`;
 
-    setPacks((current) => [newPack, ...current]);
-    setPackCounter((current) => current + 1);
+    const { error } = await supabase.from("packs").insert([
+      {
+        pack_number: newPackNumber,
+        cycle_number: form.cycleNumber,
+        pack_type: form.packType,
+        contents: form.contents,
+      },
+    ]);
+
+    if (error) {
+      alert("Error saving pack.");
+      console.error(error);
+      return;
+    }
 
     setForm({
       cycleNumber: "",
       packType: "Instrument Pouch",
       contents: "",
     });
+
+    fetchPacks();
   }
 
   return (
@@ -125,17 +155,17 @@ export default function PacksPage() {
               <div key={pack.id} className="rounded-xl border border-slate-200 p-4">
                 <div className="flex justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold">{pack.packNumber}</h3>
+                    <h3 className="font-semibold">{pack.pack_number}</h3>
                     <p className="text-sm text-slate-600 mt-1">
-                      {pack.packType} · Cycle: {pack.cycleNumber}
+                      {pack.pack_type} · Cycle: {pack.cycle_number}
                     </p>
                     <p className="text-sm text-slate-500 mt-2">{pack.contents}</p>
                     <p className="text-xs text-slate-400 mt-3">
-                      Created: {pack.createdAt}
+                      Created: {new Date(pack.created_at).toLocaleString()}
                     </p>
                   </div>
 
-                  <QRCodeSVG value={pack.packNumber} size={90} />
+                  <QRCodeSVG value={pack.pack_number} size={90} />
                 </div>
               </div>
             ))}
