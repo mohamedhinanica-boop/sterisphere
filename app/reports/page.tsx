@@ -89,7 +89,13 @@ export default function ReportsPage() {
           <div key={cycle.id} className="border-b border-slate-200 py-3">
             <div className="flex justify-between">
               <p className="font-medium">{cycle.cycle_number}</p>
-              <span className="text-sm text-slate-500">{cycle.status}</span>
+              <span
+  className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+    cycle.status
+  )}`}
+>
+  {cycle.status}
+</span>
             </div>
             <p className="text-sm text-slate-600">
               {cycle.sterilizer} · Operator: {cycle.operator}
@@ -162,4 +168,16 @@ function ReportSection({
       {children}
     </section>
   );
+}
+
+function getStatusBadgeClass(status: string) {
+  if (status === "Passed") {
+    return "bg-green-100 text-green-700 border-green-200";
+  }
+
+  if (status === "Failed") {
+    return "bg-red-100 text-red-700 border-red-200";
+  }
+
+  return "bg-yellow-100 text-yellow-700 border-yellow-200";
 }
