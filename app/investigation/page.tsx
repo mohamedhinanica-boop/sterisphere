@@ -25,6 +25,7 @@ export default function InvestigationPage() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [patients, setPatients] = useState<PatientTrace[]>([]);
   const [searched, setSearched] = useState(false);
+const [loading, setLoading] = useState(false);
 
  useEffect(() => {
   const params = new URLSearchParams(window.location.search);
@@ -38,6 +39,7 @@ export default function InvestigationPage() {
 
   async function investigateCycle(selectedCycle?: string) {
   const cycleToInvestigate = selectedCycle || cycleNumber;
+  setLoading(true);
 
   if (!cycleToInvestigate) {
     alert("Please enter a cycle number.");
@@ -54,6 +56,7 @@ export default function InvestigationPage() {
   if (packsError) {
     alert("Error loading packs.");
     console.error(packsError);
+    setLoading(false);
     return;
   }
 
@@ -61,6 +64,7 @@ export default function InvestigationPage() {
 
   if (!packsData || packsData.length === 0) {
     setPatients([]);
+    setLoading(false);
     return;
   }
 
@@ -79,7 +83,7 @@ export default function InvestigationPage() {
 
   setPatients(patientData || []);
 
-
+setLoading(false);
    
   }
 
@@ -107,11 +111,12 @@ export default function InvestigationPage() {
           />
 
           <button
-            onClick={() => investigateCycle()}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
-          >
-            Investigate
-          </button>
+  onClick={() => investigateCycle()}
+  disabled={loading}
+  className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {loading ? "Investigating..." : "Investigate"}
+</button>
         </div>
       </section>
 
