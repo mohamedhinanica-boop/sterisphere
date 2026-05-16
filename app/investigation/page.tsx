@@ -3,6 +3,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 type Pack = {
   id: string;
@@ -42,7 +43,7 @@ const [loading, setLoading] = useState(false);
   setLoading(true);
 
   if (!cycleToInvestigate) {
-    alert("Please enter a cycle number.");
+    toast.error("Please enter a cycle number.");
     return;
   }
 
@@ -54,7 +55,7 @@ const [loading, setLoading] = useState(false);
     .eq("cycle_number", cycleToInvestigate);
 
   if (packsError) {
-    alert("Error loading packs.");
+    toast.error("Error loading packs.");
     console.error(packsError);
     setLoading(false);
     return;
@@ -64,6 +65,7 @@ const [loading, setLoading] = useState(false);
 
   if (!packsData || packsData.length === 0) {
     setPatients([]);
+    toast.error("No linked packs found for this cycle.");
     setLoading(false);
     return;
   }
@@ -76,14 +78,15 @@ const [loading, setLoading] = useState(false);
     .in("pack_number", packNumbers);
 
   if (patientError) {
-    alert("Error loading patient records.");
+    toast.error("Error loading patient records.");
     console.error(patientError);
+     setLoading(false);
     return;
   }
 
   setPatients(patientData || []);
-
-setLoading(false);
+  toast.success("Investigation completed.");
+  setLoading(false);
    
   }
 
