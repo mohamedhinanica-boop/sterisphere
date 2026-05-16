@@ -102,7 +102,23 @@ export default function PatientsPage() {
       alert("Please fill all required fields.");
       return;
     }
+const { data: existingUse, error: checkError } = await supabase
+  .from("patient_traces")
+  .select("id")
+  .eq("pack_number", form.packNumber)
+  .maybeSingle();
 
+if (checkError) {
+  alert("Error checking pack availability.");
+  console.error(checkError);
+  return;
+}
+
+if (existingUse) {
+  alert("This pack has already been assigned to a patient.");
+  await fetchPacks();
+  return;
+}
     setLoading(true);
 
     const { error } = await supabase.from("patient_traces").insert([
@@ -130,8 +146,9 @@ export default function PatientsPage() {
       procedure: "",
     });
 
-    await fetchRecords();
-    setLoading(false);
+   await fetchRecords();
+await fetchPacks();
+setLoading(false);
   }
 
   return (
