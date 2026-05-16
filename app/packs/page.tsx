@@ -12,9 +12,14 @@ type Pack = {
   contents: string;
   created_at: string;
 };
+type Cycle = {
+  id: string;
+  cycle_number: string;
+};
 
 export default function PacksPage() {
   const [packs, setPacks] = useState<Pack[]>([]);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
   const [packCounter, setPackCounter] = useState(1);
 
   const [form, setForm] = useState({
@@ -24,8 +29,23 @@ export default function PacksPage() {
   });
 
   useEffect(() => {
-    fetchPacks();
-  }, []);
+  fetchPacks();
+  async function fetchCycles() {
+  const { data, error } = await supabase
+    .from("cycles")
+    .select("id, cycle_number")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    alert("Error loading cycles.");
+    console.error(error);
+    return;
+  }
+
+  setCycles(data || []);
+}
+  fetchCycles();
+}, []);
 
   async function fetchPacks() {
     const { data, error } = await supabase
@@ -101,12 +121,19 @@ export default function PacksPage() {
             <label className="block text-sm font-medium mb-2">
               Sterilization Cycle ID
             </label>
-            <input
-              value={form.cycleNumber}
-              onChange={(e) => updateForm("cycleNumber", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: STERI-2026-0001"
-            />
+            <select
+  value={form.cycleNumber}
+  onChange={(e) => updateForm("cycleNumber", e.target.value)}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+>
+  <option value="">Select a sterilization cycle</option>
+
+  {cycles.map((cycle) => (
+    <option key={cycle.id} value={cycle.cycle_number}>
+      {cycle.cycle_number}
+    </option>
+  ))}
+</select>
           </div>
 
           <div>
