@@ -98,6 +98,12 @@ const [loading, setLoading] = useState(false);
         <p className="mt-2 text-slate-600">
           Investigate sterilization cycles and trace linked packs and patients.
         </p>
+        <button
+  onClick={() => window.print()}
+  className="mt-4 rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+>
+  Print Investigation Report
+</button>
       </header>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
