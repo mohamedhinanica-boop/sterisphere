@@ -13,6 +13,7 @@ const navItems = [
   { label: "Instrument Packs", href: "/packs" },
   { label: "Patient Traceability", href: "/patients" },
   { label: "Reports", href: "/reports" },
+  { label: "Investigation", href: "/investigation" },
   { label: "Settings", href: "/settings" },
 ];
 

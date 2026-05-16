@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Activity,
   ClipboardCheck,
@@ -6,8 +9,42 @@ import {
   QrCode,
   ShieldCheck,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const [cyclesCount, setCyclesCount] = useState(0);
+  const [packsCount, setPacksCount] = useState(0);
+  const [patientRecordsCount, setPatientRecordsCount] = useState(0);
+  const [failedCyclesCount, setFailedCyclesCount] = useState(0);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  async function fetchDashboardData() {
+    const { count: cycles } = await supabase
+      .from("cycles")
+      .select("*", { count: "exact", head: true });
+
+    const { count: packs } = await supabase
+      .from("packs")
+      .select("*", { count: "exact", head: true });
+
+    const { count: patientRecords } = await supabase
+      .from("patient_traces")
+      .select("*", { count: "exact", head: true });
+
+    const { count: failedCycles } = await supabase
+      .from("cycles")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "Failed");
+
+    setCyclesCount(cycles || 0);
+    setPacksCount(packs || 0);
+    setPatientRecordsCount(patientRecords || 0);
+    setFailedCyclesCount(failedCycles || 0);
+  }
+
   return (
     <>
       <header className="mb-8">
@@ -19,10 +56,11 @@ export default function Home() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <StatCard icon={<ClipboardCheck />} title="Cycles Today" value="0" />
-        <StatCard icon={<PackageCheck />} title="Packs Created" value="0" />
-        <StatCard icon={<ShieldCheck />} title="Failed Cycles" value="0" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+        <StatCard icon={<ClipboardCheck />} title="Total Cycles" value={cyclesCount} />
+        <StatCard icon={<PackageCheck />} title="Instrument Packs" value={packsCount} />
+        <StatCard icon={<FileText />} title="Patient Records" value={patientRecordsCount} />
+        <StatCard icon={<ShieldCheck />} title="Failed Cycles" value={failedCyclesCount} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -41,7 +79,7 @@ export default function Home() {
         <ActionCard
           icon={<PackageCheck />}
           title="Link Instruments to Patient"
-          description="Scan a pouch QR code and connect it to a patient appointment."
+          description="Scan or select a pouch QR code and connect it to a patient appointment."
         />
 
         <ActionCard
@@ -61,7 +99,7 @@ function StatCard({
 }: {
   icon: React.ReactNode;
   title: string;
-  value: string;
+  value: number;
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
@@ -86,9 +124,6 @@ function ActionCard({
       <div className="text-blue-600 mb-4">{icon}</div>
       <h3 className="text-xl font-semibold">{title}</h3>
       <p className="text-slate-600 mt-2">{description}</p>
-      <button className="mt-5 rounded-xl bg-slate-950 text-white px-4 py-2 text-sm">
-        Open
-      </button>
     </div>
   );
 }
