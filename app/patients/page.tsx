@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import toast from "react-hot-toast";
 import { Html5QrcodeScanner } from "html5-qrcode";
+import toast from "react-hot-toast";
+import { supabase } from "@/lib/supabase";
 
 type PatientTrace = {
   id: string;
@@ -18,16 +18,32 @@ type PatientTrace = {
 type Pack = {
   id: string;
   pack_number: string;
+  cycle_number: string;
+};
+
+type Patient = {
+  id: string;
+  full_name: string;
+  external_id: string | null;
+  date_of_birth: string | null;
 };
 
 export default function PatientsPage() {
   const [records, setRecords] = useState<PatientTrace[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientSearch, setPatientSearch] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-const [scannerOpen, setScannerOpen] = useState(false);
+
+  const [manualPatient, setManualPatient] = useState({
+  fullName: "",
+  externalId: "",
+  dateOfBirth: "",
+});
 
   const [form, setForm] = useState({
-    patientName: "",
+    patientId: "",
     provider: "",
     treatmentRoom: "",
     packId: "",
@@ -37,48 +53,47 @@ const [scannerOpen, setScannerOpen] = useState(false);
   useEffect(() => {
     fetchRecords();
     fetchPacks();
+    fetchPatients();
   }, []);
 
   useEffect(() => {
-  if (!scannerOpen) return;
+    if (!scannerOpen) return;
 
-  const scanner = new Html5QrcodeScanner(
-    "qr-reader",
-    {
-      fps: 10,
-      qrbox: 250,
-    },
-    false
-  );
+    const scanner = new Html5QrcodeScanner(
+      "qr-reader",
+      {
+        fps: 10,
+        qrbox: 250,
+      },
+      false
+    );
 
-  scanner.render(
-   (decodedText) => {
-  const scannedPack = packs.find(
-    (pack) => pack.pack_number === decodedText
-  );
+    scanner.render(
+      (decodedText) => {
+        const scannedPack = packs.find(
+          (pack) => pack.pack_number === decodedText
+        );
 
-  if (!scannedPack) {
-    toast.error("This pack is not available or has already been used.");
-    scanner.clear();
-    setScannerOpen(false);
-    return;
-  }
+        if (!scannedPack) {
+          toast.error("This pack is not available or has already been used.");
+          scanner.clear();
+          setScannerOpen(false);
+          return;
+        }
 
-  updateForm("packId", scannedPack.id);
-  toast.success("Available pack scanned successfully.");
+        updateForm("packId", scannedPack.id);
+        toast.success("Available pack scanned successfully.");
 
-  scanner.clear();
-  setScannerOpen(false);
-},
-    (error) => {
-      console.warn(error);
-    }
-  );
+        scanner.clear();
+        setScannerOpen(false);
+      },
+      () => {}
+    );
 
-  return () => {
-    scanner.clear().catch(() => {});
-  };
-}, [scannerOpen]);
+    return () => {
+      scanner.clear().catch(() => {});
+    };
+  }, [scannerOpen, packs]);
 
   async function fetchRecords() {
     const { data, error } = await supabase
@@ -96,54 +111,65 @@ const [scannerOpen, setScannerOpen] = useState(false);
   }
 
   async function fetchPacks() {
-  const { data: allPacks, error: packsError } = await supabase
-    .from("packs")
-    .select("id, pack_number, cycle_number")
-    .order("created_at", { ascending: false });
+    const { data: allPacks, error: packsError } = await supabase
+      .from("packs")
+      .select("id, pack_number, cycle_number")
+      .order("created_at", { ascending: false });
 
-  if (packsError) {
-    toast.error("Error loading packs.");
-    console.error(packsError);
-    return;
+    if (packsError) {
+      toast.error("Error loading packs.");
+      console.error(packsError);
+      return;
+    }
+
+    const { data: usedPacks, error: usedError } = await supabase
+      .from("patient_traces")
+      .select("pack_id");
+
+    if (usedError) {
+      toast.error("Error checking used packs.");
+      console.error(usedError);
+      return;
+    }
+
+    const { data: passedCycles, error: cyclesError } = await supabase
+      .from("cycles")
+      .select("cycle_number")
+      .eq("status", "Passed");
+
+    if (cyclesError) {
+      toast.error("Error checking cycle status.");
+      console.error(cyclesError);
+      return;
+    }
+
+    const usedPackIds = new Set((usedPacks || []).map((record) => record.pack_id));
+    const passedCycleNumbers = new Set(
+      (passedCycles || []).map((cycle) => cycle.cycle_number)
+    );
+
+    const availablePacks = (allPacks || []).filter(
+      (pack) =>
+        !usedPackIds.has(pack.id) && passedCycleNumbers.has(pack.cycle_number)
+    );
+
+    setPacks(availablePacks);
   }
 
-  const { data: usedPacks, error: usedError } = await supabase
-    .from("patient_traces")
-    .select("pack_number");
+  async function fetchPatients() {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("*")
+      .order("full_name", { ascending: true });
 
-  if (usedError) {
-    alert("Error checking used packs.");
-    console.error(usedError);
-    return;
+    if (error) {
+      toast.error("Error loading patients.");
+      console.error(error);
+      return;
+    }
+
+    setPatients(data || []);
   }
-
-  const { data: passedCycles, error: cyclesError } = await supabase
-    .from("cycles")
-    .select("cycle_number")
-    .eq("status", "Passed");
-
-  if (cyclesError) {
-    alert("Error checking cycle status.");
-    console.error(cyclesError);
-    return;
-  }
-
-  const usedPackNumbers = new Set(
-    (usedPacks || []).map((record) => record.pack_number)
-  );
-
-  const passedCycleNumbers = new Set(
-    (passedCycles || []).map((cycle) => cycle.cycle_number)
-  );
-
-  const availablePacks = (allPacks || []).filter(
-    (pack) =>
-      !usedPackNumbers.has(pack.pack_number) &&
-      passedCycleNumbers.has(pack.cycle_number)
-  );
-
-  setPacks(availablePacks);
-}
 
   function updateForm(field: string, value: string) {
     setForm((current) => ({
@@ -152,9 +178,48 @@ const [scannerOpen, setScannerOpen] = useState(false);
     }));
   }
 
+  async function addManualPatient() {
+  if (!manualPatient.fullName) {
+    toast.error("Patient full name is required.");
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("patients")
+    .insert([
+      {
+        full_name: manualPatient.fullName,
+        external_id: manualPatient.externalId || null,
+        date_of_birth: manualPatient.dateOfBirth || null,
+        source_system: "Manual",
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    toast.error("Error adding patient.");
+    console.error(error);
+    return;
+  }
+
+  await fetchPatients();
+
+  updateForm("patientId", data.id);
+  setPatientSearch(data.full_name);
+
+  setManualPatient({
+    fullName: "",
+    externalId: "",
+    dateOfBirth: "",
+  });
+
+  toast.success("Manual patient added and selected.");
+}
+
   async function saveRecord() {
     if (
-      !form.patientName ||
+      !form.patientId ||
       !form.provider ||
       !form.treatmentRoom ||
       !form.packId ||
@@ -163,40 +228,51 @@ const [scannerOpen, setScannerOpen] = useState(false);
       toast.error("Please fill all required fields.");
       return;
     }
-const { data: existingUse, error: checkError } = await supabase
-  .from("patient_traces")
-  .select("id")
-  .eq("pack_id", form.packId)
-  .maybeSingle();
 
-if (checkError) {
-  alert("Error checking pack availability.");
-  console.error(checkError);
-  return;
-}
+    const selectedPack = packs.find((pack) => pack.id === form.packId);
 
-if (existingUse) {
-  toast.error("This pack has already been assigned to a patient.");
-  await fetchPacks();
-  return;
-}
-const selectedPack = packs.find(
-  (pack) => pack.id === form.packId
-);
+    if (!selectedPack) {
+      toast.error("Selected pack not found.");
+      return;
+    }
 
-if (!selectedPack) {
-  toast.error("Selected pack not found.");
-  return;
-}
+    const selectedPatient = patients.find(
+      (patient) => patient.id === form.patientId
+    );
+
+    if (!selectedPatient) {
+      toast.error("Selected patient not found.");
+      return;
+    }
+
+    const { data: existingUse, error: checkError } = await supabase
+      .from("patient_traces")
+      .select("id")
+      .eq("pack_id", form.packId)
+      .maybeSingle();
+
+    if (checkError) {
+      toast.error("Error checking pack availability.");
+      console.error(checkError);
+      return;
+    }
+
+    if (existingUse) {
+      toast.error("This pack has already been assigned to a patient.");
+      await fetchPacks();
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.from("patient_traces").insert([
       {
-        patient_name: form.patientName,
+        patient_id: selectedPatient.id,
+        patient_name: selectedPatient.full_name,
         provider: form.provider,
         treatment_room: form.treatmentRoom,
         pack_id: selectedPack.id,
-pack_number: selectedPack.pack_number,
+        pack_number: selectedPack.pack_number,
         procedure: form.procedure,
       },
     ]);
@@ -209,18 +285,30 @@ pack_number: selectedPack.pack_number,
     }
 
     setForm({
-      patientName: "",
+      patientId: "",
       provider: "",
       treatmentRoom: "",
       packId: "",
       procedure: "",
     });
 
-   await fetchRecords();
-await fetchPacks();
-toast.success("Traceability record saved successfully.");
-setLoading(false);
+    setPatientSearch("");
+
+    await fetchRecords();
+    await fetchPacks();
+
+    toast.success("Traceability record saved successfully.");
+    setLoading(false);
   }
+
+  const filteredPatients = patients.filter((patient) => {
+    const search = patientSearch.toLowerCase();
+
+    return (
+      patient.full_name.toLowerCase().includes(search) ||
+      (patient.external_id || "").toLowerCase().includes(search)
+    );
+  });
 
   return (
     <>
@@ -239,14 +327,80 @@ setLoading(false);
         <form className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Patient Name
+              Patient Search
             </label>
+
             <input
-              value={form.patientName}
-              onChange={(e) => updateForm("patientName", e.target.value)}
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Patient full name"
+              placeholder="Search by patient name or file ID"
             />
+
+            <select
+              value={form.patientId}
+              onChange={(e) => updateForm("patientId", e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 mt-3"
+            >
+              <option value="">Select a patient</option>
+
+              {filteredPatients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.full_name}
+                  {patient.external_id ? ` (${patient.external_id})` : ""}
+                  {patient.date_of_birth ? ` - DOB: ${patient.date_of_birth}` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+  <h3 className="font-semibold mb-3">Add Manual Patient</h3>
+
+  <div className="space-y-3">
+    <input
+      value={manualPatient.fullName}
+      onChange={(e) =>
+        setManualPatient((current) => ({
+          ...current,
+          fullName: e.target.value,
+        }))
+      }
+      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+      placeholder="Full name"
+    />
+
+    <input
+      value={manualPatient.externalId}
+      onChange={(e) =>
+        setManualPatient((current) => ({
+          ...current,
+          externalId: e.target.value,
+        }))
+      }
+      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+      placeholder="File ID / chart number optional"
+    />
+
+    <input
+      type="date"
+      value={manualPatient.dateOfBirth}
+      onChange={(e) =>
+        setManualPatient((current) => ({
+          ...current,
+          dateOfBirth: e.target.value,
+        }))
+      }
+      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+    />
+
+    <button
+      type="button"
+      onClick={addManualPatient}
+      className="rounded-xl bg-slate-700 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-slate-800 transition"
+    >
+      Add Manual Patient
+    </button>
+  </div>
+</div>
           </div>
 
           <div>
@@ -275,33 +429,35 @@ setLoading(false);
             <label className="block text-sm font-medium mb-2">
               Instrument Pack Number
             </label>
+
             <select
- value={form.packId}
-onChange={(e) => updateForm("packId", e.target.value)}
-  className="w-full rounded-xl border border-slate-300 px-4 py-3"
->
-  <option value="">Select an instrument pack</option>
-  {packs.map((pack) => (
-    <option key={pack.id} value={pack.id}>
-  {pack.pack_number}
-</option>
-  ))}
-</select>
+              value={form.packId}
+              onChange={(e) => updateForm("packId", e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            >
+              <option value="">Select an instrument pack</option>
 
-<button
-  type="button"
-  onClick={() => setScannerOpen(true)}
-  className="mt-3 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-blue-700 transition"
->
-  Scan Pack QR
-</button>
+              {packs.map((pack) => (
+                <option key={pack.id} value={pack.id}>
+                  {pack.pack_number}
+                </option>
+              ))}
+            </select>
 
-{scannerOpen && (
-  <div
-    id="qr-reader"
-    className="mt-4 overflow-hidden rounded-xl border border-slate-300"
-  />
-)}
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="mt-3 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-blue-700 transition"
+            >
+              Scan Pack QR
+            </button>
+
+            {scannerOpen && (
+              <div
+                id="qr-reader"
+                className="mt-4 overflow-hidden rounded-xl border border-slate-300"
+              />
+            )}
           </div>
 
           <div>
