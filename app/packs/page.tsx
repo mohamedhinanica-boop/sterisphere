@@ -26,7 +26,7 @@ export default function PacksPage() {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    cycleNumber: "",
+    cycleId: "",
     packType: "Instrument Pouch",
     contents: "",
   });
@@ -76,11 +76,16 @@ export default function PacksPage() {
   }
 
   async function savePack() {
-    if (!form.cycleNumber || !form.packType || !form.contents) {
+    if (!form.cycleId || !form.packType || !form.contents) {
       toast.error("Please fill all required fields.");
       return;
     }
+const selectedCycle = cycles.find((cycle) => cycle.id === form.cycleId);
 
+if (!selectedCycle) {
+  toast.error("Selected cycle not found.");
+  return;
+}
     setLoading(true);
 
     const newPackNumber = `PACK-${new Date().getFullYear()}-${String(
@@ -90,7 +95,8 @@ export default function PacksPage() {
     const { error } = await supabase.from("packs").insert([
       {
         pack_number: newPackNumber,
-        cycle_number: form.cycleNumber,
+        cycle_id: selectedCycle.id,
+cycle_number: selectedCycle.cycle_number,
         pack_type: form.packType,
         contents: form.contents,
       },
@@ -104,7 +110,7 @@ export default function PacksPage() {
     }
 
     setForm({
-      cycleNumber: "",
+      cycleId: "",
       packType: "Instrument Pouch",
       contents: "",
     });
@@ -132,15 +138,15 @@ export default function PacksPage() {
               Sterilization Cycle ID
             </label>
             <select
-              value={form.cycleNumber}
-              onChange={(e) => updateForm("cycleNumber", e.target.value)}
+              value={form.cycleId}
+onChange={(e) => updateForm("cycleId", e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
             >
               <option value="">Select a sterilization cycle</option>
               {cycles.map((cycle) => (
-                <option key={cycle.id} value={cycle.cycle_number}>
-                  {cycle.cycle_number}
-                </option>
+                <option key={cycle.id} value={cycle.id}>
+  {cycle.cycle_number}
+</option>
               ))}
             </select>
           </div>
