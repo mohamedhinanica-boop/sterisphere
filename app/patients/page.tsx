@@ -30,7 +30,7 @@ const [scannerOpen, setScannerOpen] = useState(false);
     patientName: "",
     provider: "",
     treatmentRoom: "",
-    packNumber: "",
+    packId: "",
     procedure: "",
   });
 
@@ -64,7 +64,7 @@ const [scannerOpen, setScannerOpen] = useState(false);
     return;
   }
 
-  updateForm("packNumber", decodedText);
+  updateForm("packId", scannedPack.id);
   toast.success("Available pack scanned successfully.");
 
   scanner.clear();
@@ -157,7 +157,7 @@ const [scannerOpen, setScannerOpen] = useState(false);
       !form.patientName ||
       !form.provider ||
       !form.treatmentRoom ||
-      !form.packNumber ||
+      !form.packId ||
       !form.procedure
     ) {
       toast.error("Please fill all required fields.");
@@ -166,7 +166,7 @@ const [scannerOpen, setScannerOpen] = useState(false);
 const { data: existingUse, error: checkError } = await supabase
   .from("patient_traces")
   .select("id")
-  .eq("pack_number", form.packNumber)
+  .eq("pack_id", form.packId)
   .maybeSingle();
 
 if (checkError) {
@@ -180,6 +180,14 @@ if (existingUse) {
   await fetchPacks();
   return;
 }
+const selectedPack = packs.find(
+  (pack) => pack.id === form.packId
+);
+
+if (!selectedPack) {
+  toast.error("Selected pack not found.");
+  return;
+}
     setLoading(true);
 
     const { error } = await supabase.from("patient_traces").insert([
@@ -187,7 +195,8 @@ if (existingUse) {
         patient_name: form.patientName,
         provider: form.provider,
         treatment_room: form.treatmentRoom,
-        pack_number: form.packNumber,
+        pack_id: selectedPack.id,
+pack_number: selectedPack.pack_number,
         procedure: form.procedure,
       },
     ]);
@@ -203,7 +212,7 @@ if (existingUse) {
       patientName: "",
       provider: "",
       treatmentRoom: "",
-      packNumber: "",
+      packId: "",
       procedure: "",
     });
 
@@ -267,15 +276,15 @@ setLoading(false);
               Instrument Pack Number
             </label>
             <select
-  value={form.packNumber}
-  onChange={(e) => updateForm("packNumber", e.target.value)}
+ value={form.packId}
+onChange={(e) => updateForm("packId", e.target.value)}
   className="w-full rounded-xl border border-slate-300 px-4 py-3"
 >
   <option value="">Select an instrument pack</option>
   {packs.map((pack) => (
-    <option key={pack.id} value={pack.pack_number}>
-      {pack.pack_number}
-    </option>
+    <option key={pack.id} value={pack.id}>
+  {pack.pack_number}
+</option>
   ))}
 </select>
 
