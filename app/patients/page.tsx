@@ -183,6 +183,24 @@ export default function PatientsPage() {
     toast.error("Patient full name is required.");
     return;
   }
+  if (manualPatient.externalId) {
+  const { data: existingPatient, error: checkError } = await supabase
+    .from("patients")
+    .select("id")
+    .eq("external_id", manualPatient.externalId)
+    .maybeSingle();
+
+  if (checkError) {
+    toast.error("Error checking patient file ID.");
+    console.error(checkError);
+    return;
+  }
+
+  if (existingPatient) {
+    toast.error("This patient file ID already exists.");
+    return;
+  }
+}
 
   const { data, error } = await supabase
     .from("patients")
