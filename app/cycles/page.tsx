@@ -66,7 +66,9 @@ export default function CyclesPage() {
     const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
       cycleCounter
     ).padStart(4, "0")}`;
-
+const {
+  data: { user },
+} = await supabase.auth.getUser();
     const { error } = await supabase.from("cycles").insert([
       {
         cycle_number: newCycleNumber,
@@ -74,6 +76,7 @@ export default function CyclesPage() {
         operator: form.operator,
         load_contents: form.loadContents,
         status: form.status,
+        created_by: user?.email || "unknown",
       },
     ]);
 

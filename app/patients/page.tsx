@@ -282,6 +282,9 @@ export default function PatientsPage() {
     }
 
     setLoading(true);
+const {
+  data: { user },
+} = await supabase.auth.getUser();
 
     const { error } = await supabase.from("patient_traces").insert([
       {
@@ -292,6 +295,7 @@ export default function PatientsPage() {
         pack_id: selectedPack.id,
         pack_number: selectedPack.pack_number,
         procedure: form.procedure,
+        created_by: user?.email || "unknown",
       },
     ]);
 

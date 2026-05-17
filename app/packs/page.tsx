@@ -92,6 +92,10 @@ if (!selectedCycle) {
       packCounter
     ).padStart(4, "0")}`;
 
+    const {
+  data: { user },
+} = await supabase.auth.getUser();
+
     const { error } = await supabase.from("packs").insert([
       {
         pack_number: newPackNumber,
@@ -99,6 +103,7 @@ if (!selectedCycle) {
 cycle_number: selectedCycle.cycle_number,
         pack_type: form.packType,
         contents: form.contents,
+        created_by: user?.email || "unknown",
       },
     ]);
 
