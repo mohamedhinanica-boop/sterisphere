@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
+import { Html5QrcodeScanner } from "html5-qrcode";
 
 type PatientTrace = {
   id: string;
@@ -23,6 +24,7 @@ export default function PatientsPage() {
   const [records, setRecords] = useState<PatientTrace[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(false);
+const [scannerOpen, setScannerOpen] = useState(false);
 
   const [form, setForm] = useState({
     patientName: "",
@@ -36,6 +38,47 @@ export default function PatientsPage() {
     fetchRecords();
     fetchPacks();
   }, []);
+
+  useEffect(() => {
+  if (!scannerOpen) return;
+
+  const scanner = new Html5QrcodeScanner(
+    "qr-reader",
+    {
+      fps: 10,
+      qrbox: 250,
+    },
+    false
+  );
+
+  scanner.render(
+   (decodedText) => {
+  const scannedPack = packs.find(
+    (pack) => pack.pack_number === decodedText
+  );
+
+  if (!scannedPack) {
+    toast.error("This pack is not available or has already been used.");
+    scanner.clear();
+    setScannerOpen(false);
+    return;
+  }
+
+  updateForm("packNumber", decodedText);
+  toast.success("Available pack scanned successfully.");
+
+  scanner.clear();
+  setScannerOpen(false);
+},
+    (error) => {
+      console.warn(error);
+    }
+  );
+
+  return () => {
+    scanner.clear().catch(() => {});
+  };
+}, [scannerOpen]);
 
   async function fetchRecords() {
     const { data, error } = await supabase
@@ -224,17 +267,32 @@ setLoading(false);
               Instrument Pack Number
             </label>
             <select
-              value={form.packNumber}
-              onChange={(e) => updateForm("packNumber", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option value="">Select an instrument pack</option>
-              {packs.map((pack) => (
-                <option key={pack.id} value={pack.pack_number}>
-                  {pack.pack_number}
-                </option>
-              ))}
-            </select>
+  value={form.packNumber}
+  onChange={(e) => updateForm("packNumber", e.target.value)}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+>
+  <option value="">Select an instrument pack</option>
+  {packs.map((pack) => (
+    <option key={pack.id} value={pack.pack_number}>
+      {pack.pack_number}
+    </option>
+  ))}
+</select>
+
+<button
+  type="button"
+  onClick={() => setScannerOpen(true)}
+  className="mt-3 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-blue-700 transition"
+>
+  Scan Pack QR
+</button>
+
+{scannerOpen && (
+  <div
+    id="qr-reader"
+    className="mt-4 overflow-hidden rounded-xl border border-slate-300"
+  />
+)}
           </div>
 
           <div>
