@@ -85,7 +85,7 @@ export default function SettingsPage() {
             {roles.map((role) => (
               <div
                 key={role.id}
-                className="rounded-xl border border-slate-200 p-4 flex justify-between gap-4"
+                className="rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row md:justify-between gap-4"
               >
                 <div>
                   <p className="font-medium">{role.user_email}</p>
@@ -98,7 +98,7 @@ export default function SettingsPage() {
                   value={role.role}
                   disabled={loading}
                   onChange={(e) => updateUserRole(role.id, e.target.value)}
-                  className="h-fit rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm capitalize"
+                  className="w-full md:w-auto h-fit rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm capitalize"
                 >
                   <option value="admin">admin</option>
                   <option value="clinical_staff">clinical_staff</option>
