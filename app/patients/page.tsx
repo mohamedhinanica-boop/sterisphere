@@ -37,10 +37,10 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(false);
 
   const [manualPatient, setManualPatient] = useState({
-  fullName: "",
-  externalId: "",
-  dateOfBirth: "",
-});
+    fullName: "",
+    externalId: "",
+    dateOfBirth: "",
+  });
 
   const [form, setForm] = useState({
     patientId: "",
@@ -179,61 +179,62 @@ export default function PatientsPage() {
   }
 
   async function addManualPatient() {
-  if (!manualPatient.fullName) {
-    toast.error("Patient full name is required.");
-    return;
+    if (!manualPatient.fullName) {
+      toast.error("Patient full name is required.");
+      return;
+    }
+
+    if (manualPatient.externalId) {
+      const { data: existingPatient, error: checkError } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("external_id", manualPatient.externalId)
+        .maybeSingle();
+
+      if (checkError) {
+        toast.error("Error checking patient file ID.");
+        console.error(checkError);
+        return;
+      }
+
+      if (existingPatient) {
+        toast.error("This patient file ID already exists.");
+        return;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("patients")
+      .insert([
+        {
+          full_name: manualPatient.fullName,
+          external_id: manualPatient.externalId || null,
+          date_of_birth: manualPatient.dateOfBirth || null,
+          source_system: "Manual",
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Error adding patient.");
+      console.error(error);
+      return;
+    }
+
+    await fetchPatients();
+
+    updateForm("patientId", data.id);
+    setPatientSearch(data.full_name);
+
+    setManualPatient({
+      fullName: "",
+      externalId: "",
+      dateOfBirth: "",
+    });
+
+    toast.success("Manual patient added and selected.");
   }
-  if (manualPatient.externalId) {
-  const { data: existingPatient, error: checkError } = await supabase
-    .from("patients")
-    .select("id")
-    .eq("external_id", manualPatient.externalId)
-    .maybeSingle();
-
-  if (checkError) {
-    toast.error("Error checking patient file ID.");
-    console.error(checkError);
-    return;
-  }
-
-  if (existingPatient) {
-    toast.error("This patient file ID already exists.");
-    return;
-  }
-}
-
-  const { data, error } = await supabase
-    .from("patients")
-    .insert([
-      {
-        full_name: manualPatient.fullName,
-        external_id: manualPatient.externalId || null,
-        date_of_birth: manualPatient.dateOfBirth || null,
-        source_system: "Manual",
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    toast.error("Error adding patient.");
-    console.error(error);
-    return;
-  }
-
-  await fetchPatients();
-
-  updateForm("patientId", data.id);
-  setPatientSearch(data.full_name);
-
-  setManualPatient({
-    fullName: "",
-    externalId: "",
-    dateOfBirth: "",
-  });
-
-  toast.success("Manual patient added and selected.");
-}
 
   async function saveRecord() {
     if (
@@ -282,9 +283,10 @@ export default function PatientsPage() {
     }
 
     setLoading(true);
-const {
-  data: { user },
-} = await supabase.auth.getUser();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const { error } = await supabase.from("patient_traces").insert([
       {
@@ -370,59 +372,62 @@ const {
                 <option key={patient.id} value={patient.id}>
                   {patient.full_name}
                   {patient.external_id ? ` (${patient.external_id})` : ""}
-                  {patient.date_of_birth ? ` - DOB: ${patient.date_of_birth}` : ""}
+                  {patient.date_of_birth
+                    ? ` - DOB: ${patient.date_of_birth}`
+                    : ""}
                 </option>
               ))}
             </select>
+
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-  <h3 className="font-semibold mb-3">Add Manual Patient</h3>
+              <h3 className="font-semibold mb-3">Add Manual Patient</h3>
 
-  <div className="space-y-3">
-    <input
-      value={manualPatient.fullName}
-      onChange={(e) =>
-        setManualPatient((current) => ({
-          ...current,
-          fullName: e.target.value,
-        }))
-      }
-      className="w-full rounded-xl border border-slate-300 px-4 py-3"
-      placeholder="Full name"
-    />
+              <div className="space-y-3">
+                <input
+                  value={manualPatient.fullName}
+                  onChange={(e) =>
+                    setManualPatient((current) => ({
+                      ...current,
+                      fullName: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  placeholder="Full name"
+                />
 
-    <input
-      value={manualPatient.externalId}
-      onChange={(e) =>
-        setManualPatient((current) => ({
-          ...current,
-          externalId: e.target.value,
-        }))
-      }
-      className="w-full rounded-xl border border-slate-300 px-4 py-3"
-      placeholder="File ID / chart number optional"
-    />
+                <input
+                  value={manualPatient.externalId}
+                  onChange={(e) =>
+                    setManualPatient((current) => ({
+                      ...current,
+                      externalId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  placeholder="File ID / chart number optional"
+                />
 
-    <input
-      type="date"
-      value={manualPatient.dateOfBirth}
-      onChange={(e) =>
-        setManualPatient((current) => ({
-          ...current,
-          dateOfBirth: e.target.value,
-        }))
-      }
-      className="w-full rounded-xl border border-slate-300 px-4 py-3"
-    />
+                <input
+                  type="date"
+                  value={manualPatient.dateOfBirth}
+                  onChange={(e) =>
+                    setManualPatient((current) => ({
+                      ...current,
+                      dateOfBirth: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                />
 
-    <button
-      type="button"
-      onClick={addManualPatient}
-      className="rounded-xl bg-slate-700 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-slate-800 transition"
-    >
-      Add Manual Patient
-    </button>
-  </div>
-</div>
+                <button
+                  type="button"
+                  onClick={addManualPatient}
+                  className="rounded-xl bg-slate-700 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
+                >
+                  Add Manual Patient
+                </button>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -466,20 +471,36 @@ const {
               ))}
             </select>
 
-            <button
-              type="button"
-              onClick={() => setScannerOpen(true)}
-              className="mt-3 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-blue-700 transition"
-            >
-              Scan Pack QR
-            </button>
+            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <h3 className="font-semibold text-blue-900">QR Scanner</h3>
 
-            {scannerOpen && (
-              <div
-                id="qr-reader"
-                className="mt-4 overflow-hidden rounded-xl border border-slate-300"
-              />
-            )}
+              <p className="mt-1 text-sm text-blue-700">
+                Use this to scan a printed pack QR code. On mobile/tablet,
+                allow camera access and tap Start Scanning if prompted.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="mt-4 w-full md:w-auto rounded-xl bg-blue-600 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-blue-700 active:scale-95 transition"
+              >
+                Open QR Scanner
+              </button>
+
+              {scannerOpen && (
+                <div className="mt-4 rounded-xl border border-blue-300 bg-white p-3">
+                  <p className="mb-3 text-sm font-medium text-slate-700">
+                    Camera scanner active — point the camera at the pack QR
+                    code.
+                  </p>
+
+                  <div
+                    id="qr-reader"
+                    className="overflow-hidden rounded-xl border border-slate-300"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
@@ -496,7 +517,7 @@ const {
             type="button"
             onClick={saveRecord}
             disabled={loading}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : "Save Traceability Record"}
           </button>
@@ -517,7 +538,7 @@ const {
                 key={record.id}
                 className="rounded-xl border border-slate-200 p-4"
               >
-                <div className="flex justify-between">
+                <div className="flex flex-col md:flex-row md:justify-between gap-2">
                   <h3 className="font-semibold">{record.patient_name}</h3>
                   <span className="text-sm text-slate-500">
                     {record.pack_number}
