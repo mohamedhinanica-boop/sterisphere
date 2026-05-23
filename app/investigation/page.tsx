@@ -111,11 +111,11 @@ const [loading, setLoading] = useState(false);
           Investigate Sterilization Cycle
         </h2>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           <input
             value={cycleNumber}
             onChange={(e) => setCycleNumber(e.target.value)}
-            className="flex-1 rounded-xl border border-slate-300 px-4 py-3"
+            className="w-full md:flex-1 rounded-xl border border-slate-300 px-4 py-3"
             placeholder="Example: STERI-2026-0001"
           />
 
@@ -147,7 +147,7 @@ const [loading, setLoading] = useState(false);
                     key={pack.id}
                     className="rounded-xl border border-slate-200 p-4"
                   >
-                    <div className="flex justify-between">
+                    <div className="flex flex-col md:flex-row md:justify-between gap-2">
                       <h3 className="font-semibold">{pack.pack_number}</h3>
 
                       <span className="text-sm text-slate-500">
@@ -176,7 +176,7 @@ const [loading, setLoading] = useState(false);
                     key={patient.id}
                     className="rounded-xl border border-slate-200 p-4"
                   >
-                    <div className="flex justify-between">
+                    <div className="flex flex-col md:flex-row md:justify-between gap-2">
                       <h3 className="font-semibold">
                         {patient.patient_name}
                       </h3>
