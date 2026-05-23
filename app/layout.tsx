@@ -128,7 +128,13 @@ if (roleData?.role) {
               </div>
             </aside>
 
-            <main className="flex-1 p-8">{children}</main>
+            <main className="flex-1 p-8 flex flex-col">
+  <div className="flex-1">{children}</div>
+
+  <footer className="mt-10 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
+    © 2026 SteriSphere. All rights reserved.
+  </footer>
+</main>
           </div>
         </AuthGuard>
       </body>
