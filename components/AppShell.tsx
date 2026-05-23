@@ -2,16 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Toaster } from "react-hot-toast";
+import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
-import { usePathname } from "next/navigation";
+
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
-import "./globals.css";
-
-const pathname = usePathname();
-const isLoginPage = pathname === "/login";
 
 const navItems = [
   {
@@ -51,14 +46,14 @@ const navItems = [
   },
 ];
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/login";
+
   const [userEmail, setUserEmail] = useState("");
-const [userRole, setUserRole] = useState("");
+  const [userRole, setUserRole] = useState("");
+
   useEffect(() => {
     async function loadUser() {
       const {
@@ -67,20 +62,23 @@ const [userRole, setUserRole] = useState("");
 
       if (user?.email) {
         setUserEmail(user.email);
-        const { data: roleData } = await supabase
-  .from("user_roles")
-  .select("role")
-  .eq("user_email", user.email)
-  .maybeSingle();
 
-if (roleData?.role) {
-  setUserRole(roleData.role);
-}
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_email", user.email)
+          .maybeSingle();
+
+        if (roleData?.role) {
+          setUserRole(roleData.role);
+        }
       }
     }
 
-    loadUser();
-  }, []);
+    if (!isLoginPage) {
+      loadUser();
+    }
+  }, [isLoginPage]);
 
   async function logout() {
     await supabase.auth.signOut();
@@ -88,14 +86,11 @@ if (roleData?.role) {
     router.push("/login");
   }
 
-  return (
-    <html lang="en">
-<body>
-  <Toaster position="top-right" />
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
 
-  {isLoginPage ? (
-    children
-  ) : (
+  return (
     <AuthGuard>
       <div className="min-h-screen bg-slate-100 text-slate-950 flex">
         <aside className="w-64 bg-slate-950 text-white p-6 hidden md:block">
@@ -145,8 +140,5 @@ if (roleData?.role) {
         </main>
       </div>
     </AuthGuard>
-  )}
-</body>
-    </html>
   );
 }
