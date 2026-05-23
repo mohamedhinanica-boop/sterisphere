@@ -11,13 +11,41 @@ import AuthGuard from "@/components/AuthGuard";
 import "./globals.css";
 
 const navItems = [
-  { label: "Dashboard", href: "/" },
-  { label: "Sterilization Cycles", href: "/cycles" },
-  { label: "Instrument Packs", href: "/packs" },
-  { label: "Patient Traceability", href: "/patients" },
-  { label: "Reports", href: "/reports" },
-  { label: "Investigation", href: "/investigation" },
-  { label: "Settings", href: "/settings" },
+  {
+    label: "Dashboard",
+    href: "/",
+    roles: ["admin", "clinical_staff", "doctor", "auditor"],
+  },
+  {
+    label: "Sterilization Cycles",
+    href: "/cycles",
+    roles: ["admin", "clinical_staff"],
+  },
+  {
+    label: "Instrument Packs",
+    href: "/packs",
+    roles: ["admin", "clinical_staff"],
+  },
+  {
+    label: "Patient Traceability",
+    href: "/patients",
+    roles: ["admin", "clinical_staff", "doctor"],
+  },
+  {
+    label: "Reports",
+    href: "/reports",
+    roles: ["admin", "doctor", "auditor"],
+  },
+  {
+    label: "Investigation",
+    href: "/investigation",
+    roles: ["admin", "doctor", "auditor"],
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    roles: ["admin"],
+  },
 ];
 
 export default function RootLayout({
@@ -27,7 +55,7 @@ export default function RootLayout({
 }) {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("");
-
+const [userRole, setUserRole] = useState("");
   useEffect(() => {
     async function loadUser() {
       const {
@@ -36,6 +64,15 @@ export default function RootLayout({
 
       if (user?.email) {
         setUserEmail(user.email);
+        const { data: roleData } = await supabase
+  .from("user_roles")
+  .select("role")
+  .eq("user_email", user.email)
+  .maybeSingle();
+
+if (roleData?.role) {
+  setUserRole(roleData.role);
+}
       }
     }
 
@@ -59,7 +96,9 @@ export default function RootLayout({
               <h1 className="text-2xl font-bold mb-8">SteriSphere</h1>
 
               <nav className="space-y-2 text-sm">
-                {navItems.map((item) => (
+                {navItems
+  .filter((item) => item.roles.includes(userRole))
+  .map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -76,7 +115,9 @@ export default function RootLayout({
                 <p className="text-sm font-medium break-all">
                   {userEmail || "Loading..."}
                 </p>
-
+<p className="text-xs text-slate-400 mt-1 capitalize">
+  Role: {userRole || "unknown"}
+</p>
                 <button
                   type="button"
                   onClick={logout}
