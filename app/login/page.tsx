@@ -33,6 +33,7 @@ export default function LoginPage() {
 
     toast.success("Logged in successfully.");
     router.push("/");
+router.refresh();
   }
 
   return (
