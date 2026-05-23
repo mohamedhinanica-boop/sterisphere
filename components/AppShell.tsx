@@ -53,6 +53,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -93,6 +94,50 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <div className="min-h-screen bg-slate-100 text-slate-950 flex">
+        <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-950 text-white p-4 flex items-center justify-between">
+  <h1 className="text-xl font-bold">SteriSphere</h1>
+
+  <button
+    type="button"
+    onClick={() => setMobileMenuOpen((current) => !current)}
+    className="rounded-lg bg-white/10 px-3 py-2 text-sm font-medium"
+  >
+    Menu
+  </button>
+</div>
+
+{mobileMenuOpen && (
+  <div className="md:hidden fixed top-16 left-0 right-0 z-50 bg-slate-900 text-white p-4 shadow-lg">
+    <nav className="space-y-2 text-sm">
+      {navItems
+        .filter((item) => item.roles.includes(userRole))
+        .map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setMobileMenuOpen(false)}
+            className="block rounded-lg px-4 py-3 text-slate-200 hover:bg-white/10"
+          >
+            {item.label}
+          </Link>
+        ))}
+    </nav>
+
+    <div className="mt-4 border-t border-white/10 pt-4">
+      <p className="text-xs text-slate-400">Logged in as</p>
+      <p className="text-sm break-all">{userEmail}</p>
+      <p className="text-xs text-slate-400 mt-1 capitalize">Role: {userRole}</p>
+
+      <button
+        type="button"
+        onClick={logout}
+        className="mt-3 w-full rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white"
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+)}
         <aside className="w-64 bg-slate-950 text-white p-6 hidden md:block">
           <h1 className="text-2xl font-bold mb-8">SteriSphere</h1>
 
@@ -131,7 +176,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 p-8 flex flex-col">
+        <main className="flex-1 p-6 pt-24 md:p-8 flex flex-col">
           <div className="flex-1">{children}</div>
 
           <footer className="mt-10 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
