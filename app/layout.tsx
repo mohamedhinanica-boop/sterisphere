@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import toast from "react-hot-toast";
-
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import "./globals.css";
+
+const pathname = usePathname();
+const isLoginPage = pathname === "/login";
 
 const navItems = [
   {
@@ -87,57 +90,63 @@ if (roleData?.role) {
 
   return (
     <html lang="en">
-      <body>
-        <Toaster position="top-right" />
+<body>
+  <Toaster position="top-right" />
 
-        <AuthGuard>
-          <div className="min-h-screen bg-slate-100 text-slate-950 flex">
-            <aside className="w-64 bg-slate-950 text-white p-6 hidden md:block">
-              <h1 className="text-2xl font-bold mb-8">SteriSphere</h1>
+  {isLoginPage ? (
+    children
+  ) : (
+    <AuthGuard>
+      <div className="min-h-screen bg-slate-100 text-slate-950 flex">
+        <aside className="w-64 bg-slate-950 text-white p-6 hidden md:block">
+          <h1 className="text-2xl font-bold mb-8">SteriSphere</h1>
 
-              <nav className="space-y-2 text-sm">
-                {navItems
-  .filter((item) => item.roles.includes(userRole))
-  .map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block rounded-lg px-4 py-3 text-slate-300 hover:bg-white/10 hover:text-white"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-
-              <div className="mt-10 border-t border-white/10 pt-6">
-                <p className="text-xs text-slate-400 mb-2">Logged in as</p>
-
-                <p className="text-sm font-medium break-all">
-                  {userEmail || "Loading..."}
-                </p>
-<p className="text-xs text-slate-400 mt-1 capitalize">
-  Role: {userRole || "unknown"}
-</p>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="mt-4 w-full rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition cursor-pointer"
+          <nav className="space-y-2 text-sm">
+            {navItems
+              .filter((item) => item.roles.includes(userRole))
+              .map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block rounded-lg px-4 py-3 text-slate-300 hover:bg-white/10 hover:text-white"
                 >
-                  Logout
-                </button>
-              </div>
-            </aside>
+                  {item.label}
+                </Link>
+              ))}
+          </nav>
 
-            <main className="flex-1 p-8 flex flex-col">
-  <div className="flex-1">{children}</div>
+          <div className="mt-10 border-t border-white/10 pt-6">
+            <p className="text-xs text-slate-400 mb-2">Logged in as</p>
 
-  <footer className="mt-10 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
-    © 2026 SteriSphere. All rights reserved.
-  </footer>
-</main>
+            <p className="text-sm font-medium break-all">
+              {userEmail || "Loading..."}
+            </p>
+
+            <p className="text-xs text-slate-400 mt-1 capitalize">
+              Role: {userRole || "unknown"}
+            </p>
+
+            <button
+              type="button"
+              onClick={logout}
+              className="mt-4 w-full rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition cursor-pointer"
+            >
+              Logout
+            </button>
           </div>
-        </AuthGuard>
-      </body>
+        </aside>
+
+        <main className="flex-1 p-8 flex flex-col">
+          <div className="flex-1">{children}</div>
+
+          <footer className="mt-10 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
+            © 2026 SteriSphere. All rights reserved.
+          </footer>
+        </main>
+      </div>
+    </AuthGuard>
+  )}
+</body>
     </html>
   );
 }
