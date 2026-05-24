@@ -24,7 +24,9 @@ export default function PacksPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [packCounter, setPackCounter] = useState(1);
   const [loading, setLoading] = useState(false);
-
+const [searchTerm, setSearchTerm] = useState("");
+const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 5;
   const [form, setForm] = useState({
     cycleId: "",
     packType: "Instrument Pouch",
@@ -124,6 +126,23 @@ cycle_number: selectedCycle.cycle_number,
     toast.success("Pack saved successfully.");
     setLoading(false);
   }
+  const filteredPacks = packs.filter((pack) => {
+  const search = searchTerm.toLowerCase();
+
+  return (
+    pack.pack_number.toLowerCase().includes(search) ||
+    pack.cycle_number.toLowerCase().includes(search) ||
+    pack.pack_type.toLowerCase().includes(search) ||
+    pack.contents.toLowerCase().includes(search)
+  );
+});
+
+const totalPages = Math.ceil(filteredPacks.length / itemsPerPage);
+
+const paginatedPacks = filteredPacks.slice(
+  (currentPage - 1) * itemsPerPage,
+  currentPage * itemsPerPage
+);
 
   return (
     <>
@@ -194,12 +213,20 @@ onChange={(e) => updateForm("cycleId", e.target.value)}
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <h2 className="text-2xl font-semibold mb-4">Saved Packs</h2>
-
+<input
+  value={searchTerm}
+  onChange={(e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  }}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
+  placeholder="Search by pack number, cycle, type, or contents"
+/>
         {packs.length === 0 ? (
           <p className="text-slate-500">No packs saved yet.</p>
         ) : (
           <div className="space-y-3">
-            {packs.map((pack) => (
+            {paginatedPacks.map((pack) => (
               <div key={pack.id} className="rounded-xl border border-slate-200 p-4">
                 <div className="flex justify-between gap-4">
                   <div>
