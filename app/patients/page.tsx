@@ -35,7 +35,9 @@ export default function PatientsPage() {
   const [patientSearch, setPatientSearch] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
+const [recordSearchTerm, setRecordSearchTerm] = useState("");
+const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 5;
   const [manualPatient, setManualPatient] = useState({
     fullName: "",
     externalId: "",
@@ -342,7 +344,24 @@ export default function PatientsPage() {
       (patient.external_id || "").toLowerCase().includes(search)
     );
   });
+const filteredRecords = records.filter((record) => {
+  const search = recordSearchTerm.toLowerCase();
 
+  return (
+    record.patient_name.toLowerCase().includes(search) ||
+    record.pack_number.toLowerCase().includes(search) ||
+    record.provider.toLowerCase().includes(search) ||
+    record.treatment_room.toLowerCase().includes(search) ||
+    record.procedure.toLowerCase().includes(search)
+  );
+});
+
+const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+
+const paginatedRecords = filteredRecords.slice(
+  (currentPage - 1) * itemsPerPage,
+  currentPage * itemsPerPage
+);
   return (
     <>
       <header className="mb-8">
@@ -543,12 +562,20 @@ export default function PatientsPage() {
         <h2 className="text-2xl font-semibold mb-4">
           Saved Traceability Records
         </h2>
-
+<input
+  value={recordSearchTerm}
+  onChange={(e) => {
+    setRecordSearchTerm(e.target.value);
+    setCurrentPage(1);
+  }}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
+  placeholder="Search by patient, pack, provider, room, or procedure"
+/>
         {records.length === 0 ? (
           <p className="text-slate-500">No patient traceability records yet.</p>
         ) : (
           <div className="space-y-3">
-            {records.map((record) => (
+            {paginatedRecords.map((record) => (
               <div
                 key={record.id}
                 className="rounded-xl border border-slate-200 p-4"
