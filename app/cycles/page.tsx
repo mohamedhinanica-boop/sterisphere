@@ -20,6 +20,9 @@ export default function CyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [cycleCounter, setCycleCounter] = useState(1);
   const [loading, setLoading] = useState(false);
+const [searchTerm, setSearchTerm] = useState("");
+const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 5;
 
   const [form, setForm] = useState({
     sterilizer: "",
@@ -118,96 +121,129 @@ const {
   toast.success("Cycle marked as Passed.");
 }
 }
+const filteredCycles = cycles.filter((cycle) => {
+  const search = searchTerm.toLowerCase();
 
   return (
-    <>
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold">Sterilization Cycles</h1>
-        <p className="mt-2 text-slate-600">
-          Create and manage sterilization cycle records.
-        </p>
-      </header>
+    cycle.cycle_number.toLowerCase().includes(search) ||
+    cycle.sterilizer.toLowerCase().includes(search) ||
+    cycle.operator.toLowerCase().includes(search) ||
+    cycle.status.toLowerCase().includes(search)
+  );
+});
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-3xl mb-8">
-        <h2 className="text-2xl font-semibold mb-6">New Sterilization Cycle</h2>
+const totalPages = Math.ceil(filteredCycles.length / itemsPerPage);
 
-        <form className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium mb-2">Clinic</label>
-            <div className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700">
-              Dentaria
-            </div>
+const paginatedCycles = filteredCycles.slice(
+  (currentPage - 1) * itemsPerPage,
+  currentPage * itemsPerPage
+);
+ return (
+  <>
+    <header className="mb-8">
+      <h1 className="text-4xl font-bold">Sterilization Cycles</h1>
+      <p className="mt-2 text-slate-600">
+        Create and manage sterilization cycle records.
+      </p>
+    </header>
+
+    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-3xl mb-8">
+      <h2 className="text-2xl font-semibold mb-6">New Sterilization Cycle</h2>
+
+      <form className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium mb-2">Clinic</label>
+          <div className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700">
+            Dentaria
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Sterilizer</label>
-            <input
-              value={form.sterilizer}
-              onChange={(e) => updateForm("sterilizer", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Statim 5000 / Autoclave 1"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Sterilizer</label>
+          <input
+            value={form.sterilizer}
+            onChange={(e) => updateForm("sterilizer", e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            placeholder="Example: Statim 5000 / Autoclave 1"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Operator</label>
-            <input
-              value={form.operator}
-              onChange={(e) => updateForm("operator", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Staff member name"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Operator</label>
+          <input
+            value={form.operator}
+            onChange={(e) => updateForm("operator", e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            placeholder="Staff member name"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Load Contents</label>
-            <textarea
-              value={form.loadContents}
-              onChange={(e) => updateForm("loadContents", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 min-h-28"
-              placeholder="Example: exam kits, surgical cassette, hygiene instruments..."
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Load Contents</label>
+          <textarea
+            value={form.loadContents}
+            onChange={(e) => updateForm("loadContents", e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 min-h-28"
+            placeholder="Example: exam kits, surgical cassette, hygiene instruments..."
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Cycle Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => updateForm("status", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option>Passed</option>
-              <option>Failed</option>
-              <option>Pending</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={saveCycle}
-            disabled={loading}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        <div>
+          <label className="block text-sm font-medium mb-2">Cycle Status</label>
+          <select
+            value={form.status}
+            onChange={(e) => updateForm("status", e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3"
           >
-            {loading ? "Saving..." : "Save Cycle"}
-          </button>
-        </form>
-      </section>
+            <option>Passed</option>
+            <option>Failed</option>
+            <option>Pending</option>
+          </select>
+        </div>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-2xl font-semibold mb-4">Saved Cycles</h2>
+        <button
+          type="button"
+          onClick={saveCycle}
+          disabled={loading}
+          className="rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? "Saving..." : "Save Cycle"}
+        </button>
+      </form>
+    </section>
 
-        {cycles.length === 0 ? (
-          <p className="text-slate-500">No cycles saved yet.</p>
-        ) : (
+    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <h2 className="text-2xl font-semibold mb-4">Saved Cycles</h2>
+
+      <input
+        value={searchTerm}
+        onChange={(e) => {
+          setSearchTerm(e.target.value);
+          setCurrentPage(1);
+        }}
+        className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
+        placeholder="Search by cycle number, sterilizer, operator, or status"
+      />
+
+      {cycles.length === 0 ? (
+        <p className="text-slate-500">No cycles saved yet.</p>
+      ) : filteredCycles.length === 0 ? (
+        <p className="text-slate-500">No matching cycles found.</p>
+      ) : (
+        <>
           <div className="space-y-3">
-            {cycles.map((cycle) => (
-              <div key={cycle.id} className="rounded-xl border border-slate-200 p-4">
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <div className="flex justify-between">
+            {paginatedCycles.map((cycle) => (
+              <div
+                key={cycle.id}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <div className="flex flex-col md:flex-row md:justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <h3 className="font-semibold">{cycle.cycle_number}</h3>
+
                       <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+                        className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
                           cycle.status
                         )}`}
                       >
@@ -226,45 +262,77 @@ const {
                     <p className="text-xs text-slate-400 mt-3">
                       Created: {new Date(cycle.created_at).toLocaleString()}
                     </p>
-                    {cycle.status === "Pending" && (
-  <div className="flex gap-3 mt-4">
-    <button
-      type="button"
-      onClick={() => updateCycleStatus(cycle.id, "Passed")}
-      className="rounded-xl bg-green-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-green-700 transition"
-    >
-      Mark as Passed
-    </button>
 
-    <button
-      type="button"
-      onClick={() => updateCycleStatus(cycle.id, "Failed")}
-      className="rounded-xl bg-red-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-red-700 transition"
-    >
-      Mark as Failed
-    </button>
-  </div>
-)}
+                    {cycle.status === "Pending" && (
+                      <div className="flex flex-col md:flex-row gap-3 mt-4">
+                        <button
+                          type="button"
+                          onClick={() => updateCycleStatus(cycle.id, "Passed")}
+                          className="rounded-xl bg-green-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-green-700 active:scale-95 transition"
+                        >
+                          Mark as Passed
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => updateCycleStatus(cycle.id, "Failed")}
+                          className="rounded-xl bg-red-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition"
+                        >
+                          Mark as Failed
+                        </button>
+                      </div>
+                    )}
 
                     {cycle.status === "Failed" && (
                       <Link
                         href={`/investigation?cycle=${cycle.cycle_number}`}
-                        className="inline-block mt-4 rounded-xl bg-red-600 text-white px-4 py-2 text-sm font-medium cursor-pointer hover:bg-red-700 transition"
+                        className="inline-block mt-4 rounded-xl bg-red-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition"
                       >
                         Investigate Failed Cycle
                       </Link>
                     )}
                   </div>
 
-                  <QRCodeSVG value={cycle.cycle_number} size={90} />
+                  <div className="shrink-0">
+                    <QRCodeSVG value={cycle.cycle_number} size={90} />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </section>
-    </>
-  );
+
+          {totalPages > 1 && (
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 mt-6">
+              <p className="text-sm text-slate-500">
+                Page {currentPage} of {totalPages}
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => page - 1)}
+                  className="rounded-xl border border-slate-300 px-4 py-2 min-h-11 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition"
+                >
+                  Previous
+                </button>
+
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  className="rounded-xl border border-slate-300 px-4 py-2 min-h-11 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  </>
+);
 }
 
 function getStatusBadgeClass(status: string) {
