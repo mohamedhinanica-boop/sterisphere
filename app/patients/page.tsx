@@ -56,44 +56,53 @@ export default function PatientsPage() {
     fetchPatients();
   }, []);
 
-  useEffect(() => {
-    if (!scannerOpen) return;
+ useEffect(() => {
+  if (!scannerOpen) return;
 
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      {
-        fps: 10,
-        qrbox: 250,
-      },
-      false
-    );
+  const scanner = new Html5QrcodeScanner(
+    "qr-reader",
+    {
+      fps: 10,
+      qrbox: 250,
+    },
+    false
+  );
 
-    scanner.render(
-      (decodedText) => {
-        const scannedPack = packs.find(
-          (pack) => pack.pack_number === decodedText
-        );
+  scanner.render(
+    async (decodedText) => {
+      const scannedPack = packs.find(
+        (pack) => pack.pack_number === decodedText
+      );
 
-        if (!scannedPack) {
-          toast.error("This pack is not available or has already been used.");
-          scanner.clear();
-          setScannerOpen(false);
-          return;
-        }
+      if (!scannedPack) {
+        toast.error("This pack is not available or has already been used.");
 
-        updateForm("packId", scannedPack.id);
-        toast.success("Available pack scanned successfully.");
+        try {
+          await scanner.clear();
+        } catch {}
 
-        scanner.clear();
         setScannerOpen(false);
-      },
-      () => {}
-    );
+        return;
+      }
 
-    return () => {
-      scanner.clear().catch(() => {});
-    };
-  }, [scannerOpen, packs]);
+      updateForm("packId", scannedPack.id);
+      toast.success("Available pack scanned successfully.");
+
+      try {
+        await scanner.clear();
+      } catch {}
+
+      setScannerOpen(false);
+    },
+    () => {}
+  );
+
+  return () => {
+    try {
+      scanner.clear();
+    } catch {}
+  };
+}, [scannerOpen, packs]);
 
   async function fetchRecords() {
     const { data, error } = await supabase
@@ -493,7 +502,13 @@ export default function PatientsPage() {
                     Camera scanner active — point the camera at the pack QR
                     code.
                   </p>
-
+<button
+  type="button"
+  onClick={() => setScannerOpen(false)}
+  className="mb-3 rounded-xl bg-slate-700 text-white px-4 py-2 min-h-11 text-sm font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
+>
+  Close Scanner
+</button>
                   <div
                     id="qr-reader"
                     className="overflow-hidden rounded-xl border border-slate-300"
