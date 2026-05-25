@@ -24,6 +24,7 @@ type Cycle = {
 
 type PatientTrace = {
   id: string;
+  patient_id: string;
   patient_name: string;
   provider: string;
   treatment_room: string;
@@ -80,8 +81,8 @@ export default function Home() {
     const { data: patientData } = await supabase
       .from("patient_traces")
       .select(
-        "id, patient_name, provider, treatment_room, pack_number, procedure, created_at"
-      )
+  "id, patient_id, patient_name, provider, treatment_room, pack_number, procedure, created_at"
+)
       .order("created_at", { ascending: false })
       .limit(3);
 
@@ -244,6 +245,12 @@ export default function Home() {
                   <p className="text-xs text-slate-400 mt-2">
                     {new Date(record.created_at).toLocaleString()}
                   </p>
+                  <Link
+  href={`/patient-history?patient=${record.patient_id}`}
+  className="inline-block mt-3 text-sm font-medium text-blue-700 underline"
+>
+  View Patient History
+</Link>
                 </div>
               ))}
             </div>

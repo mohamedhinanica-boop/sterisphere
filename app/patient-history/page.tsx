@@ -42,8 +42,20 @@ export default function PatientHistoryPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchPatients();
-  }, []);
+  async function initializePage() {
+    await fetchPatients();
+
+    const params = new URLSearchParams(window.location.search);
+    const patientId = params.get("patient");
+
+    if (patientId) {
+      setSelectedPatient(patientId);
+      loadHistory(patientId);
+    }
+  }
+
+  initializePage();
+}, []);
 
   async function fetchPatients() {
     const { data, error } = await supabase
@@ -63,7 +75,17 @@ export default function PatientHistoryPage() {
   async function loadHistory(patientId: string) {
     setLoading(true);
 
-    const patient = patients.find((p) => p.id === patientId);
+    const patient = patients.find((p) => p.id === patientId)const { data: patient, error: patientError } = await supabase
+  .from("patients")
+  .select("id, full_name, external_id")
+  .eq("id", patientId)
+  .maybeSingle();
+
+if (patientError || !patient) {
+  toast.error("Patient not found.");
+  setLoading(false);
+  return;
+}
 
     if (!patient) {
       toast.error("Patient not found.");
