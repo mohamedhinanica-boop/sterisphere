@@ -102,14 +102,14 @@ const filteredPatients = patientTraces.filter((record) => {
         </p>
         <button
   onClick={() => window.print()}
-  className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+  className="mt-4 rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
 >
   Print / Save as PDF
 </button>
 <input
   value={searchTerm}
   onChange={(e) => setSearchTerm(e.target.value)}
-  className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-6"
+ className="w-full rounded-xl border border-slate-300 px-4 py-3 mt-4 mb-6"
   placeholder="Search reports by cycle, pack, patient, provider, or status"
 />
       </header>
@@ -123,7 +123,7 @@ const filteredPatients = patientTraces.filter((record) => {
       <ReportSection title="Sterilization Cycles">
         {filteredCycles.map((cycle) => (
           <div key={cycle.id} className="border-b border-slate-200 py-3">
-            <div className="flex justify-between">
+            <div className="flex flex-col md:flex-row md:justify-between gap-2">
               <p className="font-medium">{cycle.cycle_number}</p>
               <span
   className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
@@ -146,7 +146,7 @@ const filteredPatients = patientTraces.filter((record) => {
       <ReportSection title="Instrument Packs">
         {filteredPacks.map((pack) => (
           <div key={pack.id} className="border-b border-slate-200 py-3">
-            <div className="flex justify-between">
+            <div className="flex flex-col md:flex-row md:justify-between gap-2">
               <p className="font-medium">{pack.pack_number}</p>
               <span className="text-sm text-slate-500">{pack.pack_type}</span>
             </div>
@@ -163,7 +163,7 @@ const filteredPatients = patientTraces.filter((record) => {
       <ReportSection title="Patient Traceability Records">
         {filteredPatients.map((record) => (
           <div key={record.id} className="border-b border-slate-200 py-3">
-            <div className="flex justify-between">
+            <div className="flex flex-col md:flex-row md:justify-between gap-2">
               <p className="font-medium">{record.patient_name}</p>
               <span className="text-sm text-slate-500">
                 {record.pack_number}
