@@ -75,7 +75,7 @@ export default function PatientHistoryPage() {
   async function loadHistory(patientId: string) {
     setLoading(true);
 
-    const patient = patients.find((p) => p.id === patientId)const { data: patient, error: patientError } = await supabase
+   const { data: patient, error: patientError } = await supabase
   .from("patients")
   .select("id, full_name, external_id")
   .eq("id", patientId)
