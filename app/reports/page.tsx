@@ -34,7 +34,7 @@ export default function ReportsPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [patientTraces, setPatientTraces] = useState<PatientTrace[]>([]);
-
+const [searchTerm, setSearchTerm] = useState("");
   useEffect(() => {
     fetchReports();
   }, []);
@@ -61,7 +61,37 @@ export default function ReportsPage() {
     setPacks(packsData || []);
     setPatientTraces(tracesData || []);
   }
+const filteredCycles = cycles.filter((cycle) => {
+  const search = searchTerm.toLowerCase();
 
+  return (
+    cycle.cycle_number.toLowerCase().includes(search) ||
+    cycle.status.toLowerCase().includes(search) ||
+    cycle.operator.toLowerCase().includes(search) ||
+    cycle.sterilizer.toLowerCase().includes(search)
+  );
+});
+
+const filteredPacks = packs.filter((pack) => {
+  const search = searchTerm.toLowerCase();
+
+  return (
+    pack.pack_number.toLowerCase().includes(search) ||
+    pack.cycle_number.toLowerCase().includes(search) ||
+    pack.pack_type.toLowerCase().includes(search)
+  );
+});
+
+const filteredPatients = patientTraces.filter((record) => {
+  const search = searchTerm.toLowerCase();
+
+  return (
+    record.patient_name.toLowerCase().includes(search) ||
+    record.pack_number.toLowerCase().includes(search) ||
+    record.provider.toLowerCase().includes(search) ||
+    record.procedure.toLowerCase().includes(search)
+  );
+});
   return (
     <>
       <header className="mb-8">
@@ -76,6 +106,12 @@ export default function ReportsPage() {
 >
   Print / Save as PDF
 </button>
+<input
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-6"
+  placeholder="Search reports by cycle, pack, patient, provider, or status"
+/>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
@@ -85,7 +121,7 @@ export default function ReportsPage() {
       </div>
 
       <ReportSection title="Sterilization Cycles">
-        {cycles.map((cycle) => (
+        {filteredCycles.map((cycle) => (
           <div key={cycle.id} className="border-b border-slate-200 py-3">
             <div className="flex justify-between">
               <p className="font-medium">{cycle.cycle_number}</p>
@@ -108,7 +144,7 @@ export default function ReportsPage() {
       </ReportSection>
 
       <ReportSection title="Instrument Packs">
-        {packs.map((pack) => (
+        {filteredPacks.map(pack) => (
           <div key={pack.id} className="border-b border-slate-200 py-3">
             <div className="flex justify-between">
               <p className="font-medium">{pack.pack_number}</p>
@@ -125,7 +161,7 @@ export default function ReportsPage() {
       </ReportSection>
 
       <ReportSection title="Patient Traceability Records">
-        {patientTraces.map((record) => (
+        {filteredPatients.map((record) => (
           <div key={record.id} className="border-b border-slate-200 py-3">
             <div className="flex justify-between">
               <p className="font-medium">{record.patient_name}</p>
