@@ -30,6 +30,11 @@ const navItems = [
     roles: ["admin", "clinical_staff", "doctor"],
   },
   {
+  label: "Patient History",
+  href: "/patient-history",
+  roles: ["admin", "clinical_staff", "doctor", "auditor"],
+},
+  {
     label: "Reports",
     href: "/reports",
     roles: ["admin", "doctor", "auditor"],
