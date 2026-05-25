@@ -31,6 +31,14 @@ type Cycle = {
   created_at: string;
 };
 
+type FailedCycle = {
+  id: string;
+  cycle_number: string;
+  sterilizer: string;
+  operator: string;
+  created_at: string;
+};
+
 export default function InvestigationPage() {
   const [cycleNumber, setCycleNumber] = useState("");
   const [packs, setPacks] = useState<Pack[]>([]);
@@ -38,17 +46,41 @@ export default function InvestigationPage() {
   const [searched, setSearched] = useState(false);
 const [loading, setLoading] = useState(false);
 const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
+const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
 
  useEffect(() => {
   const params = new URLSearchParams(window.location.search);
+
   const cycle = params.get("cycle");
+  const filter = params.get("filter");
 
   if (cycle) {
     setCycleNumber(cycle);
     investigateCycle(cycle);
   }
+
+  if (filter === "failed") {
+    loadFailedCycles();
+  }
 }, []);
 
+async function loadFailedCycles() {
+  const { data, error } = await supabase
+    .from("cycles")
+    .select(
+      "id, cycle_number, sterilizer, operator, created_at"
+    )
+    .eq("status", "Failed")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    toast.error("Error loading failed cycles.");
+    console.error(error);
+    return;
+  }
+
+  setFailedCycles(data || []);
+}
   async function investigateCycle(selectedCycle?: string) {
   const cycleToInvestigate = selectedCycle || cycleNumber;
 
@@ -165,6 +197,49 @@ if (!packsData || packsData.length === 0) {
         </div>
       </section>
 
+{failedCycles.length > 0 && (
+  <section className="bg-white rounded-2xl border border-red-200 shadow-sm p-6 mb-8">
+    <h2 className="text-2xl font-semibold mb-4 text-red-700">
+      Failed Sterilization Cycles
+    </h2>
+
+    <div className="space-y-3">
+      {failedCycles.map((cycle) => (
+        <div
+          key={cycle.id}
+          className="rounded-xl border border-red-200 bg-red-50 p-4"
+        >
+          <div className="flex flex-col md:flex-row md:justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-red-800">
+                {cycle.cycle_number}
+              </h3>
+
+              <p className="text-sm text-red-700 mt-1">
+                {cycle.sterilizer} · Operator: {cycle.operator}
+              </p>
+
+              <p className="text-xs text-red-500 mt-2">
+                {new Date(cycle.created_at).toLocaleString()}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCycleNumber(cycle.cycle_number);
+                investigateCycle(cycle.cycle_number);
+              }}
+              className="rounded-xl bg-red-600 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition"
+            >
+              Investigate
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
       {searched && (
         <>
         {cycleDetails && (
