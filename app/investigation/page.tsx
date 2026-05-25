@@ -21,12 +21,23 @@ type PatientTrace = {
   procedure: string;
 };
 
+type Cycle = {
+  id: string;
+  cycle_number: string;
+  sterilizer: string;
+  operator: string;
+  load_contents: string;
+  status: string;
+  created_at: string;
+};
+
 export default function InvestigationPage() {
   const [cycleNumber, setCycleNumber] = useState("");
   const [packs, setPacks] = useState<Pack[]>([]);
   const [patients, setPatients] = useState<PatientTrace[]>([]);
   const [searched, setSearched] = useState(false);
 const [loading, setLoading] = useState(false);
+const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
 
  useEffect(() => {
   const params = new URLSearchParams(window.location.search);
@@ -41,6 +52,20 @@ const [loading, setLoading] = useState(false);
   async function investigateCycle(selectedCycle?: string) {
   const cycleToInvestigate = selectedCycle || cycleNumber;
   setLoading(true);
+  const { data: cycleData, error: cycleError } = await supabase
+  .from("cycles")
+  .select("id, cycle_number, sterilizer, operator, load_contents, status, created_at")
+  .eq("cycle_number", cycleNumber)
+  .maybeSingle();
+
+if (cycleError) {
+  toast.error("Error loading cycle details.");
+  console.error(cycleError);
+  setLoading(false);
+  return;
+}
+
+setCycleDetails(cycleData || null);
 
   if (!cycleToInvestigate) {
     toast.error("Please enter a cycle number.");
@@ -63,12 +88,13 @@ const [loading, setLoading] = useState(false);
 
   setPacks(packsData || []);
 
-  if (!packsData || packsData.length === 0) {
-    setPatients([]);
-    toast.error("No linked packs found for this cycle.");
-    setLoading(false);
-    return;
-  }
+if (!packsData || packsData.length === 0) {
+  setPacks([]);
+  setPatients([]);
+  toast.success("Cycle found. No linked packs or patient records were found.");
+  setLoading(false);
+  return;
+}
 
   const packNumbers = packsData.map((pack) => pack.pack_number);
 
@@ -131,6 +157,23 @@ const [loading, setLoading] = useState(false);
 
       {searched && (
         <>
+        {cycleDetails && (
+  <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+    <h2 className="text-2xl font-semibold mb-4">Cycle Details</h2>
+
+    <div className="space-y-2 text-sm">
+      <p><strong>Cycle:</strong> {cycleDetails.cycle_number}</p>
+      <p><strong>Status:</strong> {cycleDetails.status}</p>
+      <p><strong>Sterilizer:</strong> {cycleDetails.sterilizer}</p>
+      <p><strong>Operator:</strong> {cycleDetails.operator}</p>
+      <p><strong>Load contents:</strong> {cycleDetails.load_contents}</p>
+      <p>
+        <strong>Created:</strong>{" "}
+        {new Date(cycleDetails.created_at).toLocaleString()}
+      </p>
+    </div>
+  </section>
+)}
           <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
             <h2 className="text-2xl font-semibold mb-4">
               Linked Instrument Packs
