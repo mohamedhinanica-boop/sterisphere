@@ -122,7 +122,7 @@ export default function Home() {
             </div>
 
             <Link
-              href="/investigation"
+              href="/investigation?filter=failed"
               className="rounded-xl bg-red-600 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition text-center"
             >
               Open Investigation
