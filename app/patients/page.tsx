@@ -435,6 +435,15 @@ const paginatedRecords = filteredRecords.slice(
     placeholder="File ID / chart number optional"
   />
 
+  <div>
+  <label className="block text-sm font-medium mb-2">
+    Date of Birth
+  </label>
+
+  <p className="text-xs text-slate-500 mb-2">
+    Select the patient date of birth
+  </p>
+
   <input
     type="date"
     value={manualPatient.dateOfBirth}
@@ -446,6 +455,7 @@ const paginatedRecords = filteredRecords.slice(
     }
     className="w-full rounded-xl border border-slate-300 px-4 py-3"
   />
+</div>
 
   <button
     type="button"
