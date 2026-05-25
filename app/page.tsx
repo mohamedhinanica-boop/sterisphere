@@ -83,7 +83,7 @@ export default function Home() {
         "id, patient_name, provider, treatment_room, pack_number, procedure, created_at"
       )
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(3);
 
     setCyclesCount(cycles || 0);
     setPacksCount(packs || 0);
