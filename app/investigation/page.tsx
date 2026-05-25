@@ -51,12 +51,22 @@ const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
 
   async function investigateCycle(selectedCycle?: string) {
   const cycleToInvestigate = selectedCycle || cycleNumber;
+
+  if (!cycleToInvestigate) {
+    toast.error("Please enter a cycle number.");
+    return;
+  }
+
   setLoading(true);
+  setSearched(true);
+
   const { data: cycleData, error: cycleError } = await supabase
-  .from("cycles")
-  .select("id, cycle_number, sterilizer, operator, load_contents, status, created_at")
-  .eq("cycle_number", cycleNumber)
-  .maybeSingle();
+    .from("cycles")
+    .select(
+      "id, cycle_number, sterilizer, operator, load_contents, status, created_at"
+    )
+    .eq("cycle_number", cycleToInvestigate)
+    .maybeSingle();
 
 if (cycleError) {
   toast.error("Error loading cycle details.");
