@@ -242,15 +242,18 @@ export default function Home() {
                     {record.procedure}
                   </p>
 
-                  <p className="text-xs text-slate-400 mt-2">
-                    {new Date(record.created_at).toLocaleString()}
-                  </p>
-                  <Link
-  href={`/patient-history?patient=${record.patient_id}`}
-  className="inline-block mt-3 text-sm font-medium text-blue-700 underline"
->
-  View Patient History
-</Link>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mt-2">
+  <p className="text-xs text-slate-400">
+    {new Date(record.created_at).toLocaleString()}
+  </p>
+
+  <Link
+    href={`/patient-history?patient=${record.patient_id}`}
+    className="text-sm font-medium text-blue-700 underline"
+  >
+    View History
+  </Link>
+</div>
                 </div>
               ))}
             </div>
