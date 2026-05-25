@@ -9,6 +9,7 @@ const routePermissions: Record<string, string[]> = {
   "/cycles": ["admin", "clinical_staff"],
   "/packs": ["admin", "clinical_staff"],
   "/patients": ["admin", "clinical_staff", "doctor"],
+  "/patient-history": ["admin", "clinical_staff", "doctor", "auditor"],
   "/reports": ["admin", "doctor", "auditor"],
   "/investigation": ["admin", "doctor", "auditor"],
   "/settings": ["admin"],
