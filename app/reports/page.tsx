@@ -102,7 +102,7 @@ const filteredPatients = patientTraces.filter((record) => {
         </p>
         <button
   onClick={() => window.print()}
-  className="mt-4 rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
+  className="mt-4 mb-4 rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
 >
   Print / Save as PDF
 </button>
