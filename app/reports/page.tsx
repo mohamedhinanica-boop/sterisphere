@@ -144,7 +144,7 @@ const filteredPatients = patientTraces.filter((record) => {
       </ReportSection>
 
       <ReportSection title="Instrument Packs">
-        {filteredPacks.map(pack) => (
+        {filteredPacks.map((pack) => (
           <div key={pack.id} className="border-b border-slate-200 py-3">
             <div className="flex justify-between">
               <p className="font-medium">{pack.pack_number}</p>
