@@ -411,198 +411,58 @@ const paginatedRecords = filteredRecords.slice(
               <h3 className="font-semibold mb-3">Add Manual Patient</h3>
 
               <div className="space-y-3">
-                <input
-                  value={manualPatient.fullName}
-                  onChange={(e) =>
-                    setManualPatient((current) => ({
-                      ...current,
-                      fullName: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                  placeholder="Full name"
-                />
+  {paginatedRecords.map((record) => (
+    <div
+      key={record.id}
+      className="rounded-xl border border-slate-200 p-4"
+    >
+      <div className="flex flex-col md:flex-row md:justify-between gap-2">
+        <h3 className="font-semibold">{record.patient_name}</h3>
 
-                <input
-                  value={manualPatient.externalId}
-                  onChange={(e) =>
-                    setManualPatient((current) => ({
-                      ...current,
-                      externalId: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                  placeholder="File ID / chart number optional"
-                />
+        <span className="text-sm text-slate-500">
+          {record.pack_number}
+        </span>
+      </div>
 
-                <input
-                  type="date"
-                  value={manualPatient.dateOfBirth}
-                  onChange={(e) =>
-                    setManualPatient((current) => ({
-                      ...current,
-                      dateOfBirth: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                />
+      <p className="text-sm text-slate-600 mt-1">
+        Provider: {record.provider} · {record.treatment_room}
+      </p>
 
-                <button
-                  type="button"
-                  onClick={addManualPatient}
-                  className="rounded-xl bg-slate-700 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
-                >
-                  Add Manual Patient
-                </button>
-              </div>
-            </div>
-          </div>
+      <p className="text-sm text-slate-500 mt-2">
+        Procedure: {record.procedure}
+      </p>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Provider</label>
-            <input
-              value={form.provider}
-              onChange={(e) => updateForm("provider", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Dre Ola"
-            />
-          </div>
+      <p className="text-xs text-slate-400 mt-3">
+        Created: {new Date(record.created_at).toLocaleString()}
+      </p>
+    </div>
+  ))}
+</div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Treatment Room
-            </label>
-            <input
-              value={form.treatmentRoom}
-              onChange={(e) => updateForm("treatmentRoom", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Room 2"
-            />
-          </div>
+{totalPages > 1 && (
+  <div className="flex flex-col md:flex-row items-center justify-between gap-3 mt-6">
+    <p className="text-sm text-slate-500">
+      Page {currentPage} of {totalPages}
+    </p>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Instrument Pack Number
-            </label>
+    <div className="flex gap-3">
+      <button
+        type="button"
+        disabled={currentPage === 1}
+        onClick={() => setCurrentPage((page) => page - 1)}
+        className="rounded-xl border border-slate-300 px-4 py-2 min-h-11 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition"
+      >
+        Previous
+      </button>
 
-            <select
-              value={form.packId}
-              onChange={(e) => updateForm("packId", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option value="">Select an instrument pack</option>
-
-              {packs.map((pack) => (
-                <option key={pack.id} value={pack.id}>
-                  {pack.pack_number}
-                </option>
-              ))}
-            </select>
-
-            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-              <h3 className="font-semibold text-blue-900">QR Scanner</h3>
-
-              <p className="mt-1 text-sm text-blue-700">
-                Use this to scan a printed pack QR code. On mobile/tablet,
-                allow camera access and tap Start Scanning if prompted.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => setScannerOpen(true)}
-                className="mt-4 w-full md:w-auto rounded-xl bg-blue-600 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-blue-700 active:scale-95 transition"
-              >
-                Open QR Scanner
-              </button>
-
-              {scannerOpen && (
-                <div className="mt-4 rounded-xl border border-blue-300 bg-white p-3">
-                  <p className="mb-3 text-sm font-medium text-slate-700">
-                    Camera scanner active — point the camera at the pack QR
-                    code.
-                  </p>
-<button
-  type="button"
-  onClick={() => setScannerOpen(false)}
-  className="mb-3 rounded-xl bg-slate-700 text-white px-4 py-2 min-h-11 text-sm font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition"
->
-  Close Scanner
-</button>
-                  <div
-                    id="qr-reader"
-                    className="overflow-hidden rounded-xl border border-slate-300"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Procedure</label>
-            <input
-              value={form.procedure}
-              onChange={(e) => updateForm("procedure", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Hygiene cleaning / Extraction / Exam"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={saveRecord}
-            disabled={loading}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Saving..." : "Save Traceability Record"}
-          </button>
-        </form>
-      </section>
-
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-2xl font-semibold mb-4">
-          Saved Traceability Records
-        </h2>
-<input
-  value={recordSearchTerm}
-  onChange={(e) => {
-    setRecordSearchTerm(e.target.value);
-    setCurrentPage(1);
-  }}
-  className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
-  placeholder="Search by patient, pack, provider, room, or procedure"
-/>
-        {records.length === 0 ? (
-          <p className="text-slate-500">No patient traceability records yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {paginatedRecords.map((record) => (
-              <div
-                key={record.id}
-                className="rounded-xl border border-slate-200 p-4"
-              >
-                <div className="flex flex-col md:flex-row md:justify-between gap-2">
-                  <h3 className="font-semibold">{record.patient_name}</h3>
-                  <span className="text-sm text-slate-500">
-                    {record.pack_number}
-                  </span>
-                </div>
-
-                <p className="text-sm text-slate-600 mt-1">
-                  Provider: {record.provider} · {record.treatment_room}
-                </p>
-
-                <p className="text-sm text-slate-500 mt-2">
-                  Procedure: {record.procedure}
-                </p>
-
-                <p className="text-xs text-slate-400 mt-3">
-                  Created: {new Date(record.created_at).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </>
-  );
-}
+      <button
+        type="button"
+        disabled={currentPage === totalPages}
+        onClick={() => setCurrentPage((page) => page + 1)}
+        className="rounded-xl border border-slate-300 px-4 py-2 min-h-11 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)}
