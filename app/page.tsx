@@ -38,6 +38,8 @@ export default function Home() {
   const [packsCount, setPacksCount] = useState(0);
   const [patientRecordsCount, setPatientRecordsCount] = useState(0);
   const [failedCyclesCount, setFailedCyclesCount] = useState(0);
+  const [unreviewedFailedCyclesCount, setUnreviewedFailedCyclesCount] =
+  useState(0);
   const [pendingCyclesCount, setPendingCyclesCount] = useState(0);
   const [latestFailedCycles, setLatestFailedCycles] = useState<Cycle[]>([]);
   const [latestPatientRecords, setLatestPatientRecords] = useState<
@@ -66,6 +68,12 @@ export default function Home() {
       .select("*", { count: "exact", head: true })
       .eq("status", "Failed");
 
+      const { count: unreviewedFailedCycles } = await supabase
+  .from("cycles")
+  .select("*", { count: "exact", head: true })
+  .eq("status", "Failed")
+  .is("reviewed_at", null);
+
     const { count: pendingCycles } = await supabase
       .from("cycles")
       .select("*", { count: "exact", head: true })
@@ -90,6 +98,7 @@ export default function Home() {
     setPacksCount(packs || 0);
     setPatientRecordsCount(patientRecords || 0);
     setFailedCyclesCount(failedCycles || 0);
+    setUnreviewedFailedCyclesCount(unreviewedFailedCycles || 0);
     setPendingCyclesCount(pendingCycles || 0);
     setLatestFailedCycles(failedData || []);
     setLatestPatientRecords(patientData || []);
@@ -106,7 +115,7 @@ export default function Home() {
         </p>
       </header>
 
-      {failedCyclesCount > 0 && (
+      {unreviewedFailedCyclesCount > 0 && (
         <section className="mb-8 rounded-2xl border border-red-200 bg-red-50 p-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex gap-3">
@@ -116,8 +125,8 @@ export default function Home() {
                   Failed sterilization cycles need attention
                 </h3>
                 <p className="text-sm text-red-700 mt-1">
-                  There are {failedCyclesCount} failed cycle(s). Review linked
-                  packs and patient traceability immediately.
+                  There are {unreviewedFailedCyclesCount} new failed cycle(s). Review linked
+packs and patient traceability.
                 </p>
               </div>
             </div>
@@ -151,13 +160,14 @@ export default function Home() {
           value={patientRecordsCount}
         />
 
+<Link href="/investigation?filter=failed">
         <StatCard
           icon={<ShieldCheck />}
           title="Failed Cycles"
           value={failedCyclesCount}
           warning={failedCyclesCount > 0}
         />
-
+</Link>
         <StatCard
           icon={<AlertTriangle />}
           title="Pending Cycles"

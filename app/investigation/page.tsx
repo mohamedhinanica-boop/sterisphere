@@ -1,6 +1,5 @@
 "use client";
 
-
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -28,6 +27,7 @@ type Cycle = {
   operator: string;
   load_contents: string;
   status: string;
+  reviewed_at: string | null;
   created_at: string;
 };
 
@@ -36,6 +36,7 @@ type FailedCycle = {
   cycle_number: string;
   sterilizer: string;
   operator: string;
+  reviewed_at: string | null;
   created_at: string;
 };
 
@@ -44,118 +45,132 @@ export default function InvestigationPage() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [patients, setPatients] = useState<PatientTrace[]>([]);
   const [searched, setSearched] = useState(false);
-const [loading, setLoading] = useState(false);
-const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
-const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
+  const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
 
- useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
 
-  const cycle = params.get("cycle");
-  const filter = params.get("filter");
+    const cycle = params.get("cycle");
+    const filter = params.get("filter");
 
-  if (cycle) {
-    setCycleNumber(cycle);
-    investigateCycle(cycle);
+    if (cycle) {
+      setCycleNumber(cycle);
+      investigateCycle(cycle);
+    }
+
+    if (filter === "failed") {
+      loadFailedCycles();
+    }
+  }, []);
+
+  async function loadFailedCycles() {
+    const { data, error } = await supabase
+      .from("cycles")
+      .select("id, cycle_number, sterilizer, operator, reviewed_at, created_at")
+      .eq("status", "Failed")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Error loading failed cycles.");
+      console.error(error);
+      return;
+    }
+
+    setFailedCycles(data || []);
   }
 
-  if (filter === "failed") {
-    loadFailedCycles();
-  }
-}, []);
+  async function markCycleAsReviewed(cycleId: string) {
+    const { error } = await supabase
+      .from("cycles")
+      .update({ reviewed_at: new Date().toISOString() })
+      .eq("id", cycleId)
+      .is("reviewed_at", null);
 
-async function loadFailedCycles() {
-  const { data, error } = await supabase
-    .from("cycles")
-    .select(
-      "id, cycle_number, sterilizer, operator, created_at"
-    )
-    .eq("status", "Failed")
-    .order("created_at", { ascending: false });
+    if (error) {
+      toast.error("Cycle loaded, but review status was not updated.");
+      console.error(error);
+      return;
+    }
 
-  if (error) {
-    toast.error("Error loading failed cycles.");
-    console.error(error);
-    return;
+    await loadFailedCycles();
   }
 
-  setFailedCycles(data || []);
-}
   async function investigateCycle(selectedCycle?: string) {
-  const cycleToInvestigate = selectedCycle || cycleNumber;
+    const cycleToInvestigate = selectedCycle || cycleNumber;
 
-  if (!cycleToInvestigate) {
-    toast.error("Please enter a cycle number.");
-    return;
-  }
+    if (!cycleToInvestigate) {
+      toast.error("Please enter a cycle number.");
+      return;
+    }
 
-  setLoading(true);
-  setSearched(true);
+    setLoading(true);
+    setSearched(true);
 
-  const { data: cycleData, error: cycleError } = await supabase
-    .from("cycles")
-    .select(
-      "id, cycle_number, sterilizer, operator, load_contents, status, created_at"
-    )
-    .eq("cycle_number", cycleToInvestigate)
-    .maybeSingle();
+    const { data: cycleData, error: cycleError } = await supabase
+      .from("cycles")
+      .select(
+        "id, cycle_number, sterilizer, operator, load_contents, status, reviewed_at, created_at"
+      )
+      .eq("cycle_number", cycleToInvestigate)
+      .maybeSingle();
 
-if (cycleError) {
-  toast.error("Error loading cycle details.");
-  console.error(cycleError);
-  setLoading(false);
-  return;
-}
+    if (cycleError) {
+      toast.error("Error loading cycle details.");
+      console.error(cycleError);
+      setLoading(false);
+      return;
+    }
 
-setCycleDetails(cycleData || null);
+    setCycleDetails(cycleData || null);
 
-  if (!cycleToInvestigate) {
-    toast.error("Please enter a cycle number.");
-    return;
-  }
+    if (cycleData?.status === "Failed" && !cycleData.reviewed_at) {
+      await markCycleAsReviewed(cycleData.id);
+      setCycleDetails({
+        ...cycleData,
+        reviewed_at: new Date().toISOString(),
+      });
+    }
 
-  setSearched(true);
+    const { data: packsData, error: packsError } = await supabase
+      .from("packs")
+      .select("*")
+      .eq("cycle_number", cycleToInvestigate);
 
-  const { data: packsData, error: packsError } = await supabase
-    .from("packs")
-    .select("*")
-    .eq("cycle_number", cycleToInvestigate);
+    if (packsError) {
+      toast.error("Error loading packs.");
+      console.error(packsError);
+      setLoading(false);
+      return;
+    }
 
-  if (packsError) {
-    toast.error("Error loading packs.");
-    console.error(packsError);
+    setPacks(packsData || []);
+
+    if (!packsData || packsData.length === 0) {
+      setPatients([]);
+      toast.success("Cycle found. No linked packs or patient records were found.");
+      setLoading(false);
+      return;
+    }
+
+    const packNumbers = packsData.map((pack) => pack.pack_number);
+
+    const { data: patientData, error: patientError } = await supabase
+      .from("patient_traces")
+      .select("*")
+      .in("pack_number", packNumbers);
+
+    if (patientError) {
+      toast.error("Error loading patient records.");
+      console.error(patientError);
+      setLoading(false);
+      return;
+    }
+
+    setPatients(patientData || []);
+    toast.success("Investigation completed.");
     setLoading(false);
-    return;
-  }
-
-  setPacks(packsData || []);
-
-if (!packsData || packsData.length === 0) {
-  setPacks([]);
-  setPatients([]);
-  toast.success("Cycle found. No linked packs or patient records were found.");
-  setLoading(false);
-  return;
-}
-
-  const packNumbers = packsData.map((pack) => pack.pack_number);
-
-  const { data: patientData, error: patientError } = await supabase
-    .from("patient_traces")
-    .select("*")
-    .in("pack_number", packNumbers);
-
-  if (patientError) {
-    toast.error("Error loading patient records.");
-    console.error(patientError);
-     setLoading(false);
-    return;
-  }
-
-  setPatients(patientData || []);
-  toast.success("Investigation completed.");
-  setLoading(false);
-   
   }
 
   return (
@@ -166,12 +181,13 @@ if (!packsData || packsData.length === 0) {
         <p className="mt-2 text-slate-600">
           Investigate sterilization cycles and trace linked packs and patients.
         </p>
+
         <button
-  onClick={() => window.print()}
-  className="mt-4 rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
->
-  Print Investigation Report
-</button>
+          onClick={() => window.print()}
+          className="mt-4 rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+        >
+          Print Investigation Report
+        </button>
       </header>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
@@ -188,77 +204,132 @@ if (!packsData || packsData.length === 0) {
           />
 
           <button
-  onClick={() => investigateCycle()}
-  disabled={loading}
-  className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
->
-  {loading ? "Investigating..." : "Investigate"}
-</button>
+            onClick={() => investigateCycle()}
+            disabled={loading}
+            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Investigating..." : "Investigate"}
+          </button>
         </div>
       </section>
 
-{failedCycles.length > 0 && (
-  <section className="bg-white rounded-2xl border border-red-200 shadow-sm p-6 mb-8">
-    <h2 className="text-2xl font-semibold mb-4 text-red-700">
-      Failed Sterilization Cycles
-    </h2>
+      {failedCycles.length > 0 && (
+        <section className="bg-white rounded-2xl border border-red-200 shadow-sm p-6 mb-8">
+          <h2 className="text-2xl font-semibold mb-4 text-red-700">
+            Failed Sterilization Cycles
+          </h2>
 
-    <div className="space-y-3">
-      {failedCycles.map((cycle) => (
-        <div
-          key={cycle.id}
-          className="rounded-xl border border-red-200 bg-red-50 p-4"
-        >
-          <div className="flex flex-col md:flex-row md:justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-red-800">
-                {cycle.cycle_number}
-              </h3>
+          <div className="space-y-3">
+            {failedCycles.map((cycle) => (
+              <div
+                key={cycle.id}
+                className={`rounded-xl border p-4 ${
+                  cycle.reviewed_at
+                    ? "border-slate-200 bg-slate-50"
+                    : "border-red-200 bg-red-50"
+                }`}
+              >
+                <div className="flex flex-col md:flex-row md:justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3
+                        className={
+                          cycle.reviewed_at
+                            ? "font-semibold text-slate-800"
+                            : "font-semibold text-red-800"
+                        }
+                      >
+                        {cycle.cycle_number}
+                      </h3>
 
-              <p className="text-sm text-red-700 mt-1">
-                {cycle.sterilizer} · Operator: {cycle.operator}
-              </p>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                          cycle.reviewed_at
+                            ? "border-slate-200 bg-white text-slate-600"
+                            : "border-red-200 bg-white text-red-700"
+                        }`}
+                      >
+                        {cycle.reviewed_at ? "Reviewed" : "New"}
+                      </span>
+                    </div>
 
-              <p className="text-xs text-red-500 mt-2">
-                {new Date(cycle.created_at).toLocaleString()}
-              </p>
-            </div>
+                    <p
+                      className={`text-sm mt-1 ${
+                        cycle.reviewed_at ? "text-slate-600" : "text-red-700"
+                      }`}
+                    >
+                      {cycle.sterilizer} · Operator: {cycle.operator}
+                    </p>
 
-            <button
-              type="button"
-              onClick={() => {
-                setCycleNumber(cycle.cycle_number);
-                investigateCycle(cycle.cycle_number);
-              }}
-              className="rounded-xl bg-red-600 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition"
-            >
-              Investigate
-            </button>
+                    <p
+                      className={`text-xs mt-2 ${
+                        cycle.reviewed_at ? "text-slate-400" : "text-red-500"
+                      }`}
+                    >
+                      Created: {new Date(cycle.created_at).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCycleNumber(cycle.cycle_number);
+                      investigateCycle(cycle.cycle_number);
+                    }}
+                    className={`rounded-xl px-5 py-3 min-h-11 text-sm font-medium cursor-pointer active:scale-95 transition ${
+                      cycle.reviewed_at
+                        ? "bg-slate-900 text-white hover:bg-slate-800"
+                        : "bg-red-600 text-white hover:bg-red-700"
+                    }`}
+                  >
+                    {cycle.reviewed_at ? "Open Report" : "Review"}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      ))}
-    </div>
-  </section>
-)}
+        </section>
+      )}
+
       {searched && (
         <>
-        {cycleDetails && (
-  <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-    <h2 className="text-2xl font-semibold mb-4">Cycle Details</h2>
+          {cycleDetails && (
+            <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h2 className="text-2xl font-semibold mb-4">Cycle Details</h2>
 
-    <div className="space-y-2 text-sm">
-      <p><strong>Cycle:</strong> {cycleDetails.cycle_number}</p>
-      <p><strong>Status:</strong> {cycleDetails.status}</p>
-      <p><strong>Sterilizer:</strong> {cycleDetails.sterilizer}</p>
-      <p><strong>Operator:</strong> {cycleDetails.operator}</p>
-      <p><strong>Load contents:</strong> {cycleDetails.load_contents}</p>
-      <p>
-        <strong>Created:</strong>{" "}
-        {new Date(cycleDetails.created_at).toLocaleString()}
-      </p>
-    </div>
-  </section>
-)}
+              <div className="space-y-2 text-sm">
+                <p>
+                  <strong>Cycle:</strong> {cycleDetails.cycle_number}
+                </p>
+                <p>
+                  <strong>Status:</strong> {cycleDetails.status}
+                </p>
+                <p>
+                  <strong>Sterilizer:</strong> {cycleDetails.sterilizer}
+                </p>
+                <p>
+                  <strong>Operator:</strong> {cycleDetails.operator}
+                </p>
+                <p>
+                  <strong>Load contents:</strong> {cycleDetails.load_contents}
+                </p>
+                <p>
+                  <strong>Created:</strong>{" "}
+                  {new Date(cycleDetails.created_at).toLocaleString()}
+                </p>
+
+                {cycleDetails.status === "Failed" && (
+                  <p>
+                    <strong>Reviewed:</strong>{" "}
+                    {cycleDetails.reviewed_at
+                      ? new Date(cycleDetails.reviewed_at).toLocaleString()
+                      : "Not reviewed yet"}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
           <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
             <h2 className="text-2xl font-semibold mb-4">
               Linked Instrument Packs
@@ -294,9 +365,7 @@ if (!packsData || packsData.length === 0) {
             </h2>
 
             {patients.length === 0 ? (
-              <p className="text-slate-500">
-                No linked patients found.
-              </p>
+              <p className="text-slate-500">No linked patients found.</p>
             ) : (
               <div className="space-y-3">
                 {patients.map((patient) => (
