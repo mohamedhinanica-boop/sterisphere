@@ -29,18 +29,18 @@ type PatientTrace = {
   created_at: string;
 };
 
-const doctors = [
-  "Dr. Ola",
-  "Dr. Malek",
-  "Dr. Landry",
-  "Dr. Palta",
-  "Dr. Anne Turgeon",
-];
+type Provider = {
+  id: string;
+  full_name: string;
+  role: string | null;
+  active: boolean;
+};
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [traces, setTraces] = useState<PatientTrace[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [patientSearch, setPatientSearch] = useState("");
   const [traceSearch, setTraceSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,6 +60,7 @@ export default function PatientsPage() {
     fetchPatients();
     fetchPacks();
     fetchTraces();
+    fetchProviders();
   }, []);
 
   async function fetchPatients() {
@@ -81,10 +82,11 @@ export default function PatientsPage() {
     const { data, error } = await supabase
       .from("packs")
       .select("id, pack_number, cycle_number, pack_type")
+      .eq("status", "Available")
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("Error loading packs.");
+      toast.error("Error loading available packs.");
       console.error(error);
       return;
     }
@@ -105,6 +107,22 @@ export default function PatientsPage() {
     }
 
     setTraces(data || []);
+  }
+
+  async function fetchProviders() {
+    const { data, error } = await supabase
+      .from("providers")
+      .select("*")
+      .eq("active", true)
+      .order("full_name", { ascending: true });
+
+    if (error) {
+      toast.error("Error loading providers.");
+      console.error(error);
+      return;
+    }
+
+    setProviders(data || []);
   }
 
   function updateForm(field: string, value: string) {
@@ -182,6 +200,18 @@ export default function PatientsPage() {
       return;
     }
 
+    const { error: packUpdateError } = await supabase
+      .from("packs")
+      .update({ status: "Used" })
+      .eq("pack_number", form.packNumber);
+
+    if (packUpdateError) {
+      toast.error("Patient trace saved, but pack status was not updated.");
+      console.error(packUpdateError);
+      setLoading(false);
+      return;
+    }
+
     setForm({
       patientId: "",
       packNumber: "",
@@ -192,9 +222,11 @@ export default function PatientsPage() {
 
     setPatientSearch("");
     setCurrentPage(1);
-    await fetchTraces();
 
-    toast.success("Patient traceability record saved.");
+    await fetchTraces();
+    await fetchPacks();
+
+    toast.success("Patient traceability record saved. Pack marked as used.");
     setLoading(false);
   }
 
@@ -203,7 +235,7 @@ export default function PatientsPage() {
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Patient Traceability</h1>
         <p className="mt-2 text-slate-600">
-          Link sterilized instrument packs to patient care records.
+          Link available sterilized instrument packs to patient care records.
         </p>
       </header>
 
@@ -261,14 +293,20 @@ export default function PatientsPage() {
 
           <div>
             <label className="block text-sm font-medium mb-2">
-              Instrument Pack
+              Available Instrument Pack
             </label>
+
             <select
               value={form.packNumber}
               onChange={(e) => updateForm("packNumber", e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
             >
-              <option value="">Select an instrument pack</option>
+              <option value="">
+                {packs.length === 0
+                  ? "No available packs"
+                  : "Select an available instrument pack"}
+              </option>
+
               {packs.map((pack) => (
                 <option key={pack.id} value={pack.pack_number}>
                   {pack.pack_number} · {pack.pack_type} · Cycle:{" "}
@@ -276,19 +314,26 @@ export default function PatientsPage() {
                 </option>
               ))}
             </select>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Only packs with Available status are shown. Once linked to a
+              patient, the pack is marked as Used.
+            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Provider</label>
+
             <select
               value={form.provider}
               onChange={(e) => updateForm("provider", e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
             >
               <option value="">Select a provider</option>
-              {doctors.map((doctor) => (
-                <option key={doctor} value={doctor}>
-                  {doctor}
+
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.full_name}>
+                  {provider.full_name}
                 </option>
               ))}
             </select>
@@ -298,6 +343,7 @@ export default function PatientsPage() {
             <label className="block text-sm font-medium mb-2">
               Treatment Room
             </label>
+
             <input
               value={form.treatmentRoom}
               onChange={(e) => updateForm("treatmentRoom", e.target.value)}
@@ -308,6 +354,7 @@ export default function PatientsPage() {
 
           <div>
             <label className="block text-sm font-medium mb-2">Procedure</label>
+
             <input
               value={form.procedure}
               onChange={(e) => updateForm("procedure", e.target.value)}
@@ -352,6 +399,7 @@ export default function PatientsPage() {
                 >
                   <div className="flex flex-col md:flex-row md:justify-between gap-2">
                     <h3 className="font-semibold">{trace.patient_name}</h3>
+
                     <span className="text-sm text-slate-500">
                       {trace.pack_number}
                     </span>
