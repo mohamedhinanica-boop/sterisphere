@@ -100,6 +100,7 @@ export default function SettingsPage() {
                   onChange={(e) => updateUserRole(role.id, e.target.value)}
                   className="w-full md:w-auto h-fit rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm capitalize"
                 >
+                  <option value="super_admin">super_admin</option>
                   <option value="admin">admin</option>
                   <option value="clinical_staff">clinical_staff</option>
                   <option value="doctor">doctor</option>

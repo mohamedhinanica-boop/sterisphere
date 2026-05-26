@@ -5,14 +5,15 @@ import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
 
 const routePermissions: Record<string, string[]> = {
-  "/": ["admin", "clinical_staff", "doctor", "auditor"],
-  "/cycles": ["admin", "clinical_staff"],
-  "/packs": ["admin", "clinical_staff"],
-  "/patients": ["admin", "clinical_staff", "doctor"],
-  "/patient-history": ["admin", "clinical_staff", "doctor", "auditor"],
-  "/reports": ["admin", "doctor", "auditor"],
-  "/investigation": ["admin", "doctor", "auditor"],
-  "/settings": ["admin"],
+  "/": ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
+  "/cycles": ["super_admin", "admin", "clinical_staff"],
+  "/packs": ["super_admin", "admin", "clinical_staff"],
+  "/patients": ["super_admin", "admin", "clinical_staff", "doctor"],
+  "/patients/import": ["super_admin"],
+  "/patient-history": ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
+  "/reports": ["super_admin", "admin", "doctor", "auditor"],
+  "/investigation": ["super_admin", "admin", "doctor", "auditor"],
+  "/settings": ["super_admin", "admin"],
 };
 
 export default function AuthGuard({

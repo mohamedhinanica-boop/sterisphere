@@ -12,42 +12,42 @@ const navItems = [
   {
     label: "Dashboard",
     href: "/",
-    roles: ["admin", "clinical_staff", "doctor", "auditor"],
+    roles: ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
   },
   {
     label: "Sterilization Cycles",
     href: "/cycles",
-    roles: ["admin", "clinical_staff"],
+    roles: ["super_admin", "admin", "clinical_staff"],
   },
   {
     label: "Instrument Packs",
     href: "/packs",
-    roles: ["admin", "clinical_staff"],
+    roles: ["super_admin", "admin", "clinical_staff"],
   },
   {
     label: "Patient Traceability",
     href: "/patients",
-    roles: ["admin", "clinical_staff", "doctor"],
+    roles: ["super_admin", "admin", "clinical_staff", "doctor"],
   },
   {
-  label: "Patient History",
-  href: "/patient-history",
-  roles: ["admin", "clinical_staff", "doctor", "auditor"],
-},
+    label: "Patient History",
+    href: "/patient-history",
+    roles: ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
+  },
   {
     label: "Reports",
     href: "/reports",
-    roles: ["admin", "doctor", "auditor"],
+    roles: ["super_admin", "admin", "doctor", "auditor"],
   },
   {
     label: "Investigation",
     href: "/investigation",
-    roles: ["admin", "doctor", "auditor"],
+    roles: ["super_admin", "admin", "doctor", "auditor"],
   },
   {
     label: "Settings",
     href: "/settings",
-    roles: ["admin"],
+    roles: ["super_admin", "admin"],
   },
 ];
 
