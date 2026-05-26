@@ -29,6 +29,14 @@ type PatientTrace = {
   created_at: string;
 };
 
+const doctors = [
+  "Dr. Ola",
+  "Dr. Malek",
+  "Dr. Landry",
+  "Dr. Palta",
+  "Dr. Anne Turgeon",
+];
+
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
@@ -36,6 +44,9 @@ export default function PatientsPage() {
   const [patientSearch, setPatientSearch] = useState("");
   const [traceSearch, setTraceSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 5;
 
   const [form, setForm] = useState({
     patientId: "",
@@ -133,6 +144,13 @@ export default function PatientsPage() {
     );
   });
 
+  const totalPages = Math.ceil(filteredTraces.length / itemsPerPage);
+
+  const paginatedTraces = filteredTraces.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   async function saveTrace() {
     if (
       !selectedPatient ||
@@ -173,6 +191,7 @@ export default function PatientsPage() {
     });
 
     setPatientSearch("");
+    setCurrentPage(1);
     await fetchTraces();
 
     toast.success("Patient traceability record saved.");
@@ -261,12 +280,18 @@ export default function PatientsPage() {
 
           <div>
             <label className="block text-sm font-medium mb-2">Provider</label>
-            <input
+            <select
               value={form.provider}
               onChange={(e) => updateForm("provider", e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Dr. Smith"
-            />
+            >
+              <option value="">Select a provider</option>
+              {doctors.map((doctor) => (
+                <option key={doctor} value={doctor}>
+                  {doctor}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -307,7 +332,10 @@ export default function PatientsPage() {
 
         <input
           value={traceSearch}
-          onChange={(e) => setTraceSearch(e.target.value)}
+          onChange={(e) => {
+            setTraceSearch(e.target.value);
+            setCurrentPage(1);
+          }}
           className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
           placeholder="Search by patient, pack, provider, room, or procedure"
         />
@@ -315,33 +343,61 @@ export default function PatientsPage() {
         {filteredTraces.length === 0 ? (
           <p className="text-slate-500">No patient traces found.</p>
         ) : (
-          <div className="space-y-3">
-            {filteredTraces.map((trace) => (
-              <div
-                key={trace.id}
-                className="rounded-xl border border-slate-200 p-4"
-              >
-                <div className="flex flex-col md:flex-row md:justify-between gap-2">
-                  <h3 className="font-semibold">{trace.patient_name}</h3>
-                  <span className="text-sm text-slate-500">
-                    {trace.pack_number}
-                  </span>
+          <>
+            <div className="space-y-3">
+              {paginatedTraces.map((trace) => (
+                <div
+                  key={trace.id}
+                  className="rounded-xl border border-slate-200 p-4"
+                >
+                  <div className="flex flex-col md:flex-row md:justify-between gap-2">
+                    <h3 className="font-semibold">{trace.patient_name}</h3>
+                    <span className="text-sm text-slate-500">
+                      {trace.pack_number}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-slate-600 mt-1">
+                    {trace.provider} · {trace.treatment_room}
+                  </p>
+
+                  <p className="text-sm text-slate-500 mt-2">
+                    Procedure: {trace.procedure}
+                  </p>
+
+                  <p className="text-xs text-slate-400 mt-3">
+                    Created: {new Date(trace.created_at).toLocaleString()}
+                  </p>
                 </div>
+              ))}
+            </div>
 
-                <p className="text-sm text-slate-600 mt-1">
-                  {trace.provider} · {trace.treatment_room}
-                </p>
+            {totalPages > 1 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => page - 1)}
+                  className="w-full sm:w-auto rounded-xl border border-slate-300 px-4 py-2 text-sm cursor-pointer hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
 
-                <p className="text-sm text-slate-500 mt-2">
-                  Procedure: {trace.procedure}
-                </p>
+                <span className="text-sm text-slate-500">
+                  Page {currentPage} of {totalPages}
+                </span>
 
-                <p className="text-xs text-slate-400 mt-3">
-                  Created: {new Date(trace.created_at).toLocaleString()}
-                </p>
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  className="w-full sm:w-auto rounded-xl border border-slate-300 px-4 py-2 text-sm cursor-pointer hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </section>
     </>
