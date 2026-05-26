@@ -23,6 +23,8 @@ export default function CyclesPage() {
   const [cycleCounter, setCycleCounter] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [stateFilter, setStateFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
 
   const itemsPerPage = 5;
@@ -149,14 +151,21 @@ export default function CyclesPage() {
 
   const filteredCycles = cycles.filter((cycle) => {
     const search = searchTerm.toLowerCase();
+    const cycleState = cycle.cycle_state || "Open";
 
-    return (
+    const matchesSearch =
       cycle.cycle_number.toLowerCase().includes(search) ||
       cycle.sterilizer.toLowerCase().includes(search) ||
       cycle.operator.toLowerCase().includes(search) ||
       cycle.status.toLowerCase().includes(search) ||
-      (cycle.cycle_state || "").toLowerCase().includes(search)
-    );
+      cycleState.toLowerCase().includes(search);
+
+    const matchesStatus =
+      statusFilter === "All" || cycle.status === statusFilter;
+
+    const matchesState = stateFilter === "All" || cycleState === stateFilter;
+
+    return matchesSearch && matchesStatus && matchesState;
   });
 
   const totalPages = Math.ceil(filteredCycles.length / itemsPerPage);
@@ -267,15 +276,44 @@ export default function CyclesPage() {
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <h2 className="text-2xl font-semibold mb-4">Saved Cycles</h2>
 
-        <input
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
-          placeholder="Search by cycle number, sterilizer, operator, status, or state"
-        />
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="rounded-xl border border-slate-300 px-4 py-3"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Passed">Passed</option>
+            <option value="Failed">Failed</option>
+            <option value="Pending">Pending</option>
+          </select>
+
+          <select
+            value={stateFilter}
+            onChange={(e) => {
+              setStateFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="rounded-xl border border-slate-300 px-4 py-3"
+          >
+            <option value="All">All States</option>
+            <option value="Open">Open</option>
+            <option value="Closed">Closed</option>
+          </select>
+
+          <input
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="rounded-xl border border-slate-300 px-4 py-3"
+            placeholder="Search cycles"
+          />
+        </div>
 
         {cycles.length === 0 ? (
           <p className="text-slate-500">No cycles saved yet.</p>
