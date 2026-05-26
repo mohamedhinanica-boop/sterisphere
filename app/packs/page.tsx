@@ -11,12 +11,14 @@ type Pack = {
   cycle_number: string;
   pack_type: string;
   contents: string;
+  status: string | null;
   created_at: string;
 };
 
 type Cycle = {
   id: string;
   cycle_number: string;
+  expected_pack_count: number | null;
 };
 
 export default function PacksPage() {
@@ -24,9 +26,11 @@ export default function PacksPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [packCounter, setPackCounter] = useState(1);
   const [loading, setLoading] = useState(false);
-const [searchTerm, setSearchTerm] = useState("");
-const [currentPage, setCurrentPage] = useState(1);
-const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 5;
+
   const [form, setForm] = useState({
     cycleId: "",
     packType: "Instrument Pouch",
@@ -57,12 +61,13 @@ const itemsPerPage = 5;
   async function fetchCycles() {
     const { data, error } = await supabase
       .from("cycles")
-    .select("id, cycle_number")
-.eq("status", "Passed")
-.order("created_at", { ascending: false });
+      .select("id, cycle_number, expected_pack_count")
+      .eq("status", "Passed")
+      .eq("cycle_state", "Open")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("Error loading cycles.");
+      toast.error("Error loading open cycles.");
       console.error(error);
       return;
     }
@@ -82,29 +87,60 @@ const itemsPerPage = 5;
       toast.error("Please fill all required fields.");
       return;
     }
-const selectedCycle = cycles.find((cycle) => cycle.id === form.cycleId);
 
-if (!selectedCycle) {
-  toast.error("Selected cycle not found.");
-  return;
-}
+    const selectedCycle = cycles.find((cycle) => cycle.id === form.cycleId);
+
+    if (!selectedCycle) {
+      toast.error("Selected cycle not found.");
+      return;
+    }
+
     setLoading(true);
+
+    const { count: existingPackCount, error: countError } = await supabase
+      .from("packs")
+      .select("id", { count: "exact", head: true })
+      .eq("cycle_id", selectedCycle.id);
+
+    if (countError) {
+      toast.error("Error checking pack count.");
+      console.error(countError);
+      setLoading(false);
+      return;
+    }
+
+    const currentCount = existingPackCount || 0;
+    const expectedCount = selectedCycle.expected_pack_count || 0;
+
+    if (expectedCount > 0 && currentCount >= expectedCount) {
+      await supabase
+        .from("cycles")
+        .update({ cycle_state: "Closed" })
+        .eq("id", selectedCycle.id);
+
+      await fetchCycles();
+
+      toast.error("This cycle has already reached its expected pack count.");
+      setLoading(false);
+      return;
+    }
 
     const newPackNumber = `PACK-${new Date().getFullYear()}-${String(
       packCounter
     ).padStart(4, "0")}`;
 
     const {
-  data: { user },
-} = await supabase.auth.getUser();
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const { error } = await supabase.from("packs").insert([
       {
         pack_number: newPackNumber,
         cycle_id: selectedCycle.id,
-cycle_number: selectedCycle.cycle_number,
+        cycle_number: selectedCycle.cycle_number,
         pack_type: form.packType,
         contents: form.contents,
+        status: "Available",
         created_by: user?.email || "unknown",
       },
     ]);
@@ -116,6 +152,28 @@ cycle_number: selectedCycle.cycle_number,
       return;
     }
 
+    const newCount = currentCount + 1;
+
+    if (expectedCount > 0 && newCount >= expectedCount) {
+      const { error: closeError } = await supabase
+        .from("cycles")
+        .update({ cycle_state: "Closed" })
+        .eq("id", selectedCycle.id);
+
+      if (closeError) {
+        toast.error("Pack saved, but cycle was not closed.");
+        console.error(closeError);
+        setLoading(false);
+        return;
+      }
+
+      toast.success("Pack saved. Cycle reached expected count and was closed.");
+    } else {
+      toast.success(
+        `Pack saved. ${newCount}/${expectedCount || "?"} packs created for this cycle.`
+      );
+    }
+
     setForm({
       cycleId: "",
       packType: "Instrument Pouch",
@@ -123,33 +181,37 @@ cycle_number: selectedCycle.cycle_number,
     });
 
     await fetchPacks();
-    toast.success("Pack saved successfully.");
+    await fetchCycles();
+
     setLoading(false);
   }
+
   const filteredPacks = packs.filter((pack) => {
-  const search = searchTerm.toLowerCase();
+    const search = searchTerm.toLowerCase();
 
-  return (
-    pack.pack_number.toLowerCase().includes(search) ||
-    pack.cycle_number.toLowerCase().includes(search) ||
-    pack.pack_type.toLowerCase().includes(search) ||
-    pack.contents.toLowerCase().includes(search)
+    return (
+      pack.pack_number.toLowerCase().includes(search) ||
+      pack.cycle_number.toLowerCase().includes(search) ||
+      pack.pack_type.toLowerCase().includes(search) ||
+      pack.contents.toLowerCase().includes(search) ||
+      (pack.status || "").toLowerCase().includes(search)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredPacks.length / itemsPerPage);
+
+  const paginatedPacks = filteredPacks.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
-});
-
-const totalPages = Math.ceil(filteredPacks.length / itemsPerPage);
-
-const paginatedPacks = filteredPacks.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-);
 
   return (
     <>
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Instrument Packs</h1>
         <p className="mt-2 text-slate-600">
-          Create QR-coded instrument packs and link them to sterilization cycles.
+          Create QR-coded instrument packs and link them to open sterilization
+          cycles.
         </p>
       </header>
 
@@ -159,20 +221,32 @@ const paginatedPacks = filteredPacks.slice(
         <form className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Sterilization Cycle ID
+              Open Passed Sterilization Cycle
             </label>
+
             <select
               value={form.cycleId}
-onChange={(e) => updateForm("cycleId", e.target.value)}
+              onChange={(e) => updateForm("cycleId", e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
             >
-              <option value="">Select a sterilization cycle</option>
+              <option value="">
+                {cycles.length === 0
+                  ? "No open passed cycles available"
+                  : "Select an open sterilization cycle"}
+              </option>
+
               {cycles.map((cycle) => (
                 <option key={cycle.id} value={cycle.id}>
-  {cycle.cycle_number}
-</option>
+                  {cycle.cycle_number} · Expected packs:{" "}
+                  {cycle.expected_pack_count || "N/A"}
+                </option>
               ))}
             </select>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Closed, failed, and pending cycles are not available for pack
+              creation.
+            </p>
           </div>
 
           <div>
@@ -203,7 +277,7 @@ onChange={(e) => updateForm("cycleId", e.target.value)}
           <button
             type="button"
             onClick={savePack}
-            disabled={loading}
+            disabled={loading || cycles.length === 0}
             className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : "Save Pack"}
@@ -213,40 +287,103 @@ onChange={(e) => updateForm("cycleId", e.target.value)}
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <h2 className="text-2xl font-semibold mb-4">Saved Packs</h2>
-<input
-  value={searchTerm}
-  onChange={(e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(1);
-  }}
-  className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
-  placeholder="Search by pack number, cycle, type, or contents"
-/>
+
+        <input
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
+          placeholder="Search by pack number, cycle, type, contents, or status"
+        />
+
         {packs.length === 0 ? (
           <p className="text-slate-500">No packs saved yet.</p>
+        ) : filteredPacks.length === 0 ? (
+          <p className="text-slate-500">No matching packs found.</p>
         ) : (
-          <div className="space-y-3">
-            {paginatedPacks.map((pack) => (
-              <div key={pack.id} className="rounded-xl border border-slate-200 p-4">
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold">{pack.pack_number}</h3>
-                    <p className="text-sm text-slate-600 mt-1">
-                      {pack.pack_type} · Cycle: {pack.cycle_number}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-2">{pack.contents}</p>
-                    <p className="text-xs text-slate-400 mt-3">
-                      Created: {new Date(pack.created_at).toLocaleString()}
-                    </p>
-                  </div>
+          <>
+            <div className="space-y-3">
+              {paginatedPacks.map((pack) => (
+                <div
+                  key={pack.id}
+                  className="rounded-xl border border-slate-200 p-4"
+                >
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">{pack.pack_number}</h3>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${getPackStatusBadgeClass(
+                            pack.status || "Available"
+                          )}`}
+                        >
+                          {pack.status || "Available"}
+                        </span>
+                      </div>
 
-                  <QRCodeSVG value={pack.pack_number} size={90} />
+                      <p className="text-sm text-slate-600 mt-1">
+                        {pack.pack_type} · Cycle: {pack.cycle_number}
+                      </p>
+
+                      <p className="text-sm text-slate-500 mt-2">
+                        {pack.contents}
+                      </p>
+
+                      <p className="text-xs text-slate-400 mt-3">
+                        Created: {new Date(pack.created_at).toLocaleString()}
+                      </p>
+                    </div>
+
+                    <QRCodeSVG value={pack.pack_number} size={90} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex flex-col md:flex-row items-center justify-between gap-3 mt-6">
+                <p className="text-sm text-slate-500">
+                  Page {currentPage} of {totalPages}
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((page) => page - 1)}
+                    className="rounded-xl border border-slate-300 px-4 py-2 min-h-11 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition"
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((page) => page + 1)}
+                    className="rounded-xl border border-slate-300 px-4 py-2 min-h-11 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition"
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </section>
     </>
   );
+}
+
+function getPackStatusBadgeClass(status: string) {
+  if (status === "Used") {
+    return "bg-slate-100 text-slate-700 border-slate-200";
+  }
+
+  if (status === "Available") {
+    return "bg-green-100 text-green-700 border-green-200";
+  }
+
+  return "bg-yellow-100 text-yellow-700 border-yellow-200";
 }
