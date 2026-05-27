@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState("");
+  const [currentUserRole, setCurrentUserRole] = useState("");
 
   const [providerForm, setProviderForm] = useState({
     fullName: "",
@@ -44,6 +45,16 @@ export default function SettingsPage() {
     } = await supabase.auth.getUser();
 
     setCurrentUserEmail(user?.email || "");
+
+    if (user?.email) {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_email", user.email)
+        .maybeSingle();
+
+      setCurrentUserRole(data?.role || "");
+    }
   }
 
   async function fetchRoles() {
@@ -77,6 +88,11 @@ export default function SettingsPage() {
   }
 
   async function updateUserRole(roleId: string, newRole: string) {
+    if (currentUserRole !== "super_admin") {
+      toast.error("Only super admin can manage user roles.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase
@@ -98,6 +114,11 @@ export default function SettingsPage() {
   }
 
   async function toggleUserStatus(userId: string, currentStatus: boolean) {
+    if (currentUserRole !== "super_admin") {
+      toast.error("Only super admin can activate or deactivate users.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase
@@ -200,12 +221,21 @@ export default function SettingsPage() {
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
         <h2 className="text-2xl font-semibold mb-4">User Roles</h2>
 
+        {currentUserRole !== "super_admin" && (
+          <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+            You can view users, but only a super admin can change roles or
+            activate/deactivate accounts.
+          </div>
+        )}
+
         {roles.length === 0 ? (
           <p className="text-slate-500">No user roles found.</p>
         ) : (
           <div className="space-y-3">
             {roles.map((role) => {
               const isCurrentUser = role.user_email === currentUserEmail;
+              const canManageUser =
+                currentUserRole === "super_admin" && !isCurrentUser;
 
               return (
                 <div
@@ -250,7 +280,7 @@ export default function SettingsPage() {
                   <div className="flex flex-col md:flex-row gap-3">
                     <select
                       value={role.role}
-                      disabled={loading || isCurrentUser}
+                      disabled={loading || !canManageUser}
                       onChange={(e) => updateUserRole(role.id, e.target.value)}
                       className="w-full md:w-auto h-fit rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm capitalize disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -263,7 +293,7 @@ export default function SettingsPage() {
 
                     <button
                       type="button"
-                      disabled={loading || isCurrentUser}
+                      disabled={loading || !canManageUser}
                       onClick={() => toggleUserStatus(role.id, role.active)}
                       className={`rounded-xl px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                         role.active
@@ -387,20 +417,22 @@ export default function SettingsPage() {
         )}
       </section>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-2xl font-semibold mb-4">Super Admin Tools</h2>
+      {currentUserRole === "super_admin" && (
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <h2 className="text-2xl font-semibold mb-4">Super Admin Tools</h2>
 
-        <p className="text-sm text-slate-600 mb-4">
-          Advanced tools reserved for system migration and maintenance.
-        </p>
+          <p className="text-sm text-slate-600 mb-4">
+            Advanced tools reserved for system migration and maintenance.
+          </p>
 
-        <Link
-          href="/patients/import"
-          className="inline-block rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
-        >
-          Import Patients Database
-        </Link>
-      </section>
+          <Link
+            href="/patients/import"
+            className="inline-block rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+          >
+            Import Patients Database
+          </Link>
+        </section>
+      )}
     </>
   );
 }
