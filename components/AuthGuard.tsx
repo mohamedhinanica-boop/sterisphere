@@ -10,7 +10,13 @@ const routePermissions: Record<string, string[]> = {
   "/packs": ["super_admin", "admin", "clinical_staff"],
   "/patients": ["super_admin", "admin", "clinical_staff", "doctor"],
   "/patients/import": ["super_admin"],
-  "/patient-history": ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
+  "/patient-history": [
+    "super_admin",
+    "admin",
+    "clinical_staff",
+    "doctor",
+    "auditor",
+  ],
   "/reports": ["super_admin", "admin", "doctor", "auditor"],
   "/investigation": ["super_admin", "admin", "doctor", "auditor"],
   "/settings": ["super_admin", "admin"],
@@ -29,6 +35,9 @@ export default function AuthGuard({
 
   useEffect(() => {
     async function checkAccess() {
+      setChecking(true);
+      setAllowed(false);
+
       if (pathname === "/login") {
         setAllowed(true);
         setChecking(false);
@@ -41,21 +50,29 @@ export default function AuthGuard({
 
       if (!user?.email) {
         router.push("/login");
+        setChecking(false);
         return;
       }
 
-      const { data: roleData } = await supabase
+      const { data: roleData, error } = await supabase
         .from("user_roles")
-        .select("role")
+        .select("role, active")
         .eq("user_email", user.email)
         .maybeSingle();
 
-      const userRole = roleData?.role || "";
+      if (error || !roleData?.active) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        setChecking(false);
+        return;
+      }
 
+      const userRole = roleData.role || "";
       const allowedRoles = routePermissions[pathname] || [];
 
       if (!allowedRoles.includes(userRole)) {
         router.push("/");
+        setChecking(false);
         return;
       }
 
