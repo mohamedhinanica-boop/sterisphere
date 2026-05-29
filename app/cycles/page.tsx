@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
+import { createAuditLog } from "@/lib/audit";
 
 type Cycle = {
   id: string;
@@ -64,35 +65,37 @@ export default function CyclesPage() {
     }));
   }
 
-  async function saveCycle() {
-    if (
-      !form.sterilizer ||
-      !form.operator ||
-      !form.loadContents ||
-      !form.expectedPackCount
-    ) {
-      toast.error("Please fill all required fields.");
-      return;
-    }
+async function saveCycle() {
+  if (
+    !form.sterilizer ||
+    !form.operator ||
+    !form.loadContents ||
+    !form.expectedPackCount
+  ) {
+    toast.error("Please fill all required fields.");
+    return;
+  }
 
-    const expectedPackCount = Number(form.expectedPackCount);
+  const expectedPackCount = Number(form.expectedPackCount);
 
-    if (!Number.isInteger(expectedPackCount) || expectedPackCount <= 0) {
-      toast.error("Expected pack count must be a positive number.");
-      return;
-    }
+  if (!Number.isInteger(expectedPackCount) || expectedPackCount <= 0) {
+    toast.error("Expected pack count must be a positive number.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
-      cycleCounter
-    ).padStart(4, "0")}`;
+  const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
+    cycleCounter
+  ).padStart(4, "0")}`;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("cycles").insert([
+  const { data: newCycle, error } = await supabase
+    .from("cycles")
+    .insert([
       {
         cycle_number: newCycleNumber,
         sterilizer: form.sterilizer,
@@ -103,27 +106,44 @@ export default function CyclesPage() {
         expected_pack_count: expectedPackCount,
         created_by: user?.email || "unknown",
       },
-    ]);
+    ])
+    .select()
+    .single();
 
-    if (error) {
-      toast.error("Error saving cycle.");
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    setForm({
-      sterilizer: "",
-      operator: "",
-      loadContents: "",
-      status: "Passed",
-      expectedPackCount: "",
-    });
-
-    await fetchCycles();
-    toast.success("Cycle saved successfully.");
+  if (error || !newCycle) {
+    toast.error("Error saving cycle.");
+    console.error(error);
     setLoading(false);
+    return;
   }
+
+  await createAuditLog({
+    action: "cycle_created",
+    entityType: "cycle",
+    entityId: newCycle.id,
+    description: `Created sterilization cycle ${newCycle.cycle_number}`,
+    metadata: {
+      cycle_number: newCycle.cycle_number,
+      sterilizer: newCycle.sterilizer,
+      operator: newCycle.operator,
+      status: newCycle.status,
+      cycle_state: newCycle.cycle_state,
+      expected_pack_count: newCycle.expected_pack_count,
+    },
+  });
+
+  setForm({
+    sterilizer: "",
+    operator: "",
+    loadContents: "",
+    status: "Passed",
+    expectedPackCount: "",
+  });
+
+  await fetchCycles();
+  toast.success("Cycle saved successfully.");
+  setLoading(false);
+}
 
   async function updateCycleStatus(cycleId: string, newStatus: string) {
     const { error } = await supabase
@@ -139,7 +159,15 @@ export default function CyclesPage() {
       console.error(error);
       return;
     }
-
+await createAuditLog({
+  action: "cycle_status_updated",
+  entityType: "cycle",
+  entityId: cycleId,
+  description: `Cycle status updated to ${newStatus}`,
+  metadata: {
+    new_status: newStatus,
+  },
+});
     await fetchCycles();
 
     if (newStatus === "Failed") {
