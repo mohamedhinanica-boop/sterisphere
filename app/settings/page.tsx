@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 import toast from "react-hot-toast";
 
 type UserRole = {
@@ -15,6 +16,10 @@ type UserRole = {
 
 type Provider = {
   id: string;
+  first_name: string | null;
+  last_name: string | null;
+  title: string | null;
+  display_name: string | null;
   full_name: string;
   role: string | null;
   active: boolean;
@@ -29,7 +34,8 @@ export default function SettingsPage() {
   const [currentUserRole, setCurrentUserRole] = useState("");
 
   const [providerForm, setProviderForm] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     role: "Dentist",
   });
 
@@ -38,6 +44,13 @@ export default function SettingsPage() {
     fetchRoles();
     fetchProviders();
   }, []);
+
+  function getCurrentRole() {
+    return (
+      roles.find((role) => role.user_email === currentUserEmail)?.role ||
+      currentUserRole
+    );
+  }
 
   async function loadCurrentUser() {
     const {
@@ -75,7 +88,9 @@ export default function SettingsPage() {
   async function fetchProviders() {
     const { data, error } = await supabase
       .from("providers")
-      .select("*")
+      .select(
+        "id, first_name, last_name, title, display_name, full_name, role, active, created_at"
+      )
       .order("full_name", { ascending: true });
 
     if (error) {
@@ -88,10 +103,12 @@ export default function SettingsPage() {
   }
 
   async function updateUserRole(roleId: string, newRole: string) {
-    if (currentUserRole !== "super_admin") {
+    if (getCurrentRole() !== "super_admin") {
       toast.error("Only super admin can manage user roles.");
       return;
     }
+
+    const targetUser = roles.find((role) => role.id === roleId);
 
     setLoading(true);
 
@@ -107,17 +124,29 @@ export default function SettingsPage() {
       return;
     }
 
-    await fetchRoles();
+    await createAuditLog({
+      action: "user_role_updated",
+      entityType: "user_role",
+      entityId: roleId,
+      description: `Updated ${targetUser?.user_email || "user"} role to ${newRole}`,
+      metadata: {
+        user_email: targetUser?.user_email,
+        new_role: newRole,
+      },
+    });
 
+    await fetchRoles();
     toast.success("User role updated.");
     setLoading(false);
   }
 
   async function toggleUserStatus(userId: string, currentStatus: boolean) {
-    if (currentUserRole !== "super_admin") {
+    if (getCurrentRole() !== "super_admin") {
       toast.error("Only super admin can activate or deactivate users.");
       return;
     }
+
+    const targetUser = roles.find((role) => role.id === userId);
 
     setLoading(true);
 
@@ -133,42 +162,105 @@ export default function SettingsPage() {
       return;
     }
 
-    await fetchRoles();
+    await createAuditLog({
+      action: currentStatus ? "user_deactivated" : "user_activated",
+      entityType: "user_role",
+      entityId: userId,
+      description: `${currentStatus ? "Deactivated" : "Activated"} user ${
+        targetUser?.user_email || ""
+      }`,
+      metadata: {
+        user_email: targetUser?.user_email,
+        active: !currentStatus,
+      },
+    });
 
+    await fetchRoles();
     toast.success(currentStatus ? "User deactivated." : "User activated.");
     setLoading(false);
   }
 
   async function addProvider() {
-    if (!providerForm.fullName.trim()) {
-      toast.error("Please enter a provider name.");
+    const currentRole = getCurrentRole();
+
+    if (currentRole !== "super_admin" && currentRole !== "admin") {
+      toast.error("You do not have permission.");
+      return;
+    }
+
+    const firstName = providerForm.firstName.trim();
+    const lastName = providerForm.lastName.trim();
+
+    if (!firstName || !lastName) {
+      toast.error("Please enter first and last name.");
       return;
     }
 
     setLoading(true);
 
+    const title = getProviderTitle(providerForm.role);
+    const displayName =
+      title !== "" ? `${title} ${firstName} ${lastName}` : `${firstName} ${lastName}`;
+
+    const normalizedNewName = normalizeProviderName(displayName);
+
+    const duplicateProvider = providers.find(
+      (provider) =>
+        normalizeProviderName(provider.display_name || provider.full_name) ===
+        normalizedNewName
+    );
+
+    if (duplicateProvider) {
+      toast.error("Provider already exists.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.from("providers").insert([
       {
-        full_name: providerForm.fullName.trim(),
+        first_name: firstName,
+        last_name: lastName,
+        title,
+        display_name: displayName,
+        full_name: displayName,
         role: providerForm.role,
         active: true,
       },
     ]);
 
     if (error) {
-      toast.error("Error adding provider.");
+      toast.error(
+        error.code === "23505"
+          ? "Provider already exists."
+          : error.message || "Error adding provider."
+      );
       console.error(error);
       setLoading(false);
       return;
     }
 
+    await createAuditLog({
+      action: "provider_created",
+      entityType: "provider",
+      description: `Created provider ${displayName}`,
+      metadata: {
+        first_name: firstName,
+        last_name: lastName,
+        title,
+        display_name: displayName,
+        full_name: displayName,
+        role: providerForm.role,
+        active: true,
+      },
+    });
+
     setProviderForm({
-      fullName: "",
+      firstName: "",
+      lastName: "",
       role: "Dentist",
     });
 
     await fetchProviders();
-
     toast.success("Provider added successfully.");
     setLoading(false);
   }
@@ -177,6 +269,15 @@ export default function SettingsPage() {
     providerId: string,
     currentStatus: boolean
   ) {
+    const currentRole = getCurrentRole();
+
+    if (currentRole !== "super_admin" && currentRole !== "admin") {
+      toast.error("You do not have permission.");
+      return;
+    }
+
+    const provider = providers.find((item) => item.id === providerId);
+
     setLoading(true);
 
     const { error } = await supabase
@@ -185,11 +286,26 @@ export default function SettingsPage() {
       .eq("id", providerId);
 
     if (error) {
-      toast.error("Error updating provider status.");
+      toast.error(error.message || "Error updating provider status.");
       console.error(error);
       setLoading(false);
       return;
     }
+
+    await createAuditLog({
+      action: currentStatus ? "provider_deactivated" : "provider_activated",
+      entityType: "provider",
+      entityId: providerId,
+      description: `${currentStatus ? "Deactivated" : "Activated"} provider ${
+        provider?.display_name || provider?.full_name || ""
+      }`,
+      metadata: {
+        full_name: provider?.full_name,
+        display_name: provider?.display_name,
+        role: provider?.role,
+        active: !currentStatus,
+      },
+    });
 
     await fetchProviders();
 
@@ -198,6 +314,17 @@ export default function SettingsPage() {
     );
     setLoading(false);
   }
+
+  const activeProviders = providers.filter((provider) => provider.active);
+  const inactiveProviders = providers.filter((provider) => !provider.active);
+
+  const providerPreviewTitle = getProviderTitle(providerForm.role);
+  const providerPreview =
+    providerForm.firstName.trim() || providerForm.lastName.trim()
+      ? `${
+          providerPreviewTitle ? `${providerPreviewTitle} ` : ""
+        }${providerForm.firstName.trim()} ${providerForm.lastName.trim()}`.trim()
+      : "";
 
   return (
     <>
@@ -211,17 +338,18 @@ export default function SettingsPage() {
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
         <h2 className="text-2xl font-semibold mb-4">System Overview</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard title="Clinic" value="Dentaria" />
           <InfoCard title="Database" value="Connected" />
           <InfoCard title="Environment" value="MVP / Development" />
+          <InfoCard title="Active Providers" value={String(activeProviders.length)} />
         </div>
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
         <h2 className="text-2xl font-semibold mb-4">User Roles</h2>
 
-        {currentUserRole !== "super_admin" && (
+        {getCurrentRole() !== "super_admin" && (
           <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
             You can view users, but only a super admin can change roles or
             activate/deactivate accounts.
@@ -235,7 +363,7 @@ export default function SettingsPage() {
             {roles.map((role) => {
               const isCurrentUser = role.user_email === currentUserEmail;
               const canManageUser =
-                currentUserRole === "super_admin" && !isCurrentUser;
+                getCurrentRole() === "super_admin" && !isCurrentUser;
 
               return (
                 <div
@@ -245,24 +373,15 @@ export default function SettingsPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{role.user_email}</p>
-
                       <RoleBadge role={role.role} />
 
                       {isCurrentUser && (
-                        <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                        <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                           You
                         </span>
                       )}
 
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                          role.active
-                            ? "border-green-200 bg-green-50 text-green-700"
-                            : "border-slate-200 bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {role.active ? "Active" : "Inactive"}
-                      </span>
+                      <StatusBadge active={role.active} />
                     </div>
 
                     <p className="text-xs text-slate-400 mt-1">
@@ -319,22 +438,43 @@ export default function SettingsPage() {
               Manage doctors and providers used in patient traceability.
             </p>
           </div>
+
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-green-700">
+              Active: {activeProviders.length}
+            </span>
+            <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+              Inactive: {inactiveProviders.length}
+            </span>
+          </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-6">
           <h3 className="font-semibold mb-4">Add Provider</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <input
-              value={providerForm.fullName}
+              value={providerForm.firstName}
               onChange={(e) =>
                 setProviderForm((current) => ({
                   ...current,
-                  fullName: e.target.value,
+                  firstName: e.target.value,
                 }))
               }
               className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-              placeholder="Example: Dr. Smith"
+              placeholder="First Name"
+            />
+
+            <input
+              value={providerForm.lastName}
+              onChange={(e) =>
+                setProviderForm((current) => ({
+                  ...current,
+                  lastName: e.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+              placeholder="Last Name"
             />
 
             <select
@@ -349,6 +489,7 @@ export default function SettingsPage() {
             >
               <option value="Dentist">Dentist</option>
               <option value="Hygienist">Hygienist</option>
+              <option value="Assistant">Assistant</option>
               <option value="Specialist">Specialist</option>
               <option value="Other">Other</option>
             </select>
@@ -362,6 +503,14 @@ export default function SettingsPage() {
               Add Provider
             </button>
           </div>
+
+          {providerPreview && (
+            <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+              Display name preview: <strong>{providerPreview}</strong>
+            </div>
+          )}
+
+         
         </div>
 
         {providers.length === 0 ? (
@@ -375,21 +524,11 @@ export default function SettingsPage() {
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{provider.full_name}</p>
-
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-                      {provider.role || "Provider"}
-                    </span>
-
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                        provider.active
-                          ? "border-green-200 bg-green-50 text-green-700"
-                          : "border-slate-200 bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {provider.active ? "Active" : "Inactive"}
-                    </span>
+                    <p className="font-medium">
+                      {provider.display_name || provider.full_name}
+                    </p>
+                    <ProviderRoleBadge role={provider.role || "Provider"} />
+                    <StatusBadge active={provider.active} />
                   </div>
 
                   <p className="text-xs text-slate-400 mt-1">
@@ -417,7 +556,7 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {currentUserRole === "super_admin" && (
+      {getCurrentRole() === "super_admin" && (
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <h2 className="text-2xl font-semibold mb-4">Super Admin Tools</h2>
 
@@ -435,6 +574,28 @@ export default function SettingsPage() {
       )}
     </>
   );
+}
+
+function normalizeProviderName(name: string) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/^(dr\.?|dre\.?|hyg\.?)\s+/, "")
+    .replace(/\s+/g, " ");
+}
+
+function getProviderTitle(role: string) {
+  switch (role) {
+    case "Dentist":
+    case "Specialist":
+      return "Dr.";
+
+    case "Hygienist":
+      return "Hyg.";
+
+    default:
+      return "";
+  }
 }
 
 function InfoCard({ title, value }: { title: string; value: string }) {
@@ -457,11 +618,46 @@ function RoleBadge({ role }: { role: string }) {
 
   return (
     <span
-      className={`rounded-full border px-3 py-1 text-xs font-medium ${
+      className={`rounded-lg border px-3 py-1 text-xs font-medium ${
         roleClasses[role] || "border-slate-200 bg-slate-50 text-slate-600"
       }`}
     >
       {role}
+    </span>
+  );
+}
+
+function ProviderRoleBadge({ role }: { role: string }) {
+  const roleClasses: Record<string, string> = {
+    Dentist: "border-blue-200 bg-blue-50 text-blue-700",
+    Hygienist: "border-green-200 bg-green-50 text-green-700",
+    Assistant: "border-purple-200 bg-purple-50 text-purple-700",
+    Specialist: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    Other: "border-slate-200 bg-slate-50 text-slate-600",
+    Provider: "border-slate-200 bg-slate-50 text-slate-600",
+  };
+
+  return (
+    <span
+      className={`rounded-lg border px-3 py-1 text-xs font-medium ${
+        roleClasses[role] || "border-slate-200 bg-slate-50 text-slate-600"
+      }`}
+    >
+      {role}
+    </span>
+  );
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`rounded-lg border px-3 py-1 text-xs font-medium ${
+        active
+          ? "border-green-200 bg-green-50 text-green-700"
+          : "border-slate-200 bg-slate-100 text-slate-600"
+      }`}
+    >
+      {active ? "Active" : "Inactive"}
     </span>
   );
 }
