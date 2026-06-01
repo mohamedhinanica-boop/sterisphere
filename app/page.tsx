@@ -43,6 +43,10 @@ type PatientTrace = {
 };
 
 export default function Home() {
+  const [openCyclesCount, setOpenCyclesCount] = useState(0);
+const [closedCyclesCount, setClosedCyclesCount] = useState(0);
+const [availablePacksCount, setAvailablePacksCount] = useState(0);
+const [usedPacksCount, setUsedPacksCount] = useState(0);
   const [recentActivity, setRecentActivity] = useState<AuditLog[]>([]);
   const [cyclesCount, setCyclesCount] = useState(0);
   const [packsCount, setPacksCount] = useState(0);
@@ -61,6 +65,26 @@ export default function Home() {
   }, []);
 
   async function fetchDashboardData() {
+
+    const { count: openCycles } = await supabase
+  .from("cycles")
+  .select("*", { count: "exact", head: true })
+  .eq("cycle_state", "Open");
+
+const { count: closedCycles } = await supabase
+  .from("cycles")
+  .select("*", { count: "exact", head: true })
+  .eq("cycle_state", "Closed");
+
+const { count: availablePacks } = await supabase
+  .from("packs")
+  .select("*", { count: "exact", head: true })
+  .eq("status", "Available");
+
+const { count: usedPacks } = await supabase
+  .from("packs")
+  .select("*", { count: "exact", head: true })
+  .eq("status", "Used");
 
     const { data: auditLogs, error: auditError } = await supabase
   .from("audit_logs")
@@ -126,6 +150,10 @@ if (auditError) {
     setPendingCyclesCount(pendingCycles || 0);
     setLatestFailedCycles(failedData || []);
     setLatestPatientRecords(patientData || []);
+    setOpenCyclesCount(openCycles || 0);
+setClosedCyclesCount(closedCycles || 0);
+setAvailablePacksCount(availablePacks || 0);
+setUsedPacksCount(usedPacks || 0);
   }
 
   return (
@@ -295,7 +323,7 @@ packs and patient traceability.
         </section>
       </div>
 
-      <section className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <section className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
   <div className="flex items-center justify-between mb-4">
   <h2 className="text-2xl font-semibold">Recent Activity</h2>
 
@@ -337,31 +365,37 @@ packs and patient traceability.
   )}
 </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActionCard
-          icon={<Activity />}
-          title="Create Sterilization Cycle"
-          description="Register a new autoclave cycle, operator, load details, and pass/fail status."
-        />
+      <section className="mt-8">
+  <h2 className="text-2xl font-semibold mb-4">
+    Sterilization Performance
+  </h2>
 
-        <ActionCard
-          icon={<QrCode />}
-          title="Generate QR Labels"
-          description="Create unique QR codes for instrument pouches and cassette tracking."
-        />
+  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+    <StatCard
+      icon={<ClipboardCheck size={28} />}
+      title="Open Cycles"
+      value={openCyclesCount}
+    />
 
-        <ActionCard
-          icon={<PackageCheck />}
-          title="Link Instruments to Patient"
-          description="Scan or select a pouch QR code and connect it to a patient appointment."
-        />
+    <StatCard
+      icon={<ShieldCheck size={28} />}
+      title="Closed Cycles"
+      value={closedCyclesCount}
+    />
 
-        <ActionCard
-          icon={<FileText />}
-          title="Export Audit Reports"
-          description="Prepare clean compliance reports for internal review or inspection."
-        />
-      </div>
+    <StatCard
+      icon={<PackageCheck size={28} />}
+      title="Available Packs"
+      value={availablePacksCount}
+    />
+
+    <StatCard
+      icon={<FileText size={28} />}
+      title="Used Packs"
+      value={usedPacksCount}
+    />
+  </div>
+</section>
     </>
   );
 }
