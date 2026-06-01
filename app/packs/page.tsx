@@ -1,5 +1,6 @@
 "use client";
 
+import { createAuditLog } from "@/lib/audit";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
@@ -134,24 +135,41 @@ export default function PacksPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("packs").insert([
-      {
-        pack_number: newPackNumber,
-        cycle_id: selectedCycle.id,
-        cycle_number: selectedCycle.cycle_number,
-        pack_type: form.packType,
-        contents: form.contents,
-        status: "Available",
-        created_by: user?.email || "unknown",
-      },
-    ]);
+ const { data: newPack, error } = await supabase
+  .from("packs")
+  .insert([
+    {
+      pack_number: newPackNumber,
+      cycle_id: selectedCycle.id,
+      cycle_number: selectedCycle.cycle_number,
+      pack_type: form.packType,
+      contents: form.contents,
+      status: "Available",
+      created_by: user?.email || "unknown",
+    },
+  ])
+  .select()
+  .single();
 
-    if (error) {
-      toast.error("Error saving pack.");
-      console.error(error);
-      setLoading(false);
-      return;
-    }
+if (error || !newPack) {
+  toast.error("Error saving pack.");
+  console.error(error);
+  setLoading(false);
+  return;
+}
+
+    await createAuditLog({
+  action: "pack_created",
+  entityType: "pack",
+  entityId: newPack.id,
+  description: `Created pack ${newPack.pack_number} from cycle ${newPack.cycle_number}`,
+  metadata: {
+    pack_number: newPack.pack_number,
+    cycle_number: newPack.cycle_number,
+    pack_type: newPack.pack_type,
+    status: newPack.status,
+  },
+});
 
     const newCount = currentCount + 1;
 
@@ -167,7 +185,17 @@ export default function PacksPage() {
         setLoading(false);
         return;
       }
-
+await createAuditLog({
+  action: "cycle_closed",
+  entityType: "cycle",
+  entityId: selectedCycle.id,
+  description: `Cycle ${selectedCycle.cycle_number} closed after reaching expected pack count`,
+  metadata: {
+    cycle_number: selectedCycle.cycle_number,
+    expected_pack_count: expectedCount,
+    created_pack_count: newCount,
+  },
+});
       toast.success("Pack saved. Cycle reached expected count and was closed.");
     } else {
       toast.success(

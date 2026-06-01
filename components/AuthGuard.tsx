@@ -20,6 +20,7 @@ const routePermissions: Record<string, string[]> = {
   "/reports": ["super_admin", "admin", "doctor", "auditor"],
   "/investigation": ["super_admin", "admin", "doctor", "auditor"],
   "/settings": ["super_admin", "admin"],
+  "/audit-logs": ["super_admin", "admin", "auditor"],
 };
 
 export default function AuthGuard({

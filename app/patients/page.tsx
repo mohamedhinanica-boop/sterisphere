@@ -1,5 +1,6 @@
 "use client";
 
+import { createAuditLog } from "@/lib/audit";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
@@ -169,66 +170,96 @@ export default function PatientsPage() {
     currentPage * itemsPerPage
   );
 
-  async function saveTrace() {
-    if (
-      !selectedPatient ||
-      !form.packNumber ||
-      !form.provider ||
-      !form.treatmentRoom ||
-      !form.procedure
-    ) {
-      toast.error("Please fill all required fields.");
-      return;
-    }
+ async function saveTrace() {
+  if (
+    !selectedPatient ||
+    !form.packNumber ||
+    !form.provider ||
+    !form.treatmentRoom ||
+    !form.procedure
+  ) {
+    toast.error("Please fill all required fields.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    const { error } = await supabase.from("patient_traces").insert([
+  const { data: newTrace, error } = await supabase
+    .from("patient_traces")
+    .insert([
       {
+        patient_id: selectedPatient.id,
         patient_name: selectedPatient.full_name,
         provider: form.provider,
         treatment_room: form.treatmentRoom,
         pack_number: form.packNumber,
         procedure: form.procedure,
       },
-    ]);
+    ])
+    .select()
+    .single();
 
-    if (error) {
-      toast.error("Error saving patient trace.");
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    const { error: packUpdateError } = await supabase
-      .from("packs")
-      .update({ status: "Used" })
-      .eq("pack_number", form.packNumber);
-
-    if (packUpdateError) {
-      toast.error("Patient trace saved, but pack status was not updated.");
-      console.error(packUpdateError);
-      setLoading(false);
-      return;
-    }
-
-    setForm({
-      patientId: "",
-      packNumber: "",
-      provider: "",
-      treatmentRoom: "",
-      procedure: "",
-    });
-
-    setPatientSearch("");
-    setCurrentPage(1);
-
-    await fetchTraces();
-    await fetchPacks();
-
-    toast.success("Patient traceability record saved. Pack marked as used.");
+  if (error || !newTrace) {
+    toast.error("Error saving patient trace.");
+    console.error(error);
     setLoading(false);
+    return;
   }
+
+  await createAuditLog({
+    action: "patient_trace_created",
+    entityType: "patient_trace",
+    entityId: newTrace.id,
+    description: `Linked pack ${newTrace.pack_number} to patient ${newTrace.patient_name}`,
+    metadata: {
+      patient_name: newTrace.patient_name,
+      pack_number: newTrace.pack_number,
+      provider: newTrace.provider,
+      treatment_room: newTrace.treatment_room,
+      procedure: newTrace.procedure,
+    },
+  });
+
+  const { error: packUpdateError } = await supabase
+    .from("packs")
+    .update({ status: "Used" })
+    .eq("pack_number", form.packNumber);
+
+  if (packUpdateError) {
+    toast.error("Patient trace saved, but pack status was not updated.");
+    console.error(packUpdateError);
+    setLoading(false);
+    return;
+  }
+
+  await createAuditLog({
+    action: "pack_marked_used",
+    entityType: "pack",
+    entityId: form.packNumber,
+    description: `Pack ${form.packNumber} marked as used`,
+    metadata: {
+      pack_number: form.packNumber,
+      patient_name: selectedPatient.full_name,
+    },
+  });
+
+  setForm({
+    patientId: "",
+    packNumber: "",
+    provider: "",
+    treatmentRoom: "",
+    procedure: "",
+  });
+
+  setPatientSearch("");
+  setCurrentPage(1);
+
+  await fetchTraces();
+  await fetchPacks();
+
+  toast.success("Patient traceability record saved. Pack marked as used.");
+  setLoading(false);
+}
 
   return (
     <>

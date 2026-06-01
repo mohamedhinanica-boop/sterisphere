@@ -44,6 +44,13 @@ const navItems = [
     href: "/investigation",
     roles: ["super_admin", "admin", "doctor", "auditor"],
   },
+
+  {
+  label: "Audit Logs",
+  href: "/audit-logs",
+  roles: ["super_admin", "admin", "auditor"],
+},
+
   {
     label: "Settings",
     href: "/settings",

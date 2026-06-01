@@ -1,5 +1,5 @@
 "use client";
-
+import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -12,6 +12,15 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+
+type AuditLog = {
+  id: string;
+  action: string;
+  entity_type: string;
+  description: string | null;
+  user_email: string | null;
+  created_at: string;
+};
 
 type Cycle = {
   id: string;
@@ -34,6 +43,7 @@ type PatientTrace = {
 };
 
 export default function Home() {
+  const [recentActivity, setRecentActivity] = useState<AuditLog[]>([]);
   const [cyclesCount, setCyclesCount] = useState(0);
   const [packsCount, setPacksCount] = useState(0);
   const [patientRecordsCount, setPatientRecordsCount] = useState(0);
@@ -51,6 +61,20 @@ export default function Home() {
   }, []);
 
   async function fetchDashboardData() {
+
+    const { data: auditLogs, error: auditError } = await supabase
+  .from("audit_logs")
+  .select("id, action, entity_type, description, user_email, created_at")
+  .order("created_at", { ascending: false })
+  .limit(5);
+
+if (auditError) {
+  toast.error("Error loading recent activity.");
+  console.error(auditError);
+} else {
+  setRecentActivity(auditLogs || []);
+}
+
     const { count: cycles } = await supabase
       .from("cycles")
       .select("*", { count: "exact", head: true });
@@ -270,6 +294,48 @@ packs and patient traceability.
           )}
         </section>
       </div>
+
+      <section className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+  <div className="flex items-center justify-between mb-4">
+  <h2 className="text-2xl font-semibold">Recent Activity</h2>
+
+  <Link
+    href="/audit-logs"
+    className="text-sm font-medium text-blue-700 hover:text-blue-800"
+  >
+    View All →
+  </Link>
+</div>
+
+  {recentActivity.length === 0 ? (
+    <p className="text-slate-500">No recent activity yet.</p>
+  ) : (
+    <div className="space-y-3">
+      {recentActivity.map((activity) => (
+        <div
+          key={activity.id}
+          className="border-b border-slate-100 py-3 last:border-b-0"
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div>
+              <p className="font-medium text-slate-900">
+                {activity.description || activity.action}
+              </p>
+
+              <p className="text-sm text-slate-500 mt-1">
+                {activity.user_email || "unknown"} · {activity.entity_type}
+              </p>
+            </div>
+
+            <span className="text-xs text-slate-400">
+              {new Date(activity.created_at).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ActionCard
