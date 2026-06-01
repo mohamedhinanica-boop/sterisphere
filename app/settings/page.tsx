@@ -26,9 +26,18 @@ type Provider = {
   created_at: string;
 };
 
+type Sterilizer = {
+  id: string;
+  name: string;
+  type: string | null;
+  active: boolean;
+  created_at: string;
+};
+
 export default function SettingsPage() {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [sterilizers, setSterilizers] = useState<Sterilizer[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [currentUserRole, setCurrentUserRole] = useState("");
@@ -39,10 +48,16 @@ export default function SettingsPage() {
     role: "Dentist",
   });
 
+  const [sterilizerForm, setSterilizerForm] = useState({
+    name: "",
+    type: "Autoclave",
+  });
+
   useEffect(() => {
     loadCurrentUser();
     fetchRoles();
     fetchProviders();
+    fetchSterilizers();
   }, []);
 
   function getCurrentRole() {
@@ -50,6 +65,11 @@ export default function SettingsPage() {
       roles.find((role) => role.user_email === currentUserEmail)?.role ||
       currentUserRole
     );
+  }
+
+  function canManageSettings() {
+    const role = getCurrentRole();
+    return role === "super_admin" || role === "admin";
   }
 
   async function loadCurrentUser() {
@@ -100,6 +120,21 @@ export default function SettingsPage() {
     }
 
     setProviders(data || []);
+  }
+
+  async function fetchSterilizers() {
+    const { data, error } = await supabase
+      .from("sterilizers")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (error) {
+      toast.error("Error loading sterilizers.");
+      console.error(error);
+      return;
+    }
+
+    setSterilizers(data || []);
   }
 
   async function updateUserRole(roleId: string, newRole: string) {
@@ -181,9 +216,7 @@ export default function SettingsPage() {
   }
 
   async function addProvider() {
-    const currentRole = getCurrentRole();
-
-    if (currentRole !== "super_admin" && currentRole !== "admin") {
+    if (!canManageSettings()) {
       toast.error("You do not have permission.");
       return;
     }
@@ -248,7 +281,6 @@ export default function SettingsPage() {
         last_name: lastName,
         title,
         display_name: displayName,
-        full_name: displayName,
         role: providerForm.role,
         active: true,
       },
@@ -269,9 +301,7 @@ export default function SettingsPage() {
     providerId: string,
     currentStatus: boolean
   ) {
-    const currentRole = getCurrentRole();
-
-    if (currentRole !== "super_admin" && currentRole !== "admin") {
+    if (!canManageSettings()) {
       toast.error("You do not have permission.");
       return;
     }
@@ -300,23 +330,136 @@ export default function SettingsPage() {
         provider?.display_name || provider?.full_name || ""
       }`,
       metadata: {
-        full_name: provider?.full_name,
         display_name: provider?.display_name,
+        full_name: provider?.full_name,
         role: provider?.role,
         active: !currentStatus,
       },
     });
 
     await fetchProviders();
-
     toast.success(
       currentStatus ? "Provider deactivated." : "Provider activated."
     );
     setLoading(false);
   }
 
+  async function addSterilizer() {
+    if (!canManageSettings()) {
+      toast.error("You do not have permission.");
+      return;
+    }
+
+    const cleanName = sterilizerForm.name.trim();
+
+    if (!cleanName) {
+      toast.error("Please enter a sterilizer name.");
+      return;
+    }
+
+    const duplicate = sterilizers.find(
+      (item) => normalizeSterilizerName(item.name) === normalizeSterilizerName(cleanName)
+    );
+
+    if (duplicate) {
+      toast.error("Sterilizer already exists.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.from("sterilizers").insert([
+      {
+        name: cleanName,
+        type: sterilizerForm.type,
+        active: true,
+      },
+    ]);
+
+    if (error) {
+      toast.error(
+        error.code === "23505"
+          ? "Sterilizer already exists."
+          : error.message || "Error adding sterilizer."
+      );
+      console.error(error);
+      setLoading(false);
+      return;
+    }
+
+    await createAuditLog({
+      action: "sterilizer_created",
+      entityType: "sterilizer",
+      description: `Created sterilizer ${cleanName}`,
+      metadata: {
+        name: cleanName,
+        type: sterilizerForm.type,
+        active: true,
+      },
+    });
+
+    setSterilizerForm({
+      name: "",
+      type: "Autoclave",
+    });
+
+    await fetchSterilizers();
+    toast.success("Sterilizer added.");
+    setLoading(false);
+  }
+
+  async function toggleSterilizerStatus(
+    sterilizerId: string,
+    currentStatus: boolean
+  ) {
+    if (!canManageSettings()) {
+      toast.error("You do not have permission.");
+      return;
+    }
+
+    const sterilizer = sterilizers.find((item) => item.id === sterilizerId);
+
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("sterilizers")
+      .update({ active: !currentStatus })
+      .eq("id", sterilizerId);
+
+    if (error) {
+      toast.error(error.message || "Error updating sterilizer.");
+      console.error(error);
+      setLoading(false);
+      return;
+    }
+
+    await createAuditLog({
+      action: currentStatus ? "sterilizer_deactivated" : "sterilizer_activated",
+      entityType: "sterilizer",
+      entityId: sterilizerId,
+      description: `${currentStatus ? "Deactivated" : "Activated"} sterilizer ${
+        sterilizer?.name || ""
+      }`,
+      metadata: {
+        name: sterilizer?.name,
+        type: sterilizer?.type,
+        active: !currentStatus,
+      },
+    });
+
+    await fetchSterilizers();
+    toast.success(
+      currentStatus ? "Sterilizer deactivated." : "Sterilizer activated."
+    );
+    setLoading(false);
+  }
+
   const activeProviders = providers.filter((provider) => provider.active);
   const inactiveProviders = providers.filter((provider) => !provider.active);
+  const activeSterilizers = sterilizers.filter((sterilizer) => sterilizer.active);
+  const inactiveSterilizers = sterilizers.filter(
+    (sterilizer) => !sterilizer.active
+  );
 
   const providerPreviewTitle = getProviderTitle(providerForm.role);
   const providerPreview =
@@ -331,7 +474,8 @@ export default function SettingsPage() {
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Settings</h1>
         <p className="mt-2 text-slate-600">
-          Admin configuration for users, roles, providers, and system settings.
+          Admin configuration for users, roles, providers, sterilizers, and system
+          settings.
         </p>
       </header>
 
@@ -341,8 +485,8 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard title="Clinic" value="Dentaria" />
           <InfoCard title="Database" value="Connected" />
-          <InfoCard title="Environment" value="MVP / Development" />
           <InfoCard title="Active Providers" value={String(activeProviders.length)} />
+          <InfoCard title="Active Sterilizers" value={String(activeSterilizers.length)} />
         </div>
       </section>
 
@@ -387,13 +531,6 @@ export default function SettingsPage() {
                     <p className="text-xs text-slate-400 mt-1">
                       Added: {new Date(role.created_at).toLocaleString()}
                     </p>
-
-                    {isCurrentUser && (
-                      <p className="text-xs text-slate-500 mt-2">
-                        Your own role and access status are protected to prevent
-                        accidental lockout.
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex flex-col md:flex-row gap-3">
@@ -431,23 +568,12 @@ export default function SettingsPage() {
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-2xl font-semibold">Provider Management</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage doctors and providers used in patient traceability.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 text-sm">
-            <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-green-700">
-              Active: {activeProviders.length}
-            </span>
-            <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
-              Inactive: {inactiveProviders.length}
-            </span>
-          </div>
-        </div>
+        <SectionHeader
+          title="Provider Management"
+          description="Manage doctors and providers used in patient traceability."
+          activeCount={activeProviders.length}
+          inactiveCount={inactiveProviders.length}
+        />
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-6">
           <h3 className="font-semibold mb-4">Add Provider</h3>
@@ -509,51 +635,89 @@ export default function SettingsPage() {
               Display name preview: <strong>{providerPreview}</strong>
             </div>
           )}
-
-         
         </div>
 
-        {providers.length === 0 ? (
-          <p className="text-slate-500">No providers found.</p>
-        ) : (
-          <div className="space-y-3">
-            {providers.map((provider) => (
-              <div
-                key={provider.id}
-                className="rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">
-                      {provider.display_name || provider.full_name}
-                    </p>
-                    <ProviderRoleBadge role={provider.role || "Provider"} />
-                    <StatusBadge active={provider.active} />
-                  </div>
+        <div className="space-y-3">
+          {providers.map((provider) => (
+            <ManagementRow
+              key={provider.id}
+              title={provider.display_name || provider.full_name}
+              badge={<ProviderRoleBadge role={provider.role || "Provider"} />}
+              active={provider.active}
+              createdAt={provider.created_at}
+              onToggle={() => toggleProviderStatus(provider.id, provider.active)}
+              loading={loading}
+            />
+          ))}
+        </div>
+      </section>
 
-                  <p className="text-xs text-slate-400 mt-1">
-                    Added: {new Date(provider.created_at).toLocaleString()}
-                  </p>
-                </div>
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+        <SectionHeader
+          title="Sterilizer Management"
+          description="Manage sterilizers used during cycle creation."
+          activeCount={activeSterilizers.length}
+          inactiveCount={inactiveSterilizers.length}
+        />
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    toggleProviderStatus(provider.id, provider.active)
-                  }
-                  disabled={loading}
-                  className={`rounded-xl px-5 py-3 text-sm font-medium cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                    provider.active
-                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
-                >
-                  {provider.active ? "Deactivate" : "Activate"}
-                </button>
-              </div>
-            ))}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-6">
+          <h3 className="font-semibold mb-4">Add Sterilizer</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              value={sterilizerForm.name}
+              onChange={(e) =>
+                setSterilizerForm((current) => ({
+                  ...current,
+                  name: e.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+              placeholder="Example: STATIM 5000 #1"
+            />
+
+            <select
+              value={sterilizerForm.type}
+              onChange={(e) =>
+                setSterilizerForm((current) => ({
+                  ...current,
+                  type: e.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+            >
+              <option value="Autoclave">Autoclave</option>
+              <option value="Statim">Statim</option>
+              <option value="Washer">Washer</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={addSterilizer}
+              disabled={loading}
+              className="rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add Sterilizer
+            </button>
           </div>
-        )}
+        </div>
+
+        <div className="space-y-3">
+          {sterilizers.map((sterilizer) => (
+            <ManagementRow
+              key={sterilizer.id}
+              title={sterilizer.name}
+              badge={<SterilizerTypeBadge type={sterilizer.type || "Other"} />}
+              active={sterilizer.active}
+              createdAt={sterilizer.created_at}
+              onToggle={() =>
+                toggleSterilizerStatus(sterilizer.id, sterilizer.active)
+              }
+              loading={loading}
+            />
+          ))}
+        </div>
       </section>
 
       {getCurrentRole() === "super_admin" && (
@@ -584,18 +748,14 @@ function normalizeProviderName(name: string) {
     .replace(/\s+/g, " ");
 }
 
+function normalizeSterilizerName(name: string) {
+  return name.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
 function getProviderTitle(role: string) {
-  switch (role) {
-    case "Dentist":
-    case "Specialist":
-      return "Dr.";
-
-    case "Hygienist":
-      return "Hyg.";
-
-    default:
-      return "";
-  }
+  if (role === "Dentist" || role === "Specialist") return "Dr.";
+  if (role === "Hygienist") return "Hyg.";
+  return "";
 }
 
 function InfoCard({ title, value }: { title: string; value: string }) {
@@ -607,8 +767,83 @@ function InfoCard({ title, value }: { title: string; value: string }) {
   );
 }
 
+function SectionHeader({
+  title,
+  description,
+  activeCount,
+  inactiveCount,
+}: {
+  title: string;
+  description: string;
+  activeCount: number;
+  inactiveCount: number;
+}) {
+  return (
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+      <div>
+        <h2 className="text-2xl font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-slate-600">{description}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-sm">
+        <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-green-700">
+          Active: {activeCount}
+        </span>
+        <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+          Inactive: {inactiveCount}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ManagementRow({
+  title,
+  badge,
+  active,
+  createdAt,
+  onToggle,
+  loading,
+}: {
+  title: string;
+  badge: React.ReactNode;
+  active: boolean;
+  createdAt: string;
+  onToggle: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium">{title}</p>
+          {badge}
+          <StatusBadge active={active} />
+        </div>
+
+        <p className="text-xs text-slate-400 mt-1">
+          Added: {new Date(createdAt).toLocaleString()}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={loading}
+        className={`rounded-xl px-5 py-3 text-sm font-medium cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed ${
+          active
+            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            : "bg-green-600 text-white hover:bg-green-700"
+        }`}
+      >
+        {active ? "Deactivate" : "Activate"}
+      </button>
+    </div>
+  );
+}
+
 function RoleBadge({ role }: { role: string }) {
-  const roleClasses: Record<string, string> = {
+  const classes: Record<string, string> = {
     super_admin: "border-purple-200 bg-purple-50 text-purple-700",
     admin: "border-blue-200 bg-blue-50 text-blue-700",
     clinical_staff: "border-green-200 bg-green-50 text-green-700",
@@ -617,18 +852,14 @@ function RoleBadge({ role }: { role: string }) {
   };
 
   return (
-    <span
-      className={`rounded-lg border px-3 py-1 text-xs font-medium ${
-        roleClasses[role] || "border-slate-200 bg-slate-50 text-slate-600"
-      }`}
-    >
+    <span className={`rounded-lg border px-3 py-1 text-xs font-medium ${classes[role]}`}>
       {role}
     </span>
   );
 }
 
 function ProviderRoleBadge({ role }: { role: string }) {
-  const roleClasses: Record<string, string> = {
+  const classes: Record<string, string> = {
     Dentist: "border-blue-200 bg-blue-50 text-blue-700",
     Hygienist: "border-green-200 bg-green-50 text-green-700",
     Assistant: "border-purple-200 bg-purple-50 text-purple-700",
@@ -638,12 +869,23 @@ function ProviderRoleBadge({ role }: { role: string }) {
   };
 
   return (
-    <span
-      className={`rounded-lg border px-3 py-1 text-xs font-medium ${
-        roleClasses[role] || "border-slate-200 bg-slate-50 text-slate-600"
-      }`}
-    >
+    <span className={`rounded-lg border px-3 py-1 text-xs font-medium ${classes[role]}`}>
       {role}
+    </span>
+  );
+}
+
+function SterilizerTypeBadge({ type }: { type: string }) {
+  const classes: Record<string, string> = {
+    Autoclave: "border-blue-200 bg-blue-50 text-blue-700",
+    Statim: "border-green-200 bg-green-50 text-green-700",
+    Washer: "border-purple-200 bg-purple-50 text-purple-700",
+    Other: "border-slate-200 bg-slate-50 text-slate-600",
+  };
+
+  return (
+    <span className={`rounded-lg border px-3 py-1 text-xs font-medium ${classes[type]}`}>
+      {type}
     </span>
   );
 }

@@ -19,8 +19,16 @@ type Cycle = {
   created_at: string;
 };
 
+type Sterilizer = {
+  id: string;
+  name: string;
+  type: string | null;
+  active: boolean;
+};
+
 export default function CyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [sterilizers, setSterilizers] = useState<Sterilizer[]>([]);
   const [cycleCounter, setCycleCounter] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -38,6 +46,7 @@ export default function CyclesPage() {
 
   useEffect(() => {
     fetchCycles();
+    fetchSterilizers();
   }, []);
 
   async function fetchCycles() {
@@ -54,6 +63,22 @@ export default function CyclesPage() {
 
     setCycles(data || []);
     setCycleCounter((data?.length || 0) + 1);
+  }
+
+  async function fetchSterilizers() {
+    const { data, error } = await supabase
+      .from("sterilizers")
+      .select("id, name, type, active")
+      .eq("active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      toast.error("Error loading sterilizers.");
+      console.error(error);
+      return;
+    }
+
+    setSterilizers(data || []);
   }
 
   function updateForm(field: string, value: string) {
@@ -221,15 +246,31 @@ export default function CyclesPage() {
 
         <form className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-2">Sterilizer</label>
-            <input
+            <label className="block text-sm font-medium mb-2">
+              Sterilizer
+            </label>
+
+            <select
               value={form.sterilizer}
               onChange={(e) => updateForm("sterilizer", e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Statim 5000 / Autoclave 1"
-            />
+            >
+              <option value="">
+                {sterilizers.length === 0
+                  ? "No active sterilizers available"
+                  : "Select a sterilizer"}
+              </option>
+
+              {sterilizers.map((sterilizer) => (
+                <option key={sterilizer.id} value={sterilizer.name}>
+                  {sterilizer.name}
+                  {sterilizer.type ? ` · ${sterilizer.type}` : ""}
+                </option>
+              ))}
+            </select>
+
             <p className="mt-2 text-xs text-slate-500">
-              Later, this will become a managed sterilizer dropdown with presets.
+              Only active sterilizers are available for cycle creation.
             </p>
           </div>
 
@@ -272,7 +313,7 @@ export default function CyclesPage() {
           <button
             type="button"
             onClick={startCycle}
-            disabled={loading}
+            disabled={loading || sterilizers.length === 0}
             className="rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Starting..." : "Start Sterilization Cycle"}
