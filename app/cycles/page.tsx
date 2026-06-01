@@ -32,9 +32,7 @@ export default function CyclesPage() {
 
   const [form, setForm] = useState({
     sterilizer: "",
-    operator: "",
     loadContents: "",
-    status: "Passed",
     expectedPackCount: "",
   });
 
@@ -65,85 +63,80 @@ export default function CyclesPage() {
     }));
   }
 
-async function saveCycle() {
-  if (
-    !form.sterilizer ||
-    !form.operator ||
-    !form.loadContents ||
-    !form.expectedPackCount
-  ) {
-    toast.error("Please fill all required fields.");
-    return;
-  }
+  async function startCycle() {
+    if (!form.sterilizer || !form.loadContents || !form.expectedPackCount) {
+      toast.error("Please fill all required fields.");
+      return;
+    }
 
-  const expectedPackCount = Number(form.expectedPackCount);
+    const expectedPackCount = Number(form.expectedPackCount);
 
-  if (!Number.isInteger(expectedPackCount) || expectedPackCount <= 0) {
-    toast.error("Expected pack count must be a positive number.");
-    return;
-  }
+    if (!Number.isInteger(expectedPackCount) || expectedPackCount <= 0) {
+      toast.error("Expected pack count must be a positive number.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
-    cycleCounter
-  ).padStart(4, "0")}`;
+    const newCycleNumber = `STERI-${new Date().getFullYear()}-${String(
+      cycleCounter
+    ).padStart(4, "0")}`;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const { data: newCycle, error } = await supabase
-    .from("cycles")
-    .insert([
-      {
-        cycle_number: newCycleNumber,
-        sterilizer: form.sterilizer,
-        operator: form.operator,
-        load_contents: form.loadContents,
-        status: form.status,
-        cycle_state: form.status === "Passed" ? "Open" : "Closed",
-        expected_pack_count: expectedPackCount,
-        created_by: user?.email || "unknown",
+    const operatorEmail = user?.email || "unknown";
+
+    const { data: newCycle, error } = await supabase
+      .from("cycles")
+      .insert([
+        {
+          cycle_number: newCycleNumber,
+          sterilizer: form.sterilizer,
+          operator: operatorEmail,
+          load_contents: form.loadContents,
+          status: "Pending",
+          cycle_state: "Closed",
+          expected_pack_count: expectedPackCount,
+          created_by: operatorEmail,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error || !newCycle) {
+      toast.error("Error starting cycle.");
+      console.error(error);
+      setLoading(false);
+      return;
+    }
+
+    await createAuditLog({
+      action: "cycle_started",
+      entityType: "cycle",
+      entityId: newCycle.id,
+      description: `Started sterilization cycle ${newCycle.cycle_number}`,
+      metadata: {
+        cycle_number: newCycle.cycle_number,
+        sterilizer: newCycle.sterilizer,
+        operator: newCycle.operator,
+        status: newCycle.status,
+        cycle_state: newCycle.cycle_state,
+        expected_pack_count: newCycle.expected_pack_count,
       },
-    ])
-    .select()
-    .single();
+    });
 
-  if (error || !newCycle) {
-    toast.error("Error saving cycle.");
-    console.error(error);
+    setForm({
+      sterilizer: "",
+      loadContents: "",
+      expectedPackCount: "",
+    });
+
+    await fetchCycles();
+    toast.success("Sterilization cycle started.");
     setLoading(false);
-    return;
   }
-
-  await createAuditLog({
-    action: "cycle_created",
-    entityType: "cycle",
-    entityId: newCycle.id,
-    description: `Created sterilization cycle ${newCycle.cycle_number}`,
-    metadata: {
-      cycle_number: newCycle.cycle_number,
-      sterilizer: newCycle.sterilizer,
-      operator: newCycle.operator,
-      status: newCycle.status,
-      cycle_state: newCycle.cycle_state,
-      expected_pack_count: newCycle.expected_pack_count,
-    },
-  });
-
-  setForm({
-    sterilizer: "",
-    operator: "",
-    loadContents: "",
-    status: "Passed",
-    expectedPackCount: "",
-  });
-
-  await fetchCycles();
-  toast.success("Cycle saved successfully.");
-  setLoading(false);
-}
 
   async function updateCycleStatus(cycleId: string, newStatus: string) {
     const { error } = await supabase
@@ -159,21 +152,24 @@ async function saveCycle() {
       console.error(error);
       return;
     }
-await createAuditLog({
-  action: "cycle_status_updated",
-  entityType: "cycle",
-  entityId: cycleId,
-  description: `Cycle status updated to ${newStatus}`,
-  metadata: {
-    new_status: newStatus,
-  },
-});
+
+    await createAuditLog({
+      action: "cycle_status_updated",
+      entityType: "cycle",
+      entityId: cycleId,
+      description: `Cycle status updated to ${newStatus}`,
+      metadata: {
+        new_status: newStatus,
+        cycle_state: newStatus === "Passed" ? "Open" : "Closed",
+      },
+    });
+
     await fetchCycles();
 
     if (newStatus === "Failed") {
       toast.error("Cycle marked as Failed and closed.");
     } else {
-      toast.success("Cycle marked as Passed and opened for packs.");
+      toast.success("Cycle marked as Passed and opened for pack creation.");
     }
   }
 
@@ -208,23 +204,22 @@ await createAuditLog({
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Sterilization Cycles</h1>
         <p className="mt-2 text-slate-600">
-          Create and manage sterilization cycle records.
+          Start sterilization cycles, track pending cycles, and release passed
+          cycles for pack creation.
         </p>
       </header>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-3xl mb-8">
-        <h2 className="text-2xl font-semibold mb-6">
-          New Sterilization Cycle
+        <h2 className="text-2xl font-semibold mb-2">
+          Start Sterilization Cycle
         </h2>
 
-        <form className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium mb-2">Clinic</label>
-            <div className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700">
-              Dentaria
-            </div>
-          </div>
+        <p className="text-sm text-slate-600 mb-6">
+          New cycles always start as Pending. After sterilization is complete,
+          mark the cycle as Passed or Failed from the saved cycles list.
+        </p>
 
+        <form className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2">Sterilizer</label>
             <input
@@ -233,16 +228,9 @@ await createAuditLog({
               className="w-full rounded-xl border border-slate-300 px-4 py-3"
               placeholder="Example: Statim 5000 / Autoclave 1"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Operator</label>
-            <input
-              value={form.operator}
-              onChange={(e) => updateForm("operator", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Staff member name"
-            />
+            <p className="mt-2 text-xs text-slate-500">
+              Later, this will become a managed sterilizer dropdown with presets.
+            </p>
           </div>
 
           <div>
@@ -270,33 +258,24 @@ await createAuditLog({
               placeholder="Example: 5"
             />
             <p className="mt-2 text-xs text-slate-500">
-              Once this number of packs is created, the cycle will automatically
-              close.
+              Once this number of packs is created after a Passed cycle, the
+              cycle will automatically close.
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Cycle Status
-            </label>
-            <select
-              value={form.status}
-              onChange={(e) => updateForm("status", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option>Passed</option>
-              <option>Failed</option>
-              <option>Pending</option>
-            </select>
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+            This cycle will be created as <strong>Pending</strong>. It will not
+            be available for pack creation until it is marked as{" "}
+            <strong>Passed</strong>.
           </div>
 
           <button
             type="button"
-            onClick={saveCycle}
+            onClick={startCycle}
             disabled={loading}
             className="rounded-xl bg-slate-950 text-white px-6 py-3 min-h-11 font-medium cursor-pointer hover:bg-slate-800 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Saving..." : "Save Cycle"}
+            {loading ? "Starting..." : "Start Sterilization Cycle"}
           </button>
         </form>
       </section>
@@ -314,9 +293,9 @@ await createAuditLog({
             className="rounded-xl border border-slate-300 px-4 py-3"
           >
             <option value="All">All Statuses</option>
+            <option value="Pending">Pending</option>
             <option value="Passed">Passed</option>
             <option value="Failed">Failed</option>
-            <option value="Pending">Pending</option>
           </select>
 
           <select
@@ -362,7 +341,7 @@ await createAuditLog({
 
                         <div className="flex flex-wrap gap-2">
                           <span
-                            className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
+                            className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${getStatusBadgeClass(
                               cycle.status
                             )}`}
                           >
@@ -370,7 +349,7 @@ await createAuditLog({
                           </span>
 
                           <span
-                            className={`w-fit rounded-full border px-3 py-1 text-xs font-medium ${getStateBadgeClass(
+                            className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${getStateBadgeClass(
                               cycle.cycle_state || "Open"
                             )}`}
                           >

@@ -36,49 +36,58 @@ export default function AuthGuard({
 
   useEffect(() => {
     async function checkAccess() {
-      setChecking(true);
-      setAllowed(false);
+      try {
+        setChecking(true);
+        setAllowed(false);
 
-      if (pathname === "/login") {
+        if (pathname === "/login") {
+          setAllowed(true);
+          setChecking(false);
+          return;
+        }
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user?.email) {
+          await supabase.auth.signOut();
+          router.push("/login");
+          setChecking(false);
+          return;
+        }
+
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role, active")
+          .eq("user_email", user.email)
+          .maybeSingle();
+
+        if (roleError || !roleData?.active) {
+          await supabase.auth.signOut();
+          router.push("/login");
+          setChecking(false);
+          return;
+        }
+
+        const userRole = roleData.role || "";
+        const allowedRoles = routePermissions[pathname] || [];
+
+        if (!allowedRoles.includes(userRole)) {
+          router.push("/");
+          setChecking(false);
+          return;
+        }
+
         setAllowed(true);
         setChecking(false);
-        return;
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.email) {
-        router.push("/login");
-        setChecking(false);
-        return;
-      }
-
-      const { data: roleData, error } = await supabase
-        .from("user_roles")
-        .select("role, active")
-        .eq("user_email", user.email)
-        .maybeSingle();
-
-      if (error || !roleData?.active) {
+      } catch (error) {
+        console.error("AuthGuard error:", error);
         await supabase.auth.signOut();
         router.push("/login");
         setChecking(false);
-        return;
       }
-
-      const userRole = roleData.role || "";
-      const allowedRoles = routePermissions[pathname] || [];
-
-      if (!allowedRoles.includes(userRole)) {
-        router.push("/");
-        setChecking(false);
-        return;
-      }
-
-      setAllowed(true);
-      setChecking(false);
     }
 
     checkAccess();
