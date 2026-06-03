@@ -56,6 +56,7 @@ type Pack = {
 };
 
 export default function Home() {
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [recentActivity, setRecentActivity] = useState<AuditLog[]>([]);
   const [cyclesCount, setCyclesCount] = useState(0);
   const [packsCount, setPacksCount] = useState(0);
@@ -79,8 +80,14 @@ export default function Home() {
   const [pendingCycleAlerts, setPendingCycleAlerts] = useState<Cycle[]>([]);
 
   useEffect(() => {
+  fetchDashboardData();
+
+  const interval = setInterval(() => {
     fetchDashboardData();
-  }, []);
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, []);
 
   async function fetchDashboardData() {
     const now = new Date();
@@ -209,6 +216,7 @@ export default function Home() {
     setPendingCycleAlerts(pendingData || []);
     setLatestPatientRecords(patientData || []);
     setRecentPacks(packData || []);
+    setLastRefresh(new Date());
   }
 
   const runningCycles = pendingCycleAlerts.filter(
@@ -224,6 +232,9 @@ export default function Home() {
       <header className="mb-8">
         <p className="text-sm text-slate-500">Dentaria Internal System</p>
         <h2 className="text-4xl font-bold mt-1">Sterilization Dashboard</h2>
+        <p className="text-xs text-slate-400 mt-1">
+  Last updated: {lastRefresh.toLocaleTimeString()}
+</p>
         <p className="text-slate-600 mt-2">
           Daily control center for sterilization cycles, auto-generated packs,
           patient traceability, and compliance alerts.
