@@ -16,6 +16,8 @@ type Cycle = {
   status: string;
   cycle_state: string | null;
   expected_pack_count: number | null;
+  duration_minutes: number | null;
+  expected_finish_at: string | null;
   created_at: string;
 };
 
@@ -61,6 +63,7 @@ export default function CyclesPage() {
   const [form, setForm] = useState({
     sterilizer: "",
     loadNotes: "",
+    durationMinutes: "20",
   });
 
   const [loadItems, setLoadItems] = useState<LoadItem[]>([
@@ -178,41 +181,47 @@ export default function CyclesPage() {
 
     return Array.from({ length: totalNeeded }, (_, index) => {
       const nextNumber = maxExistingNumber + index + 1;
-
       return `${prefix}${String(nextNumber).padStart(4, "0")}`;
     });
   }
 
-function buildPackGenerationItems(items: SavedLoadItem[]) {
-  const cycleLoadSummary = items
-    .map((item) => `${item.pack_type} × ${item.quantity}`)
-    .join(", ");
+  function buildPackGenerationItems(items: SavedLoadItem[]) {
+    const cycleLoadSummary = items
+      .map((item) => `${item.pack_type} × ${item.quantity}`)
+      .join(", ");
 
-  const cyclePackTotal = items.reduce(
-    (total, item) => total + item.quantity,
-    0
-  );
+    const cyclePackTotal = items.reduce(
+      (total, item) => total + item.quantity,
+      0
+    );
 
-  const packItems = items.flatMap((item) =>
-    Array.from({ length: item.quantity }, (_, index) => ({
-      packType: item.pack_type,
-      loadItemIndex: index + 1,
-      loadItemTotal: item.quantity,
+    const packItems = items.flatMap((item) =>
+      Array.from({ length: item.quantity }, (_, index) => ({
+        packType: item.pack_type,
+        loadItemIndex: index + 1,
+        loadItemTotal: item.quantity,
+        cyclePackTotal,
+        cycleLoadSummary,
+      }))
+    );
+
+    return {
+      packItems,
       cyclePackTotal,
       cycleLoadSummary,
-    }))
-  );
-
-  return {
-    packItems,
-    cyclePackTotal,
-    cycleLoadSummary,
-  };
-}
+    };
+  }
 
   async function startCycle() {
     if (!form.sterilizer) {
       toast.error("Please select a sterilizer.");
+      return;
+    }
+
+    const durationMinutes = Number(form.durationMinutes);
+
+    if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+      toast.error("Please enter a valid cycle duration.");
       return;
     }
 
@@ -248,6 +257,9 @@ function buildPackGenerationItems(items: SavedLoadItem[]) {
     const operatorEmail = user?.email || "unknown";
     const loadSummary = buildLoadSummary();
 
+    const expectedFinish = new Date();
+    expectedFinish.setMinutes(expectedFinish.getMinutes() + durationMinutes);
+
     const { data: newCycle, error: cycleError } = await supabase
       .from("cycles")
       .insert([
@@ -256,8 +268,10 @@ function buildPackGenerationItems(items: SavedLoadItem[]) {
           sterilizer: form.sterilizer,
           operator: operatorEmail,
           load_contents: loadSummary,
+          duration_minutes: durationMinutes,
+          expected_finish_at: expectedFinish.toISOString(),
           status: "Pending",
-          cycle_state: "Closed",
+          cycle_state: "Open",
           expected_pack_count: expectedPackCount,
           created_by: operatorEmail,
         },
@@ -303,6 +317,8 @@ function buildPackGenerationItems(items: SavedLoadItem[]) {
         status: newCycle.status,
         cycle_state: newCycle.cycle_state,
         expected_pack_count: newCycle.expected_pack_count,
+        duration_minutes: durationMinutes,
+        expected_finish_at: expectedFinish.toISOString(),
         load_items: loadRows,
       },
     });
@@ -310,6 +326,7 @@ function buildPackGenerationItems(items: SavedLoadItem[]) {
     setForm({
       sterilizer: "",
       loadNotes: "",
+      durationMinutes: "20",
     });
 
     setLoadItems([
@@ -321,7 +338,7 @@ function buildPackGenerationItems(items: SavedLoadItem[]) {
 
     await fetchCycles();
 
-    toast.success("Sterilization cycle started with load composition.");
+    toast.success("Sterilization cycle started with duration tracking.");
     setLoading(false);
   }
 
@@ -352,14 +369,14 @@ function buildPackGenerationItems(items: SavedLoadItem[]) {
       throw new Error("No load composition found for this cycle.");
     }
 
-   const { packItems, cyclePackTotal, cycleLoadSummary } =
-  buildPackGenerationItems(savedLoadItems);
+    const { packItems, cyclePackTotal, cycleLoadSummary } =
+      buildPackGenerationItems(savedLoadItems);
 
-if (packItems.length === 0) {
-  throw new Error("Load composition does not contain valid quantities.");
-}
+    if (packItems.length === 0) {
+      throw new Error("Load composition does not contain valid quantities.");
+    }
 
-const packNumbers = await getNextPackNumberSequence(packItems.length);
+    const packNumbers = await getNextPackNumberSequence(packItems.length);
 
     const {
       data: { user },
@@ -367,29 +384,26 @@ const packNumbers = await getNextPackNumberSequence(packItems.length);
 
     const createdBy = user?.email || "unknown";
 
+    const sterilizedAt = new Date();
 
-const sterilizedAt = new Date();
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-const expiresAt = new Date();
-expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-
-const packRows = packItems.map((item, index) => ({
-  pack_number: packNumbers[index],
-  cycle_id: cycle.id,
-  cycle_number: cycle.cycle_number,
-  pack_type: item.packType,
-  contents: item.packType,
-  status: "Available",
-  created_by: createdBy,
-
-  sterilized_at: sterilizedAt.toISOString(),
-  expires_at: expiresAt.toISOString(),
-
-  load_item_index: item.loadItemIndex,
-  load_item_total: item.loadItemTotal,
-  cycle_pack_total: cyclePackTotal,
-  cycle_load_summary: cycleLoadSummary,
-}));
+    const packRows = packItems.map((item, index) => ({
+      pack_number: packNumbers[index],
+      cycle_id: cycle.id,
+      cycle_number: cycle.cycle_number,
+      pack_type: item.packType,
+      contents: item.packType,
+      status: "Available",
+      created_by: createdBy,
+      sterilized_at: sterilizedAt.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      load_item_index: item.loadItemIndex,
+      load_item_total: item.loadItemTotal,
+      cycle_pack_total: cyclePackTotal,
+      cycle_load_summary: cycleLoadSummary,
+    }));
 
     const { data: createdPacks, error: packsError } = await supabase
       .from("packs")
@@ -408,11 +422,11 @@ const packRows = packItems.map((item, index) => ({
       metadata: {
         cycle_number: cycle.cycle_number,
         generated_count: packRows.length,
+        cycle_pack_total: cyclePackTotal,
+        cycle_load_summary: cycleLoadSummary,
         packs: packRows.map((pack) => ({
           pack_number: pack.pack_number,
           pack_type: pack.pack_type,
-          cycle_pack_total: cyclePackTotal,
-cycle_load_summary: cycleLoadSummary,
         })),
       },
     });
@@ -439,33 +453,71 @@ cycle_load_summary: cycleLoadSummary,
   }
 
   async function updateCycleStatus(cycleId: string, newStatus: string) {
-  const cycle = cycles.find((item) => item.id === cycleId);
+    const cycle = cycles.find((item) => item.id === cycleId);
 
-  if (!cycle) {
-    toast.error("Cycle not found.");
-    return;
-  }
+    if (!cycle) {
+      toast.error("Cycle not found.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const completedBy = user?.email || "unknown";
-  const completedAt = new Date().toISOString();
+    const completedBy = user?.email || "unknown";
+    const completedAt = new Date().toISOString();
 
-  try {
-    if (newStatus === "Passed") {
-      const generatedPackCount = await generatePacksForPassedCycle(cycle);
+    try {
+      if (newStatus === "Passed") {
+        const generatedPackCount = await generatePacksForPassedCycle(cycle);
+
+        const { error } = await supabase
+          .from("cycles")
+          .update({
+            status: "Passed",
+            cycle_state: "Closed",
+            expected_pack_count: generatedPackCount,
+            released_by: completedBy,
+            released_at: completedAt,
+          })
+          .eq("id", cycleId);
+
+        if (error) {
+          throw error;
+        }
+
+        await createAuditLog({
+          action: "cycle_passed",
+          entityType: "cycle",
+          entityId: cycleId,
+          description: `Cycle ${cycle.cycle_number} passed and ${generatedPackCount} packs were generated`,
+          metadata: {
+            cycle_number: cycle.cycle_number,
+            new_status: "Passed",
+            cycle_state: "Closed",
+            completed_by: completedBy,
+            completed_at: completedAt,
+            generated_pack_count: generatedPackCount,
+          },
+        });
+
+        await fetchCycles();
+
+        toast.success(
+          `Cycle marked as Passed. ${generatedPackCount} packs were created automatically.`
+        );
+
+        setLoading(false);
+        return;
+      }
 
       const { error } = await supabase
         .from("cycles")
         .update({
-          status: "Passed",
+          status: newStatus,
           cycle_state: "Closed",
-          expected_pack_count: generatedPackCount,
-
           released_by: completedBy,
           released_at: completedAt,
         })
@@ -476,81 +528,39 @@ cycle_load_summary: cycleLoadSummary,
       }
 
       await createAuditLog({
-        action: "cycle_passed",
+        action: "cycle_status_updated",
         entityType: "cycle",
         entityId: cycleId,
-        description: `Cycle ${cycle.cycle_number} passed and ${generatedPackCount} packs were generated`,
+        description: `Cycle status updated to ${newStatus}`,
         metadata: {
           cycle_number: cycle.cycle_number,
-          new_status: "Passed",
+          new_status: newStatus,
           cycle_state: "Closed",
-
           completed_by: completedBy,
           completed_at: completedAt,
-
-          generated_pack_count: generatedPackCount,
         },
       });
 
       await fetchCycles();
 
-      toast.success(
-        `Cycle marked as Passed. ${generatedPackCount} packs were created automatically.`
-      );
+      if (newStatus === "Failed") {
+        toast.error("Cycle marked as Failed and closed.");
+      } else {
+        toast.success(`Cycle marked as ${newStatus}.`);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Error updating cycle status.";
 
+      toast.error(message);
+      console.error(error);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { error } = await supabase
-      .from("cycles")
-      .update({
-        status: newStatus,
-        cycle_state: "Closed",
-
-        released_by: completedBy,
-        released_at: completedAt,
-      })
-      .eq("id", cycleId);
-
-    if (error) {
-      throw error;
-    }
-
-    await createAuditLog({
-      action: "cycle_status_updated",
-      entityType: "cycle",
-      entityId: cycleId,
-      description: `Cycle status updated to ${newStatus}`,
-      metadata: {
-        cycle_number: cycle.cycle_number,
-        new_status: newStatus,
-        cycle_state: "Closed",
-
-        completed_by: completedBy,
-        completed_at: completedAt,
-      },
-    });
-
-    await fetchCycles();
-
-    if (newStatus === "Failed") {
-      toast.error("Cycle marked as Failed and closed.");
-    } else {
-      toast.success(`Cycle marked as ${newStatus}.`);
-    }
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Error updating cycle status.";
-
-    toast.error(message);
-    console.error(error);
-  } finally {
-    setLoading(false);
   }
-}
+
   const filteredCycles = cycles.filter((cycle) => {
     const search = searchTerm.toLowerCase();
     const cycleState = cycle.cycle_state || "Open";
@@ -583,8 +593,8 @@ cycle_load_summary: cycleLoadSummary,
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Sterilization Cycles</h1>
         <p className="mt-2 text-slate-600">
-          Start sterilization cycles with load composition and automatically
-          generate packs when a cycle passes.
+          Start sterilization cycles with load composition, duration tracking,
+          and automatic pack generation when a cycle passes.
         </p>
       </header>
 
@@ -594,8 +604,8 @@ cycle_load_summary: cycleLoadSummary,
         </h2>
 
         <p className="text-sm text-slate-600 mb-6">
-          Add the load composition before starting the cycle. When the cycle is
-          marked as Passed, packs are generated automatically.
+          Add the load composition and duration before starting the cycle. The
+          expected finish time will be calculated automatically.
         </p>
 
         <form className="space-y-6">
@@ -625,6 +635,26 @@ cycle_load_summary: cycleLoadSummary,
 
             <p className="mt-2 text-xs text-slate-500">
               Only active sterilizers are available for cycle creation.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Cycle Duration
+            </label>
+
+            <input
+              type="number"
+              min="1"
+              value={form.durationMinutes}
+              onChange={(e) => updateForm("durationMinutes", e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              placeholder="Example: 20"
+            />
+
+            <p className="mt-2 text-xs text-slate-500">
+              Enter the duration programmed on the sterilizer. SteriSphere will
+              calculate the expected finish time.
             </p>
           </div>
 
@@ -698,6 +728,7 @@ cycle_load_summary: cycleLoadSummary,
             <label className="block text-sm font-medium mb-2">
               Optional Load Notes
             </label>
+
             <textarea
               value={form.loadNotes}
               onChange={(e) => updateForm("loadNotes", e.target.value)}
@@ -707,9 +738,9 @@ cycle_load_summary: cycleLoadSummary,
           </div>
 
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-            This cycle will be created as <strong>Pending</strong>. When marked
-            as <strong>Passed</strong>, packs will be created automatically and
-            the cycle will close.
+            This cycle will be created as <strong>Pending</strong> and{" "}
+            <strong>Open</strong>. When marked as <strong>Passed</strong>, packs
+            will be created automatically and the cycle will close.
           </div>
 
           <button
@@ -793,10 +824,10 @@ cycle_load_summary: cycleLoadSummary,
 
                           <span
                             className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${getStateBadgeClass(
-                              cycle.cycle_state || "Closed"
+                              cycle.cycle_state || "Open"
                             )}`}
                           >
-                            {cycle.cycle_state || "Closed"}
+                            {cycle.cycle_state || "Open"}
                           </span>
                         </div>
                       </div>
@@ -809,9 +840,30 @@ cycle_load_summary: cycleLoadSummary,
                         {cycle.load_contents}
                       </p>
 
-                      <p className="text-sm text-slate-500 mt-2">
-                        Expected packs: {cycle.expected_pack_count || "N/A"}
-                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 text-sm text-slate-500">
+                        <p>
+                          Generated packs:{" "}
+                          <span className="font-medium text-slate-700">
+                            {cycle.expected_pack_count || "N/A"}
+                          </span>
+                        </p>
+
+                        <p>
+                          Duration:{" "}
+                          <span className="font-medium text-slate-700">
+                            {cycle.duration_minutes
+                              ? `${cycle.duration_minutes} min`
+                              : "N/A"}
+                          </span>
+                        </p>
+
+                        <p>
+                          Expected finish:{" "}
+                          <span className="font-medium text-slate-700">
+                            {formatDateTime(cycle.expected_finish_at)}
+                          </span>
+                        </p>
+                      </div>
 
                       <p className="text-xs text-slate-400 mt-3">
                         Created: {new Date(cycle.created_at).toLocaleString()}
@@ -893,6 +945,14 @@ cycle_load_summary: cycleLoadSummary,
       </section>
     </>
   );
+}
+
+function formatDateTime(date: string | null) {
+  if (!date) {
+    return "N/A";
+  }
+
+  return new Date(date).toLocaleString();
 }
 
 function getStatusBadgeClass(status: string) {

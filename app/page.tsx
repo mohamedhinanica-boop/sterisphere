@@ -28,6 +28,9 @@ type Cycle = {
   sterilizer: string;
   operator: string;
   status: string;
+  cycle_state?: string | null;
+  duration_minutes?: number | null;
+  expected_finish_at?: string | null;
   created_at: string;
 };
 
@@ -73,6 +76,7 @@ export default function Home() {
     PatientTrace[]
   >([]);
   const [recentPacks, setRecentPacks] = useState<Pack[]>([]);
+  const [pendingCycleAlerts, setPendingCycleAlerts] = useState<Cycle[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -164,6 +168,15 @@ export default function Home() {
       .order("created_at", { ascending: false })
       .limit(3);
 
+    const { data: pendingData } = await supabase
+      .from("cycles")
+      .select(
+        "id, cycle_number, sterilizer, operator, status, cycle_state, duration_minutes, expected_finish_at, created_at"
+      )
+      .eq("status", "Pending")
+      .order("created_at", { ascending: false })
+      .limit(6);
+
     const { data: patientData } = await supabase
       .from("patient_traces")
       .select(
@@ -193,9 +206,18 @@ export default function Home() {
     setExpiredPacksCount(expiredPacks || 0);
     setExpiringSoonPacksCount(expiringSoonPacks || 0);
     setLatestFailedCycles(failedData || []);
+    setPendingCycleAlerts(pendingData || []);
     setLatestPatientRecords(patientData || []);
     setRecentPacks(packData || []);
   }
+
+  const runningCycles = pendingCycleAlerts.filter(
+    (cycle) => !isCycleOverdue(cycle)
+  );
+
+  const overdueCycles = pendingCycleAlerts.filter((cycle) =>
+    isCycleOverdue(cycle)
+  );
 
   return (
     <>
@@ -207,6 +229,32 @@ export default function Home() {
           patient traceability, and compliance alerts.
         </p>
       </header>
+
+      {overdueCycles.length > 0 && (
+        <section className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex gap-3">
+              <Timer className="text-yellow-700 shrink-0" />
+              <div>
+                <h3 className="font-semibold text-yellow-900">
+                  Cycles awaiting confirmation
+                </h3>
+                <p className="text-sm text-yellow-800 mt-1">
+                  {overdueCycles.length} cycle(s) reached their expected finish
+                  time and need an operator to confirm Passed or Failed.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/cycles"
+              className="rounded-xl bg-yellow-600 text-white px-5 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-yellow-700 active:scale-95 transition text-center"
+            >
+              Review Cycles
+            </Link>
+          </div>
+        </section>
+      )}
 
       {unreviewedFailedCyclesCount > 0 && (
         <section className="mb-8 rounded-2xl border border-red-200 bg-red-50 p-5">
@@ -248,14 +296,12 @@ export default function Home() {
           pending={pendingCyclesCount > 0}
         />
 
-        <Link href="/investigation?filter=failed">
-          <StatCard
-            icon={<ShieldCheck />}
-            title="Failed Cycles"
-            value={failedCyclesCount}
-            warning={failedCyclesCount > 0}
-          />
-        </Link>
+        <StatCard
+          icon={<AlertTriangle />}
+          title="Awaiting Confirmation"
+          value={overdueCycles.length}
+          pending={overdueCycles.length > 0}
+        />
 
         <StatCard
           icon={<PackageCheck />}
@@ -301,6 +347,58 @@ export default function Home() {
         <QuickAction href="/patients" label="Trace Patient Pack" />
         <QuickAction href="/reports" label="View Reports" />
       </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+        <section className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-xl font-semibold">Running Cycles</h3>
+
+            <Link
+              href="/cycles"
+              className="text-sm font-medium text-blue-700 hover:text-blue-800"
+            >
+              View Cycles →
+            </Link>
+          </div>
+
+          {runningCycles.length === 0 ? (
+            <p className="text-slate-500 text-sm">
+              No running cycles currently detected.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {runningCycles.map((cycle) => (
+                <CycleTimingCard key={cycle.id} cycle={cycle} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-xl font-semibold">Awaiting Confirmation</h3>
+
+            <Link
+              href="/cycles"
+              className="text-sm font-medium text-blue-700 hover:text-blue-800"
+            >
+              Review →
+            </Link>
+          </div>
+
+          {overdueCycles.length === 0 ? (
+            <p className="text-slate-500 text-sm">
+              No cycles are currently overdue.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {overdueCycles.map((cycle) => (
+                <CycleTimingCard key={cycle.id} cycle={cycle} overdue />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
         <section className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
@@ -523,6 +621,33 @@ function getEffectivePackStatus(pack: Pack) {
   return pack.status || "Available";
 }
 
+function isCycleOverdue(cycle: Cycle) {
+  if (!cycle.expected_finish_at) return false;
+  return new Date(cycle.expected_finish_at) < new Date();
+}
+
+function getCycleTimingText(cycle: Cycle) {
+  if (!cycle.expected_finish_at) {
+    return "No expected finish time";
+  }
+
+  const now = new Date();
+  const expectedFinish = new Date(cycle.expected_finish_at);
+  const diffMinutes = Math.round(
+    (expectedFinish.getTime() - now.getTime()) / (1000 * 60)
+  );
+
+  if (diffMinutes > 0) {
+    return `${diffMinutes} min remaining`;
+  }
+
+  if (diffMinutes === 0) {
+    return "Expected to finish now";
+  }
+
+  return `${Math.abs(diffMinutes)} min overdue`;
+}
+
 function formatInitials(value: string | null | undefined) {
   if (!value) return "N/A";
 
@@ -537,6 +662,11 @@ function formatInitials(value: string | null | undefined) {
   }
 
   return emailName.slice(0, 2).toUpperCase();
+}
+
+function formatDateTime(date: string | null | undefined) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleString();
 }
 
 function StatCard({
@@ -606,6 +736,82 @@ function StatCard({
         }
       >
         {value}
+      </p>
+    </div>
+  );
+}
+
+function CycleTimingCard({
+  cycle,
+  overdue = false,
+}: {
+  cycle: Cycle;
+  overdue?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        overdue
+          ? "border-yellow-200 bg-yellow-50"
+          : "border-blue-200 bg-blue-50"
+      }`}
+    >
+      <div className="flex flex-col md:flex-row md:justify-between gap-2">
+        <div>
+          <p
+            className={`font-medium ${
+              overdue ? "text-yellow-900" : "text-blue-900"
+            }`}
+          >
+            {cycle.cycle_number}
+          </p>
+
+          <p
+            className={`text-sm mt-1 ${
+              overdue ? "text-yellow-800" : "text-blue-800"
+            }`}
+          >
+            {cycle.sterilizer} · Started by: {formatInitials(cycle.operator)}
+          </p>
+        </div>
+
+        <span
+          className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${
+            overdue
+              ? "border-yellow-300 bg-white text-yellow-800"
+              : "border-blue-300 bg-white text-blue-800"
+          }`}
+        >
+          {overdue ? "Awaiting Confirmation" : "Running"}
+        </span>
+      </div>
+
+      <div
+        className={`grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-sm ${
+          overdue ? "text-yellow-800" : "text-blue-800"
+        }`}
+      >
+        <p>
+          Duration:{" "}
+          <span className="font-medium">
+            {cycle.duration_minutes ? `${cycle.duration_minutes} min` : "N/A"}
+          </span>
+        </p>
+
+        <p>
+          Expected finish:{" "}
+          <span className="font-medium">
+            {formatDateTime(cycle.expected_finish_at)}
+          </span>
+        </p>
+      </div>
+
+      <p
+        className={`mt-3 text-sm font-semibold ${
+          overdue ? "text-yellow-900" : "text-blue-900"
+        }`}
+      >
+        {getCycleTimingText(cycle)}
       </p>
     </div>
   );
