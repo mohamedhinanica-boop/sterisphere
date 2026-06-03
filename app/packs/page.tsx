@@ -19,6 +19,15 @@ type Pack = {
   cycle_pack_total: number | null;
   cycle_load_summary: string | null;
   created_at: string;
+  cycle?: CycleContext | null;
+};
+
+type CycleContext = {
+  cycle_number: string;
+  sterilizer: string;
+  operator: string;
+  released_by: string | null;
+  released_at: string | null;
 };
 
 const itemsPerPage = 5;
@@ -37,21 +46,51 @@ export default function PacksPage() {
   async function fetchPacks() {
     setLoading(true);
 
-    const { data, error } = await supabase
+    const { data: packsData, error: packsError } = await supabase
       .from("packs")
       .select(
-  "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
-)
+        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
+      )
       .order("created_at", { ascending: false });
 
-    if (error) {
+    if (packsError) {
       toast.error("Error loading packs.");
-      console.error(error);
+      console.error(packsError);
       setLoading(false);
       return;
     }
 
-    setPacks(data || []);
+    const cycleNumbers = Array.from(
+      new Set((packsData || []).map((pack) => pack.cycle_number))
+    );
+
+    let cyclesByNumber: Record<string, CycleContext> = {};
+
+    if (cycleNumbers.length > 0) {
+      const { data: cyclesData, error: cyclesError } = await supabase
+        .from("cycles")
+        .select("cycle_number, sterilizer, operator, released_by, released_at")
+        .in("cycle_number", cycleNumbers);
+
+      if (cyclesError) {
+        toast.error("Error loading cycle details.");
+        console.error(cyclesError);
+        setLoading(false);
+        return;
+      }
+
+      cyclesByNumber = (cyclesData || []).reduce((acc, cycle) => {
+        acc[cycle.cycle_number] = cycle;
+        return acc;
+      }, {} as Record<string, CycleContext>);
+    }
+
+    const enrichedPacks = (packsData || []).map((pack) => ({
+      ...pack,
+      cycle: cyclesByNumber[pack.cycle_number] || null,
+    }));
+
+    setPacks(enrichedPacks);
     setLoading(false);
   }
 
@@ -100,7 +139,10 @@ export default function PacksPage() {
       pack.cycle_number.toLowerCase().includes(search) ||
       pack.pack_type.toLowerCase().includes(search) ||
       (pack.contents || "").toLowerCase().includes(search) ||
-      effectiveStatus.toLowerCase().includes(search);
+      effectiveStatus.toLowerCase().includes(search) ||
+      (pack.cycle?.sterilizer || "").toLowerCase().includes(search) ||
+      (pack.cycle?.operator || "").toLowerCase().includes(search) ||
+      (pack.cycle?.released_by || "").toLowerCase().includes(search);
 
     const matchesStatus =
       statusFilter === "All" ||
@@ -118,11 +160,38 @@ export default function PacksPage() {
   );
 
   function formatDate(date: string | null) {
-    if (!date) {
-      return "N/A";
+    if (!date) return "N/A";
+    return new Date(date).toLocaleDateString();
+  }
+
+  function formatDateTime(date: string | null) {
+    if (!date) return "N/A";
+    return new Date(date).toLocaleString();
+  }
+
+  function formatInitials(value: string | null | undefined) {
+    if (!value) return "N/A";
+
+    const emailName = value.split("@")[0] || value;
+    const parts = emailName
+      .replace(/[._-]+/g, " ")
+      .split(" ")
+      .filter(Boolean);
+
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
 
-    return new Date(date).toLocaleDateString();
+    return emailName.slice(0, 2).toUpperCase();
+  }
+
+  function formatLoadComposition(summary: string | null) {
+    if (!summary) return [];
+
+    return summary
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   return (
@@ -189,7 +258,7 @@ export default function PacksPage() {
               setCurrentPage(1);
             }}
             className="rounded-xl border border-slate-300 px-4 py-3"
-            placeholder="Search by pack number, cycle, type, contents, or status"
+            placeholder="Search by pack, cycle, type, sterilizer, operator, or status"
           />
         </div>
 
@@ -205,6 +274,9 @@ export default function PacksPage() {
               {paginatedPacks.map((pack) => {
                 const effectiveStatus = getEffectiveStatus(pack);
                 const expiringSoon = isExpiringSoon(pack);
+                const compositionItems = formatLoadComposition(
+                  pack.cycle_load_summary
+                );
 
                 return (
                   <div
@@ -215,7 +287,6 @@ export default function PacksPage() {
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold">{pack.pack_number}</h3>
-
                           <StatusBadge value={effectiveStatus} />
 
                           {expiringSoon && (
@@ -225,33 +296,84 @@ export default function PacksPage() {
                           )}
                         </div>
 
-                        <p className="text-sm text-slate-600 mt-1">
-                          {pack.pack_type} · Cycle: {pack.cycle_number}
+                        <div className="mt-2">
+                          <p className="text-lg font-semibold text-slate-900">
+                            {pack.pack_type}
+                          </p>
+
+                          {pack.load_item_index && pack.load_item_total && (
+                            <p className="text-sm font-medium text-blue-700 mt-1">
+                              {pack.load_item_index} of {pack.load_item_total}
+                            </p>
+                          )}
+                        </div>
+
+                        <p className="text-sm text-slate-500 mt-2">
+                          Cycle:{" "}
+                          <span className="font-medium text-slate-700">
+                            {pack.cycle_number}
+                          </span>
                         </p>
-                        {pack.load_item_index && pack.load_item_total && (
-  <p className="text-sm text-blue-700 mt-2">
-    {pack.pack_type} {pack.load_item_index} of {pack.load_item_total}
-  </p>
-)}
 
-{pack.cycle_pack_total && (
-  <p className="text-sm text-slate-500 mt-1">
-    Part of a {pack.cycle_pack_total}-pack sterilization load
-  </p>
-)}
-
-{pack.cycle_load_summary && (
-  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-    <span className="font-medium text-slate-700">Load composition:</span>{" "}
-    {pack.cycle_load_summary}
-  </div>
-)}
-
-                        {pack.contents && (
-                          <p className="text-sm text-slate-500 mt-2">
-                            Contents: {pack.contents}
+                        {pack.cycle_pack_total && (
+                          <p className="text-sm text-slate-500 mt-1">
+                            Part of a{" "}
+                            <span className="font-medium text-slate-700">
+                              {pack.cycle_pack_total}-pack
+                            </span>{" "}
+                            sterilization load
                           </p>
                         )}
+
+                        {compositionItems.length > 0 && (
+                          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                            <p className="font-medium text-slate-700 mb-2">
+                              Load composition
+                            </p>
+
+                            <ul className="space-y-1">
+                              {compositionItems.map((item) => (
+                                <li key={item}>• {item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-sm font-medium text-slate-700 mb-2">
+                            Sterilization context
+                          </p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-slate-500">
+                            <p>
+                              Sterilizer:{" "}
+                              <span className="font-medium text-slate-700">
+                                {pack.cycle?.sterilizer || "N/A"}
+                              </span>
+                            </p>
+
+                            <p>
+                              Started by:{" "}
+                              <span className="font-medium text-slate-700">
+                                {formatInitials(pack.cycle?.operator)}
+                              </span>
+                            </p>
+
+                            <p>
+                              Completed by:{" "}
+                              <span className="font-medium text-slate-700">
+                                {formatInitials(pack.cycle?.released_by)}
+                              </span>
+                            </p>
+
+                            <p>
+                              Completed at:{" "}
+                              <span className="font-medium text-slate-700">
+                                {formatDateTime(pack.cycle?.released_at || null)}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-sm text-slate-500">
                           <p>
