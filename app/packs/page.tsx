@@ -1,6 +1,5 @@
 "use client";
 
-import { createAuditLog } from "@/lib/audit";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
@@ -11,223 +10,98 @@ type Pack = {
   pack_number: string;
   cycle_number: string;
   pack_type: string;
-  contents: string;
+  contents: string | null;
   status: string | null;
+  sterilized_at: string | null;
+  expires_at: string | null;
   created_at: string;
 };
 
-type Cycle = {
-  id: string;
-  cycle_number: string;
-  expected_pack_count: number | null;
-};
+const itemsPerPage = 5;
 
 export default function PacksPage() {
   const [packs, setPacks] = useState<Pack[]>([]);
-  const [cycles, setCycles] = useState<Cycle[]>([]);
-  const [packCounter, setPackCounter] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const itemsPerPage = 5;
-
-  const [form, setForm] = useState({
-    cycleId: "",
-    packType: "Instrument Pouch",
-    contents: "",
-  });
-
   useEffect(() => {
     fetchPacks();
-    fetchCycles();
   }, []);
 
   async function fetchPacks() {
+    setLoading(true);
+
     const { data, error } = await supabase
       .from("packs")
-      .select("*")
+      .select(
+        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
       toast.error("Error loading packs.");
       console.error(error);
+      setLoading(false);
       return;
     }
 
     setPacks(data || []);
-    setPackCounter((data?.length || 0) + 1);
-  }
-
-  async function fetchCycles() {
-    const { data, error } = await supabase
-      .from("cycles")
-      .select("id, cycle_number, expected_pack_count")
-      .eq("status", "Passed")
-      .eq("cycle_state", "Open")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("Error loading open cycles.");
-      console.error(error);
-      return;
-    }
-
-    setCycles(data || []);
-  }
-
-  function updateForm(field: string, value: string) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
-
-  async function savePack() {
-    if (!form.cycleId || !form.packType || !form.contents) {
-      toast.error("Please fill all required fields.");
-      return;
-    }
-
-    const selectedCycle = cycles.find((cycle) => cycle.id === form.cycleId);
-
-    if (!selectedCycle) {
-      toast.error("Selected cycle not found.");
-      return;
-    }
-
-    setLoading(true);
-
-    const { count: existingPackCount, error: countError } = await supabase
-      .from("packs")
-      .select("id", { count: "exact", head: true })
-      .eq("cycle_id", selectedCycle.id);
-
-    if (countError) {
-      toast.error("Error checking pack count.");
-      console.error(countError);
-      setLoading(false);
-      return;
-    }
-
-    const currentCount = existingPackCount || 0;
-    const expectedCount = selectedCycle.expected_pack_count || 0;
-
-    if (expectedCount > 0 && currentCount >= expectedCount) {
-      await supabase
-        .from("cycles")
-        .update({ cycle_state: "Closed" })
-        .eq("id", selectedCycle.id);
-
-      await fetchCycles();
-
-      toast.error("This cycle has already reached its expected pack count.");
-      setLoading(false);
-      return;
-    }
-
-    const newPackNumber = `PACK-${new Date().getFullYear()}-${String(
-      packCounter
-    ).padStart(4, "0")}`;
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
- const { data: newPack, error } = await supabase
-  .from("packs")
-  .insert([
-    {
-      pack_number: newPackNumber,
-      cycle_id: selectedCycle.id,
-      cycle_number: selectedCycle.cycle_number,
-      pack_type: form.packType,
-      contents: form.contents,
-      status: "Available",
-      created_by: user?.email || "unknown",
-    },
-  ])
-  .select()
-  .single();
-
-if (error || !newPack) {
-  toast.error("Error saving pack.");
-  console.error(error);
-  setLoading(false);
-  return;
-}
-
-    await createAuditLog({
-  action: "pack_created",
-  entityType: "pack",
-  entityId: newPack.id,
-  description: `Created pack ${newPack.pack_number} from cycle ${newPack.cycle_number}`,
-  metadata: {
-    pack_number: newPack.pack_number,
-    cycle_number: newPack.cycle_number,
-    pack_type: newPack.pack_type,
-    status: newPack.status,
-  },
-});
-
-    const newCount = currentCount + 1;
-
-    if (expectedCount > 0 && newCount >= expectedCount) {
-      const { error: closeError } = await supabase
-        .from("cycles")
-        .update({ cycle_state: "Closed" })
-        .eq("id", selectedCycle.id);
-
-      if (closeError) {
-        toast.error("Pack saved, but cycle was not closed.");
-        console.error(closeError);
-        setLoading(false);
-        return;
-      }
-await createAuditLog({
-  action: "cycle_closed",
-  entityType: "cycle",
-  entityId: selectedCycle.id,
-  description: `Cycle ${selectedCycle.cycle_number} closed after reaching expected pack count`,
-  metadata: {
-    cycle_number: selectedCycle.cycle_number,
-    expected_pack_count: expectedCount,
-    created_pack_count: newCount,
-  },
-});
-      toast.success("Pack saved. Cycle reached expected count and was closed.");
-    } else {
-      toast.success(
-        `Pack saved. ${newCount}/${expectedCount || "?"} packs created for this cycle.`
-      );
-    }
-
-    setForm({
-      cycleId: "",
-      packType: "Instrument Pouch",
-      contents: "",
-    });
-
-    await fetchPacks();
-    await fetchCycles();
-
     setLoading(false);
   }
 
+  function getEffectiveStatus(pack: Pack) {
+    if (pack.status === "Used") {
+      return "Used";
+    }
+
+    if (pack.expires_at && new Date(pack.expires_at) < new Date()) {
+      return "Expired";
+    }
+
+    return pack.status || "Available";
+  }
+
+  function isExpiringSoon(pack: Pack) {
+    if (!pack.expires_at || getEffectiveStatus(pack) !== "Available") {
+      return false;
+    }
+
+    const today = new Date();
+    const expiry = new Date(pack.expires_at);
+    const diffInDays = Math.ceil(
+      (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    return diffInDays >= 0 && diffInDays <= 30;
+  }
+
+  const totalPacks = packs.length;
+  const availablePacks = packs.filter(
+    (pack) => getEffectiveStatus(pack) === "Available"
+  );
+  const usedPacks = packs.filter((pack) => getEffectiveStatus(pack) === "Used");
+  const expiredPacks = packs.filter(
+    (pack) => getEffectiveStatus(pack) === "Expired"
+  );
+  const expiringSoonPacks = packs.filter((pack) => isExpiringSoon(pack));
+
   const filteredPacks = packs.filter((pack) => {
     const search = searchTerm.toLowerCase();
-    const packStatus = pack.status || "Available";
+    const effectiveStatus = getEffectiveStatus(pack);
 
     const matchesSearch =
       pack.pack_number.toLowerCase().includes(search) ||
       pack.cycle_number.toLowerCase().includes(search) ||
       pack.pack_type.toLowerCase().includes(search) ||
-      pack.contents.toLowerCase().includes(search) ||
-      packStatus.toLowerCase().includes(search);
+      (pack.contents || "").toLowerCase().includes(search) ||
+      effectiveStatus.toLowerCase().includes(search);
 
     const matchesStatus =
-      statusFilter === "All" || packStatus === statusFilter;
+      statusFilter === "All" ||
+      effectiveStatus === statusFilter ||
+      (statusFilter === "Expiring Soon" && isExpiringSoon(pack));
 
     return matchesSearch && matchesStatus;
   });
@@ -239,101 +113,69 @@ await createAuditLog({
     currentPage * itemsPerPage
   );
 
+  function formatDate(date: string | null) {
+    if (!date) {
+      return "N/A";
+    }
+
+    return new Date(date).toLocaleDateString();
+  }
+
   return (
     <>
       <header className="mb-8">
-        <h1 className="text-4xl font-bold">Instrument Packs</h1>
+        <h1 className="text-4xl font-bold">Pack Inventory</h1>
         <p className="mt-2 text-slate-600">
-          Create QR-coded instrument packs and link them to open sterilization
-          cycles.
+          View, search, and track sterilized instrument packs generated from
+          sterilization cycles.
         </p>
       </header>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-3xl mb-8">
-        <h2 className="text-2xl font-semibold mb-6">New Instrument Pack</h2>
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+        <InventoryCard title="Total Packs" value={totalPacks} />
+        <InventoryCard title="Available" value={availablePacks.length} good />
+        <InventoryCard title="Used" value={usedPacks.length} />
+        <InventoryCard title="Expired" value={expiredPacks.length} danger />
+        <InventoryCard
+          title="Expiring Soon"
+          value={expiringSoonPacks.length}
+          warning
+        />
+      </section>
 
-        <form className="space-y-5">
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Open Passed Sterilization Cycle
-            </label>
-
-            <select
-              value={form.cycleId}
-              onChange={(e) => updateForm("cycleId", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option value="">
-                {cycles.length === 0
-                  ? "No open passed cycles available"
-                  : "Select an open sterilization cycle"}
-              </option>
-
-              {cycles.map((cycle) => (
-                <option key={cycle.id} value={cycle.id}>
-                  {cycle.cycle_number} · Expected packs:{" "}
-                  {cycle.expected_pack_count || "N/A"}
-                </option>
-              ))}
-            </select>
-
-            <p className="mt-2 text-xs text-slate-500">
-              Closed, failed, and pending cycles are not available for pack
-              creation.
+            <h2 className="text-2xl font-semibold">Inventory List</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Showing {filteredPacks.length} of {packs.length} pack(s).
             </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Pack Type</label>
-            <select
-              value={form.packType}
-              onChange={(e) => updateForm("packType", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option>Instrument Pouch</option>
-              <option>Cassette</option>
-              <option>Surgical Kit</option>
-              <option>Hygiene Kit</option>
-              <option>Exam Kit</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Contents</label>
-            <textarea
-              value={form.contents}
-              onChange={(e) => updateForm("contents", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 min-h-28"
-              placeholder="Example: mirror, explorer, cotton pliers..."
-            />
           </div>
 
           <button
             type="button"
-            onClick={savePack}
-            disabled={loading || cycles.length === 0}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={fetchPacks}
+            disabled={loading}
+            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium cursor-pointer hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Saving..." : "Save Pack"}
+            {loading ? "Refreshing..." : "Refresh"}
           </button>
-        </form>
-      </section>
+        </div>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-2xl font-semibold mb-4">Saved Packs</h2>
-
-        <div className="mb-4 flex flex-col md:flex-row gap-3">
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3">
           <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full md:w-48 rounded-xl border border-slate-300 px-4 py-3"
+            className="rounded-xl border border-slate-300 px-4 py-3"
           >
             <option value="All">All Packs</option>
             <option value="Available">Available</option>
             <option value="Used">Used</option>
+            <option value="Expired">Expired</option>
+            <option value="Expiring Soon">Expiring Soon</option>
           </select>
 
           <input
@@ -342,53 +184,81 @@ await createAuditLog({
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            className="rounded-xl border border-slate-300 px-4 py-3"
             placeholder="Search by pack number, cycle, type, contents, or status"
           />
         </div>
 
-        {packs.length === 0 ? (
-          <p className="text-slate-500">No packs saved yet.</p>
+        {loading ? (
+          <p className="text-slate-500">Loading packs...</p>
+        ) : packs.length === 0 ? (
+          <p className="text-slate-500">No packs found yet.</p>
         ) : filteredPacks.length === 0 ? (
           <p className="text-slate-500">No matching packs found.</p>
         ) : (
           <>
             <div className="space-y-3">
-              {paginatedPacks.map((pack) => (
-                <div
-                  key={pack.id}
-                  className="rounded-xl border border-slate-200 p-4"
-                >
-                  <div className="flex justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">{pack.pack_number}</h3>
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-medium ${getPackStatusBadgeClass(
-                            pack.status || "Available"
-                          )}`}
-                        >
-                          {pack.status || "Available"}
-                        </span>
+              {paginatedPacks.map((pack) => {
+                const effectiveStatus = getEffectiveStatus(pack);
+                const expiringSoon = isExpiringSoon(pack);
+
+                return (
+                  <div
+                    key={pack.id}
+                    className="rounded-xl border border-slate-200 p-4"
+                  >
+                    <div className="flex flex-col md:flex-row md:justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold">{pack.pack_number}</h3>
+
+                          <StatusBadge value={effectiveStatus} />
+
+                          {expiringSoon && (
+                            <span className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+                              Expiring Soon
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm text-slate-600 mt-1">
+                          {pack.pack_type} · Cycle: {pack.cycle_number}
+                        </p>
+
+                        {pack.contents && (
+                          <p className="text-sm text-slate-500 mt-2">
+                            Contents: {pack.contents}
+                          </p>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-sm text-slate-500">
+                          <p>
+                            Sterilized:{" "}
+                            <span className="font-medium text-slate-700">
+                              {formatDate(pack.sterilized_at)}
+                            </span>
+                          </p>
+
+                          <p>
+                            Expires:{" "}
+                            <span className="font-medium text-slate-700">
+                              {formatDate(pack.expires_at)}
+                            </span>
+                          </p>
+                        </div>
+
+                        <p className="text-xs text-slate-400 mt-3">
+                          Created: {new Date(pack.created_at).toLocaleString()}
+                        </p>
                       </div>
 
-                      <p className="text-sm text-slate-600 mt-1">
-                        {pack.pack_type} · Cycle: {pack.cycle_number}
-                      </p>
-
-                      <p className="text-sm text-slate-500 mt-2">
-                        {pack.contents}
-                      </p>
-
-                      <p className="text-xs text-slate-400 mt-3">
-                        Created: {new Date(pack.created_at).toLocaleString()}
-                      </p>
+                      <div className="shrink-0">
+                        <QRCodeSVG value={pack.pack_number} size={90} />
+                      </div>
                     </div>
-
-                    <QRCodeSVG value={pack.pack_number} size={90} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {totalPages > 1 && (
@@ -425,14 +295,63 @@ await createAuditLog({
   );
 }
 
-function getPackStatusBadgeClass(status: string) {
-  if (status === "Used") {
-    return "bg-slate-100 text-slate-700 border-slate-200";
+function InventoryCard({
+  title,
+  value,
+  good = false,
+  danger = false,
+  warning = false,
+}: {
+  title: string;
+  value: number;
+  good?: boolean;
+  danger?: boolean;
+  warning?: boolean;
+}) {
+  const className = danger
+    ? "border-red-200 bg-red-50 text-red-700"
+    : warning
+    ? "border-orange-200 bg-orange-50 text-orange-700"
+    : good
+    ? "border-green-200 bg-green-50 text-green-700"
+    : "border-slate-200 bg-white text-slate-900";
+
+  return (
+    <div className={`rounded-2xl border p-5 shadow-sm ${className}`}>
+      <p className="text-sm opacity-80">{title}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ value }: { value: string }) {
+  if (value === "Available") {
+    return (
+      <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+        Available
+      </span>
+    );
   }
 
-  if (status === "Available") {
-    return "bg-green-100 text-green-700 border-green-200";
+  if (value === "Used") {
+    return (
+      <span className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+        Used
+      </span>
+    );
   }
 
-  return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  if (value === "Expired") {
+    return (
+      <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+        Expired
+      </span>
+    );
+  }
+
+  return (
+    <span className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700">
+      {value}
+    </span>
+  );
 }
