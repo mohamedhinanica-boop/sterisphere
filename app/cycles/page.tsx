@@ -26,6 +26,26 @@ type Sterilizer = {
   active: boolean;
 };
 
+type LoadItem = {
+  packType: string;
+  quantity: string;
+};
+
+type SavedLoadItem = {
+  id: string;
+  cycle_id: string;
+  pack_type: string;
+  quantity: number;
+};
+
+const packTypeOptions = [
+  "Instrument Pouch",
+  "Cassette",
+  "Surgical Kit",
+  "Hygiene Kit",
+  "Exam Kit",
+];
+
 export default function CyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [sterilizers, setSterilizers] = useState<Sterilizer[]>([]);
@@ -40,9 +60,15 @@ export default function CyclesPage() {
 
   const [form, setForm] = useState({
     sterilizer: "",
-    loadContents: "",
-    expectedPackCount: "",
+    loadNotes: "",
   });
+
+  const [loadItems, setLoadItems] = useState<LoadItem[]>([
+    {
+      packType: "Exam Kit",
+      quantity: "1",
+    },
+  ]);
 
   useEffect(() => {
     fetchCycles();
@@ -88,16 +114,103 @@ export default function CyclesPage() {
     }));
   }
 
+  function updateLoadItem(index: number, field: keyof LoadItem, value: string) {
+    setLoadItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      )
+    );
+  }
+
+  function addLoadItem() {
+    setLoadItems((current) => [
+      ...current,
+      {
+        packType: "Exam Kit",
+        quantity: "1",
+      },
+    ]);
+  }
+
+  function removeLoadItem(index: number) {
+    setLoadItems((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index)
+    );
+  }
+
+  const expectedPackCount = loadItems.reduce((total, item) => {
+    const quantity = Number(item.quantity);
+    return total + (Number.isInteger(quantity) && quantity > 0 ? quantity : 0);
+  }, 0);
+
+  function buildLoadSummary() {
+    const composition = loadItems
+      .map((item) => `${item.packType} × ${item.quantity}`)
+      .join(", ");
+
+    if (form.loadNotes.trim()) {
+      return `${composition}. Notes: ${form.loadNotes.trim()}`;
+    }
+
+    return composition;
+  }
+
+  async function getNextPackNumberSequence(totalNeeded: number) {
+    const currentYear = new Date().getFullYear();
+    const prefix = `PACK-${currentYear}-`;
+
+    const { data, error } = await supabase
+      .from("packs")
+      .select("pack_number")
+      .like("pack_number", `${prefix}%`);
+
+    if (error) {
+      throw error;
+    }
+
+    const maxExistingNumber =
+      data?.reduce((max, pack) => {
+        const numericPart = Number(pack.pack_number.replace(prefix, ""));
+        return Number.isFinite(numericPart) && numericPart > max
+          ? numericPart
+          : max;
+      }, 0) || 0;
+
+    return Array.from({ length: totalNeeded }, (_, index) => {
+      const nextNumber = maxExistingNumber + index + 1;
+
+      return `${prefix}${String(nextNumber).padStart(4, "0")}`;
+    });
+  }
+
+  function expandLoadItemsToPackTypes(items: SavedLoadItem[]) {
+    return items.flatMap((item) =>
+      Array.from({ length: item.quantity }, () => item.pack_type)
+    );
+  }
+
   async function startCycle() {
-    if (!form.sterilizer || !form.loadContents || !form.expectedPackCount) {
-      toast.error("Please fill all required fields.");
+    if (!form.sterilizer) {
+      toast.error("Please select a sterilizer.");
       return;
     }
 
-    const expectedPackCount = Number(form.expectedPackCount);
+    if (loadItems.length === 0) {
+      toast.error("Please add at least one load item.");
+      return;
+    }
 
-    if (!Number.isInteger(expectedPackCount) || expectedPackCount <= 0) {
-      toast.error("Expected pack count must be a positive number.");
+    for (const item of loadItems) {
+      const quantity = Number(item.quantity);
+
+      if (!item.packType || !Number.isInteger(quantity) || quantity <= 0) {
+        toast.error("Each load item must have a valid pack type and quantity.");
+        return;
+      }
+    }
+
+    if (expectedPackCount <= 0) {
+      toast.error("Expected pack count must be greater than zero.");
       return;
     }
 
@@ -112,15 +225,16 @@ export default function CyclesPage() {
     } = await supabase.auth.getUser();
 
     const operatorEmail = user?.email || "unknown";
+    const loadSummary = buildLoadSummary();
 
-    const { data: newCycle, error } = await supabase
+    const { data: newCycle, error: cycleError } = await supabase
       .from("cycles")
       .insert([
         {
           cycle_number: newCycleNumber,
           sterilizer: form.sterilizer,
           operator: operatorEmail,
-          load_contents: form.loadContents,
+          load_contents: loadSummary,
           status: "Pending",
           cycle_state: "Closed",
           expected_pack_count: expectedPackCount,
@@ -130,9 +244,28 @@ export default function CyclesPage() {
       .select()
       .single();
 
-    if (error || !newCycle) {
+    if (cycleError || !newCycle) {
       toast.error("Error starting cycle.");
-      console.error(error);
+      console.error(cycleError);
+      setLoading(false);
+      return;
+    }
+
+    const loadRows = loadItems.map((item) => ({
+      cycle_id: newCycle.id,
+      pack_type: item.packType,
+      quantity: Number(item.quantity),
+    }));
+
+    const { error: loadItemsError } = await supabase
+      .from("load_items")
+      .insert(loadRows);
+
+    if (loadItemsError) {
+      await supabase.from("cycles").delete().eq("id", newCycle.id);
+
+      toast.error("Error saving load composition.");
+      console.error(loadItemsError);
       setLoading(false);
       return;
     }
@@ -149,52 +282,221 @@ export default function CyclesPage() {
         status: newCycle.status,
         cycle_state: newCycle.cycle_state,
         expected_pack_count: newCycle.expected_pack_count,
+        load_items: loadRows,
       },
     });
 
     setForm({
       sterilizer: "",
-      loadContents: "",
-      expectedPackCount: "",
+      loadNotes: "",
     });
 
+    setLoadItems([
+      {
+        packType: "Exam Kit",
+        quantity: "1",
+      },
+    ]);
+
     await fetchCycles();
-    toast.success("Sterilization cycle started.");
+
+    toast.success("Sterilization cycle started with load composition.");
     setLoading(false);
   }
 
-  async function updateCycleStatus(cycleId: string, newStatus: string) {
-    const { error } = await supabase
-      .from("cycles")
-      .update({
-        status: newStatus,
-        cycle_state: newStatus === "Passed" ? "Open" : "Closed",
-      })
-      .eq("id", cycleId);
+  async function generatePacksForPassedCycle(cycle: Cycle) {
+    const { data: existingPacks, error: existingPacksError } = await supabase
+      .from("packs")
+      .select("id")
+      .eq("cycle_id", cycle.id);
 
-    if (error) {
-      toast.error("Error updating cycle status.");
-      console.error(error);
-      return;
+    if (existingPacksError) {
+      throw existingPacksError;
+    }
+
+    if ((existingPacks || []).length > 0) {
+      throw new Error("Packs have already been generated for this cycle.");
+    }
+
+    const { data: savedLoadItems, error: loadItemsError } = await supabase
+      .from("load_items")
+      .select("id, cycle_id, pack_type, quantity")
+      .eq("cycle_id", cycle.id);
+
+    if (loadItemsError) {
+      throw loadItemsError;
+    }
+
+    if (!savedLoadItems || savedLoadItems.length === 0) {
+      throw new Error("No load composition found for this cycle.");
+    }
+
+    const packTypes = expandLoadItemsToPackTypes(savedLoadItems);
+
+    if (packTypes.length === 0) {
+      throw new Error("Load composition does not contain valid quantities.");
+    }
+
+    const packNumbers = await getNextPackNumberSequence(packTypes.length);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const createdBy = user?.email || "unknown";
+
+   const sterilizedAt = new Date();
+
+const expiresAt = new Date();
+expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+const packRows = packTypes.map((packType, index) => ({
+  pack_number: packNumbers[index],
+  cycle_id: cycle.id,
+  cycle_number: cycle.cycle_number,
+  pack_type: packType,
+  contents: packType,
+  status: "Available",
+  created_by: createdBy,
+
+  sterilized_at: sterilizedAt.toISOString(),
+  expires_at: expiresAt.toISOString(),
+}));
+
+    const { data: createdPacks, error: packsError } = await supabase
+      .from("packs")
+      .insert(packRows)
+      .select();
+
+    if (packsError) {
+      throw packsError;
     }
 
     await createAuditLog({
-      action: "cycle_status_updated",
+      action: "packs_auto_generated",
       entityType: "cycle",
-      entityId: cycleId,
-      description: `Cycle status updated to ${newStatus}`,
+      entityId: cycle.id,
+      description: `Generated ${packRows.length} packs from cycle ${cycle.cycle_number}`,
       metadata: {
-        new_status: newStatus,
-        cycle_state: newStatus === "Passed" ? "Open" : "Closed",
+        cycle_number: cycle.cycle_number,
+        generated_count: packRows.length,
+        packs: packRows.map((pack) => ({
+          pack_number: pack.pack_number,
+          pack_type: pack.pack_type,
+        })),
       },
     });
 
-    await fetchCycles();
+    await Promise.all(
+      (createdPacks || []).map((pack) =>
+        createAuditLog({
+          action: "pack_created",
+          entityType: "pack",
+          entityId: pack.id,
+          description: `Auto-created pack ${pack.pack_number} from cycle ${cycle.cycle_number}`,
+          metadata: {
+            pack_number: pack.pack_number,
+            cycle_number: pack.cycle_number,
+            pack_type: pack.pack_type,
+            status: pack.status,
+            source: "auto_generated_from_passed_cycle",
+          },
+        })
+      )
+    );
 
-    if (newStatus === "Failed") {
-      toast.error("Cycle marked as Failed and closed.");
-    } else {
-      toast.success("Cycle marked as Passed and opened for pack creation.");
+    return packRows.length;
+  }
+
+  async function updateCycleStatus(cycleId: string, newStatus: string) {
+    const cycle = cycles.find((item) => item.id === cycleId);
+
+    if (!cycle) {
+      toast.error("Cycle not found.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (newStatus === "Passed") {
+        const generatedPackCount = await generatePacksForPassedCycle(cycle);
+
+        const { error } = await supabase
+          .from("cycles")
+          .update({
+            status: "Passed",
+            cycle_state: "Closed",
+            expected_pack_count: generatedPackCount,
+          })
+          .eq("id", cycleId);
+
+        if (error) {
+          throw error;
+        }
+
+        await createAuditLog({
+          action: "cycle_passed",
+          entityType: "cycle",
+          entityId: cycleId,
+          description: `Cycle ${cycle.cycle_number} passed and ${generatedPackCount} packs were generated`,
+          metadata: {
+            cycle_number: cycle.cycle_number,
+            new_status: "Passed",
+            cycle_state: "Closed",
+            generated_pack_count: generatedPackCount,
+          },
+        });
+
+        await fetchCycles();
+        toast.success(
+          `Cycle marked as Passed. ${generatedPackCount} packs were created automatically.`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("cycles")
+        .update({
+          status: newStatus,
+          cycle_state: "Closed",
+        })
+        .eq("id", cycleId);
+
+      if (error) {
+        throw error;
+      }
+
+      await createAuditLog({
+        action: "cycle_status_updated",
+        entityType: "cycle",
+        entityId: cycleId,
+        description: `Cycle status updated to ${newStatus}`,
+        metadata: {
+          cycle_number: cycle.cycle_number,
+          new_status: newStatus,
+          cycle_state: "Closed",
+        },
+      });
+
+      await fetchCycles();
+
+      if (newStatus === "Failed") {
+        toast.error("Cycle marked as Failed and closed.");
+      } else {
+        toast.success(`Cycle marked as ${newStatus}.`);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Error updating cycle status.";
+
+      toast.error(message);
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -207,7 +509,8 @@ export default function CyclesPage() {
       cycle.sterilizer.toLowerCase().includes(search) ||
       cycle.operator.toLowerCase().includes(search) ||
       cycle.status.toLowerCase().includes(search) ||
-      cycleState.toLowerCase().includes(search);
+      cycleState.toLowerCase().includes(search) ||
+      cycle.load_contents.toLowerCase().includes(search);
 
     const matchesStatus =
       statusFilter === "All" || cycle.status === statusFilter;
@@ -229,22 +532,22 @@ export default function CyclesPage() {
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Sterilization Cycles</h1>
         <p className="mt-2 text-slate-600">
-          Start sterilization cycles, track pending cycles, and release passed
-          cycles for pack creation.
+          Start sterilization cycles with load composition and automatically
+          generate packs when a cycle passes.
         </p>
       </header>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-3xl mb-8">
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-4xl mb-8">
         <h2 className="text-2xl font-semibold mb-2">
           Start Sterilization Cycle
         </h2>
 
         <p className="text-sm text-slate-600 mb-6">
-          New cycles always start as Pending. After sterilization is complete,
-          mark the cycle as Passed or Failed from the saved cycles list.
+          Add the load composition before starting the cycle. When the cycle is
+          marked as Passed, packs are generated automatically.
         </p>
 
-        <form className="space-y-5">
+        <form className="space-y-6">
           <div>
             <label className="block text-sm font-medium mb-2">
               Sterilizer
@@ -274,40 +577,88 @@ export default function CyclesPage() {
             </p>
           </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Load Composition</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Define what will be released as packs after this cycle.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
+                Expected packs: {expectedPackCount}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {loadItems.map((item, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 md:grid-cols-[1fr_140px_auto] gap-3"
+                >
+                  <select
+                    value={item.packType}
+                    onChange={(e) =>
+                      updateLoadItem(index, "packType", e.target.value)
+                    }
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                  >
+                    {packTypeOptions.map((packType) => (
+                      <option key={packType} value={packType}>
+                        {packType}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.quantity}
+                    onChange={(e) =>
+                      updateLoadItem(index, "quantity", e.target.value)
+                    }
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    placeholder="Qty"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeLoadItem(index)}
+                    disabled={loadItems.length === 1}
+                    className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={addLoadItem}
+              className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium cursor-pointer hover:bg-slate-50"
+            >
+              Add Load Item
+            </button>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">
-              Load Contents
+              Optional Load Notes
             </label>
             <textarea
-              value={form.loadContents}
-              onChange={(e) => updateForm("loadContents", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 min-h-28"
-              placeholder="Example: 5 exam kits, 2 surgical cassettes..."
+              value={form.loadNotes}
+              onChange={(e) => updateForm("loadNotes", e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 min-h-24"
+              placeholder="Optional notes about this load..."
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Expected Pack Count
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={form.expectedPackCount}
-              onChange={(e) => updateForm("expectedPackCount", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: 5"
-            />
-            <p className="mt-2 text-xs text-slate-500">
-              Once this number of packs is created after a Passed cycle, the
-              cycle will automatically close.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-            This cycle will be created as <strong>Pending</strong>. It will not
-            be available for pack creation until it is marked as{" "}
-            <strong>Passed</strong>.
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            This cycle will be created as <strong>Pending</strong>. When marked
+            as <strong>Passed</strong>, packs will be created automatically and
+            the cycle will close.
           </div>
 
           <button
@@ -391,10 +742,10 @@ export default function CyclesPage() {
 
                           <span
                             className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${getStateBadgeClass(
-                              cycle.cycle_state || "Open"
+                              cycle.cycle_state || "Closed"
                             )}`}
                           >
-                            {cycle.cycle_state || "Open"}
+                            {cycle.cycle_state || "Closed"}
                           </span>
                         </div>
                       </div>
@@ -419,20 +770,22 @@ export default function CyclesPage() {
                         <div className="flex flex-col md:flex-row gap-3 mt-4">
                           <button
                             type="button"
+                            disabled={loading}
                             onClick={() =>
                               updateCycleStatus(cycle.id, "Passed")
                             }
-                            className="rounded-xl bg-green-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-green-700 active:scale-95 transition"
+                            className="rounded-xl bg-green-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-green-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Mark as Passed
+                            Mark as Passed + Generate Packs
                           </button>
 
                           <button
                             type="button"
+                            disabled={loading}
                             onClick={() =>
                               updateCycleStatus(cycle.id, "Failed")
                             }
-                            className="rounded-xl bg-red-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition"
+                            className="rounded-xl bg-red-600 text-white px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-red-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Mark as Failed
                           </button>
