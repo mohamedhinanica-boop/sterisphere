@@ -9,6 +9,13 @@ type Pack = {
   pack_number: string;
   cycle_number: string;
   pack_type: string;
+  status: string | null;
+  sterilized_at: string | null;
+  expires_at: string | null;
+  load_item_index: number | null;
+  load_item_total: number | null;
+  cycle_pack_total: number | null;
+  cycle_load_summary: string | null;
 };
 
 type PatientTrace = {
@@ -18,6 +25,7 @@ type PatientTrace = {
   treatment_room: string;
   pack_number: string;
   procedure: string;
+  created_at?: string;
 };
 
 type Cycle = {
@@ -25,7 +33,10 @@ type Cycle = {
   cycle_number: string;
   sterilizer: string;
   operator: string;
+  released_by: string | null;
+  released_at: string | null;
   load_contents: string;
+  expected_pack_count: number | null;
   status: string;
   reviewed_at: string | null;
   created_at: string;
@@ -40,10 +51,18 @@ type FailedCycle = {
   created_at: string;
 };
 
+type LoadItem = {
+  id: string;
+  cycle_id: string;
+  pack_type: string;
+  quantity: number;
+};
+
 export default function InvestigationPage() {
   const [cycleNumber, setCycleNumber] = useState("");
   const [packs, setPacks] = useState<Pack[]>([]);
   const [patients, setPatients] = useState<PatientTrace[]>([]);
+  const [loadItems, setLoadItems] = useState<LoadItem[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
@@ -51,7 +70,6 @@ export default function InvestigationPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-
     const cycle = params.get("cycle");
     const filter = params.get("filter");
 
@@ -111,7 +129,7 @@ export default function InvestigationPage() {
     const { data: cycleData, error: cycleError } = await supabase
       .from("cycles")
       .select(
-        "id, cycle_number, sterilizer, operator, load_contents, status, reviewed_at, created_at"
+        "id, cycle_number, sterilizer, operator, released_by, released_at, load_contents, expected_pack_count, status, reviewed_at, created_at"
       )
       .eq("cycle_number", cycleToInvestigate)
       .maybeSingle();
@@ -125,7 +143,16 @@ export default function InvestigationPage() {
 
     setCycleDetails(cycleData || null);
 
-    if (cycleData?.status === "Failed" && !cycleData.reviewed_at) {
+    if (!cycleData) {
+      setPacks([]);
+      setPatients([]);
+      setLoadItems([]);
+      toast.error("Cycle not found.");
+      setLoading(false);
+      return;
+    }
+
+    if (cycleData.status === "Failed" && !cycleData.reviewed_at) {
       await markCycleAsReviewed(cycleData.id);
       setCycleDetails({
         ...cycleData,
@@ -133,10 +160,27 @@ export default function InvestigationPage() {
       });
     }
 
+    const { data: loadData, error: loadError } = await supabase
+      .from("load_items")
+      .select("id, cycle_id, pack_type, quantity")
+      .eq("cycle_id", cycleData.id);
+
+    if (loadError) {
+      toast.error("Error loading load composition.");
+      console.error(loadError);
+      setLoading(false);
+      return;
+    }
+
+    setLoadItems(loadData || []);
+
     const { data: packsData, error: packsError } = await supabase
       .from("packs")
-      .select("*")
-      .eq("cycle_number", cycleToInvestigate);
+      .select(
+        "id, pack_number, cycle_number, pack_type, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary"
+      )
+      .eq("cycle_number", cycleToInvestigate)
+      .order("pack_number", { ascending: true });
 
     if (packsError) {
       toast.error("Error loading packs.");
@@ -173,24 +217,50 @@ export default function InvestigationPage() {
     setLoading(false);
   }
 
+  function printReport() {
+    window.print();
+  }
+
+  const affectedPackNumbers = new Set(patients.map((patient) => patient.pack_number));
+
   return (
     <>
-      <header className="mb-8">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+
+          #investigation-report,
+          #investigation-report * {
+            visibility: visible !important;
+          }
+
+          #investigation-report {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            padding: 24px !important;
+          }
+
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      <header className="mb-8 no-print">
         <h1 className="text-4xl font-bold">Investigation</h1>
 
         <p className="mt-2 text-slate-600">
-          Investigate sterilization cycles and trace linked packs and patients.
+          Investigate sterilization cycles and trace linked packs, patients,
+          sterilizer, and operators.
         </p>
-
-        <button
-          onClick={() => window.print()}
-          className="mt-4 rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
-        >
-          Print Investigation Report
-        </button>
       </header>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8 no-print">
         <h2 className="text-2xl font-semibold mb-6">
           Investigate Sterilization Cycle
         </h2>
@@ -210,20 +280,33 @@ export default function InvestigationPage() {
           >
             {loading ? "Investigating..." : "Investigate"}
           </button>
+
+          <button
+            onClick={printReport}
+            disabled={!cycleDetails}
+            className="rounded-xl border border-slate-300 px-6 py-3 font-medium cursor-pointer hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Print Report
+          </button>
         </div>
       </section>
 
       {failedCycles.length > 0 && (
-        <section className="bg-white rounded-2xl border border-red-200 shadow-sm p-6 mb-8">
+        <section className="bg-white rounded-2xl border border-red-200 shadow-sm p-6 mb-8 no-print">
           <h2 className="text-2xl font-semibold mb-4 text-red-700">
             Failed Sterilization Cycles
           </h2>
 
           <div className="space-y-3">
             {failedCycles.map((cycle) => (
-              <div
+              <button
                 key={cycle.id}
-                className={`rounded-xl border p-4 ${
+                type="button"
+                onClick={() => {
+                  setCycleNumber(cycle.cycle_number);
+                  investigateCycle(cycle.cycle_number);
+                }}
+                className={`w-full rounded-xl border p-4 text-left cursor-pointer transition hover:bg-red-50 ${
                   cycle.reviewed_at
                     ? "border-slate-200 bg-slate-50"
                     : "border-red-200 bg-red-50"
@@ -232,18 +315,10 @@ export default function InvestigationPage() {
                 <div className="flex flex-col md:flex-row md:justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3
-                        className={
-                          cycle.reviewed_at
-                            ? "font-semibold text-slate-800"
-                            : "font-semibold text-red-800"
-                        }
-                      >
-                        {cycle.cycle_number}
-                      </h3>
+                      <h3 className="font-semibold">{cycle.cycle_number}</h3>
 
                       <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        className={`rounded-lg border px-3 py-1 text-xs font-medium ${
                           cycle.reviewed_at
                             ? "border-slate-200 bg-white text-slate-600"
                             : "border-red-200 bg-white text-red-700"
@@ -253,150 +328,303 @@ export default function InvestigationPage() {
                       </span>
                     </div>
 
-                    <p
-                      className={`text-sm mt-1 ${
-                        cycle.reviewed_at ? "text-slate-600" : "text-red-700"
-                      }`}
-                    >
-                      {cycle.sterilizer} · Operator: {cycle.operator}
-                    </p>
-
-                    <p
-                      className={`text-xs mt-2 ${
-                        cycle.reviewed_at ? "text-slate-400" : "text-red-500"
-                      }`}
-                    >
-                      Created: {new Date(cycle.created_at).toLocaleString()}
+                    <p className="text-sm text-slate-600 mt-1">
+                      {cycle.sterilizer} · Started by:{" "}
+                      {formatInitials(cycle.operator)}
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCycleNumber(cycle.cycle_number);
-                      investigateCycle(cycle.cycle_number);
-                    }}
-                    className={`rounded-xl px-5 py-3 min-h-11 text-sm font-medium cursor-pointer active:scale-95 transition ${
-                      cycle.reviewed_at
-                        ? "bg-slate-900 text-white hover:bg-slate-800"
-                        : "bg-red-600 text-white hover:bg-red-700"
-                    }`}
-                  >
-                    {cycle.reviewed_at ? "Open Report" : "Review"}
-                  </button>
+                  <p className="text-sm text-slate-500">
+                    {formatDateTime(cycle.created_at)}
+                  </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
       )}
 
-      {searched && (
-        <>
-          {cycleDetails && (
-            <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-              <h2 className="text-2xl font-semibold mb-4">Cycle Details</h2>
+      {searched && !cycleDetails && !loading && (
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <p className="text-slate-500">No cycle found.</p>
+        </section>
+      )}
 
-              <div className="space-y-2 text-sm">
-                <p>
-                  <strong>Cycle:</strong> {cycleDetails.cycle_number}
-                </p>
-                <p>
-                  <strong>Status:</strong> {cycleDetails.status}
-                </p>
-                <p>
-                  <strong>Sterilizer:</strong> {cycleDetails.sterilizer}
-                </p>
-                <p>
-                  <strong>Operator:</strong> {cycleDetails.operator}
-                </p>
-                <p>
-                  <strong>Load contents:</strong> {cycleDetails.load_contents}
-                </p>
-                <p>
-                  <strong>Created:</strong>{" "}
-                  {new Date(cycleDetails.created_at).toLocaleString()}
-                </p>
+      {cycleDetails && (
+        <section
+          id="investigation-report"
+          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6"
+        >
+          <div className="border-b border-slate-200 pb-5 mb-6">
+            <p className="text-sm uppercase tracking-wide text-slate-500">
+              SteriSphere Investigation Report
+            </p>
 
-                {cycleDetails.status === "Failed" && (
-                  <p>
-                    <strong>Reviewed:</strong>{" "}
-                    {cycleDetails.reviewed_at
-                      ? new Date(cycleDetails.reviewed_at).toLocaleString()
-                      : "Not reviewed yet"}
-                  </p>
-                )}
+            <div className="mt-2 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-bold">
+                  {cycleDetails.cycle_number}
+                </h2>
+
+                <p className="mt-2 text-slate-600">
+                  Generated: {new Date().toLocaleString()}
+                </p>
               </div>
-            </section>
-          )}
 
-          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h2 className="text-2xl font-semibold mb-4">
-              Linked Instrument Packs
-            </h2>
+              <StatusBadge status={cycleDetails.status} />
+            </div>
+          </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            <SummaryCard title="Sterilizer" value={cycleDetails.sterilizer} />
+            <SummaryCard
+              title="Started By"
+              value={formatInitials(cycleDetails.operator)}
+              subtitle={cycleDetails.operator}
+            />
+            <SummaryCard
+              title="Completed By"
+              value={formatInitials(cycleDetails.released_by)}
+              subtitle={cycleDetails.released_by || "N/A"}
+            />
+            <SummaryCard
+              title="Completed At"
+              value={formatDateTime(cycleDetails.released_at)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <SummaryCard
+              title="Cycle Started"
+              value={formatDateTime(cycleDetails.created_at)}
+            />
+            <SummaryCard
+  title={
+    cycleDetails.status === "Failed"
+      ? "Investigation Review"
+      : "Investigation Review"
+  }
+  value={
+    cycleDetails.status === "Failed"
+      ? cycleDetails.reviewed_at
+        ? "Reviewed"
+        : "Pending Review"
+      : "Not Required"
+  }
+  subtitle={
+    cycleDetails.status === "Failed"
+      ? cycleDetails.reviewed_at
+        ? formatDateTime(cycleDetails.reviewed_at)
+        : "Failed cycle requires investigation review"
+      : "Passed cycle does not require failed-cycle review"
+  }
+/>
+
+<SummaryCard
+  title="Generated Packs"
+  value={String(packs.length || cycleDetails.expected_pack_count || "N/A")}
+  subtitle={
+    cycleDetails.expected_pack_count
+      ? `Planned load: ${cycleDetails.expected_pack_count} pack(s)`
+      : undefined
+  }
+/>
+          </div>
+
+          <ReportBlock title="Load Composition">
+            {loadItems.length > 0 ? (
+              <ul className="space-y-2">
+                {loadItems.map((item) => (
+                  <li key={item.id} className="text-slate-700">
+                    • {item.pack_type} × {item.quantity}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-600">{cycleDetails.load_contents}</p>
+            )}
+          </ReportBlock>
+
+          <ReportBlock title={`Generated Packs (${packs.length})`}>
             {packs.length === 0 ? (
-              <p className="text-slate-500">
-                No linked packs found for this cycle.
-              </p>
+              <p className="text-slate-500">No packs linked to this cycle.</p>
             ) : (
               <div className="space-y-3">
                 {packs.map((pack) => (
                   <div
                     key={pack.id}
-                    className="rounded-xl border border-slate-200 p-4"
+                    className={`rounded-xl border p-4 ${
+                      affectedPackNumbers.has(pack.pack_number)
+                        ? "border-red-200 bg-red-50"
+                        : "border-slate-200 bg-white"
+                    }`}
                   >
-                    <div className="flex flex-col md:flex-row md:justify-between gap-2">
-                      <h3 className="font-semibold">{pack.pack_number}</h3>
+                    <div className="flex flex-col md:flex-row md:justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold">{pack.pack_number}</h3>
 
-                      <span className="text-sm text-slate-500">
-                        {pack.pack_type}
-                      </span>
+                          {affectedPackNumbers.has(pack.pack_number) && (
+                            <span className="rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
+                              Patient Linked
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm text-slate-600 mt-1">
+                          {pack.pack_type}
+                          {pack.load_item_index && pack.load_item_total
+                            ? ` · ${pack.load_item_index} of ${pack.load_item_total}`
+                            : ""}
+                        </p>
+
+                        {pack.cycle_pack_total && (
+                          <p className="text-sm text-slate-500 mt-1">
+                            Part of a {pack.cycle_pack_total}-pack sterilization
+                            load
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="text-sm text-slate-500 md:text-right">
+                        <p>Sterilized: {formatDate(pack.sterilized_at)}</p>
+                        <p>Expires: {formatDate(pack.expires_at)}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </section>
+          </ReportBlock>
 
-          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <h2 className="text-2xl font-semibold mb-4">
-              Linked Patient Records
-            </h2>
-
+          <ReportBlock title={`Affected Patients (${patients.length})`}>
             {patients.length === 0 ? (
-              <p className="text-slate-500">No linked patients found.</p>
+              <p className="text-slate-500">
+                No patient records linked to packs from this cycle.
+              </p>
             ) : (
               <div className="space-y-3">
                 {patients.map((patient) => (
                   <div
                     key={patient.id}
-                    className="rounded-xl border border-slate-200 p-4"
+                    className="rounded-xl border border-red-200 bg-red-50 p-4"
                   >
-                    <div className="flex flex-col md:flex-row md:justify-between gap-2">
-                      <h3 className="font-semibold">
-                        {patient.patient_name}
-                      </h3>
+                    <div className="flex flex-col md:flex-row md:justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-red-800">
+                          {patient.patient_name}
+                        </h3>
 
-                      <span className="text-sm text-slate-500">
+                        <p className="text-sm text-red-700 mt-1">
+                          {patient.provider} · {patient.treatment_room}
+                        </p>
+
+                        <p className="text-sm text-red-700 mt-1">
+                          Procedure: {patient.procedure}
+                        </p>
+                      </div>
+
+                      <p className="text-sm font-medium text-red-700">
                         {patient.pack_number}
-                      </span>
+                      </p>
                     </div>
-
-                    <p className="text-sm text-slate-600 mt-1">
-                      {patient.provider} · {patient.treatment_room}
-                    </p>
-
-                    <p className="text-sm text-slate-500 mt-2">
-                      Procedure: {patient.procedure}
-                    </p>
                   </div>
                 ))}
               </div>
             )}
-          </section>
-        </>
+          </ReportBlock>
+
+          <ReportBlock title="Investigation Notes">
+            <div className="min-h-32 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-400">
+              Notes, corrective actions, biological indicator results, or follow-up
+              steps can be written here after printing.
+            </div>
+          </ReportBlock>
+        </section>
       )}
     </>
   );
+}
+
+function SummaryCard({
+  title,
+  value,
+  subtitle,
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+    </div>
+  );
+}
+
+function ReportBlock({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6">
+      <h3 className="text-xl font-semibold mb-3">{title}</h3>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "Failed") {
+    return (
+      <span className="w-fit rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
+        Failed
+      </span>
+    );
+  }
+
+  if (status === "Passed") {
+    return (
+      <span className="w-fit rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+        Passed
+      </span>
+    );
+  }
+
+  return (
+    <span className="w-fit rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700">
+      {status}
+    </span>
+  );
+}
+
+function formatDate(date: string | null) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleDateString();
+}
+
+function formatDateTime(date: string | null) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleString();
+}
+
+function formatInitials(value: string | null | undefined) {
+  if (!value) return "N/A";
+
+  const emailName = value.split("@")[0] || value;
+  const parts = emailName
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+
+  return emailName.slice(0, 2).toUpperCase();
 }
