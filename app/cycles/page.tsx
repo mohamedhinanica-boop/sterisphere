@@ -183,11 +183,32 @@ export default function CyclesPage() {
     });
   }
 
-  function expandLoadItemsToPackTypes(items: SavedLoadItem[]) {
-    return items.flatMap((item) =>
-      Array.from({ length: item.quantity }, () => item.pack_type)
-    );
-  }
+function buildPackGenerationItems(items: SavedLoadItem[]) {
+  const cycleLoadSummary = items
+    .map((item) => `${item.pack_type} × ${item.quantity}`)
+    .join(", ");
+
+  const cyclePackTotal = items.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
+
+  const packItems = items.flatMap((item) =>
+    Array.from({ length: item.quantity }, (_, index) => ({
+      packType: item.pack_type,
+      loadItemIndex: index + 1,
+      loadItemTotal: item.quantity,
+      cyclePackTotal,
+      cycleLoadSummary,
+    }))
+  );
+
+  return {
+    packItems,
+    cyclePackTotal,
+    cycleLoadSummary,
+  };
+}
 
   async function startCycle() {
     if (!form.sterilizer) {
@@ -331,13 +352,14 @@ export default function CyclesPage() {
       throw new Error("No load composition found for this cycle.");
     }
 
-    const packTypes = expandLoadItemsToPackTypes(savedLoadItems);
+   const { packItems, cyclePackTotal, cycleLoadSummary } =
+  buildPackGenerationItems(savedLoadItems);
 
-    if (packTypes.length === 0) {
-      throw new Error("Load composition does not contain valid quantities.");
-    }
+if (packItems.length === 0) {
+  throw new Error("Load composition does not contain valid quantities.");
+}
 
-    const packNumbers = await getNextPackNumberSequence(packTypes.length);
+const packNumbers = await getNextPackNumberSequence(packItems.length);
 
     const {
       data: { user },
@@ -345,22 +367,28 @@ export default function CyclesPage() {
 
     const createdBy = user?.email || "unknown";
 
-   const sterilizedAt = new Date();
+
+const sterilizedAt = new Date();
 
 const expiresAt = new Date();
 expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-const packRows = packTypes.map((packType, index) => ({
+const packRows = packItems.map((item, index) => ({
   pack_number: packNumbers[index],
   cycle_id: cycle.id,
   cycle_number: cycle.cycle_number,
-  pack_type: packType,
-  contents: packType,
+  pack_type: item.packType,
+  contents: item.packType,
   status: "Available",
   created_by: createdBy,
 
   sterilized_at: sterilizedAt.toISOString(),
   expires_at: expiresAt.toISOString(),
+
+  load_item_index: item.loadItemIndex,
+  load_item_total: item.loadItemTotal,
+  cycle_pack_total: cyclePackTotal,
+  cycle_load_summary: cycleLoadSummary,
 }));
 
     const { data: createdPacks, error: packsError } = await supabase
@@ -383,6 +411,8 @@ const packRows = packTypes.map((packType, index) => ({
         packs: packRows.map((pack) => ({
           pack_number: pack.pack_number,
           pack_type: pack.pack_type,
+          cycle_pack_total: cyclePackTotal,
+cycle_load_summary: cycleLoadSummary,
         })),
       },
     });
@@ -409,58 +439,35 @@ const packRows = packTypes.map((packType, index) => ({
   }
 
   async function updateCycleStatus(cycleId: string, newStatus: string) {
-    const cycle = cycles.find((item) => item.id === cycleId);
+  const cycle = cycles.find((item) => item.id === cycleId);
 
-    if (!cycle) {
-      toast.error("Cycle not found.");
-      return;
-    }
+  if (!cycle) {
+    toast.error("Cycle not found.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      if (newStatus === "Passed") {
-        const generatedPackCount = await generatePacksForPassedCycle(cycle);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-        const { error } = await supabase
-          .from("cycles")
-          .update({
-            status: "Passed",
-            cycle_state: "Closed",
-            expected_pack_count: generatedPackCount,
-          })
-          .eq("id", cycleId);
+  const completedBy = user?.email || "unknown";
+  const completedAt = new Date().toISOString();
 
-        if (error) {
-          throw error;
-        }
-
-        await createAuditLog({
-          action: "cycle_passed",
-          entityType: "cycle",
-          entityId: cycleId,
-          description: `Cycle ${cycle.cycle_number} passed and ${generatedPackCount} packs were generated`,
-          metadata: {
-            cycle_number: cycle.cycle_number,
-            new_status: "Passed",
-            cycle_state: "Closed",
-            generated_pack_count: generatedPackCount,
-          },
-        });
-
-        await fetchCycles();
-        toast.success(
-          `Cycle marked as Passed. ${generatedPackCount} packs were created automatically.`
-        );
-        setLoading(false);
-        return;
-      }
+  try {
+    if (newStatus === "Passed") {
+      const generatedPackCount = await generatePacksForPassedCycle(cycle);
 
       const { error } = await supabase
         .from("cycles")
         .update({
-          status: newStatus,
+          status: "Passed",
           cycle_state: "Closed",
+          expected_pack_count: generatedPackCount,
+
+          released_by: completedBy,
+          released_at: completedAt,
         })
         .eq("id", cycleId);
 
@@ -469,37 +476,81 @@ const packRows = packTypes.map((packType, index) => ({
       }
 
       await createAuditLog({
-        action: "cycle_status_updated",
+        action: "cycle_passed",
         entityType: "cycle",
         entityId: cycleId,
-        description: `Cycle status updated to ${newStatus}`,
+        description: `Cycle ${cycle.cycle_number} passed and ${generatedPackCount} packs were generated`,
         metadata: {
           cycle_number: cycle.cycle_number,
-          new_status: newStatus,
+          new_status: "Passed",
           cycle_state: "Closed",
+
+          completed_by: completedBy,
+          completed_at: completedAt,
+
+          generated_pack_count: generatedPackCount,
         },
       });
 
       await fetchCycles();
 
-      if (newStatus === "Failed") {
-        toast.error("Cycle marked as Failed and closed.");
-      } else {
-        toast.success(`Cycle marked as ${newStatus}.`);
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Error updating cycle status.";
+      toast.success(
+        `Cycle marked as Passed. ${generatedPackCount} packs were created automatically.`
+      );
 
-      toast.error(message);
-      console.error(error);
-    } finally {
       setLoading(false);
+      return;
     }
-  }
 
+    const { error } = await supabase
+      .from("cycles")
+      .update({
+        status: newStatus,
+        cycle_state: "Closed",
+
+        released_by: completedBy,
+        released_at: completedAt,
+      })
+      .eq("id", cycleId);
+
+    if (error) {
+      throw error;
+    }
+
+    await createAuditLog({
+      action: "cycle_status_updated",
+      entityType: "cycle",
+      entityId: cycleId,
+      description: `Cycle status updated to ${newStatus}`,
+      metadata: {
+        cycle_number: cycle.cycle_number,
+        new_status: newStatus,
+        cycle_state: "Closed",
+
+        completed_by: completedBy,
+        completed_at: completedAt,
+      },
+    });
+
+    await fetchCycles();
+
+    if (newStatus === "Failed") {
+      toast.error("Cycle marked as Failed and closed.");
+    } else {
+      toast.success(`Cycle marked as ${newStatus}.`);
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error updating cycle status.";
+
+    toast.error(message);
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+}
   const filteredCycles = cycles.filter((cycle) => {
     const search = searchTerm.toLowerCase();
     const cycleState = cycle.cycle_state || "Open";

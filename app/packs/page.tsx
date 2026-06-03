@@ -14,6 +14,10 @@ type Pack = {
   status: string | null;
   sterilized_at: string | null;
   expires_at: string | null;
+  load_item_index: number | null;
+  load_item_total: number | null;
+  cycle_pack_total: number | null;
+  cycle_load_summary: string | null;
   created_at: string;
 };
 
@@ -36,8 +40,8 @@ export default function PacksPage() {
     const { data, error } = await supabase
       .from("packs")
       .select(
-        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, created_at"
-      )
+  "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
+)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -224,6 +228,24 @@ export default function PacksPage() {
                         <p className="text-sm text-slate-600 mt-1">
                           {pack.pack_type} · Cycle: {pack.cycle_number}
                         </p>
+                        {pack.load_item_index && pack.load_item_total && (
+  <p className="text-sm text-blue-700 mt-2">
+    {pack.pack_type} {pack.load_item_index} of {pack.load_item_total}
+  </p>
+)}
+
+{pack.cycle_pack_total && (
+  <p className="text-sm text-slate-500 mt-1">
+    Part of a {pack.cycle_pack_total}-pack sterilization load
+  </p>
+)}
+
+{pack.cycle_load_summary && (
+  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+    <span className="font-medium text-slate-700">Load composition:</span>{" "}
+    {pack.cycle_load_summary}
+  </div>
+)}
 
                         {pack.contents && (
                           <p className="text-sm text-slate-500 mt-2">
