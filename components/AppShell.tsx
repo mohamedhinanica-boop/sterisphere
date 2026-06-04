@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
-
+import SteriAssistantWidget from "./SteriAssistantWidget";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 
@@ -197,6 +197,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <footer className="mt-10 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
             © 2026 SteriSphere. All rights reserved.
           </footer>
+          <SteriAssistantWidget
+  overdueCycles={1}
+  failedCycles={0}
+  expiredPacks={0}
+  expiringSoonPacks={1}
+  availablePacks={42}
+/>
         </main>
       </div>
     </AuthGuard>

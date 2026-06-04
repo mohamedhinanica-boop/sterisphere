@@ -18,6 +18,8 @@ type Pack = {
   pack_number: string;
   cycle_number: string;
   pack_type: string;
+  status: string | null;
+  expires_at: string | null;
 };
 
 type PatientTrace = {
@@ -35,6 +37,11 @@ type Provider = {
   full_name: string;
   role: string | null;
   active: boolean;
+};
+
+type CycleStatus = {
+  cycle_number: string;
+  status: string;
 };
 
 export default function PatientsPage() {
@@ -80,19 +87,72 @@ export default function PatientsPage() {
   }
 
   async function fetchPacks() {
-    const { data, error } = await supabase
+    const now = new Date().toISOString();
+
+    const { data: packData, error: packError } = await supabase
       .from("packs")
-      .select("id, pack_number, cycle_number, pack_type")
+      .select("id, pack_number, cycle_number, pack_type, status, expires_at")
       .eq("status", "Available")
+      .gte("expires_at", now)
       .order("created_at", { ascending: false });
 
-    if (error) {
+    if (packError) {
       toast.error("Error loading available packs.");
-      console.error(error);
+      console.error(packError);
       return;
     }
 
-    setPacks(data || []);
+    if (!packData || packData.length === 0) {
+      setPacks([]);
+      return;
+    }
+
+    const cycleNumbers = Array.from(
+      new Set(packData.map((pack) => pack.cycle_number))
+    );
+
+    const { data: cycleData, error: cycleError } = await supabase
+      .from("cycles")
+      .select("cycle_number, status")
+      .in("cycle_number", cycleNumbers);
+
+    if (cycleError) {
+      toast.error("Error validating cycle status for packs.");
+      console.error(cycleError);
+      return;
+    }
+
+    const passedCycles = new Set(
+      (cycleData || [])
+        .filter((cycle: CycleStatus) => cycle.status === "Passed")
+        .map((cycle: CycleStatus) => cycle.cycle_number)
+    );
+
+    const { data: traceData, error: traceError } = await supabase
+      .from("patient_traces")
+      .select("pack_number")
+      .in(
+        "pack_number",
+        packData.map((pack) => pack.pack_number)
+      );
+
+    if (traceError) {
+      toast.error("Error validating used packs.");
+      console.error(traceError);
+      return;
+    }
+
+    const alreadyLinkedPacks = new Set(
+      (traceData || []).map((trace) => trace.pack_number)
+    );
+
+    const usablePacks = packData.filter(
+      (pack) =>
+        passedCycles.has(pack.cycle_number) &&
+        !alreadyLinkedPacks.has(pack.pack_number)
+    );
+
+    setPacks(usablePacks);
   }
 
   async function fetchTraces() {
@@ -170,103 +230,164 @@ export default function PatientsPage() {
     currentPage * itemsPerPage
   );
 
- async function saveTrace() {
-  if (
-    !selectedPatient ||
-    !form.packNumber ||
-    !form.provider ||
-    !form.treatmentRoom ||
-    !form.procedure
-  ) {
-    toast.error("Please fill all required fields.");
-    return;
+  async function validatePackBeforeUse(packNumber: string) {
+    const now = new Date().toISOString();
+
+    const { data: pack, error: packError } = await supabase
+      .from("packs")
+      .select("id, pack_number, cycle_number, status, expires_at")
+      .eq("pack_number", packNumber)
+      .maybeSingle();
+
+    if (packError || !pack) {
+      throw new Error("Pack could not be validated.");
+    }
+
+    if (pack.status !== "Available") {
+      throw new Error("This pack is no longer available.");
+    }
+
+    if (!pack.expires_at || pack.expires_at < now) {
+      throw new Error("This pack is expired and cannot be used.");
+    }
+
+    const { data: cycle, error: cycleError } = await supabase
+      .from("cycles")
+      .select("status")
+      .eq("cycle_number", pack.cycle_number)
+      .maybeSingle();
+
+    if (cycleError || !cycle) {
+      throw new Error("Cycle could not be validated.");
+    }
+
+    if (cycle.status !== "Passed") {
+      throw new Error("Only packs from Passed cycles can be used.");
+    }
+
+    const { data: existingTrace, error: traceError } = await supabase
+      .from("patient_traces")
+      .select("id")
+      .eq("pack_number", packNumber)
+      .maybeSingle();
+
+    if (traceError) {
+      throw new Error("Pack usage history could not be validated.");
+    }
+
+    if (existingTrace) {
+      throw new Error("This pack is already linked to a patient.");
+    }
+
+    return pack;
   }
 
-  setLoading(true);
+  async function saveTrace() {
+    if (
+      !selectedPatient ||
+      !form.packNumber ||
+      !form.provider ||
+      !form.treatmentRoom ||
+      !form.procedure
+    ) {
+      toast.error("Please fill all required fields.");
+      return;
+    }
 
-  const { data: newTrace, error } = await supabase
-    .from("patient_traces")
-    .insert([
-      {
-        patient_id: selectedPatient.id,
-        patient_name: selectedPatient.full_name,
-        provider: form.provider,
-        treatment_room: form.treatmentRoom,
-        pack_number: form.packNumber,
-        procedure: form.procedure,
-      },
-    ])
-    .select()
-    .single();
+    setLoading(true);
 
-  if (error || !newTrace) {
-    toast.error("Error saving patient trace.");
-    console.error(error);
-    setLoading(false);
-    return;
+    try {
+      await validatePackBeforeUse(form.packNumber);
+
+      const { data: newTrace, error } = await supabase
+        .from("patient_traces")
+        .insert([
+          {
+            patient_id: selectedPatient.id,
+            patient_name: selectedPatient.full_name,
+            provider: form.provider,
+            treatment_room: form.treatmentRoom,
+            pack_number: form.packNumber,
+            procedure: form.procedure,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error || !newTrace) {
+        throw error || new Error("Error saving patient trace.");
+      }
+
+      await createAuditLog({
+        action: "patient_trace_created",
+        entityType: "patient_trace",
+        entityId: newTrace.id,
+        description: `Linked pack ${newTrace.pack_number} to patient ${newTrace.patient_name}`,
+        metadata: {
+          patient_name: newTrace.patient_name,
+          pack_number: newTrace.pack_number,
+          provider: newTrace.provider,
+          treatment_room: newTrace.treatment_room,
+          procedure: newTrace.procedure,
+        },
+      });
+
+      const { error: packUpdateError } = await supabase
+        .from("packs")
+        .update({ status: "Used" })
+        .eq("pack_number", form.packNumber)
+        .eq("status", "Available");
+
+      if (packUpdateError) {
+        throw packUpdateError;
+      }
+
+      await createAuditLog({
+        action: "pack_marked_used",
+        entityType: "pack",
+        entityId: form.packNumber,
+        description: `Pack ${form.packNumber} marked as used`,
+        metadata: {
+          pack_number: form.packNumber,
+          patient_name: selectedPatient.full_name,
+        },
+      });
+
+      setForm({
+        patientId: "",
+        packNumber: "",
+        provider: "",
+        treatmentRoom: "",
+        procedure: "",
+      });
+
+      setPatientSearch("");
+      setCurrentPage(1);
+
+      await fetchTraces();
+      await fetchPacks();
+
+      toast.success("Patient traceability record saved. Pack marked as used.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Error saving patient trace.";
+
+      toast.error(message);
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
-
-  await createAuditLog({
-    action: "patient_trace_created",
-    entityType: "patient_trace",
-    entityId: newTrace.id,
-    description: `Linked pack ${newTrace.pack_number} to patient ${newTrace.patient_name}`,
-    metadata: {
-      patient_name: newTrace.patient_name,
-      pack_number: newTrace.pack_number,
-      provider: newTrace.provider,
-      treatment_room: newTrace.treatment_room,
-      procedure: newTrace.procedure,
-    },
-  });
-
-  const { error: packUpdateError } = await supabase
-    .from("packs")
-    .update({ status: "Used" })
-    .eq("pack_number", form.packNumber);
-
-  if (packUpdateError) {
-    toast.error("Patient trace saved, but pack status was not updated.");
-    console.error(packUpdateError);
-    setLoading(false);
-    return;
-  }
-
-  await createAuditLog({
-    action: "pack_marked_used",
-    entityType: "pack",
-    entityId: form.packNumber,
-    description: `Pack ${form.packNumber} marked as used`,
-    metadata: {
-      pack_number: form.packNumber,
-      patient_name: selectedPatient.full_name,
-    },
-  });
-
-  setForm({
-    patientId: "",
-    packNumber: "",
-    provider: "",
-    treatmentRoom: "",
-    procedure: "",
-  });
-
-  setPatientSearch("");
-  setCurrentPage(1);
-
-  await fetchTraces();
-  await fetchPacks();
-
-  toast.success("Patient traceability record saved. Pack marked as used.");
-  setLoading(false);
-}
 
   return (
     <>
       <header className="mb-8">
         <h1 className="text-4xl font-bold">Patient Traceability</h1>
         <p className="mt-2 text-slate-600">
-          Link available sterilized instrument packs to patient care records.
+          Link available, non-expired sterilized instrument packs to patient care
+          records.
         </p>
       </header>
 
@@ -316,15 +437,14 @@ export default function PatientsPage() {
 
             {selectedPatient && (
               <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-                Selected patient:{" "}
-                <strong>{selectedPatient.full_name}</strong>
+                Selected patient: <strong>{selectedPatient.full_name}</strong>
               </div>
             )}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">
-              Available Instrument Pack
+              Usable Instrument Pack
             </label>
 
             <select
@@ -334,21 +454,21 @@ export default function PatientsPage() {
             >
               <option value="">
                 {packs.length === 0
-                  ? "No available packs"
-                  : "Select an available instrument pack"}
+                  ? "No usable packs available"
+                  : "Select a usable instrument pack"}
               </option>
 
               {packs.map((pack) => (
                 <option key={pack.id} value={pack.pack_number}>
                   {pack.pack_number} · {pack.pack_type} · Cycle:{" "}
-                  {pack.cycle_number}
+                  {pack.cycle_number} · Expires: {formatDate(pack.expires_at)}
                 </option>
               ))}
             </select>
 
             <p className="mt-2 text-xs text-slate-500">
-              Only packs with Available status are shown. Once linked to a
-              patient, the pack is marked as Used.
+              Only Available, non-expired packs from Passed cycles are shown.
+              Once linked to a patient, the pack is marked as Used.
             </p>
           </div>
 
@@ -481,4 +601,9 @@ export default function PatientsPage() {
       </section>
     </>
   );
+}
+
+function formatDate(date: string | null) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleDateString();
 }

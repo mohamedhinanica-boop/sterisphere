@@ -44,55 +44,55 @@ export default function PacksPage() {
   }, []);
 
   async function fetchPacks() {
-    setLoading(true);
+  setLoading(true);
 
-    const { data: packsData, error: packsError } = await supabase
-      .from("packs")
-      .select(
-        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
-      )
-      .order("created_at", { ascending: false });
+  const { data: packsData, error: packsError } = await supabase
+    .from("packs")
+    .select(
+      "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
+    )
+    .order("created_at", { ascending: false });
 
-    if (packsError) {
-      toast.error("Error loading packs.");
-      console.error(packsError);
+  if (packsError) {
+    toast.error("Error loading packs.");
+    console.error(packsError);
+    setLoading(false);
+    return;
+  }
+
+  const cycleNumbers = Array.from(
+    new Set((packsData || []).map((pack) => pack.cycle_number))
+  );
+
+  let cyclesByNumber: Record<string, CycleContext> = {};
+
+  if (cycleNumbers.length > 0) {
+    const { data: cyclesData, error: cyclesError } = await supabase
+      .from("cycles")
+      .select("cycle_number, sterilizer, operator, released_by, released_at")
+      .in("cycle_number", cycleNumbers);
+
+    if (cyclesError) {
+      toast.error("Error loading cycle details.");
+      console.error(cyclesError);
       setLoading(false);
       return;
     }
 
-    const cycleNumbers = Array.from(
-      new Set((packsData || []).map((pack) => pack.cycle_number))
-    );
-
-    let cyclesByNumber: Record<string, CycleContext> = {};
-
-    if (cycleNumbers.length > 0) {
-      const { data: cyclesData, error: cyclesError } = await supabase
-        .from("cycles")
-        .select("cycle_number, sterilizer, operator, released_by, released_at")
-        .in("cycle_number", cycleNumbers);
-
-      if (cyclesError) {
-        toast.error("Error loading cycle details.");
-        console.error(cyclesError);
-        setLoading(false);
-        return;
-      }
-
-      cyclesByNumber = (cyclesData || []).reduce((acc, cycle) => {
-        acc[cycle.cycle_number] = cycle;
-        return acc;
-      }, {} as Record<string, CycleContext>);
-    }
-
-    const enrichedPacks = (packsData || []).map((pack) => ({
-      ...pack,
-      cycle: cyclesByNumber[pack.cycle_number] || null,
-    }));
-
-    setPacks(enrichedPacks);
-    setLoading(false);
+    cyclesByNumber = (cyclesData || []).reduce((acc, cycle) => {
+      acc[cycle.cycle_number] = cycle;
+      return acc;
+    }, {} as Record<string, CycleContext>);
   }
+
+  const enrichedPacks = (packsData || []).map((pack) => ({
+    ...pack,
+    cycle: cyclesByNumber[pack.cycle_number] || null,
+  }));
+
+  setPacks(enrichedPacks);
+  setLoading(false);
+}
 
   function getEffectiveStatus(pack: Pack) {
     if (pack.status === "Used") {

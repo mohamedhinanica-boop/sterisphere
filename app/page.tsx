@@ -53,6 +53,7 @@ type Pack = {
 };
 
 export default function Home() {
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [recentActivity, setRecentActivity] = useState<AuditLog[]>([]);
   const [cyclesCount, setCyclesCount] = useState(0);
   const [packsCount, setPacksCount] = useState(0);
@@ -75,8 +76,14 @@ export default function Home() {
   const [recentPacks, setRecentPacks] = useState<Pack[]>([]);
 
   useEffect(() => {
+  fetchDashboardData();
+
+  const interval = setInterval(() => {
     fetchDashboardData();
-  }, []);
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, []);
 
   async function fetchDashboardData() {
     const now = new Date();
@@ -195,6 +202,7 @@ export default function Home() {
     setLatestFailedCycles(failedData || []);
     setLatestPatientRecords(patientData || []);
     setRecentPacks(packData || []);
+    setLastRefresh(new Date());
   }
 
   return (
@@ -206,6 +214,9 @@ export default function Home() {
           Daily control center for sterilization cycles, auto-generated packs,
           patient traceability, and compliance alerts.
         </p>
+        <p className="text-xs text-slate-400 mt-1">
+  Last updated: {lastRefresh.toLocaleTimeString()}
+</p>
       </header>
 
       {unreviewedFailedCyclesCount > 0 && (
