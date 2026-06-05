@@ -42,6 +42,12 @@ type ClinicSettings = {
   clinic_email: string | null;
   pack_expiration_days: number | null;
   auto_print_labels: boolean | null;
+  sound_alerts_enabled: boolean | null;
+  sound_alert_cycle_complete: boolean | null;
+  sound_alert_cycle_overdue: boolean | null;
+  sound_alert_failed_cycle: boolean | null;
+  sound_alert_expiring_packs: boolean | null;
+  sound_alert_expired_packs: boolean | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -50,6 +56,7 @@ const tabs = [
   { id: "overview", label: "Overview" },
   { id: "clinic", label: "Clinic Profile" },
   { id: "policies", label: "Policies" },
+  { id: "alerts", label: "Alerts" },
   { id: "users", label: "Users & Roles" },
   { id: "providers", label: "Providers" },
   { id: "sterilizers", label: "Sterilizers" },
@@ -61,7 +68,7 @@ export default function SettingsPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [sterilizers, setSterilizers] = useState<Sterilizer[]>([]);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(
-    null
+    null,
   );
 
   const [loading, setLoading] = useState(false);
@@ -87,11 +94,17 @@ export default function SettingsPage() {
   });
 
   const [policyForm, setPolicyForm] = useState({
-    
     packExpirationPreset: "365",
-  packExpirationDays: "365",
-  autoPrintLabels: false,
+    packExpirationDays: "365",
+    autoPrintLabels: false,
   });
+
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
+  const [soundAlertCycleComplete, setSoundAlertCycleComplete] = useState(true);
+  const [soundAlertCycleOverdue, setSoundAlertCycleOverdue] = useState(true);
+  const [soundAlertFailedCycle, setSoundAlertFailedCycle] = useState(true);
+  const [soundAlertExpiringPacks, setSoundAlertExpiringPacks] = useState(true);
+  const [soundAlertExpiredPacks, setSoundAlertExpiredPacks] = useState(true);
 
   useEffect(() => {
     loadCurrentUser();
@@ -160,11 +173,18 @@ export default function SettingsPage() {
 
     const expirationDays = data.pack_expiration_days || 365;
 
-setPolicyForm({
-  packExpirationPreset: getExpirationPreset(expirationDays),
-  packExpirationDays: String(expirationDays),
-  autoPrintLabels: Boolean(data.auto_print_labels),
-});
+    setPolicyForm({
+      packExpirationPreset: getExpirationPreset(expirationDays),
+      packExpirationDays: String(expirationDays),
+      autoPrintLabels: Boolean(data.auto_print_labels),
+    });
+
+    setSoundAlertsEnabled(Boolean(data.sound_alerts_enabled));
+    setSoundAlertCycleComplete(data.sound_alert_cycle_complete ?? true);
+    setSoundAlertCycleOverdue(data.sound_alert_cycle_overdue ?? true);
+    setSoundAlertFailedCycle(data.sound_alert_failed_cycle ?? true);
+    setSoundAlertExpiringPacks(data.sound_alert_expiring_packs ?? true);
+    setSoundAlertExpiredPacks(data.sound_alert_expired_packs ?? true);
   }
 
   async function saveClinicProfile() {
@@ -270,6 +290,54 @@ setPolicyForm({
     setLoading(false);
   }
 
+  async function saveSoundAlertSettings() {
+  if (!clinicSettings) {
+    toast.error("Clinic settings record not found.");
+    return;
+  }
+
+  if (!canManageSettings()) {
+    toast.error("You do not have permission.");
+    return;
+  }
+
+  setLoading(true);
+
+  const payload = {
+    sound_alerts_enabled: soundAlertsEnabled,
+    sound_alert_cycle_complete: soundAlertCycleComplete,
+    sound_alert_cycle_overdue: soundAlertCycleOverdue,
+    sound_alert_failed_cycle: soundAlertFailedCycle,
+    sound_alert_expiring_packs: soundAlertExpiringPacks,
+    sound_alert_expired_packs: soundAlertExpiredPacks,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from("clinic_settings")
+    .update(payload)
+    .eq("id", clinicSettings.id);
+
+  if (error) {
+    console.error("Sound alert settings save error:", error);
+    toast.error(error.message || "Error saving sound alert settings.");
+    setLoading(false);
+    return;
+  }
+
+  await createAuditLog({
+    action: "sound_alert_settings_updated",
+    entityType: "clinic_settings",
+    entityId: clinicSettings.id,
+    description: "Updated sound alert settings",
+    metadata: payload,
+  });
+
+  await fetchClinicSettings();
+  toast.success("Sound alert settings saved.");
+  setLoading(false);
+}
+
   async function fetchRoles() {
     const { data, error } = await supabase
       .from("user_roles")
@@ -289,7 +357,7 @@ setPolicyForm({
     const { data, error } = await supabase
       .from("providers")
       .select(
-        "id, first_name, last_name, title, display_name, full_name, role, active, created_at"
+        "id, first_name, last_name, title, display_name, full_name, role, active, created_at",
       )
       .order("full_name", { ascending: true });
 
@@ -424,7 +492,7 @@ setPolicyForm({
     const duplicateProvider = providers.find(
       (provider) =>
         normalizeProviderName(provider.display_name || provider.full_name) ===
-        normalizedNewName
+        normalizedNewName,
     );
 
     if (duplicateProvider) {
@@ -449,7 +517,7 @@ setPolicyForm({
       toast.error(
         error.code === "23505"
           ? "Provider already exists."
-          : error.message || "Error adding provider."
+          : error.message || "Error adding provider.",
       );
       console.error(error);
       setLoading(false);
@@ -483,7 +551,7 @@ setPolicyForm({
 
   async function toggleProviderStatus(
     providerId: string,
-    currentStatus: boolean
+    currentStatus: boolean,
   ) {
     if (!canManageSettings()) {
       toast.error("You do not have permission.");
@@ -523,7 +591,7 @@ setPolicyForm({
 
     await fetchProviders();
     toast.success(
-      currentStatus ? "Provider deactivated." : "Provider activated."
+      currentStatus ? "Provider deactivated." : "Provider activated.",
     );
     setLoading(false);
   }
@@ -544,7 +612,7 @@ setPolicyForm({
     const duplicate = sterilizers.find(
       (item) =>
         normalizeSterilizerName(item.name) ===
-        normalizeSterilizerName(cleanName)
+        normalizeSterilizerName(cleanName),
     );
 
     if (duplicate) {
@@ -566,7 +634,7 @@ setPolicyForm({
       toast.error(
         error.code === "23505"
           ? "Sterilizer already exists."
-          : error.message || "Error adding sterilizer."
+          : error.message || "Error adding sterilizer.",
       );
       console.error(error);
       setLoading(false);
@@ -596,7 +664,7 @@ setPolicyForm({
 
   async function toggleSterilizerStatus(
     sterilizerId: string,
-    currentStatus: boolean
+    currentStatus: boolean,
   ) {
     if (!canManageSettings()) {
       toast.error("You do not have permission.");
@@ -635,7 +703,7 @@ setPolicyForm({
 
     await fetchSterilizers();
     toast.success(
-      currentStatus ? "Sterilizer deactivated." : "Sterilizer activated."
+      currentStatus ? "Sterilizer deactivated." : "Sterilizer activated.",
     );
     setLoading(false);
   }
@@ -643,10 +711,10 @@ setPolicyForm({
   const activeProviders = providers.filter((provider) => provider.active);
   const inactiveProviders = providers.filter((provider) => !provider.active);
   const activeSterilizers = sterilizers.filter(
-    (sterilizer) => sterilizer.active
+    (sterilizer) => sterilizer.active,
   );
   const inactiveSterilizers = sterilizers.filter(
-    (sterilizer) => !sterilizer.active
+    (sterilizer) => !sterilizer.active,
   );
   const activeUsers = roles.filter((role) => role.active);
   const inactiveUsers = roles.filter((role) => !role.active);
@@ -707,7 +775,10 @@ setPolicyForm({
                       clinicSettings?.pack_expiration_days || 365
                     } days`}
                   />
-                  <InfoCard title="Active Users" value={String(activeUsers.length)} />
+                  <InfoCard
+                    title="Active Users"
+                    value={String(activeUsers.length)}
+                  />
                   <InfoCard
                     title="Active Providers"
                     value={String(activeProviders.length)}
@@ -815,60 +886,61 @@ setPolicyForm({
               description="Configure pack shelf life and future automation preferences."
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm font-medium mb-2">
-      Pack Shelf Life Preset
-    </label>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Pack Shelf Life Preset
+                  </label>
 
-    <select
-      value={policyForm.packExpirationPreset}
-      onChange={(e) => {
-        const preset = e.target.value;
+                  <select
+                    value={policyForm.packExpirationPreset}
+                    onChange={(e) => {
+                      const preset = e.target.value;
 
-        setPolicyForm((current) => ({
-          ...current,
-          packExpirationPreset: preset,
-          packExpirationDays:
-            preset === "custom" ? current.packExpirationDays : preset,
-        }));
-      }}
-      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-    >
-      <option value="180">6 months / 180 days</option>
-      <option value="365">1 year / 365 days</option>
-      <option value="730">2 years / 730 days</option>
-      <option value="custom">Custom</option>
-    </select>
-  </div>
+                      setPolicyForm((current) => ({
+                        ...current,
+                        packExpirationPreset: preset,
+                        packExpirationDays:
+                          preset === "custom"
+                            ? current.packExpirationDays
+                            : preset,
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                  >
+                    <option value="180">6 months / 180 days</option>
+                    <option value="365">1 year / 365 days</option>
+                    <option value="730">2 years / 730 days</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
 
-  <div>
-    <label className="block text-sm font-medium mb-2">
-      Shelf Life Days
-    </label>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Shelf Life Days
+                  </label>
 
-    <input
-      type="number"
-      min="1"
-      value={policyForm.packExpirationDays}
-      onChange={(e) => {
-        const value = e.target.value;
-        const numericValue = Number(value);
+                  <input
+                    type="number"
+                    min="1"
+                    value={policyForm.packExpirationDays}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numericValue = Number(value);
 
-        setPolicyForm((current) => ({
-          ...current,
-          packExpirationDays: value,
-          packExpirationPreset:
-            Number.isInteger(numericValue) && numericValue > 0
-              ? getExpirationPreset(numericValue)
-              : "custom",
-        }));
-      }}
-      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-      placeholder="Example: 365"
-    />
-  </div>
-</div>
-
+                      setPolicyForm((current) => ({
+                        ...current,
+                        packExpirationDays: value,
+                        packExpirationPreset:
+                          Number.isInteger(numericValue) && numericValue > 0
+                            ? getExpirationPreset(numericValue)
+                            : "custom",
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    placeholder="Example: 365"
+                  />
+                </div>
+              </div>
 
               <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -894,6 +966,7 @@ setPolicyForm({
                 </label>
               </div>
 
+
               <button
                 type="button"
                 onClick={saveSterilizationPolicies}
@@ -901,6 +974,113 @@ setPolicyForm({
                 className="mt-6 rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Saving..." : "Save Policies"}
+              </button>
+            </Panel>
+          )}
+
+          {activeTab === "alerts" && (
+            <Panel
+              title="Alerts"
+              description="Configure tablet-friendly notifications for important sterilization events."
+            >
+              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4">
+                  <h3 className="font-semibold text-slate-900">Sound Alerts</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Optional tablet-friendly sounds for important sterilization
+                    events.
+                  </p>
+                </div>
+
+                <label className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
+                  <div>
+                    <p className="font-medium text-slate-900">
+                      Enable sound alerts
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Master switch for all SteriSphere sound notifications.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={soundAlertsEnabled}
+                    onChange={(e) => setSoundAlertsEnabled(e.target.checked)}
+                    className="mt-1 h-5 w-5"
+                  />
+                </label>
+
+                <div
+                  className={`mt-4 space-y-3 ${
+                    !soundAlertsEnabled ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  {[
+                    {
+                      label: "Cycle completed",
+                      description:
+                        "Play a sound when a cycle reaches its expected finish time.",
+                      checked: soundAlertCycleComplete,
+                      onChange: setSoundAlertCycleComplete,
+                    },
+                    {
+                      label: "Cycle overdue",
+                      description:
+                        "Play a sound when a pending cycle is past its expected duration.",
+                      checked: soundAlertCycleOverdue,
+                      onChange: setSoundAlertCycleOverdue,
+                    },
+                    {
+                      label: "Failed cycle",
+                      description:
+                        "Play a sound when a failed cycle needs review or investigation.",
+                      checked: soundAlertFailedCycle,
+                      onChange: setSoundAlertFailedCycle,
+                    },
+                    {
+                      label: "Packs expiring soon",
+                      description:
+                        "Play a sound when packs are approaching expiration.",
+                      checked: soundAlertExpiringPacks,
+                      onChange: setSoundAlertExpiringPacks,
+                    },
+                    {
+                      label: "Expired packs",
+                      description:
+                        "Play a sound when expired packs are detected.",
+                      checked: soundAlertExpiredPacks,
+                      onChange: setSoundAlertExpiredPacks,
+                    },
+                  ].map((alert) => (
+                    <label
+                      key={alert.label}
+                      className="flex items-start justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 cursor-pointer"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          {alert.label}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {alert.description}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={alert.checked}
+                        onChange={(e) => alert.onChange(e.target.checked)}
+                        className="mt-1 h-5 w-5"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={saveSoundAlertSettings}
+                disabled={loading || !canManageSettings()}
+                className="mt-6 rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Saving..." : "Save Alert Settings"}
               </button>
             </Panel>
           )}
@@ -1147,9 +1327,7 @@ setPolicyForm({
                     key={sterilizer.id}
                     title={sterilizer.name}
                     badge={
-                      <SterilizerTypeBadge
-                        type={sterilizer.type || "Other"}
-                      />
+                      <SterilizerTypeBadge type={sterilizer.type || "Other"} />
                     }
                     active={sterilizer.active}
                     createdAt={sterilizer.created_at}
@@ -1205,7 +1383,9 @@ function Panel({
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
       <h2 className="text-2xl font-semibold">{title}</h2>
-      {description && <p className="mt-1 mb-6 text-sm text-slate-600">{description}</p>}
+      {description && (
+        <p className="mt-1 mb-6 text-sm text-slate-600">{description}</p>
+      )}
       {children}
     </section>
   );
