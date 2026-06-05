@@ -12,6 +12,7 @@ import {
   Timer,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import CycleWizard from "@/components/CycleWizard";
 
 type AuditLog = {
   id: string;
@@ -307,7 +308,7 @@ export default function Home() {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
-        <QuickAction href="/cycles" label="Start Cycle" />
+        <CycleWizard onCycleCreated={fetchDashboardData} />
         <QuickAction href="/packs" label="Pack Inventory" />
         <QuickAction href="/patients" label="Trace Patient Pack" />
         <QuickAction href="/reports" label="View Reports" />
