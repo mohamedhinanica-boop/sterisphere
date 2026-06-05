@@ -57,6 +57,7 @@ export default function CyclesPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [stateFilter, setStateFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [now, setNow] = useState(new Date());
 
   const itemsPerPage = 5;
 
@@ -76,6 +77,14 @@ export default function CyclesPage() {
   useEffect(() => {
     fetchCycles();
     fetchSterilizers();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   async function fetchCycles() {
@@ -588,6 +597,10 @@ export default function CyclesPage() {
     currentPage * itemsPerPage
   );
 
+  const runningCycles = cycles.filter(
+    (cycle) => cycle.status === "Pending" && (cycle.cycle_state || "Open") === "Open"
+  );
+
   return (
     <>
       <header className="mb-8">
@@ -754,6 +767,80 @@ export default function CyclesPage() {
         </form>
       </section>
 
+      {runningCycles.length > 0 && (
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-2xl font-semibold">Running Cycles</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Live countdown based on the programmed duration and expected finish time.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={fetchCycles}
+              disabled={loading}
+              className="rounded-xl border border-slate-300 px-4 py-3 min-h-11 text-sm font-medium cursor-pointer hover:bg-slate-50 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Refresh
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {runningCycles.map((cycle) => {
+              const timing = getCycleTiming(cycle, now);
+
+              return (
+                <div
+                  key={cycle.id}
+                  className={`rounded-xl border p-4 ${timing.containerClass}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">
+                        {cycle.cycle_number}
+                      </h3>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {cycle.sterilizer}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-lg border px-3 py-1 text-xs font-medium ${timing.badgeClass}`}
+                    >
+                      {timing.label}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 text-sm">
+                    <p className="text-slate-600">
+                      Duration:{" "}
+                      <span className="font-medium text-slate-800">
+                        {cycle.duration_minutes
+                          ? `${cycle.duration_minutes} min`
+                          : "N/A"}
+                      </span>
+                    </p>
+
+                    <p className="text-slate-600">
+                      Expected finish:{" "}
+                      <span className="font-medium text-slate-800">
+                        {formatDateTime(cycle.expected_finish_at)}
+                      </span>
+                    </p>
+                  </div>
+
+                  <p className={`mt-3 text-sm font-medium ${timing.textClass}`}>
+                    {timing.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <h2 className="text-2xl font-semibold mb-4">Saved Cycles</h2>
 
@@ -840,7 +927,7 @@ export default function CyclesPage() {
                         {cycle.load_contents}
                       </p>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 text-sm text-slate-500">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3 text-sm text-slate-500">
                         <p>
                           Generated packs:{" "}
                           <span className="font-medium text-slate-700">
@@ -861,6 +948,15 @@ export default function CyclesPage() {
                           Expected finish:{" "}
                           <span className="font-medium text-slate-700">
                             {formatDateTime(cycle.expected_finish_at)}
+                          </span>
+                        </p>
+
+                        <p>
+                          Time status:{" "}
+                          <span
+                            className={`font-medium ${getCycleTiming(cycle, now).textClass}`}
+                          >
+                            {getCycleTiming(cycle, now).label}
                           </span>
                         </p>
                       </div>
@@ -945,6 +1041,57 @@ export default function CyclesPage() {
       </section>
     </>
   );
+}
+
+
+function getCycleTiming(cycle: Cycle, now: Date) {
+  if (cycle.status !== "Pending" || (cycle.cycle_state || "Open") !== "Open") {
+    return {
+      label: "Closed",
+      description: "This cycle is closed.",
+      textClass: "text-slate-600",
+      badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+      containerClass: "border-slate-200 bg-white",
+    };
+  }
+
+  if (!cycle.expected_finish_at) {
+    return {
+      label: "No finish time",
+      description: "No expected finish time is recorded for this cycle.",
+      textClass: "text-slate-600",
+      badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+      containerClass: "border-slate-200 bg-white",
+    };
+  }
+
+  const finishTime = new Date(cycle.expected_finish_at).getTime();
+  const currentTime = now.getTime();
+  const diffMinutes = Math.ceil((finishTime - currentTime) / 60000);
+
+  if (diffMinutes > 0) {
+    return {
+      label: `${diffMinutes} min remaining`,
+      description: `Expected to finish in ${diffMinutes} minute${
+        diffMinutes === 1 ? "" : "s"
+      }.`,
+      textClass: "text-blue-700",
+      badgeClass: "bg-blue-100 text-blue-700 border-blue-200",
+      containerClass: "border-blue-200 bg-blue-50",
+    };
+  }
+
+  const overdueMinutes = Math.abs(diffMinutes);
+
+  return {
+    label: `Overdue by ${overdueMinutes} min`,
+    description: `This cycle passed its expected finish time ${overdueMinutes} minute${
+      overdueMinutes === 1 ? "" : "s"
+    } ago.`,
+    textClass: "text-red-700",
+    badgeClass: "bg-red-100 text-red-700 border-red-200",
+    containerClass: "border-red-200 bg-red-50",
+  };
 }
 
 function formatDateTime(date: string | null) {
