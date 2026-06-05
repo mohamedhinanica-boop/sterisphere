@@ -67,6 +67,7 @@ export default function InvestigationPage() {
   const [loading, setLoading] = useState(false);
   const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
   const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
+  const [investigationNotice, setInvestigationNotice] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -148,6 +149,7 @@ export default function InvestigationPage() {
       setPatients([]);
       setLoadItems([]);
       toast.error("Cycle not found.");
+      setInvestigationNotice("");
       setLoading(false);
       return;
     }
@@ -193,7 +195,7 @@ export default function InvestigationPage() {
 
     if (!packsData || packsData.length === 0) {
       setPatients([]);
-      toast.success("Cycle found. No linked packs or patient records were found.");
+      setInvestigationNotice("Cycle found. No linked packs or patient records were found.");
       setLoading(false);
       return;
     }
@@ -213,7 +215,7 @@ export default function InvestigationPage() {
     }
 
     setPatients(patientData || []);
-    toast.success("Investigation completed.");
+    setInvestigationNotice("Investigation completed.");
     setLoading(false);
   }
 
@@ -347,6 +349,12 @@ export default function InvestigationPage() {
       {searched && !cycleDetails && !loading && (
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <p className="text-slate-500">No cycle found.</p>
+        </section>
+      )}
+
+      {cycleDetails && investigationNotice && !loading && (
+        <section className="mb-6 bg-blue-50 rounded-2xl border border-blue-200 p-4 no-print">
+          <p className="text-sm font-medium text-blue-800">{investigationNotice}</p>
         </section>
       )}
 
