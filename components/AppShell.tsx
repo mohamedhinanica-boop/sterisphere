@@ -44,13 +44,11 @@ const navItems = [
     href: "/investigation",
     roles: ["super_admin", "admin", "doctor", "auditor"],
   },
-
   {
-  label: "Audit Logs",
-  href: "/audit-logs",
-  roles: ["super_admin", "admin", "auditor"],
-},
-
+    label: "Audit Logs",
+    href: "/audit-logs",
+    roles: ["super_admin", "admin", "auditor"],
+  },
   {
     label: "Settings",
     href: "/settings",
@@ -66,6 +64,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [assistantData, setAssistantData] = useState({
+    overdueCycles: 0,
+    failedCycles: 0,
+    expiredPacks: 0,
+    expiringSoonPacks: 0,
+    availablePacks: 0,
+  });
 
   useEffect(() => {
     async function loadUser() {
@@ -92,6 +98,62 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       loadUser();
     }
   }, [isLoginPage]);
+
+  useEffect(() => {
+    if (isLoginPage) return;
+
+    fetchAssistantData();
+
+    const interval = setInterval(() => {
+      fetchAssistantData();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [isLoginPage]);
+
+  async function fetchAssistantData() {
+    const now = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    const { count: overdueCycles } = await supabase
+      .from("cycles")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "Pending")
+      .lt("expected_finish_at", now.toISOString());
+
+    const { count: failedCycles } = await supabase
+      .from("cycles")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "Failed")
+      .is("reviewed_at", null);
+
+    const { count: expiredPacks } = await supabase
+      .from("packs")
+      .select("*", { count: "exact", head: true })
+      .lt("expires_at", now.toISOString())
+      .neq("status", "Used");
+
+    const { count: expiringSoonPacks } = await supabase
+      .from("packs")
+      .select("*", { count: "exact", head: true })
+      .gte("expires_at", now.toISOString())
+      .lte("expires_at", thirtyDaysFromNow.toISOString())
+      .neq("status", "Used");
+
+    const { count: availablePacks } = await supabase
+      .from("packs")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "Available");
+
+    setAssistantData({
+      overdueCycles: overdueCycles || 0,
+      failedCycles: failedCycles || 0,
+      expiredPacks: expiredPacks || 0,
+      expiringSoonPacks: expiringSoonPacks || 0,
+      availablePacks: availablePacks || 0,
+    });
+  }
 
   async function logout() {
     await supabase.auth.signOut();
@@ -197,13 +259,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <footer className="mt-10 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
             © 2026 SteriSphere. All rights reserved.
           </footer>
+
           <SteriAssistantWidget
-  overdueCycles={1}
-  failedCycles={0}
-  expiredPacks={0}
-  expiringSoonPacks={1}
-  availablePacks={42}
-/>
+            overdueCycles={assistantData.overdueCycles}
+            failedCycles={assistantData.failedCycles}
+            expiredPacks={assistantData.expiredPacks}
+            expiringSoonPacks={assistantData.expiringSoonPacks}
+            availablePacks={assistantData.availablePacks}
+          />
         </main>
       </div>
     </AuthGuard>
