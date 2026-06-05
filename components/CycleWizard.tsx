@@ -360,7 +360,7 @@ export default function CycleWizard({
                   Step {step} of 4
                 </p>
                 <p className="text-xs text-slate-500 mt-2">
-                  Operator: {operatorEmail || "Loading operator..."}
+                  Operator locked for traceability: {operatorEmail || "Loading operator..."}
                 </p>
               </div>
 
@@ -588,9 +588,28 @@ export default function CycleWizard({
                   <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <ReviewRow label="Sterilizer" value={sterilizer} />
                     <ReviewRow label="Operator" value={operatorEmail} />
-                    <ReviewRow label="Load contents" value={loadSummary} />
+                    <div className="border-b border-slate-200 pb-3">
+                      <p className="text-sm text-slate-500">Load composition</p>
+                      <div className="mt-2 space-y-2">
+                        {loadItems.map((item, index) => (
+                          <div
+                            key={`${item.packType}-${index}`}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                          >
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1">
+                              <p className="text-sm font-semibold text-slate-900">
+                                {buildPackTypeLabel(item)}
+                              </p>
+                              <p className="text-sm font-medium text-slate-700">
+                                {item.quantity} pack{Number(item.quantity) === 1 ? "" : "s"}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                     <ReviewRow
-                      label="Expected packs"
+                      label="Expected packs to generate"
                       value={`${expectedPackCount} pack${
                         expectedPackCount === 1 ? "" : "s"
                       }`}
@@ -665,16 +684,30 @@ function buildLoadSummary(items: LoadItem[]) {
 }
 
 function Progress({ step }: { step: number }) {
+  const labels = ["Sterilizer", "Load", "Duration", "Review"];
+
   return (
-    <div className="mb-6 grid grid-cols-4 gap-2">
-      {[1, 2, 3, 4].map((item) => (
-        <div
-          key={item}
-          className={`h-2 rounded-full ${
-            item <= step ? "bg-blue-600" : "bg-slate-200"
-          }`}
-        />
-      ))}
+    <div className="mb-6">
+      <div className="grid grid-cols-4 gap-2">
+        {[1, 2, 3, 4].map((item) => (
+          <div
+            key={item}
+            className={`h-2 rounded-full ${
+              item <= step ? "bg-blue-600" : "bg-slate-200"
+            }`}
+          />
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-4 gap-2 text-[11px] font-medium text-slate-500">
+        {labels.map((label, index) => (
+          <span
+            key={label}
+            className={index + 1 === step ? "text-blue-700" : ""}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
