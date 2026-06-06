@@ -17,3 +17,12 @@ Next:
 □ AI Assistant Foundation
 □ Label Printing
 □ Connected Sterilizers
+
+
+Integrity Rules
+
+✓ Expired packs blocked
+✓ Duplicate pack usage blocked
+✓ Failed cycles blocked
+✓ Pending cycles blocked
+✓ Audit trail enforced

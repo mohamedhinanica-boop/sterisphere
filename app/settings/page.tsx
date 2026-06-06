@@ -52,15 +52,17 @@ type ClinicSettings = {
   updated_at: string | null;
 };
 
-const tabs = [
+const baseTabs = [
   { id: "overview", label: "Overview" },
-  { id: "clinic", label: "Clinic Profile" },
+  { id: "general", label: "General" },
   { id: "policies", label: "Policies" },
   { id: "alerts", label: "Alerts" },
   { id: "users", label: "Users & Roles" },
   { id: "providers", label: "Providers" },
   { id: "sterilizers", label: "Sterilizers" },
 ];
+
+const superAdminTab = { id: "super_admin", label: "Super Admin" };
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -187,7 +189,9 @@ export default function SettingsPage() {
     setSoundAlertExpiredPacks(data.sound_alert_expired_packs ?? true);
   }
 
-  async function saveClinicProfile() {
+  
+
+  async function saveGeneralSettings() {
     if (!clinicSettings) {
       toast.error("Clinic settings record not found.");
       return;
@@ -198,43 +202,39 @@ export default function SettingsPage() {
       return;
     }
 
+    const payload = {
+      clinic_name: clinicForm.clinicName.trim(),
+      clinic_address: clinicForm.clinicAddress.trim(),
+      clinic_phone: clinicForm.clinicPhone.trim(),
+      clinic_email: clinicForm.clinicEmail.trim(),
+      auto_print_labels: policyForm.autoPrintLabels,
+      updated_at: new Date().toISOString(),
+    };
+
     setLoading(true);
 
     const { error } = await supabase
       .from("clinic_settings")
-      .update({
-        clinic_name: clinicForm.clinicName.trim(),
-        clinic_address: clinicForm.clinicAddress.trim(),
-        clinic_phone: clinicForm.clinicPhone.trim(),
-        clinic_email: clinicForm.clinicEmail.trim(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq("id", clinicSettings.id);
 
     if (error) {
-      toast.error("Error saving clinic profile.");
+      toast.error("Error saving general settings.");
       console.error(error);
       setLoading(false);
       return;
     }
 
     await createAuditLog({
-      action: "clinic_profile_updated",
+      action: "general_settings_updated",
       entityType: "clinic_settings",
       entityId: clinicSettings.id,
-      description: `Updated clinic profile for ${
-        clinicForm.clinicName.trim() || "clinic"
-      }`,
-      metadata: {
-        clinic_name: clinicForm.clinicName.trim(),
-        clinic_address: clinicForm.clinicAddress.trim(),
-        clinic_phone: clinicForm.clinicPhone.trim(),
-        clinic_email: clinicForm.clinicEmail.trim(),
-      },
+      description: "Updated general settings",
+      metadata: payload,
     });
 
     await fetchClinicSettings();
-    toast.success("Clinic profile saved.");
+    toast.success("General settings saved.");
     setLoading(false);
   }
 
@@ -262,7 +262,6 @@ export default function SettingsPage() {
       .from("clinic_settings")
       .update({
         pack_expiration_days: expirationDays,
-        auto_print_labels: policyForm.autoPrintLabels,
         updated_at: new Date().toISOString(),
       })
       .eq("id", clinicSettings.id);
@@ -281,7 +280,6 @@ export default function SettingsPage() {
       description: `Updated sterilization policies`,
       metadata: {
         pack_expiration_days: expirationDays,
-        auto_print_labels: policyForm.autoPrintLabels,
       },
     });
 
@@ -291,52 +289,57 @@ export default function SettingsPage() {
   }
 
   async function saveSoundAlertSettings() {
-  if (!clinicSettings) {
-    toast.error("Clinic settings record not found.");
-    return;
-  }
+    if (!clinicSettings) {
+      toast.error("Clinic settings record not found.");
+      return;
+    }
 
-  if (!canManageSettings()) {
-    toast.error("You do not have permission.");
-    return;
-  }
+    if (!canManageSettings()) {
+      toast.error("You do not have permission.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  const payload = {
-    sound_alerts_enabled: soundAlertsEnabled,
-    sound_alert_cycle_complete: soundAlertCycleComplete,
-    sound_alert_cycle_overdue: soundAlertCycleOverdue,
-    sound_alert_failed_cycle: soundAlertFailedCycle,
-    sound_alert_expiring_packs: soundAlertExpiringPacks,
-    sound_alert_expired_packs: soundAlertExpiredPacks,
-    updated_at: new Date().toISOString(),
-  };
+    const { error } = await supabase
+      .from("clinic_settings")
+      .update({
+        sound_alerts_enabled: soundAlertsEnabled,
+        sound_alert_cycle_complete: soundAlertCycleComplete,
+        sound_alert_cycle_overdue: soundAlertCycleOverdue,
+        sound_alert_failed_cycle: soundAlertFailedCycle,
+        sound_alert_expiring_packs: soundAlertExpiringPacks,
+        sound_alert_expired_packs: soundAlertExpiredPacks,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", clinicSettings.id);
 
-  const { error } = await supabase
-    .from("clinic_settings")
-    .update(payload)
-    .eq("id", clinicSettings.id);
+    if (error) {
+      toast.error("Error saving sound alert settings.");
+      console.error(error);
+      setLoading(false);
+      return;
+    }
 
-  if (error) {
-    console.error("Sound alert settings save error:", error);
-    toast.error(error.message || "Error saving sound alert settings.");
+    await createAuditLog({
+      action: "sound_alert_settings_updated",
+      entityType: "clinic_settings",
+      entityId: clinicSettings.id,
+      description: "Updated sound alert settings",
+      metadata: {
+        sound_alerts_enabled: soundAlertsEnabled,
+        sound_alert_cycle_complete: soundAlertCycleComplete,
+        sound_alert_cycle_overdue: soundAlertCycleOverdue,
+        sound_alert_failed_cycle: soundAlertFailedCycle,
+        sound_alert_expiring_packs: soundAlertExpiringPacks,
+        sound_alert_expired_packs: soundAlertExpiredPacks,
+      },
+    });
+
+    await fetchClinicSettings();
+    toast.success("Sound alert settings saved.");
     setLoading(false);
-    return;
   }
-
-  await createAuditLog({
-    action: "sound_alert_settings_updated",
-    entityType: "clinic_settings",
-    entityId: clinicSettings.id,
-    description: "Updated sound alert settings",
-    metadata: payload,
-  });
-
-  await fetchClinicSettings();
-  toast.success("Sound alert settings saved.");
-  setLoading(false);
-}
 
   async function fetchRoles() {
     const { data, error } = await supabase
@@ -564,7 +567,10 @@ export default function SettingsPage() {
 
     const { error } = await supabase
       .from("providers")
-      .update({ active: !currentStatus })
+      .update({
+        active: !currentStatus,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", providerId);
 
     if (error) {
@@ -677,7 +683,10 @@ export default function SettingsPage() {
 
     const { error } = await supabase
       .from("sterilizers")
-      .update({ active: !currentStatus })
+      .update({
+        active: !currentStatus,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", sterilizerId);
 
     if (error) {
@@ -727,6 +736,9 @@ export default function SettingsPage() {
         }${providerForm.firstName.trim()} ${providerForm.lastName.trim()}`.trim()
       : "";
 
+  const visibleTabs =
+    getCurrentRole() === "super_admin" ? [...baseTabs, superAdminTab] : baseTabs;
+
   return (
     <>
       <header className="mb-8">
@@ -740,7 +752,7 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-6">
         <aside className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-fit">
           <nav className="space-y-2">
-            {tabs.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -797,87 +809,106 @@ export default function SettingsPage() {
                   <InfoCard title="Environment" value="MVP / Development" />
                 </div>
               </Panel>
-
-              {getCurrentRole() === "super_admin" && (
-                <Panel
-                  title="Super Admin Tools"
-                  description="Advanced tools reserved for system migration and maintenance."
-                >
-                  <Link
-                    href="/patients/import"
-                    className="inline-block rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
-                  >
-                    Import Patients Database
-                  </Link>
-                </Panel>
-              )}
             </section>
           )}
 
-          {activeTab === "clinic" && (
-            <Panel
-              title="Clinic Profile"
-              description="These details will be used later in printed reports, labels, and clinic-specific configuration."
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputField
-                  label="Clinic Name"
-                  value={clinicForm.clinicName}
-                  onChange={(value) =>
-                    setClinicForm((current) => ({
-                      ...current,
-                      clinicName: value,
-                    }))
-                  }
-                  placeholder="Example: Dentaria"
-                />
-
-                <InputField
-                  label="Clinic Phone"
-                  value={clinicForm.clinicPhone}
-                  onChange={(value) =>
-                    setClinicForm((current) => ({
-                      ...current,
-                      clinicPhone: value,
-                    }))
-                  }
-                  placeholder="Example: 514-000-0000"
-                />
-
-                <InputField
-                  label="Clinic Email"
-                  value={clinicForm.clinicEmail}
-                  onChange={(value) =>
-                    setClinicForm((current) => ({
-                      ...current,
-                      clinicEmail: value,
-                    }))
-                  }
-                  placeholder="Example: admin@clinic.com"
-                />
-
-                <InputField
-                  label="Clinic Address"
-                  value={clinicForm.clinicAddress}
-                  onChange={(value) =>
-                    setClinicForm((current) => ({
-                      ...current,
-                      clinicAddress: value,
-                    }))
-                  }
-                  placeholder="Example: 123 Main Street, Montreal"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={saveClinicProfile}
-                disabled={loading || !canManageSettings()}
-                className="mt-6 rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          {activeTab === "general" && (
+            <section className="space-y-6">
+              <Panel
+                title="Clinic Profile"
+                description="These details will be used later in printed reports, labels, and clinic-specific configuration."
               >
-                {loading ? "Saving..." : "Save Clinic Profile"}
-              </button>
-            </Panel>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Clinic Name"
+                    value={clinicForm.clinicName}
+                    onChange={(value) =>
+                      setClinicForm((current) => ({
+                        ...current,
+                        clinicName: value,
+                      }))
+                    }
+                    placeholder="Example: Dentaria"
+                  />
+
+                  <InputField
+                    label="Clinic Phone"
+                    value={clinicForm.clinicPhone}
+                    onChange={(value) =>
+                      setClinicForm((current) => ({
+                        ...current,
+                        clinicPhone: value,
+                      }))
+                    }
+                    placeholder="Example: 514-000-0000"
+                  />
+
+                  <InputField
+                    label="Clinic Email"
+                    value={clinicForm.clinicEmail}
+                    onChange={(value) =>
+                      setClinicForm((current) => ({
+                        ...current,
+                        clinicEmail: value,
+                      }))
+                    }
+                    placeholder="Example: admin@clinic.com"
+                  />
+
+                  <InputField
+                    label="Clinic Address"
+                    value={clinicForm.clinicAddress}
+                    onChange={(value) =>
+                      setClinicForm((current) => ({
+                        ...current,
+                        clinicAddress: value,
+                      }))
+                    }
+                    placeholder="Clinic address"
+                  />
+                </div>
+
+                
+              </Panel>
+
+              <Panel
+                title="General Workflow Settings"
+                description="General platform options that affect workflow behavior and future device integrations."
+              >
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={policyForm.autoPrintLabels}
+                      onChange={(e) =>
+                        setPolicyForm((current) => ({
+                          ...current,
+                          autoPrintLabels: e.target.checked,
+                        }))
+                      }
+                      className="mt-1"
+                    />
+
+                    <div>
+                      <p className="font-medium">Auto-print QR labels</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Future-ready option for the Zywell label printer. This
+                        does not print yet until printer integration is added.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={saveGeneralSettings}
+                  disabled={loading || !canManageSettings()}
+                  className="mt-6 rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Saving..." : "Save General Settings"}
+                </button>
+              </Panel>
+            </section>
           )}
 
           {activeTab === "policies" && (
@@ -941,31 +972,6 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
-
-              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={policyForm.autoPrintLabels}
-                    onChange={(e) =>
-                      setPolicyForm((current) => ({
-                        ...current,
-                        autoPrintLabels: e.target.checked,
-                      }))
-                    }
-                    className="mt-1"
-                  />
-
-                  <div>
-                    <p className="font-medium">Auto-print QR labels</p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Future-ready option for the Zywell label printer. This
-                      does not print yet until printer integration is added.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
 
               <button
                 type="button"
@@ -1338,6 +1344,21 @@ export default function SettingsPage() {
                   />
                 ))}
               </div>
+            </Panel>
+          )}
+
+
+          {activeTab === "super_admin" && getCurrentRole() === "super_admin" && (
+            <Panel
+              title="Super Admin Tools"
+              description="Advanced tools reserved for system migration and maintenance."
+            >
+              <Link
+                href="/patients/import"
+                className="inline-block rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition"
+              >
+                Import Patients Database
+              </Link>
             </Panel>
           )}
         </main>
