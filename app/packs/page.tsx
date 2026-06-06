@@ -4,31 +4,15 @@ import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
-
-type Pack = {
-  id: string;
-  pack_number: string;
-  cycle_number: string;
-  pack_type: string;
-  contents: string | null;
-  status: string | null;
-  sterilized_at: string | null;
-  expires_at: string | null;
-  load_item_index: number | null;
-  load_item_total: number | null;
-  cycle_pack_total: number | null;
-  cycle_load_summary: string | null;
-  created_at: string;
-  cycle?: CycleContext | null;
-};
-
-type CycleContext = {
-  cycle_number: string;
-  sterilizer: string;
-  operator: string;
-  released_by: string | null;
-  released_at: string | null;
-};
+import type { CycleContext, Pack } from "@/lib/modules/packs";
+import {
+  formatInitials,
+  formatLoadComposition,
+  formatPackDate,
+  formatPackDateTime,
+  getPackEffectiveStatus,
+  isPackExpiringSoon,
+} from "@/lib/modules/packs";
 
 const itemsPerPage = 5;
 
@@ -44,95 +28,71 @@ export default function PacksPage() {
   }, []);
 
   async function fetchPacks() {
-  setLoading(true);
+    setLoading(true);
 
-  const { data: packsData, error: packsError } = await supabase
-    .from("packs")
-    .select(
-      "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
-    )
-    .order("created_at", { ascending: false });
+    const { data: packsData, error: packsError } = await supabase
+      .from("packs")
+      .select(
+        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
+      )
+      .order("created_at", { ascending: false });
 
-  if (packsError) {
-    toast.error("Error loading packs.");
-    console.error(packsError);
-    setLoading(false);
-    return;
-  }
-
-  const cycleNumbers = Array.from(
-    new Set((packsData || []).map((pack) => pack.cycle_number))
-  );
-
-  let cyclesByNumber: Record<string, CycleContext> = {};
-
-  if (cycleNumbers.length > 0) {
-    const { data: cyclesData, error: cyclesError } = await supabase
-      .from("cycles")
-      .select("cycle_number, sterilizer, operator, released_by, released_at")
-      .in("cycle_number", cycleNumbers);
-
-    if (cyclesError) {
-      toast.error("Error loading cycle details.");
-      console.error(cyclesError);
+    if (packsError) {
+      toast.error("Error loading packs.");
+      console.error(packsError);
       setLoading(false);
       return;
     }
 
-    cyclesByNumber = (cyclesData || []).reduce((acc, cycle) => {
-      acc[cycle.cycle_number] = cycle;
-      return acc;
-    }, {} as Record<string, CycleContext>);
-  }
-
-  const enrichedPacks = (packsData || []).map((pack) => ({
-    ...pack,
-    cycle: cyclesByNumber[pack.cycle_number] || null,
-  }));
-
-  setPacks(enrichedPacks);
-  setLoading(false);
-}
-
-  function getEffectiveStatus(pack: Pack) {
-    if (pack.status === "Used") {
-      return "Used";
-    }
-
-    if (pack.expires_at && new Date(pack.expires_at) < new Date()) {
-      return "Expired";
-    }
-
-    return pack.status || "Available";
-  }
-
-  function isExpiringSoon(pack: Pack) {
-    if (!pack.expires_at || getEffectiveStatus(pack) !== "Available") {
-      return false;
-    }
-
-    const today = new Date();
-    const expiry = new Date(pack.expires_at);
-    const diffInDays = Math.ceil(
-      (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    const cycleNumbers = Array.from(
+      new Set((packsData || []).map((pack) => pack.cycle_number))
     );
 
-    return diffInDays >= 0 && diffInDays <= 30;
+    let cyclesByNumber: Record<string, CycleContext> = {};
+
+    if (cycleNumbers.length > 0) {
+      const { data: cyclesData, error: cyclesError } = await supabase
+        .from("cycles")
+        .select("cycle_number, sterilizer, operator, released_by, released_at")
+        .in("cycle_number", cycleNumbers);
+
+      if (cyclesError) {
+        toast.error("Error loading cycle details.");
+        console.error(cyclesError);
+        setLoading(false);
+        return;
+      }
+
+      cyclesByNumber = (cyclesData || []).reduce((acc, cycle) => {
+        acc[cycle.cycle_number] = cycle;
+        return acc;
+      }, {} as Record<string, CycleContext>);
+    }
+
+    const enrichedPacks = (packsData || []).map((pack) => ({
+      ...pack,
+      cycle: cyclesByNumber[pack.cycle_number] || null,
+    }));
+
+    setPacks(enrichedPacks);
+    setLoading(false);
   }
 
   const totalPacks = packs.length;
   const availablePacks = packs.filter(
-    (pack) => getEffectiveStatus(pack) === "Available"
+    (pack) => getPackEffectiveStatus(pack) === "Available"
   );
-  const usedPacks = packs.filter((pack) => getEffectiveStatus(pack) === "Used");
+  const usedPacks = packs.filter(
+    (pack) => getPackEffectiveStatus(pack) === "Used"
+  );
   const expiredPacks = packs.filter(
-    (pack) => getEffectiveStatus(pack) === "Expired"
+    (pack) => getPackEffectiveStatus(pack) === "Expired"
   );
-  const expiringSoonPacks = packs.filter((pack) => isExpiringSoon(pack));
+  const expiringSoonPacks = packs.filter((pack) => isPackExpiringSoon(pack));
 
   const filteredPacks = packs.filter((pack) => {
     const search = searchTerm.toLowerCase();
-    const effectiveStatus = getEffectiveStatus(pack);
+    const effectiveStatus = getPackEffectiveStatus(pack);
 
     const matchesSearch =
       pack.pack_number.toLowerCase().includes(search) ||
@@ -147,7 +107,7 @@ export default function PacksPage() {
     const matchesStatus =
       statusFilter === "All" ||
       effectiveStatus === statusFilter ||
-      (statusFilter === "Expiring Soon" && isExpiringSoon(pack));
+      (statusFilter === "Expiring Soon" && isPackExpiringSoon(pack));
 
     return matchesSearch && matchesStatus;
   });
@@ -158,41 +118,6 @@ export default function PacksPage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  function formatDate(date: string | null) {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleDateString();
-  }
-
-  function formatDateTime(date: string | null) {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleString();
-  }
-
-  function formatInitials(value: string | null | undefined) {
-    if (!value) return "N/A";
-
-    const emailName = value.split("@")[0] || value;
-    const parts = emailName
-      .replace(/[._-]+/g, " ")
-      .split(" ")
-      .filter(Boolean);
-
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-
-    return emailName.slice(0, 2).toUpperCase();
-  }
-
-  function formatLoadComposition(summary: string | null) {
-    if (!summary) return [];
-
-    return summary
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
 
   return (
     <>
@@ -272,8 +197,8 @@ export default function PacksPage() {
           <>
             <div className="space-y-3">
               {paginatedPacks.map((pack) => {
-                const effectiveStatus = getEffectiveStatus(pack);
-                const expiringSoon = isExpiringSoon(pack);
+                const effectiveStatus = getPackEffectiveStatus(pack);
+                const expiringSoon = isPackExpiringSoon(pack);
                 const compositionItems = formatLoadComposition(
                   pack.cycle_load_summary
                 );
@@ -369,7 +294,7 @@ export default function PacksPage() {
                             <p>
                               Completed at:{" "}
                               <span className="font-medium text-slate-700">
-                                {formatDateTime(pack.cycle?.released_at || null)}
+                                {formatPackDateTime(pack.cycle?.released_at || null)}
                               </span>
                             </p>
                           </div>
@@ -379,14 +304,14 @@ export default function PacksPage() {
                           <p>
                             Sterilized:{" "}
                             <span className="font-medium text-slate-700">
-                              {formatDate(pack.sterilized_at)}
+                              {formatPackDate(pack.sterilized_at)}
                             </span>
                           </p>
 
                           <p>
                             Expires:{" "}
                             <span className="font-medium text-slate-700">
-                              {formatDate(pack.expires_at)}
+                              {formatPackDate(pack.expires_at)}
                             </span>
                           </p>
                         </div>
