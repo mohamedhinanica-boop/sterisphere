@@ -1,71 +1,29 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import toast from "react-hot-toast";
-
-type Pack = {
-  id: string;
-  pack_number: string;
-  cycle_number: string;
-  pack_type: string;
-  status: string | null;
-  sterilized_at: string | null;
-  expires_at: string | null;
-  load_item_index: number | null;
-  load_item_total: number | null;
-  cycle_pack_total: number | null;
-  cycle_load_summary: string | null;
-};
-
-type PatientTrace = {
-  id: string;
-  patient_name: string;
-  provider: string;
-  treatment_room: string;
-  pack_number: string;
-  procedure: string;
-  created_at?: string;
-};
-
-type Cycle = {
-  id: string;
-  cycle_number: string;
-  sterilizer: string;
-  operator: string;
-  released_by: string | null;
-  released_at: string | null;
-  load_contents: string;
-  expected_pack_count: number | null;
-  status: string;
-  reviewed_at: string | null;
-  created_at: string;
-};
-
-type FailedCycle = {
-  id: string;
-  cycle_number: string;
-  sterilizer: string;
-  operator: string;
-  reviewed_at: string | null;
-  created_at: string;
-};
-
-type LoadItem = {
-  id: string;
-  cycle_id: string;
-  pack_type: string;
-  quantity: number;
-};
+import {
+  formatDate,
+  formatDateTime,
+  formatInitials,
+  getFailedCycles,
+  getInvestigationData,
+  markCycleAsReviewed,
+  type FailedCycle,
+  type InvestigationCycle,
+  type InvestigationLoadItem,
+  type InvestigationPack,
+  type InvestigationPatientTrace,
+} from "@/lib/modules/investigation";
 
 export default function InvestigationPage() {
   const [cycleNumber, setCycleNumber] = useState("");
-  const [packs, setPacks] = useState<Pack[]>([]);
-  const [patients, setPatients] = useState<PatientTrace[]>([]);
-  const [loadItems, setLoadItems] = useState<LoadItem[]>([]);
+  const [packs, setPacks] = useState<InvestigationPack[]>([]);
+  const [patients, setPatients] = useState<InvestigationPatientTrace[]>([]);
+  const [loadItems, setLoadItems] = useState<InvestigationLoadItem[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [cycleDetails, setCycleDetails] = useState<Cycle | null>(null);
+  const [cycleDetails, setCycleDetails] = useState<InvestigationCycle | null>(null);
   const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
   const [investigationNotice, setInvestigationNotice] = useState("");
 
@@ -85,41 +43,19 @@ export default function InvestigationPage() {
   }, []);
 
   async function loadFailedCycles() {
-    const { data, error } = await supabase
-      .from("cycles")
-      .select("id, cycle_number, sterilizer, operator, reviewed_at, created_at")
-      .eq("status", "Failed")
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const data = await getFailedCycles();
+      setFailedCycles(data);
+    } catch (error) {
       toast.error("Error loading failed cycles.");
       console.error(error);
-      return;
     }
-
-    setFailedCycles(data || []);
-  }
-
-  async function markCycleAsReviewed(cycleId: string) {
-    const { error } = await supabase
-      .from("cycles")
-      .update({ reviewed_at: new Date().toISOString() })
-      .eq("id", cycleId)
-      .is("reviewed_at", null);
-
-    if (error) {
-      toast.error("Cycle loaded, but review status was not updated.");
-      console.error(error);
-      return;
-    }
-
-    await loadFailedCycles();
   }
 
   async function investigateCycle(selectedCycle?: string) {
     const cycleToInvestigate = selectedCycle || cycleNumber;
 
-    if (!cycleToInvestigate) {
+    if (!cycleToInvestigate.trim()) {
       toast.error("Please enter a cycle number.");
       return;
     }
@@ -127,96 +63,47 @@ export default function InvestigationPage() {
     setLoading(true);
     setSearched(true);
 
-    const { data: cycleData, error: cycleError } = await supabase
-      .from("cycles")
-      .select(
-        "id, cycle_number, sterilizer, operator, released_by, released_at, load_contents, expected_pack_count, status, reviewed_at, created_at"
-      )
-      .eq("cycle_number", cycleToInvestigate)
-      .maybeSingle();
+    try {
+      const result = await getInvestigationData(cycleToInvestigate);
 
-    if (cycleError) {
-      toast.error("Error loading cycle details.");
-      console.error(cycleError);
+      setCycleDetails(result.cycle);
+      setPacks(result.packs);
+      setPatients(result.patients);
+      setLoadItems(result.loadItems);
+      setInvestigationNotice(result.notice);
+
+      if (!result.cycle) {
+        toast.error("Cycle not found.");
+        return;
+      }
+
+      if (result.cycle.status === "Failed" && !result.cycle.reviewed_at) {
+        try {
+          const reviewedAt = await markCycleAsReviewed(result.cycle.id);
+
+          setCycleDetails({
+            ...result.cycle,
+            reviewed_at: reviewedAt,
+          });
+
+          await loadFailedCycles();
+        } catch (reviewError) {
+          toast.error("Cycle loaded, but review status was not updated.");
+          console.error(reviewError);
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error loading investigation data.";
+
+      if (message === "Please enter a cycle number.") {
+        toast.error(message);
+      } else {
+        toast.error("Error loading investigation data.");
+        console.error(error);
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setCycleDetails(cycleData || null);
-
-    if (!cycleData) {
-      setPacks([]);
-      setPatients([]);
-      setLoadItems([]);
-      toast.error("Cycle not found.");
-      setInvestigationNotice("");
-      setLoading(false);
-      return;
-    }
-
-    if (cycleData.status === "Failed" && !cycleData.reviewed_at) {
-      await markCycleAsReviewed(cycleData.id);
-      setCycleDetails({
-        ...cycleData,
-        reviewed_at: new Date().toISOString(),
-      });
-    }
-
-    const { data: loadData, error: loadError } = await supabase
-      .from("load_items")
-      .select("id, cycle_id, pack_type, quantity")
-      .eq("cycle_id", cycleData.id);
-
-    if (loadError) {
-      toast.error("Error loading load composition.");
-      console.error(loadError);
-      setLoading(false);
-      return;
-    }
-
-    setLoadItems(loadData || []);
-
-    const { data: packsData, error: packsError } = await supabase
-      .from("packs")
-      .select(
-        "id, pack_number, cycle_number, pack_type, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary"
-      )
-      .eq("cycle_number", cycleToInvestigate)
-      .order("pack_number", { ascending: true });
-
-    if (packsError) {
-      toast.error("Error loading packs.");
-      console.error(packsError);
-      setLoading(false);
-      return;
-    }
-
-    setPacks(packsData || []);
-
-    if (!packsData || packsData.length === 0) {
-      setPatients([]);
-      setInvestigationNotice("Cycle found. No linked packs or patient records were found.");
-      setLoading(false);
-      return;
-    }
-
-    const packNumbers = packsData.map((pack) => pack.pack_number);
-
-    const { data: patientData, error: patientError } = await supabase
-      .from("patient_traces")
-      .select("*")
-      .in("pack_number", packNumbers);
-
-    if (patientError) {
-      toast.error("Error loading patient records.");
-      console.error(patientError);
-      setLoading(false);
-      return;
-    }
-
-    setPatients(patientData || []);
-    setInvestigationNotice("Investigation completed.");
-    setLoading(false);
   }
 
   function printReport() {
@@ -577,7 +464,7 @@ function ReportBlock({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="mb-6">
@@ -611,28 +498,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function formatDate(date: string | null) {
-  if (!date) return "N/A";
-  return new Date(date).toLocaleDateString();
-}
 
-function formatDateTime(date: string | null) {
-  if (!date) return "N/A";
-  return new Date(date).toLocaleString();
-}
 
-function formatInitials(value: string | null | undefined) {
-  if (!value) return "N/A";
 
-  const emailName = value.split("@")[0] || value;
-  const parts = emailName
-    .replace(/[._-]+/g, " ")
-    .split(" ")
-    .filter(Boolean);
-
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-
-  return emailName.slice(0, 2).toUpperCase();
-}
