@@ -4,6 +4,7 @@ import { createAuditLog } from "@/lib/audit";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
+import { getProviders } from "@/lib/modules/traceability";
 
 type Patient = {
   id: string;
@@ -170,21 +171,15 @@ export default function PatientsPage() {
     setTraces(data || []);
   }
 
-  async function fetchProviders() {
-    const { data, error } = await supabase
-      .from("providers")
-      .select("*")
-      .eq("active", true)
-      .order("full_name", { ascending: true });
-
-    if (error) {
-      toast.error("Error loading providers.");
-      console.error(error);
-      return;
-    }
-
-    setProviders(data || []);
+ async function fetchProviders() {
+  try {
+    const data = await getProviders();
+    setProviders(data);
+  } catch (error) {
+    toast.error("Error loading providers.");
+    console.error(error);
   }
+}
 
   function updateForm(field: string, value: string) {
     setForm((current) => ({
