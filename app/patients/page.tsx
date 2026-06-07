@@ -173,7 +173,7 @@ export default function PatientsPage() {
 
  async function fetchProviders() {
   try {
-    const data = await getProviders();
+    const data = await getProviders(supabase);
     setProviders(data);
   } catch (error) {
     toast.error("Error loading providers.");

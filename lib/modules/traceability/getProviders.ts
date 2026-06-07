@@ -1,7 +1,6 @@
-import { supabase } from "@/lib/supabase";
 import type { Provider } from "./types";
 
-export async function getProviders(): Promise<Provider[]> {
+export async function getProviders(supabase: any): Promise<Provider[]> {
   const { data, error } = await supabase
     .from("providers")
     .select("id, display_name, full_name, role, active")

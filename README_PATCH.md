@@ -1,13 +1,34 @@
-# Traceability modules refactor V1
+# Traceability modules refactor V2
 
-Add the files under `lib/modules/traceability/`.
+This V2 moves the trace creation business workflow into `lib/modules/traceability/createPatientTrace.ts`.
 
-Then in `app/patients/page.tsx`:
+## Files to replace/add
 
-## 1. Add imports
+Copy these files into your project:
+
+```text
+lib/modules/traceability/types.ts
+lib/modules/traceability/getProviders.ts
+lib/modules/traceability/createPatientTrace.ts
+lib/modules/traceability/index.ts
+```
+
+Keep the other V1 traceability files already added:
+
+```text
+getPatients.ts
+getAvailablePacks.ts
+getPatientTraces.ts
+validatePackUsage.ts
+```
+
+## 1. Update imports in `app/patients/page.tsx`
+
+Make sure your traceability import includes `createPatientTrace`:
 
 ```tsx
 import {
+  createPatientTrace,
   getAvailablePacks,
   getPatientTraces,
   getPatients,
@@ -20,65 +41,79 @@ import {
 } from "@/lib/modules/traceability";
 ```
 
-## 2. Remove local duplicate type definitions
+If you no longer use `validatePackUsage` directly in the page after this patch, you can remove it from the import.
 
-Remove the local `type Patient`, `type Pack`, `type PatientTrace`, `type Provider`, and `type CycleStatus` definitions from `app/patients/page.tsx`.
+## 2. Remove unused audit import from `app/patients/page.tsx`
 
-## 3. Replace fetch functions
+After replacing `saveTrace`, the page no longer needs to create audit logs directly.
+
+Remove:
 
 ```tsx
-async function fetchPatients() {
-  try {
-    setPatients(await getPatients(supabase));
-  } catch (error) {
-    toast.error("Error loading patients.");
-    console.error(error);
-  }
-}
+import { createAuditLog } from "@/lib/audit";
+```
 
-async function fetchPacks() {
-  try {
-    setPacks(await getAvailablePacks(supabase));
-  } catch (error) {
-    toast.error("Error loading available packs.");
-    console.error(error);
-  }
-}
+Only remove it if the page does not use it anywhere else.
 
-async function fetchTraces() {
-  try {
-    setTraces(await getPatientTraces(supabase));
-  } catch (error) {
-    toast.error("Error loading traceability records.");
-    console.error(error);
-  }
-}
+## 3. Replace `saveTrace()` in `app/patients/page.tsx`
 
-async function fetchProviders() {
+Replace the whole current `saveTrace()` function with:
+
+```tsx
+async function saveTrace() {
+  if (
+    !selectedPatient ||
+    !form.packNumber ||
+    !form.provider ||
+    !form.treatmentRoom ||
+    !form.procedure
+  ) {
+    toast.error("Please fill all required fields.");
+    return;
+  }
+
+  setLoading(true);
+
   try {
-    setProviders(await getProviders(supabase));
+    await createPatientTrace(supabase, {
+      patientId: selectedPatient.id,
+      patientName: selectedPatient.full_name,
+      provider: form.provider,
+      treatmentRoom: form.treatmentRoom,
+      packNumber: form.packNumber,
+      procedure: form.procedure,
+    });
+
+    setForm({
+      patientId: "",
+      packNumber: "",
+      provider: "",
+      treatmentRoom: "",
+      procedure: "",
+    });
+
+    setPatientSearch("");
+    setCurrentPage(1);
+
+    await fetchTraces();
+    await fetchPacks();
+
+    toast.success("Patient traceability record saved. Pack marked as used.");
   } catch (error) {
-    toast.error("Error loading providers.");
+    const message =
+      error instanceof Error ? error.message : "Error saving patient trace.";
+
+    toast.error(message);
     console.error(error);
+  } finally {
+    setLoading(false);
   }
 }
 ```
 
-## 4. Replace validatePackBeforeUse
+## 4. Optional cleanup
 
-Either delete `validatePackBeforeUse` and change this line in `saveTrace`:
-
-```tsx
-await validatePackBeforeUse(form.packNumber);
-```
-
-to:
-
-```tsx
-await validatePackUsage(supabase, form.packNumber);
-```
-
-Or keep a wrapper:
+If this local wrapper still exists and is no longer used, delete it:
 
 ```tsx
 async function validatePackBeforeUse(packNumber: string) {
@@ -89,9 +124,10 @@ async function validatePackBeforeUse(packNumber: string) {
 ## 5. Test
 
 - Patients page loads
-- Available packs load
-- Providers load
-- Save trace works
-- Expired packs are blocked
-- Used packs are blocked
-- Packs from non-Passed cycles are blocked
+- Provider dropdown excludes Assistant and Other
+- Saving trace works
+- Used pack disappears from available packs
+- Used pack cannot be used again
+- Expired pack remains blocked
+- Pack from non-Passed cycle remains blocked
+- Audit logs still appear for trace creation and pack marked used
