@@ -1,55 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
-
-type Cycle = {
-  id: string;
-  cycle_number: string;
-  sterilizer: string;
-  operator: string;
-  released_by: string | null;
-  released_at: string | null;
-  status: string;
-  cycle_state: string | null;
-  expected_pack_count: number | null;
-  created_at: string;
-};
-
-type Pack = {
-  id: string;
-  pack_number: string;
-  cycle_number: string;
-  pack_type: string;
-  status: string | null;
-  sterilized_at: string | null;
-  expires_at: string | null;
-  load_item_index: number | null;
-  load_item_total: number | null;
-  cycle_pack_total: number | null;
-  cycle_load_summary: string | null;
-  created_at: string;
-};
-
-type PatientTrace = {
-  id: string;
-  patient_name: string;
-  provider: string;
-  treatment_room: string;
-  pack_number: string;
-  procedure: string;
-  created_at: string;
-};
-
-type AuditLog = {
-  id: string;
-  action: string;
-  entity_type: string;
-  description: string | null;
-  user_email: string | null;
-  created_at: string;
-};
+import {
+  type AuditLog,
+  type Cycle,
+  formatDate,
+  formatDateTime,
+  formatInitials,
+  getReportsData,
+  type Pack,
+  type PatientTrace,
+} from "@/lib/modules/reports";
 
 const itemsPerPage = 5;
 
@@ -74,45 +36,19 @@ export default function ReportsPage() {
   async function fetchReportsData() {
     setLoading(true);
 
-    const { data: cyclesData, error: cyclesError } = await supabase
-      .from("cycles")
-      .select(
-        "id, cycle_number, sterilizer, operator, released_by, released_at, status, cycle_state, expected_pack_count, created_at"
-      )
-      .order("created_at", { ascending: false });
+    try {
+      const data = await getReportsData();
 
-    const { data: packsData, error: packsError } = await supabase
-      .from("packs")
-      .select(
-        "id, pack_number, cycle_number, pack_type, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
-      )
-      .order("created_at", { ascending: false });
-
-    const { data: tracesData, error: tracesError } = await supabase
-      .from("patient_traces")
-      .select(
-        "id, patient_name, provider, treatment_room, pack_number, procedure, created_at"
-      )
-      .order("created_at", { ascending: false });
-
-    const { data: auditData, error: auditError } = await supabase
-      .from("audit_logs")
-      .select("id, action, entity_type, description, user_email, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (cyclesError || packsError || tracesError || auditError) {
-      toast.error("Error loading reports data.");
-      console.error({ cyclesError, packsError, tracesError, auditError });
+      setCycles(data.cycles);
+      setPacks(data.packs);
+      setPatientTraces(data.patientTraces);
+      setAuditLogs(data.auditLogs);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error loading reports data.");
+      console.error("Reports data load error:", error);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setCycles(cyclesData || []);
-    setPacks(packsData || []);
-    setPatientTraces(tracesData || []);
-    setAuditLogs(auditData || []);
-    setLoading(false);
   }
 
   function getRangeStart() {
@@ -774,28 +710,3 @@ function PackBadge({ status }: { status: string }) {
   );
 }
 
-function formatDate(date: string | null) {
-  if (!date) return "N/A";
-  return new Date(date).toLocaleDateString();
-}
-
-function formatDateTime(date: string | null) {
-  if (!date) return "N/A";
-  return new Date(date).toLocaleString();
-}
-
-function formatInitials(value: string | null | undefined) {
-  if (!value) return "N/A";
-
-  const emailName = value.split("@")[0] || value;
-  const parts = emailName
-    .replace(/[._-]+/g, " ")
-    .split(" ")
-    .filter(Boolean);
-
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-
-  return emailName.slice(0, 2).toUpperCase();
-}
