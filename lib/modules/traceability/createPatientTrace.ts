@@ -56,11 +56,16 @@ export async function createPatientTrace(
     },
   });
 
-  const { error: packUpdateError } = await supabase
-    .from("packs")
-    .update({ status: "Used" })
-    .eq("pack_number", input.packNumber)
-    .eq("status", "Available");
+  const { data: updatedPack, error: packUpdateError } = await supabase
+  .from("packs")
+  .update({ status: "Used" })
+  .eq("pack_number", input.packNumber)
+  .select("id, pack_number, status")
+  .single();
+
+if (packUpdateError || !updatedPack) {
+  throw packUpdateError || new Error("Pack could not be marked as used.");
+}
 
   if (packUpdateError) {
     throw packUpdateError;

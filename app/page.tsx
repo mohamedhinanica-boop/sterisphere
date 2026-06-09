@@ -12,6 +12,7 @@ import RecentGeneratedPacks from "@/components/dashboard/RecentGeneratedPacks";
 import LatestPatientTraceability from "@/components/dashboard/LatestPatientTraceability";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import PerformanceStats from "@/components/dashboard/PerformanceStats";
+import OperationalAlerts from "@/components/dashboard/OperationalAlerts";
 import type { AuditLog, Cycle, Pack, PatientTrace } from "@/components/dashboard/types";
 
 export default function Home() {
@@ -29,6 +30,8 @@ export default function Home() {
   const [usedPacksCount, setUsedPacksCount] = useState(0);
   const [expiredPacksCount, setExpiredPacksCount] = useState(0);
   const [expiringSoonPacksCount, setExpiringSoonPacksCount] = useState(0);
+  const [patientTracesTodayCount, setPatientTracesTodayCount] = useState(0);
+  const [labelsPrintedTodayCount, setLabelsPrintedTodayCount] = useState(0);
 
   const [latestFailedCycles, setLatestFailedCycles] = useState<Cycle[]>([]);
   const [latestPatientRecords, setLatestPatientRecords] = useState<PatientTrace[]>([]);
@@ -48,6 +51,12 @@ export default function Home() {
     const now = new Date();
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
     const { count: cycles } = await supabase
       .from("cycles")
@@ -110,6 +119,19 @@ export default function Home() {
       .lte("expires_at", thirtyDaysFromNow.toISOString())
       .neq("status", "Used");
 
+    const { count: patientTracesToday } = await supabase
+      .from("patient_traces")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString())
+      .lt("created_at", tomorrowStart.toISOString());
+
+    const { count: labelsPrintedToday } = await supabase
+      .from("audit_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("action", "label_printed")
+      .gte("created_at", todayStart.toISOString())
+      .lt("created_at", tomorrowStart.toISOString());
+
     const { data: auditLogs, error: auditError } = await supabase
       .from("audit_logs")
       .select("id, action, entity_type, description, user_email, created_at")
@@ -154,6 +176,8 @@ export default function Home() {
     setUsedPacksCount(usedPacks || 0);
     setExpiredPacksCount(expiredPacks || 0);
     setExpiringSoonPacksCount(expiringSoonPacks || 0);
+    setPatientTracesTodayCount(patientTracesToday || 0);
+    setLabelsPrintedTodayCount(labelsPrintedToday || 0);
     setLatestFailedCycles(failedData || []);
     setLatestPatientRecords(patientData || []);
     setRecentPacks(packData || []);
@@ -186,6 +210,15 @@ export default function Home() {
         usedPacksCount={usedPacksCount}
         expiredPacksCount={expiredPacksCount}
         expiringSoonPacksCount={expiringSoonPacksCount}
+      />
+
+      <OperationalAlerts
+        unreviewedFailedCyclesCount={unreviewedFailedCyclesCount}
+        pendingCyclesCount={pendingCyclesCount}
+        expiredPacksCount={expiredPacksCount}
+        expiringSoonPacksCount={expiringSoonPacksCount}
+        patientTracesTodayCount={patientTracesTodayCount}
+        labelsPrintedTodayCount={labelsPrintedTodayCount}
       />
 
       <DashboardQuickActions>
