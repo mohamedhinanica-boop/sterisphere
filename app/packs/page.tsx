@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 import toast from "react-hot-toast";
 import type { CycleContext, Pack } from "@/lib/modules/packs";
 import { generateLabelData } from "@/lib/modules/labels/generateLabelData";
@@ -81,6 +82,22 @@ export default function PacksPage() {
     setLoading(false);
   }
 
+  function openLabelPreview(pack: Pack) {
+    const effectiveStatus = getPackEffectiveStatus(pack);
+
+    if (effectiveStatus === "Used") {
+      toast.error("This pack has already been used. Reprinting is blocked for now.");
+      return;
+    }
+
+    if (effectiveStatus === "Expired") {
+      toast.error("This pack is expired. Reprinting is blocked for now.");
+      return;
+    }
+
+    setSelectedLabelPack(pack);
+  }
+
   const selectedLabelData: LabelData | null = selectedLabelPack
     ? generateLabelData({
         id: selectedLabelPack.id,
@@ -90,8 +107,27 @@ export default function PacksPage() {
       })
     : null;
 
-  function printSelectedLabel() {
-    window.print();
+  async function printSelectedLabel() {
+    if (!selectedLabelPack) return;
+
+    try {
+      await createAuditLog({
+        action: "label_printed",
+        entityType: "pack",
+        entityId: selectedLabelPack.id,
+        description: `Label printed for ${selectedLabelPack.pack_number}`,
+        metadata: {
+          pack_number: selectedLabelPack.pack_number,
+          pack_type: selectedLabelPack.pack_type,
+          expires_at: selectedLabelPack.expires_at,
+        },
+      });
+
+      window.print();
+    } catch (error) {
+      toast.error("Label print could not be audited.");
+      console.error(error);
+    }
   }
 
   const totalPacks = packs.length;
@@ -344,10 +380,10 @@ export default function PacksPage() {
 
                         <button
                           type="button"
-                          onClick={() => setSelectedLabelPack(pack)}
+                          onClick={() => openLabelPreview(pack)}
                           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                         >
-                          Preview Label
+                          Preview / Print Label
                         </button>
                       </div>
                     </div>
@@ -476,116 +512,116 @@ function LabelPreviewModal({
   return (
     <>
       <style jsx global>{`
-  @media print {
-    @page {
-      size: 50mm 30mm;
-      margin: 0;
-    }
+        @media print {
+          @page {
+            size: 50mm 30mm;
+            margin: 0;
+          }
 
-    html,
-    body {
-      width: 50mm;
-      height: 30mm;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-      background: white !important;
-    }
+          html,
+          body {
+            width: 50mm;
+            height: 30mm;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background: white !important;
+          }
 
-    body * {
-      visibility: hidden !important;
-    }
+          body * {
+            visibility: hidden !important;
+          }
 
-    .label-print-area,
-    .label-print-area * {
-      visibility: visible !important;
-    }
+          .label-print-area,
+          .label-print-area * {
+            visibility: visible !important;
+          }
 
-    .label-print-area {
-      display: flex !important;
-      position: fixed !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 50mm !important;
-      height: 30mm !important;
-      margin: 0 !important;
-      padding: 1.5mm !important;
-      box-sizing: border-box !important;
-      align-items: center !important;
-      gap: 2mm !important;
-      background: white !important;
-      color: black !important;
-      font-family: Arial, Helvetica, sans-serif !important;
-      box-shadow: none !important;
-      border: none !important;
-    }
+          .label-print-area {
+            display: flex !important;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 50mm !important;
+            height: 30mm !important;
+            margin: 0 !important;
+            padding: 1.5mm !important;
+            box-sizing: border-box !important;
+            align-items: center !important;
+            gap: 2mm !important;
+            background: white !important;
+            color: black !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
 
-    .label-qr {
-      width: 18mm !important;
-      height: 27mm !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      flex-shrink: 0 !important;
-    }
+          .label-qr {
+            width: 18mm !important;
+            height: 27mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+          }
 
-    .label-qr svg {
-      width: 18mm !important;
-      height: 18mm !important;
-    }
+          .label-qr svg {
+            width: 18mm !important;
+            height: 18mm !important;
+          }
 
-    .label-info {
-      width: 27mm !important;
-      height: 27mm !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: center !important;
-      overflow: hidden !important;
-    }
+          .label-info {
+            width: 27mm !important;
+            height: 27mm !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+          }
 
-    .label-title {
-      font-size: 10px !important;
-      font-weight: 900 !important;
-      line-height: 1 !important;
-      white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-    }
+          .label-title {
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
 
-    .label-line {
-      height: 1px !important;
-      background: #000 !important;
-      width: 100% !important;
-      margin: 2.2mm 0 !important;
-    }
+          .label-line {
+            height: 1px !important;
+            background: #000 !important;
+            width: 100% !important;
+            margin: 2.2mm 0 !important;
+          }
 
-    .label-row {
-      display: flex !important;
-      align-items: baseline !important;
-      gap: 1mm !important;
-      white-space: nowrap !important;
-      line-height: 1 !important;
-    }
+          .label-row {
+            display: flex !important;
+            align-items: baseline !important;
+            gap: 1mm !important;
+            white-space: nowrap !important;
+            line-height: 1 !important;
+          }
 
-    .label-key {
-      font-size: 7px !important;
-      font-weight: 800 !important;
-    }
+          .label-key {
+            font-size: 7px !important;
+            font-weight: 800 !important;
+          }
 
-    .label-value {
-      font-size: 8px !important;
-      font-weight: 900 !important;
-    }
+          .label-value {
+            font-size: 8px !important;
+            font-weight: 900 !important;
+          }
 
-    .label-pack {
-      font-size: 6px !important;
-    }
+          .label-pack {
+            font-size: 6px !important;
+          }
 
-    .no-print {
-      display: none !important;
-    }
-  }
-`}</style>
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
 
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 no-print">
         <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -644,28 +680,28 @@ function LabelPreviewModal({
       </div>
 
       <div className="label-print-area hidden bg-white text-black">
-  <div className="label-qr">
-    <QRCodeSVG value={labelData.qrValue} size={78} />
-  </div>
+        <div className="label-qr">
+          <QRCodeSVG value={labelData.qrValue} size={78} />
+        </div>
 
-  <div className="label-info">
-    <div className="label-title">{packType}</div>
+        <div className="label-info">
+          <div className="label-title">{packType}</div>
 
-    <div className="label-line" />
+          <div className="label-line" />
 
-    <div className="label-row">
-      <span className="label-key">EXP:</span>
-      <span className="label-value">{expiry}</span>
-    </div>
+          <div className="label-row">
+            <span className="label-key">EXP:</span>
+            <span className="label-value">{expiry}</span>
+          </div>
 
-    <div className="label-line" />
+          <div className="label-line" />
 
-    <div className="label-row">
-      <span className="label-key">PACK:</span>
-      <span className="label-value label-pack">{labelData.packNumber}</span>
-    </div>
-  </div>
-</div>
+          <div className="label-row">
+            <span className="label-key">PACK:</span>
+            <span className="label-value label-pack">{labelData.packNumber}</span>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
