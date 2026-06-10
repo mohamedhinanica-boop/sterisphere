@@ -1,10 +1,11 @@
 "use client";
 
 import { createAuditLog } from "@/lib/audit";
-import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import toast from "react-hot-toast";
 import { getProviders } from "@/lib/modules/traceability";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 
 type Patient = {
   id: string;
@@ -30,7 +31,7 @@ type PatientTrace = {
   treatment_room: string;
   pack_number: string;
   procedure: string;
-  created_at: string;
+  created_at: string | null;
 };
 
 type Provider = {
@@ -45,7 +46,12 @@ type CycleStatus = {
   status: string;
 };
 
+const itemsPerPage = 5;
+
 export default function PatientsPage() {
+  const searchParams = useSearchParams();
+  const selectedTraceId = searchParams.get("traceId");
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [traces, setTraces] = useState<PatientTrace[]>([]);
@@ -54,8 +60,6 @@ export default function PatientsPage() {
   const [traceSearch, setTraceSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-
-  const itemsPerPage = 5;
 
   const [form, setForm] = useState({
     patientId: "",
@@ -171,15 +175,15 @@ export default function PatientsPage() {
     setTraces(data || []);
   }
 
- async function fetchProviders() {
-  try {
-    const data = await getProviders(supabase);
-    setProviders(data);
-  } catch (error) {
-    toast.error("Error loading providers.");
-    console.error(error);
+  async function fetchProviders() {
+    try {
+      const data = await getProviders(supabase);
+      setProviders(data);
+    } catch (error) {
+      toast.error("Error loading providers.");
+      console.error(error);
+    }
   }
-}
 
   function updateForm(field: string, value: string) {
     setForm((current) => ({
@@ -195,6 +199,10 @@ export default function PatientsPage() {
 
   const selectedPatient = patients.find(
     (patient) => patient.id === form.patientId
+  );
+
+  const selectedPack = packs.find(
+    (pack) => pack.pack_number === form.packNumber
   );
 
   const filteredPatients = patients.filter((patient) => {
@@ -215,6 +223,31 @@ export default function PatientsPage() {
       trace.provider.toLowerCase().includes(search) ||
       trace.treatment_room.toLowerCase().includes(search) ||
       trace.procedure.toLowerCase().includes(search)
+    );
+  });
+
+  useEffect(() => {
+    if (!selectedTraceId || filteredTraces.length === 0) return;
+
+    const index = filteredTraces.findIndex(
+      (trace) => trace.id === selectedTraceId
+    );
+
+    if (index === -1) return;
+
+    const page = Math.floor(index / itemsPerPage) + 1;
+    setCurrentPage(page);
+
+    setTimeout(() => {
+      const element = document.getElementById(`trace-${selectedTraceId}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300);
+  }, [selectedTraceId, filteredTraces]);
+
+  const tracesToday = traces.filter((trace) => {
+    if (!trace.created_at) return false;
+    return (
+      new Date(trace.created_at).toDateString() === new Date().toDateString()
     );
   });
 
@@ -292,7 +325,7 @@ export default function PatientsPage() {
     setLoading(true);
 
     try {
-      await validatePackBeforeUse(form.packNumber);
+      const validatedPack = await validatePackBeforeUse(form.packNumber);
 
       const { data: newTrace, error } = await supabase
         .from("patient_traces")
@@ -303,6 +336,7 @@ export default function PatientsPage() {
             provider: form.provider,
             treatment_room: form.treatmentRoom,
             pack_number: form.packNumber,
+            pack_id: validatedPack.id,
             procedure: form.procedure,
           },
         ])
@@ -340,7 +374,7 @@ export default function PatientsPage() {
       await createAuditLog({
         action: "pack_marked_used",
         entityType: "pack",
-        entityId: form.packNumber,
+        entityId: validatedPack.id,
         description: `Pack ${form.packNumber} marked as used`,
         metadata: {
           pack_number: form.packNumber,
@@ -365,9 +399,7 @@ export default function PatientsPage() {
       toast.success("Patient traceability record saved. Pack marked as used.");
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Error saving patient trace.";
+        error instanceof Error ? error.message : "Error saving patient trace.";
 
       toast.error(message);
       console.error(error);
@@ -386,142 +418,194 @@ export default function PatientsPage() {
         </p>
       </header>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 max-w-3xl mb-8">
-        <h2 className="text-2xl font-semibold mb-6">New Patient Trace</h2>
+      <div className="mb-6 flex flex-col gap-6 min-[1100px]:flex-row min-[1100px]:items-start">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-[1100px]:basis-[68%]">
+          <h2 className="text-2xl font-semibold mb-6">New Patient Trace</h2>
 
-        <form className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Patient
-            </label>
+          <form className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Patient
+              </label>
 
-            <input
-              value={patientSearch}
-              onChange={(e) => {
-                setPatientSearch(e.target.value);
-                updateForm("patientId", "");
-              }}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Search by patient name or file ID"
-            />
+              <input
+                value={patientSearch}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  updateForm("patientId", "");
+                }}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="Search by patient name or file ID"
+              />
 
-            {patientSearch && !form.patientId && (
-              <div className="mt-3 space-y-2">
-                {filteredPatients.length === 0 ? (
-                  <p className="text-sm text-slate-500">No patient found.</p>
-                ) : (
-                  filteredPatients.slice(0, 5).map((patient) => (
-                    <button
-                      key={patient.id}
-                      type="button"
-                      onClick={() => selectPatient(patient)}
-                      className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50 cursor-pointer transition"
-                    >
-                      <p className="font-medium text-slate-900">
-                        {patient.full_name}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        File ID: {patient.external_id || "N/A"} · DOB:{" "}
-                        {patient.date_of_birth || "N/A"}
-                      </p>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
+              {patientSearch && !form.patientId && (
+                <div className="mt-3 space-y-2">
+                  {filteredPatients.length === 0 ? (
+                    <p className="text-sm text-slate-500">No patient found.</p>
+                  ) : (
+                    filteredPatients.slice(0, 5).map((patient) => (
+                      <button
+                        key={patient.id}
+                        type="button"
+                        onClick={() => selectPatient(patient)}
+                        className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50 cursor-pointer transition"
+                      >
+                        <p className="font-medium text-slate-900">
+                          {patient.full_name}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          File ID: {patient.external_id || "N/A"} · DOB:{" "}
+                          {patient.date_of_birth || "N/A"}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
 
-            {selectedPatient && (
-              <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-                Selected patient: <strong>{selectedPatient.full_name}</strong>
-              </div>
-            )}
-          </div>
+              {selectedPatient && (
+                <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                  Selected patient: <strong>{selectedPatient.full_name}</strong>
+                </div>
+              )}
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Usable Instrument Pack
-            </label>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Usable Instrument Pack
+              </label>
 
-            <select
-              value={form.packNumber}
-              onChange={(e) => updateForm("packNumber", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-            >
-              <option value="">
-                {packs.length === 0
-                  ? "No usable packs available"
-                  : "Select a usable instrument pack"}
-              </option>
-
-              {packs.map((pack) => (
-                <option key={pack.id} value={pack.pack_number}>
-                  {pack.pack_number} · {pack.pack_type} · Cycle:{" "}
-                  {pack.cycle_number} · Expires: {formatDate(pack.expires_at)}
+              <select
+                value={form.packNumber}
+                onChange={(e) => updateForm("packNumber", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              >
+                <option value="">
+                  {packs.length === 0
+                    ? "No usable packs available"
+                    : "Select a usable instrument pack"}
                 </option>
-              ))}
-            </select>
 
-            <p className="mt-2 text-xs text-slate-500">
-              Only Available, non-expired packs from Passed cycles are shown.
-              Once linked to a patient, the pack is marked as Used.
-            </p>
-          </div>
+                {packs.map((pack) => (
+                  <option key={pack.id} value={pack.pack_number}>
+                    {pack.pack_number} · {pack.pack_type} · Cycle:{" "}
+                    {pack.cycle_number} · Expires: {formatDate(pack.expires_at)}
+                  </option>
+                ))}
+              </select>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Provider</label>
+              <p className="mt-2 text-xs text-slate-500">
+                Only Available, non-expired packs from Passed cycles are shown.
+                Once linked to a patient, the pack is marked as Used.
+              </p>
+            </div>
 
-            <select
-              value={form.provider}
-              onChange={(e) => updateForm("provider", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            <div>
+              <label className="block text-sm font-medium mb-2">Provider</label>
+
+              <select
+                value={form.provider}
+                onChange={(e) => updateForm("provider", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              >
+                <option value="">Select a provider</option>
+
+                {providers.map((provider) => (
+                  <option key={provider.id} value={provider.full_name}>
+                    {provider.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Treatment Room
+              </label>
+
+              <input
+                value={form.treatmentRoom}
+                onChange={(e) => updateForm("treatmentRoom", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="Example: Room 2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Procedure</label>
+
+              <input
+                value={form.procedure}
+                onChange={(e) => updateForm("procedure", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="Example: Exam, cleaning, filling..."
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={saveTrace}
+              disabled={loading}
+              className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="">Select a provider</option>
+              {loading ? "Saving..." : "Save Patient Trace"}
+            </button>
+          </form>
+        </section>
 
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.full_name}>
-                  {provider.full_name}
-                </option>
-              ))}
-            </select>
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-[1100px]:basis-[32%]">
+          <h2 className="text-xl font-semibold">Traceability Summary</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Quick operational overview for today.
+          </p>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3">
+            <SummaryCard label="Traces Today" value={tracesToday.length} />
+            <SummaryCard label="Usable Packs" value={packs.length} />
+            <SummaryCard label="Total Traces" value={traces.length} />
+            <SummaryCard label="Providers" value={providers.length} />
           </div>
+        </section>
+      </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Treatment Room
-            </label>
+      <section className="mb-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <h2 className="text-xl font-semibold">Selected Pack Preview</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Confirm the pack before linking it to a patient.
+        </p>
 
-            <input
-              value={form.treatmentRoom}
-              onChange={(e) => updateForm("treatmentRoom", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Room 2"
+        {selectedPack ? (
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            <PreviewRow label="Pack Number" value={selectedPack.pack_number} />
+            <PreviewRow label="Pack Type" value={selectedPack.pack_type} />
+            <PreviewRow label="Cycle" value={selectedPack.cycle_number} />
+            <PreviewRow
+              label="Expires"
+              value={formatDate(selectedPack.expires_at)}
             />
+
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700 xl:flex xl:items-center">
+              This pack is available and eligible for patient traceability.
+            </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Procedure</label>
-
-            <input
-              value={form.procedure}
-              onChange={(e) => updateForm("procedure", e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Example: Exam, cleaning, filling..."
-            />
+        ) : (
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+            Select an instrument pack to preview its details here.
           </div>
-
-          <button
-            type="button"
-            onClick={saveTrace}
-            disabled={loading}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Saving..." : "Save Patient Trace"}
-          </button>
-        </form>
+        )}
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-2xl font-semibold mb-4">Recent Patient Traces</h2>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-2xl font-semibold">Recent Patient Traces</h2>
+            {selectedTraceId && (
+              <p className="mt-1 text-sm text-blue-600">
+                Opened from Pack Details. The linked trace is highlighted below.
+              </p>
+            )}
+          </div>
+        </div>
 
         <input
           value={traceSearch}
@@ -538,32 +622,45 @@ export default function PatientsPage() {
         ) : (
           <>
             <div className="space-y-3">
-              {paginatedTraces.map((trace) => (
-                <div
-                  key={trace.id}
-                  className="rounded-xl border border-slate-200 p-4"
-                >
-                  <div className="flex flex-col md:flex-row md:justify-between gap-2">
-                    <h3 className="font-semibold">{trace.patient_name}</h3>
+              {paginatedTraces.map((trace) => {
+                const isSelected = trace.id === selectedTraceId;
 
-                    <span className="text-sm text-slate-500">
-                      {trace.pack_number}
-                    </span>
+                return (
+                  <div
+                    id={`trace-${trace.id}`}
+                    key={trace.id}
+                    className={`rounded-xl border p-4 transition ${
+                      isSelected
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <div className="flex flex-col md:flex-row md:justify-between gap-2">
+                      <h3 className="font-semibold">{trace.patient_name}</h3>
+
+                      <span
+                        className={`text-sm ${
+                          isSelected ? "text-blue-700" : "text-slate-500"
+                        }`}
+                      >
+                        {trace.pack_number}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-slate-600 mt-1">
+                      {trace.provider} · {trace.treatment_room}
+                    </p>
+
+                    <p className="text-sm text-slate-500 mt-2">
+                      Procedure: {trace.procedure}
+                    </p>
+
+                    <p className="text-xs text-slate-400 mt-3">
+                      Created: {formatDateTime(trace.created_at)}
+                    </p>
                   </div>
-
-                  <p className="text-sm text-slate-600 mt-1">
-                    {trace.provider} · {trace.treatment_room}
-                  </p>
-
-                  <p className="text-sm text-slate-500 mt-2">
-                    Procedure: {trace.procedure}
-                  </p>
-
-                  <p className="text-xs text-slate-400 mt-3">
-                    Created: {new Date(trace.created_at).toLocaleString()}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {totalPages > 1 && (
@@ -598,7 +695,34 @@ export default function PatientsPage() {
   );
 }
 
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function PreviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
+    </div>
+  );
+}
+
 function formatDate(date: string | null) {
   if (!date) return "N/A";
   return new Date(date).toLocaleDateString();
+}
+
+function formatDateTime(date: string | null) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleString();
 }

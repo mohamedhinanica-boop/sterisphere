@@ -736,6 +736,15 @@ function PackDetailsModal({
                         : "N/A"
                     }
                   />
+                  <button
+      type="button"
+      onClick={() =>
+        (window.location.href = `/patients?traceId=${trace.id}`)
+      }
+      className="mt-3 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+    >
+      View Traceability Record
+    </button>
                 </div>
               ) : (
                 <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3">
