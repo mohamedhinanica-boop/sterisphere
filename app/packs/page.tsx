@@ -22,6 +22,9 @@ const itemsPerPage = 5;
 export default function PacksPage() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [selectedLabelPack, setSelectedLabelPack] = useState<Pack | null>(null);
+  const [selectedDetailsPack, setSelectedDetailsPack] = useState<Pack | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -258,7 +261,8 @@ export default function PacksPage() {
                 return (
                   <div
                     key={pack.id}
-                    className="rounded-xl border border-slate-200 p-4"
+                    onClick={() => setSelectedDetailsPack(pack)}
+                    className="rounded-xl border border-slate-200 p-4 cursor-pointer transition hover:border-blue-300 hover:bg-blue-50/30"
                   >
                     <div className="flex flex-col md:flex-row md:justify-between gap-4">
                       <div className="flex-1">
@@ -380,7 +384,10 @@ export default function PacksPage() {
 
                         <button
                           type="button"
-                          onClick={() => openLabelPreview(pack)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLabelPreview(pack);
+                          }}
                           className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                         >
                           Preview / Print Label
@@ -422,6 +429,13 @@ export default function PacksPage() {
           </>
         )}
       </section>
+
+      {selectedDetailsPack && (
+        <PackDetailsModal
+          pack={selectedDetailsPack}
+          onClose={() => setSelectedDetailsPack(null)}
+        />
+      )}
 
       {selectedLabelPack && selectedLabelData && (
         <LabelPreviewModal
@@ -492,6 +506,92 @@ function StatusBadge({ value }: { value: string }) {
     <span className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700">
       {value}
     </span>
+  );
+}
+
+function PackDetailsModal({
+  pack,
+  onClose,
+}: {
+  pack: Pack;
+  onClose: () => void;
+}) {
+  const effectiveStatus = getPackEffectiveStatus(pack);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 no-print">
+      <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold">Pack Details</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Sterilization pack identity and lifecycle information.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid grid-cols-[1fr_180px] gap-4">
+  <div className="grid grid-cols-2 gap-3 text-sm">
+    <DetailRow label="Pack Number" value={pack.pack_number} />
+    <DetailRow label="Status" value={effectiveStatus} />
+
+    <DetailRow label="Pack Type" value={pack.pack_type} />
+    <DetailRow label="Cycle Number" value={pack.cycle_number} />
+
+    <DetailRow
+      label="Created Date"
+      value={new Date(pack.created_at).toLocaleString()}
+    />
+
+    <DetailRow
+      label="Sterilized Date"
+      value={formatPackDate(pack.sterilized_at)}
+    />
+
+    <DetailRow
+      label="Expiry Date"
+      value={formatPackDate(pack.expires_at)}
+    />
+
+    <DetailRow
+      label="Load Position"
+      value={
+        pack.load_item_index && pack.load_item_total
+          ? `${pack.load_item_index} of ${pack.load_item_total}`
+          : "N/A"
+      }
+    />
+  </div>
+
+  <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <QRCodeSVG value={pack.pack_number} size={130} />
+
+    <p className="mt-3 text-center text-sm font-medium text-slate-600">
+      {pack.pack_number}
+    </p>
+  </div>
+</div>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
+    </div>
   );
 }
 
