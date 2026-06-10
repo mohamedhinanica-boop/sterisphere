@@ -258,6 +258,69 @@ export default function PatientsPage() {
     currentPage * itemsPerPage
   );
 
+  async function exportTracesCsv() {
+    if (filteredTraces.length === 0) {
+      toast.error("No traceability records to export.");
+      return;
+    }
+
+    const headers = [
+      "Patient",
+      "Provider",
+      "Treatment Room",
+      "Procedure",
+      "Pack Number",
+      "Created At",
+    ];
+
+    const rows = filteredTraces.map((trace) => [
+      trace.patient_name,
+      trace.provider,
+      trace.treatment_room,
+      trace.procedure,
+      trace.pack_number,
+      formatDateTime(trace.created_at),
+    ]);
+
+    const csv =
+      "\ufeff" +
+      [headers, ...rows]
+        .map((row) => row.map(csvEscape).join(","))
+        .join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const today = new Date().toISOString().slice(0, 10);
+
+    link.href = url;
+    link.download = `sterisphere-patient-traces-${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    try {
+      await createAuditLog({
+        action: "patient_traces_csv_exported",
+        entityType: "patient_traces",
+        entityId: "csv_export",
+        description: `Exported ${filteredTraces.length} patient traceability record(s) to CSV`,
+        metadata: {
+          records_exported: filteredTraces.length,
+          search_filter: traceSearch || null,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+    }
+
+    toast.success("CSV export generated.");
+  }
+
   async function validatePackBeforeUse(packNumber: string) {
     const now = new Date().toISOString();
 
@@ -418,8 +481,8 @@ export default function PatientsPage() {
         </p>
       </header>
 
-      <div className="mb-6 flex flex-col gap-6 min-[1100px]:flex-row min-[1100px]:items-start">
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-[1100px]:basis-[68%]">
+      <div className="mb-6 grid grid-cols-1 2xl:grid-cols-[minmax(0,2fr)_minmax(380px,1fr)] gap-6 items-start">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <h2 className="text-2xl font-semibold mb-6">New Patient Trace</h2>
 
           <form className="space-y-5">
@@ -553,13 +616,13 @@ export default function PatientsPage() {
           </form>
         </section>
 
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-[1100px]:basis-[32%]">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <h2 className="text-xl font-semibold">Traceability Summary</h2>
           <p className="mt-1 text-sm text-slate-500">
             Quick operational overview for today.
           </p>
 
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3">
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-1 gap-3">
             <SummaryCard label="Traces Today" value={tracesToday.length} />
             <SummaryCard label="Usable Packs" value={packs.length} />
             <SummaryCard label="Total Traces" value={traces.length} />
@@ -599,12 +662,25 @@ export default function PatientsPage() {
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
           <div>
             <h2 className="text-2xl font-semibold">Recent Patient Traces</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Showing {filteredTraces.length} of {traces.length} traceability
+              record(s).
+            </p>
             {selectedTraceId && (
               <p className="mt-1 text-sm text-blue-600">
                 Opened from Pack Details. The linked trace is highlighted below.
               </p>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={exportTracesCsv}
+            disabled={filteredTraces.length === 0}
+            className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Export CSV
+          </button>
         </div>
 
         <input
@@ -715,6 +791,20 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
     </div>
   );
+}
+
+function csvEscape(value: string | number | null | undefined) {
+  const safeValue = String(value ?? "");
+
+  if (
+    safeValue.includes(",") ||
+    safeValue.includes('"') ||
+    safeValue.includes("\n")
+  ) {
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  }
+
+  return safeValue;
 }
 
 function formatDate(date: string | null) {
