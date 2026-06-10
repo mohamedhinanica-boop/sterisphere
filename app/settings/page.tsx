@@ -96,6 +96,14 @@ export default function SettingsPage() {
     role: "Dentist",
   });
 
+const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
+
+const [editProviderForm, setEditProviderForm] = useState({
+  firstName: "",
+  lastName: "",
+  role: "Dentist",
+});
+  
   const [sterilizerForm, setSterilizerForm] = useState({
     name: "",
     type: "Autoclave",
@@ -564,6 +572,108 @@ export default function SettingsPage() {
     toast.success("Provider added successfully.");
     setLoading(false);
   }
+
+function startEditingProvider(provider: Provider) {
+  const fallbackName = provider.display_name || provider.full_name || "";
+  const cleanName = fallbackName
+    .replace(/^Dr\.?\s+/i, "")
+    .replace(/^Hyg\.?\s+/i, "")
+    .trim();
+
+  const nameParts = cleanName.split(" ").filter(Boolean);
+
+  setEditingProviderId(provider.id);
+  setEditProviderForm({
+    firstName: provider.first_name || nameParts[0] || "",
+    lastName: provider.last_name || nameParts.slice(1).join(" ") || "",
+    role: provider.role || "Dentist",
+  });
+}
+
+function cancelEditingProvider() {
+  setEditingProviderId(null);
+  setEditProviderForm({
+    firstName: "",
+    lastName: "",
+    role: "Dentist",
+  });
+}
+
+async function updateProvider(providerId: string) {
+  if (!canManageSettings()) {
+    toast.error("You do not have permission.");
+    return;
+  }
+
+  const firstName = editProviderForm.firstName.trim();
+  const lastName = editProviderForm.lastName.trim();
+
+  if (!firstName || !lastName) {
+    toast.error("Please enter first and last name.");
+    return;
+  }
+
+  const title = getProviderTitle(editProviderForm.role);
+  const displayName =
+    title !== ""
+      ? `${title} ${firstName} ${lastName}`
+      : `${firstName} ${lastName}`;
+
+  const normalizedEditedName = normalizeProviderName(displayName);
+
+  const duplicateProvider = providers.find(
+    (provider) =>
+      provider.id !== providerId &&
+      normalizeProviderName(provider.display_name || provider.full_name) ===
+        normalizedEditedName,
+  );
+
+  if (duplicateProvider) {
+    toast.error("Another provider already has this name.");
+    return;
+  }
+
+  setLoading(true);
+
+  const { error } = await supabase
+    .from("providers")
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      title,
+      display_name: displayName,
+      full_name: displayName,
+      role: editProviderForm.role,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", providerId);
+
+  if (error) {
+    toast.error(error.message || "Error updating provider.");
+    console.error(error);
+    setLoading(false);
+    return;
+  }
+
+  await createAuditLog({
+    action: "provider_updated",
+    entityType: "provider",
+    entityId: providerId,
+    description: `Updated provider ${displayName}`,
+    metadata: {
+      first_name: firstName,
+      last_name: lastName,
+      title,
+      display_name: displayName,
+      role: editProviderForm.role,
+    },
+  });
+
+  cancelEditingProvider();
+  await fetchProviders();
+  toast.success("Provider updated successfully.");
+  setLoading(false);
+}
 
   async function toggleProviderStatus(
     providerId: string,
@@ -1268,22 +1378,104 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-3">
-                {providers.map((provider) => (
-                  <ManagementRow
-                    key={provider.id}
-                    title={provider.display_name || provider.full_name}
-                    badge={
-                      <ProviderRoleBadge role={provider.role || "Provider"} />
-                    }
-                    active={provider.active}
-                    createdAt={provider.created_at}
-                    onToggle={() =>
-                      toggleProviderStatus(provider.id, provider.active)
-                    }
-                    loading={loading}
-                  />
-                ))}
-              </div>
+  {providers.map((provider) => {
+    const isEditing = editingProviderId === provider.id;
+
+    if (isEditing) {
+      return (
+        <div
+          key={provider.id}
+          className="rounded-xl border border-blue-200 bg-blue-50 p-4"
+        >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <input
+              value={editProviderForm.firstName}
+              onChange={(e) =>
+                setEditProviderForm((current) => ({
+                  ...current,
+                  firstName: e.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+              placeholder="First Name"
+            />
+
+            <input
+              value={editProviderForm.lastName}
+              onChange={(e) =>
+                setEditProviderForm((current) => ({
+                  ...current,
+                  lastName: e.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+              placeholder="Last Name"
+            />
+
+            <select
+              value={editProviderForm.role}
+              onChange={(e) =>
+                setEditProviderForm((current) => ({
+                  ...current,
+                  role: e.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+            >
+              <option value="Dentist">Dentist</option>
+              <option value="Hygienist">Hygienist</option>
+              <option value="Assistant">Assistant</option>
+              <option value="Specialist">Specialist</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => updateProvider(provider.id)}
+                disabled={loading}
+                className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelEditingProvider}
+                disabled={loading}
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <ManagementRow
+        key={provider.id}
+        title={provider.display_name || provider.full_name}
+        badge={<ProviderRoleBadge role={provider.role || "Provider"} />}
+        active={provider.active}
+        createdAt={provider.created_at}
+        onToggle={() => toggleProviderStatus(provider.id, provider.active)}
+        loading={loading}
+        extraAction={
+          <button
+            type="button"
+            onClick={() => startEditingProvider(provider)}
+            disabled={loading}
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Edit
+          </button>
+        }
+      />
+    );
+  })}
+</div>
             </Panel>
           )}
 

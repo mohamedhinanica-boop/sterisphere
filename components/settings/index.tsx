@@ -83,6 +83,7 @@ export function ManagementRow({
   createdAt,
   onToggle,
   loading,
+  extraAction,
 }: {
   title: string;
   badge: React.ReactNode;
@@ -90,6 +91,7 @@ export function ManagementRow({
   createdAt: string;
   onToggle: () => void;
   loading: boolean;
+  extraAction?: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -105,18 +107,22 @@ export function ManagementRow({
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={loading}
-        className={`rounded-xl px-5 py-3 text-sm font-medium cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed ${
-          active
-            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            : "bg-green-600 text-white hover:bg-green-700"
-        }`}
-      >
-        {active ? "Deactivate" : "Activate"}
-      </button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {extraAction}
+
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={loading}
+          className={`rounded-xl px-5 py-3 text-sm font-medium cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed ${
+            active
+              ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              : "bg-green-600 text-white hover:bg-green-700"
+          }`}
+        >
+          {active ? "Deactivate" : "Activate"}
+        </button>
+      </div>
     </div>
   );
 }
