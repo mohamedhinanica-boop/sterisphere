@@ -457,7 +457,7 @@ export default function InvestigationPage() {
                         </div>
 
                         <p className="text-xs text-slate-400">
-                          Created: {formatDateTime(pack.created_at)}
+                          Created: {formatDateTime(null)}
                         </p>
                       </div>
                     </div>
@@ -500,7 +500,7 @@ export default function InvestigationPage() {
                       </div>
 
                       <p className="text-xs text-red-500">
-                        Used: {formatDateTime(patient.created_at)}
+                       Used: {formatDateTime(patient.created_at ?? null)}
                       </p>
                     </div>
                   </div>
