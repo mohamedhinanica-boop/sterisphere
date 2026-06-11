@@ -23,7 +23,8 @@ export default function InvestigationPage() {
   const [loadItems, setLoadItems] = useState<InvestigationLoadItem[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [cycleDetails, setCycleDetails] = useState<InvestigationCycle | null>(null);
+  const [cycleDetails, setCycleDetails] =
+    useState<InvestigationCycle | null>(null);
   const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
   const [investigationNotice, setInvestigationNotice] = useState("");
 
@@ -93,14 +94,8 @@ export default function InvestigationPage() {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Error loading investigation data.";
-
-      if (message === "Please enter a cycle number.") {
-        toast.error(message);
-      } else {
-        toast.error("Error loading investigation data.");
-        console.error(error);
-      }
+      toast.error("Error loading investigation data.");
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -110,7 +105,23 @@ export default function InvestigationPage() {
     window.print();
   }
 
-  const affectedPackNumbers = new Set(patients.map((patient) => patient.pack_number));
+  const affectedPackNumbers = new Set(
+    patients.map((patient) => patient.pack_number)
+  );
+
+  const usedAffectedPacks = packs.filter((pack) =>
+    affectedPackNumbers.has(pack.pack_number)
+  );
+
+  const unusedPacks = packs.filter(
+    (pack) => !affectedPackNumbers.has(pack.pack_number)
+  );
+
+  const providersInvolved = Array.from(
+    new Set(patients.map((patient) => patient.provider).filter(Boolean))
+  );
+
+  const riskLevel = getRiskLevel(cycleDetails, packs.length, patients.length);
 
   return (
     <>
@@ -141,52 +152,81 @@ export default function InvestigationPage() {
       `}</style>
 
       <header className="mb-8 no-print">
-        <h1 className="text-4xl font-bold">Investigation</h1>
-
+        <h1 className="text-4xl font-bold">Investigation Center</h1>
         <p className="mt-2 text-slate-600">
-          Investigate sterilization cycles and trace linked packs, patients,
-          sterilizer, and operators.
+          Investigate sterilization cycles, affected packs, linked patients,
+          providers, and corrective follow-up.
         </p>
       </header>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8 no-print">
-        <h2 className="text-2xl font-semibold mb-6">
-          Investigate Sterilization Cycle
-        </h2>
+      <section className="mb-8 grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-6 no-print">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-2xl font-semibold">Investigate Cycle</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Enter a sterilization cycle number to review all linked packs and
+            patient traceability records.
+          </p>
 
-        <div className="flex flex-col md:flex-row gap-4">
-          <input
-            value={cycleNumber}
-            onChange={(e) => setCycleNumber(e.target.value)}
-            className="w-full md:flex-1 rounded-xl border border-slate-300 px-4 py-3"
-            placeholder="Example: STERI-2026-0001"
-          />
+          <div className="mt-5 flex flex-col md:flex-row gap-4">
+            <input
+              value={cycleNumber}
+              onChange={(e) => setCycleNumber(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              placeholder="Example: STERI-2026-0001"
+            />
 
-          <button
-            onClick={() => investigateCycle()}
-            disabled={loading}
-            className="rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Investigating..." : "Investigate"}
-          </button>
+            <button
+              type="button"
+              onClick={() => investigateCycle()}
+              disabled={loading}
+              className="rounded-xl bg-slate-950 px-6 py-3 font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Investigating..." : "Investigate"}
+            </button>
 
-          <button
-            onClick={printReport}
-            disabled={!cycleDetails}
-            className="rounded-xl border border-slate-300 px-6 py-3 font-medium cursor-pointer hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Print Report
-          </button>
+            <button
+              type="button"
+              onClick={loadFailedCycles}
+              className="rounded-xl border border-slate-300 px-6 py-3 font-medium hover:bg-slate-50"
+            >
+              Load Failed Cycles
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Investigation Snapshot</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Current investigation risk and impact summary.
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <SummaryCard title="Risk Level" value={riskLevel} />
+            <SummaryCard title="Affected Packs" value={String(packs.length)} />
+            <SummaryCard
+              title="Used Packs"
+              value={String(usedAffectedPacks.length)}
+            />
+            <SummaryCard
+              title="Patient Traces"
+              value={String(patients.length)}
+            />
+          </div>
         </div>
       </section>
 
       {failedCycles.length > 0 && (
-        <section className="bg-white rounded-2xl border border-red-200 shadow-sm p-6 mb-8 no-print">
-          <h2 className="text-2xl font-semibold mb-4 text-red-700">
-            Failed Sterilization Cycles
-          </h2>
+        <section className="mb-8 rounded-2xl border border-red-200 bg-red-50 p-6 no-print">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-red-900">
+              Failed Cycles Requiring Review
+            </h2>
+            <p className="mt-1 text-sm text-red-700">
+              Select a failed cycle to investigate it directly.
+            </p>
+          </div>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {failedCycles.map((cycle) => (
               <button
                 key={cycle.id}
@@ -195,38 +235,17 @@ export default function InvestigationPage() {
                   setCycleNumber(cycle.cycle_number);
                   investigateCycle(cycle.cycle_number);
                 }}
-                className={`w-full rounded-xl border p-4 text-left cursor-pointer transition hover:bg-red-50 ${
-                  cycle.reviewed_at
-                    ? "border-slate-200 bg-slate-50"
-                    : "border-red-200 bg-red-50"
-                }`}
+                className="rounded-xl border border-red-200 bg-white p-4 text-left hover:bg-red-50"
               >
-                <div className="flex flex-col md:flex-row md:justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold">{cycle.cycle_number}</h3>
-
-                      <span
-                        className={`rounded-lg border px-3 py-1 text-xs font-medium ${
-                          cycle.reviewed_at
-                            ? "border-slate-200 bg-white text-slate-600"
-                            : "border-red-200 bg-white text-red-700"
-                        }`}
-                      >
-                        {cycle.reviewed_at ? "Reviewed" : "New"}
-                      </span>
-                    </div>
-
-                    <p className="text-sm text-slate-600 mt-1">
-                      {cycle.sterilizer} · Started by:{" "}
-                      {formatInitials(cycle.operator)}
-                    </p>
-                  </div>
-
-                  <p className="text-sm text-slate-500">
-                    {formatDateTime(cycle.created_at)}
-                  </p>
-                </div>
+                <p className="font-semibold text-red-900">
+                  {cycle.cycle_number}
+                </p>
+                <p className="mt-1 text-sm text-red-700">
+                  {cycle.sterilizer || "Unknown sterilizer"}
+                </p>
+                <p className="mt-2 text-xs text-red-500">
+                  Created: {formatDateTime(cycle.created_at)}
+                </p>
               </button>
             ))}
           </div>
@@ -234,169 +253,226 @@ export default function InvestigationPage() {
       )}
 
       {searched && !cycleDetails && !loading && (
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <p className="text-slate-500">No cycle found.</p>
-        </section>
-      )}
-
-      {cycleDetails && investigationNotice && !loading && (
-        <section className="mb-6 bg-blue-50 rounded-2xl border border-blue-200 p-4 no-print">
-          <p className="text-sm font-medium text-blue-800">{investigationNotice}</p>
+        <section className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6">
+          <h2 className="text-xl font-semibold text-yellow-900">
+            No Cycle Found
+          </h2>
+          <p className="mt-2 text-sm text-yellow-700">
+            No sterilization cycle matched the cycle number entered.
+          </p>
         </section>
       )}
 
       {cycleDetails && (
         <section
           id="investigation-report"
-          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6"
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
         >
-          <div className="border-b border-slate-200 pb-5 mb-6">
-            <p className="text-sm uppercase tracking-wide text-slate-500">
-              SteriSphere Investigation Report
-            </p>
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold">
+                Investigation Report: {cycleDetails.cycle_number}
+              </h2>
+              <p className="mt-2 text-slate-600">
+                Generated from SteriSphere investigation workflow.
+              </p>
+            </div>
 
-            <div className="mt-2 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <h2 className="text-3xl font-bold">
-                  {cycleDetails.cycle_number}
-                </h2>
-
-                <p className="mt-2 text-slate-600">
-                  Generated: {new Date().toLocaleString()}
-                </p>
-              </div>
-
-              <StatusBadge status={cycleDetails.status} />
+            <div className="flex flex-col sm:flex-row gap-3 no-print">
+              <button
+                type="button"
+                onClick={printReport}
+                className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                Print Report
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
-            <SummaryCard title="Sterilizer" value={cycleDetails.sterilizer} />
+          {investigationNotice && (
+            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+              {investigationNotice}
+            </div>
+          )}
+
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <SummaryCard title="Cycle Status" value={cycleDetails.status} />
+            <SummaryCard title="Risk Level" value={riskLevel} />
+            <SummaryCard title="Affected Packs" value={String(packs.length)} />
             <SummaryCard
-              title="Started By"
-              value={formatInitials(cycleDetails.operator)}
-              subtitle={cycleDetails.operator}
-            />
-            <SummaryCard
-              title="Completed By"
-              value={formatInitials(cycleDetails.released_by)}
-              subtitle={cycleDetails.released_by || "N/A"}
-            />
-            <SummaryCard
-              title="Completed At"
-              value={formatDateTime(cycleDetails.released_at)}
+              title="Linked Patients"
+              value={String(patients.length)}
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <SummaryCard
-              title="Cycle Started"
-              value={formatDateTime(cycleDetails.created_at)}
-            />
-            <SummaryCard
-  title={
-    cycleDetails.status === "Failed"
-      ? "Investigation Review"
-      : "Investigation Review"
-  }
-  value={
-    cycleDetails.status === "Failed"
-      ? cycleDetails.reviewed_at
-        ? "Reviewed"
-        : "Pending Review"
-      : "Not Required"
-  }
-  subtitle={
-    cycleDetails.status === "Failed"
-      ? cycleDetails.reviewed_at
-        ? formatDateTime(cycleDetails.reviewed_at)
-        : "Failed cycle requires investigation review"
-      : "Passed cycle does not require failed-cycle review"
-  }
-/>
+          <ReportBlock title="Cycle Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <DetailCard
+                label="Cycle Number"
+                value={cycleDetails.cycle_number}
+              />
+              <DetailCard label="Status" value={cycleDetails.status} />
+              <DetailCard
+                label="Sterilizer"
+                value={cycleDetails.sterilizer || "N/A"}
+              />
+              <DetailCard
+                label="Started By"
+                value={formatInitials(cycleDetails.operator)}
+              />
+              <DetailCard
+                label="Completed By"
+                value={formatInitials(cycleDetails.released_by)}
+              />
+              <DetailCard
+                label="Created"
+                value={formatDateTime(cycleDetails.created_at)}
+              />
+              <DetailCard
+                label="Released"
+                value={formatDateTime(cycleDetails.released_at)}
+              />
+              <DetailCard
+                label="Reviewed"
+                value={formatDateTime(cycleDetails.reviewed_at)}
+              />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Status Badge
+                </p>
+                <div className="mt-2">
+                  <StatusBadge status={cycleDetails.status} />
+                </div>
+              </div>
+            </div>
+          </ReportBlock>
 
-<SummaryCard
-  title="Generated Packs"
-  value={String(packs.length || cycleDetails.expected_pack_count || "N/A")}
-  subtitle={
-    cycleDetails.expected_pack_count
-      ? `Planned load: ${cycleDetails.expected_pack_count} pack(s)`
-      : undefined
-  }
-/>
-          </div>
+          <ReportBlock title="Risk Summary">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <RiskCard
+                title="Affected Packs"
+                value={packs.length}
+                description="Total packs connected to this sterilization cycle."
+              />
+              <RiskCard
+                title="Used on Patients"
+                value={patients.length}
+                description="Patient traceability records linked to packs from this cycle."
+              />
+              <RiskCard
+                title="Providers Involved"
+                value={providersInvolved.length}
+                description="Treatment providers connected to affected patient traces."
+              />
+            </div>
 
-          <ReportBlock title="Load Composition">
-            {loadItems.length > 0 ? (
-              <ul className="space-y-2">
-                {loadItems.map((item) => (
-                  <li key={item.id} className="text-slate-700">
-                    • {item.pack_type} × {item.quantity}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-slate-600">{cycleDetails.load_contents}</p>
+            {cycleDetails.status === "Failed" && patients.length > 0 && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                High priority: this failed cycle has packs linked to patient
+                care records. Review affected patients, providers, and
+                corrective actions immediately.
+              </div>
+            )}
+
+            {cycleDetails.status === "Failed" && patients.length === 0 && (
+              <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-700">
+                This failed cycle has no linked patient traceability records.
+                Confirm whether any generated packs were quarantined or
+                discarded.
+              </div>
             )}
           </ReportBlock>
 
-          <ReportBlock title={`Generated Packs (${packs.length})`}>
-            {packs.length === 0 ? (
-              <p className="text-slate-500">No packs linked to this cycle.</p>
+          <ReportBlock title="Load Composition">
+            {loadItems.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No load composition details were found for this cycle.
+              </p>
             ) : (
-              <div className="space-y-3">
-                {packs.map((pack) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {loadItems.map((item, index) => (
                   <div
-                    key={pack.id}
-                    className={`rounded-xl border p-4 ${
-                      affectedPackNumbers.has(pack.pack_number)
-                        ? "border-red-200 bg-red-50"
-                        : "border-slate-200 bg-white"
-                    }`}
+                    key={`${getValue(item, "pack_type", "type", "name")}-${index}`}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                   >
-                    <div className="flex flex-col md:flex-row md:justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-semibold">{pack.pack_number}</h3>
-
-                          {affectedPackNumbers.has(pack.pack_number) && (
-                            <span className="rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
-                              Patient Linked
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-sm text-slate-600 mt-1">
-                          {pack.pack_type}
-                          {pack.load_item_index && pack.load_item_total
-                            ? ` · ${pack.load_item_index} of ${pack.load_item_total}`
-                            : ""}
-                        </p>
-
-                        {pack.cycle_pack_total && (
-                          <p className="text-sm text-slate-500 mt-1">
-                            Part of a {pack.cycle_pack_total}-pack sterilization
-                            load
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="text-sm text-slate-500 md:text-right">
-                        <p>Sterilized: {formatDate(pack.sterilized_at)}</p>
-                        <p>Expires: {formatDate(pack.expires_at)}</p>
-                      </div>
-                    </div>
+                    <p className="font-semibold text-slate-900">
+                      {getValue(item, "pack_type", "type", "name") || "Load Item"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Quantity: {getValue(item, "quantity", "count", "total") || "N/A"}
+                    </p>
                   </div>
                 ))}
               </div>
             )}
           </ReportBlock>
 
-          <ReportBlock title={`Affected Patients (${patients.length})`}>
-            {patients.length === 0 ? (
-              <p className="text-slate-500">
-                No patient records linked to packs from this cycle.
+          <ReportBlock title="Affected Packs">
+            {packs.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No packs were found for this cycle.
               </p>
+            ) : (
+              <div className="space-y-3">
+                {packs.map((pack) => {
+                  const linkedToPatient = affectedPackNumbers.has(
+                    pack.pack_number
+                  );
+
+                  return (
+                    <div
+                      key={pack.id}
+                      className={`rounded-xl border p-4 ${
+                        linkedToPatient
+                          ? "border-red-200 bg-red-50"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-slate-900">
+                              {pack.pack_number}
+                            </h3>
+
+                            {linkedToPatient ? (
+                              <span className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
+                                Linked to Patient
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                                No Patient Link
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-1 text-sm text-slate-600">
+                            {pack.pack_type || "Instrument Pack"}
+                          </p>
+
+                          <p className="mt-2 text-sm text-slate-500">
+                            Status: {pack.status || "N/A"} · Expires:{" "}
+                            {formatDate(pack.expires_at)}
+                          </p>
+                        </div>
+
+                        <p className="text-xs text-slate-400">
+                          Created: {formatDateTime(pack.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ReportBlock>
+
+          <ReportBlock title="Affected Patient Traceability">
+            {patients.length === 0 ? (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                No patient traceability records were linked to packs from this
+                cycle.
+              </div>
             ) : (
               <div className="space-y-3">
                 {patients.map((patient) => (
@@ -404,23 +480,27 @@ export default function InvestigationPage() {
                     key={patient.id}
                     className="rounded-xl border border-red-200 bg-red-50 p-4"
                   >
-                    <div className="flex flex-col md:flex-row md:justify-between gap-3">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-red-800">
+                        <h3 className="font-semibold text-red-900">
                           {patient.patient_name}
                         </h3>
 
-                        <p className="text-sm text-red-700 mt-1">
+                        <p className="mt-1 text-sm text-red-700">
                           {patient.provider} · {patient.treatment_room}
                         </p>
 
-                        <p className="text-sm text-red-700 mt-1">
+                        <p className="mt-2 text-sm text-red-700">
                           Procedure: {patient.procedure}
+                        </p>
+
+                        <p className="mt-2 text-sm text-red-700">
+                          Pack: {patient.pack_number}
                         </p>
                       </div>
 
-                      <p className="text-sm font-medium text-red-700">
-                        {patient.pack_number}
+                      <p className="text-xs text-red-500">
+                        Used: {formatDateTime(patient.created_at)}
                       </p>
                     </div>
                   </div>
@@ -429,10 +509,41 @@ export default function InvestigationPage() {
             )}
           </ReportBlock>
 
-          <ReportBlock title="Investigation Notes">
+          <ReportBlock title="Providers Involved">
+            {providersInvolved.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No providers were linked to this investigation.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {providersInvolved.map((provider) => (
+                  <span
+                    key={provider}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
+                  >
+                    {provider}
+                  </span>
+                ))}
+              </div>
+            )}
+          </ReportBlock>
+
+          <ReportBlock title="Corrective Action Notes">
             <div className="min-h-32 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-400">
-              Notes, corrective actions, biological indicator results, or follow-up
-              steps can be written here after printing.
+              Notes, corrective actions, biological indicator results, staff
+              follow-up, or quarantine confirmation can be written here after
+              printing.
+            </div>
+          </ReportBlock>
+
+          <ReportBlock title="Investigation Checklist">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <ChecklistItem text="Cycle reviewed and marked for investigation." />
+              <ChecklistItem text="Affected packs identified." />
+              <ChecklistItem text="Patient traceability records reviewed." />
+              <ChecklistItem text="Providers involved notified if required." />
+              <ChecklistItem text="Corrective action documented." />
+              <ChecklistItem text="Final report printed or saved." />
             </div>
           </ReportBlock>
         </section>
@@ -459,6 +570,43 @@ function SummaryCard({
   );
 }
 
+function DetailCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
+    </div>
+  );
+}
+
+function RiskCard({
+  title,
+  value,
+  description,
+}: {
+  title: string;
+  value: number;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-medium text-slate-700">{title}</p>
+      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{description}</p>
+    </div>
+  );
+}
+
+function ChecklistItem({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      ☐ {text}
+    </div>
+  );
+}
+
 function ReportBlock({
   title,
   children,
@@ -467,8 +615,8 @@ function ReportBlock({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-6">
-      <h3 className="text-xl font-semibold mb-3">{title}</h3>
+    <div className="mb-8">
+      <h3 className="mb-3 text-xl font-semibold">{title}</h3>
       <div>{children}</div>
     </div>
   );
@@ -477,7 +625,7 @@ function ReportBlock({
 function StatusBadge({ status }: { status: string }) {
   if (status === "Failed") {
     return (
-      <span className="w-fit rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
+      <span className="inline-flex rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
         Failed
       </span>
     );
@@ -485,19 +633,54 @@ function StatusBadge({ status }: { status: string }) {
 
   if (status === "Passed") {
     return (
-      <span className="w-fit rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+      <span className="inline-flex rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
         Passed
       </span>
     );
   }
 
   return (
-    <span className="w-fit rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700">
+    <span className="inline-flex rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700">
       {status}
     </span>
   );
 }
 
+function getRiskLevel(
+  cycle: InvestigationCycle | null,
+  packCount: number,
+  patientCount: number
+) {
+  if (!cycle) return "N/A";
 
+  if (cycle.status === "Failed" && patientCount > 0) {
+    return "High";
+  }
 
+  if (cycle.status === "Failed" && packCount > 0) {
+    return "Medium";
+  }
 
+  if (cycle.status === "Failed") {
+    return "Review";
+  }
+
+  return "Low";
+}
+
+function getValue(
+  item: InvestigationLoadItem,
+  ...keys: string[]
+): string | number | null {
+  const record = item as unknown as Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "string" || typeof value === "number") {
+      return value;
+    }
+  }
+
+  return null;
+}
