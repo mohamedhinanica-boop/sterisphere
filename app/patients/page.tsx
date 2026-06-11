@@ -46,6 +46,15 @@ type CycleStatus = {
   status: string;
 };
 
+type TraceFilters = {
+  patientName: string;
+  provider: string;
+  packNumber: string;
+  procedure: string;
+  dateFrom: string;
+  dateTo: string;
+};
+
 const itemsPerPage = 5;
 
 export default function PatientsPage() {
@@ -59,7 +68,17 @@ export default function PatientsPage() {
   const [patientSearch, setPatientSearch] = useState("");
   const [traceSearch, setTraceSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const [filters, setFilters] = useState<TraceFilters>({
+    patientName: "",
+    provider: "",
+    packNumber: "",
+    procedure: "",
+    dateFrom: "",
+    dateTo: "",
+  });
 
   const [form, setForm] = useState({
     patientId: "",
@@ -192,6 +211,27 @@ export default function PatientsPage() {
     }));
   }
 
+  function updateFilter(field: keyof TraceFilters, value: string) {
+    setFilters((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setCurrentPage(1);
+  }
+
+  function clearFilters() {
+    setFilters({
+      patientName: "",
+      provider: "",
+      packNumber: "",
+      procedure: "",
+      dateFrom: "",
+      dateTo: "",
+    });
+    setTraceSearch("");
+    setCurrentPage(1);
+  }
+
   function selectPatient(patient: Patient) {
     updateForm("patientId", patient.id);
     setPatientSearch(patient.full_name);
@@ -215,14 +255,45 @@ export default function PatientsPage() {
   });
 
   const filteredTraces = traces.filter((trace) => {
-    const search = traceSearch.toLowerCase();
+    const quickSearch = traceSearch.toLowerCase();
+    const patientFilter = filters.patientName.toLowerCase();
+    const packFilter = filters.packNumber.toLowerCase();
+    const procedureFilter = filters.procedure.toLowerCase();
+
+    const matchesQuickSearch =
+      !quickSearch ||
+      trace.patient_name.toLowerCase().includes(quickSearch) ||
+      trace.pack_number.toLowerCase().includes(quickSearch) ||
+      trace.provider.toLowerCase().includes(quickSearch) ||
+      trace.treatment_room.toLowerCase().includes(quickSearch) ||
+      trace.procedure.toLowerCase().includes(quickSearch);
+
+    const matchesPatient =
+      !patientFilter || trace.patient_name.toLowerCase().includes(patientFilter);
+
+    const matchesProvider =
+      !filters.provider || trace.provider === filters.provider;
+
+    const matchesPack =
+      !packFilter || trace.pack_number.toLowerCase().includes(packFilter);
+
+    const matchesProcedure =
+      !procedureFilter ||
+      trace.procedure.toLowerCase().includes(procedureFilter);
+
+    const matchesDate = isTraceWithinDateRange(
+      trace.created_at,
+      filters.dateFrom,
+      filters.dateTo
+    );
 
     return (
-      trace.patient_name.toLowerCase().includes(search) ||
-      trace.pack_number.toLowerCase().includes(search) ||
-      trace.provider.toLowerCase().includes(search) ||
-      trace.treatment_room.toLowerCase().includes(search) ||
-      trace.procedure.toLowerCase().includes(search)
+      matchesQuickSearch &&
+      matchesPatient &&
+      matchesProvider &&
+      matchesPack &&
+      matchesProcedure &&
+      matchesDate
     );
   });
 
@@ -257,69 +328,6 @@ export default function PatientsPage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  async function exportTracesCsv() {
-    if (filteredTraces.length === 0) {
-      toast.error("No traceability records to export.");
-      return;
-    }
-
-    const headers = [
-      "Patient",
-      "Provider",
-      "Treatment Room",
-      "Procedure",
-      "Pack Number",
-      "Created At",
-    ];
-
-    const rows = filteredTraces.map((trace) => [
-      trace.patient_name,
-      trace.provider,
-      trace.treatment_room,
-      trace.procedure,
-      trace.pack_number,
-      formatDateTime(trace.created_at),
-    ]);
-
-    const csv =
-      "\ufeff" +
-      [headers, ...rows]
-        .map((row) => row.map(csvEscape).join(","))
-        .join("\n");
-
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const today = new Date().toISOString().slice(0, 10);
-
-    link.href = url;
-    link.download = `sterisphere-patient-traces-${today}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-
-    try {
-      await createAuditLog({
-        action: "patient_traces_csv_exported",
-        entityType: "patient_traces",
-        entityId: "csv_export",
-        description: `Exported ${filteredTraces.length} patient traceability record(s) to CSV`,
-        metadata: {
-          records_exported: filteredTraces.length,
-          search_filter: traceSearch || null,
-        },
-      });
-    } catch (error) {
-      console.error(error);
-    }
-
-    toast.success("CSV export generated.");
-  }
 
   async function validatePackBeforeUse(packNumber: string) {
     const now = new Date().toISOString();
@@ -471,6 +479,88 @@ export default function PatientsPage() {
     }
   }
 
+  async function exportFilteredCsv() {
+    if (filteredTraces.length === 0) {
+      toast.error("No traceability records to export.");
+      return;
+    }
+
+    setExporting(true);
+
+    try {
+      const generatedAt = new Date();
+
+      const metadataRows = [
+        ["SteriSphere Traceability Export"],
+        ["Generated At", generatedAt.toLocaleString()],
+        ["Records Exported", String(filteredTraces.length)],
+        ["Quick Search", traceSearch || "All"],
+        ["Patient Filter", filters.patientName || "All"],
+        ["Provider Filter", filters.provider || "All"],
+        ["Pack Filter", filters.packNumber || "All"],
+        ["Procedure Filter", filters.procedure || "All"],
+        ["Date From", filters.dateFrom || "All"],
+        ["Date To", filters.dateTo || "All"],
+        [],
+      ];
+
+      const header = [
+        "Patient Name",
+        "Provider",
+        "Treatment Room",
+        "Procedure",
+        "Pack Number",
+        "Created At",
+      ];
+
+      const rows = filteredTraces.map((trace) => [
+        trace.patient_name,
+        trace.provider,
+        trace.treatment_room,
+        trace.procedure,
+        trace.pack_number,
+        formatDateTime(trace.created_at),
+      ]);
+
+      const csv = [...metadataRows, header, ...rows]
+        .map((row) => row.map(escapeCsvValue).join(","))
+        .join("\n");
+
+      const blob = new Blob([csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = buildExportFileName(filters, traceSearch);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      await createAuditLog({
+        action: "traceability_csv_exported",
+        entityType: "patient_trace",
+        entityId: "traceability-export",
+        description: `Exported ${filteredTraces.length} patient traceability record(s)`,
+        metadata: {
+          record_count: filteredTraces.length,
+          quick_search: traceSearch || null,
+          filters,
+        },
+      });
+
+      toast.success("Traceability CSV exported.");
+    } catch (error) {
+      toast.error("Error exporting CSV.");
+      console.error(error);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <header className="mb-8">
@@ -481,8 +571,8 @@ export default function PatientsPage() {
         </p>
       </header>
 
-      <div className="mb-6 grid grid-cols-1 2xl:grid-cols-[minmax(0,2fr)_minmax(380px,1fr)] gap-6 items-start">
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <div className="mb-6 flex flex-col gap-6 min-[1100px]:flex-row min-[1100px]:items-start">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-[1100px]:basis-[68%]">
           <h2 className="text-2xl font-semibold mb-6">New Patient Trace</h2>
 
           <form className="space-y-5">
@@ -616,13 +706,13 @@ export default function PatientsPage() {
           </form>
         </section>
 
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-[1100px]:basis-[32%]">
           <h2 className="text-xl font-semibold">Traceability Summary</h2>
           <p className="mt-1 text-sm text-slate-500">
             Quick operational overview for today.
           </p>
 
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-1 gap-3">
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3">
             <SummaryCard label="Traces Today" value={tracesToday.length} />
             <SummaryCard label="Usable Packs" value={packs.length} />
             <SummaryCard label="Total Traces" value={traces.length} />
@@ -658,29 +748,114 @@ export default function PatientsPage() {
         )}
       </section>
 
+      <section className="mb-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold">
+              Traceability Filters & Export
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Filter records for audits, provider reviews, pack investigations,
+              or monthly reporting.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium hover:bg-slate-50"
+            >
+              Clear Filters
+            </button>
+
+            <button
+              type="button"
+              onClick={exportFilteredCsv}
+              disabled={exporting || filteredTraces.length === 0}
+              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting ? "Exporting..." : "Export Filtered CSV"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <FilterInput
+            label="Patient Name"
+            value={filters.patientName}
+            onChange={(value) => updateFilter("patientName", value)}
+            placeholder="Example: John Smith"
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Provider
+            </label>
+            <select
+              value={filters.provider}
+              onChange={(e) => updateFilter("provider", e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+            >
+              <option value="">All providers</option>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.full_name}>
+                  {provider.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <FilterInput
+            label="Pack Number"
+            value={filters.packNumber}
+            onChange={(value) => updateFilter("packNumber", value)}
+            placeholder="Example: PACK-2026"
+          />
+
+          <FilterInput
+            label="Procedure"
+            value={filters.procedure}
+            onChange={(value) => updateFilter("procedure", value)}
+            placeholder="Example: Cleaning"
+          />
+
+          <FilterInput
+            label="Date From"
+            type="date"
+            value={filters.dateFrom}
+            onChange={(value) => updateFilter("dateFrom", value)}
+          />
+
+          <FilterInput
+            label="Date To"
+            type="date"
+            value={filters.dateTo}
+            onChange={(value) => updateFilter("dateTo", value)}
+          />
+        </div>
+
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          Showing{" "}
+          <span className="font-semibold text-slate-900">
+            {filteredTraces.length}
+          </span>{" "}
+          of{" "}
+          <span className="font-semibold text-slate-900">{traces.length}</span>{" "}
+          traceability record(s).
+        </div>
+      </section>
+
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
           <div>
             <h2 className="text-2xl font-semibold">Recent Patient Traces</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Showing {filteredTraces.length} of {traces.length} traceability
-              record(s).
-            </p>
             {selectedTraceId && (
               <p className="mt-1 text-sm text-blue-600">
                 Opened from Pack Details. The linked trace is highlighted below.
               </p>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={exportTracesCsv}
-            disabled={filteredTraces.length === 0}
-            className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Export CSV
-          </button>
         </div>
 
         <input
@@ -690,7 +865,7 @@ export default function PatientsPage() {
             setCurrentPage(1);
           }}
           className="w-full rounded-xl border border-slate-300 px-4 py-3 mb-4"
-          placeholder="Search by patient, pack, provider, room, or procedure"
+          placeholder="Quick search by patient, pack, provider, room, or procedure"
         />
 
         {filteredTraces.length === 0 ? (
@@ -793,18 +968,103 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function csvEscape(value: string | number | null | undefined) {
-  const safeValue = String(value ?? "");
+function FilterInput({
+  label,
+  value,
+  onChange,
+  placeholder = "",
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-2">
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-slate-300 px-4 py-3"
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
 
-  if (
-    safeValue.includes(",") ||
-    safeValue.includes('"') ||
-    safeValue.includes("\n")
-  ) {
-    return `"${safeValue.replace(/"/g, '""')}"`;
+function isTraceWithinDateRange(
+  createdAt: string | null,
+  dateFrom: string,
+  dateTo: string
+) {
+  if (!dateFrom && !dateTo) return true;
+  if (!createdAt) return false;
+
+  const createdDate = new Date(createdAt);
+
+  if (dateFrom) {
+    const from = new Date(`${dateFrom}T00:00:00`);
+    if (createdDate < from) return false;
   }
 
-  return safeValue;
+  if (dateTo) {
+    const to = new Date(`${dateTo}T23:59:59`);
+    if (createdDate > to) return false;
+  }
+
+  return true;
+}
+
+function escapeCsvValue(value: string) {
+  const safeValue = value ?? "";
+  const escaped = safeValue.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
+function buildExportFileName(filters: TraceFilters, quickSearch: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  const parts = ["traceability"];
+
+  if (filters.provider) {
+    parts.push(slugify(filters.provider));
+  }
+
+  if (filters.dateFrom && filters.dateTo) {
+    parts.push(`${filters.dateFrom}-to-${filters.dateTo}`);
+  } else if (filters.dateFrom) {
+    parts.push(`from-${filters.dateFrom}`);
+  } else if (filters.dateTo) {
+    parts.push(`to-${filters.dateTo}`);
+  }
+
+  if (filters.patientName) {
+    parts.push(slugify(filters.patientName));
+  }
+
+  if (filters.packNumber) {
+    parts.push(slugify(filters.packNumber));
+  }
+
+  if (quickSearch) {
+    parts.push("search");
+  }
+
+  parts.push(today);
+
+  return `${parts.join("-")}.csv`;
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function formatDate(date: string | null) {
