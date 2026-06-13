@@ -46,42 +46,42 @@ export default function OperationalAlerts({
       title: "Failed cycles need review",
       description: "Investigate and document failed sterilization cycles.",
       count: unreviewedFailedCyclesCount,
-      href: "/investigation",
+      href: "/investigation?filter=failed",
       tone: "danger",
     },
     {
       title: "Expired packs blocked",
-      description: "Expired packs cannot be assigned to patients.",
+      description: "Review expired packs that are blocked from patient use.",
       count: expiredPacksCount,
-      href: "/packs",
+      href: "/packs?filter=expired",
       tone: "danger",
     },
     {
       title: "Packs expiring soon",
       description: "Review packs expiring within the next 30 days.",
       count: expiringSoonPacksCount,
-      href: "/packs",
+      href: "/packs?filter=expiring-soon",
       tone: "warning",
     },
     {
       title: "Pending cycles",
       description: "Cycles still waiting for operator review or release.",
       count: pendingCyclesCount,
-      href: "/cycles",
+      href: "/cycles?filter=pending",
       tone: "info",
     },
     {
       title: "Patient traces today",
       description: "Traceability records created today.",
       count: patientTracesTodayCount,
-      href: "/patient-history",
+      href: "/patients?today=true",
       tone: "success",
     },
     {
       title: "Labels printed today",
       description: "Pack labels printed or reprinted today.",
       count: labelsPrintedTodayCount,
-      href: "/packs",
+      href: "/audit-logs?action=label_printed&today=true",
       tone: "success",
     },
   ];
@@ -97,10 +97,14 @@ export default function OperationalAlerts({
             Daily priorities for sterilization, traceability, and label workflow.
           </p>
         </div>
-<div className="flex shrink-0 items-start">
-        <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-medium leading-none text-slate-500">
-  {visibleAlerts.length === 0 ? "All clear" : `${visibleAlerts.length} active`}
-</span></div>
+
+        <div className="flex shrink-0 items-start">
+          <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-medium leading-none text-slate-500">
+            {visibleAlerts.length === 0
+              ? "All clear"
+              : `${visibleAlerts.length} active`}
+          </span>
+        </div>
       </div>
 
       {visibleAlerts.length === 0 ? (
@@ -118,7 +122,9 @@ export default function OperationalAlerts({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{alert.title}</p>
-                  <p className="mt-1 text-xs opacity-80">{alert.description}</p>
+                  <p className="mt-1 text-xs opacity-80">
+                    {alert.description}
+                  </p>
                 </div>
 
                 <span

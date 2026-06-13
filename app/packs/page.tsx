@@ -45,6 +45,16 @@ export default function PacksPage() {
     fetchPacks();
   }, []);
 
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const filter = params.get("filter");
+
+  if (filter === "expired") {
+    setStatusFilter("Expired");
+    setCurrentPage(1);
+  }
+}, []);
+
   async function fetchPacks() {
     setLoading(true);
 

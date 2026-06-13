@@ -95,6 +95,20 @@ export default function PatientsPage() {
     fetchProviders();
   }, []);
 
+  useEffect(() => {
+  if (searchParams.get("today") !== "true") return;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  setFilters((current) => ({
+    ...current,
+    dateFrom: today,
+    dateTo: today,
+  }));
+
+  setCurrentPage(1);
+}, [searchParams]);
+
   async function fetchPatients() {
     const { data, error } = await supabase
       .from("patients")
