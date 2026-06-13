@@ -30,12 +30,18 @@ type PatientTrace = {
   pack_number: string;
 };
 
+type ExtendedPack = Pack & {
+  expired_reviewed?: boolean | null;
+  expired_reviewed_at?: string | null;
+  expired_reviewed_by?: string | null;
+};
+
 export default function PacksPage() {
-  const [packs, setPacks] = useState<Pack[]>([]);
-  const [selectedLabelPack, setSelectedLabelPack] = useState<Pack | null>(null);
-  const [selectedDetailsPack, setSelectedDetailsPack] = useState<Pack | null>(
-    null
-  );
+  const [packs, setPacks] = useState<ExtendedPack[]>([]);
+  const [selectedLabelPack, setSelectedLabelPack] =
+    useState<ExtendedPack | null>(null);
+  const [selectedDetailsPack, setSelectedDetailsPack] =
+    useState<ExtendedPack | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -46,14 +52,19 @@ export default function PacksPage() {
   }, []);
 
   useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const filter = params.get("filter");
+    const params = new URLSearchParams(window.location.search);
+    const filter = params.get("filter");
 
-  if (filter === "expired") {
-    setStatusFilter("Expired");
-    setCurrentPage(1);
-  }
-}, []);
+    if (filter === "expired") {
+      setStatusFilter("Expired");
+      setCurrentPage(1);
+    }
+
+    if (filter === "expiring-soon") {
+      setStatusFilter("Expiring Soon");
+      setCurrentPage(1);
+    }
+  }, []);
 
   async function fetchPacks() {
     setLoading(true);
@@ -61,7 +72,7 @@ export default function PacksPage() {
     const { data: packsData, error: packsError } = await supabase
       .from("packs")
       .select(
-        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at"
+        "id, pack_number, cycle_number, pack_type, contents, status, sterilized_at, expires_at, load_item_index, load_item_total, cycle_pack_total, cycle_load_summary, created_at, expired_reviewed, expired_reviewed_at, expired_reviewed_by",
       )
       .order("created_at", { ascending: false });
 
@@ -73,7 +84,7 @@ export default function PacksPage() {
     }
 
     const cycleNumbers = Array.from(
-      new Set((packsData || []).map((pack) => pack.cycle_number))
+      new Set((packsData || []).map((pack) => pack.cycle_number)),
     );
 
     let cyclesByNumber: Record<string, CycleContext> = {};
@@ -91,10 +102,13 @@ export default function PacksPage() {
         return;
       }
 
-      cyclesByNumber = (cyclesData || []).reduce((acc, cycle) => {
-        acc[cycle.cycle_number] = cycle;
-        return acc;
-      }, {} as Record<string, CycleContext>);
+      cyclesByNumber = (cyclesData || []).reduce(
+        (acc, cycle) => {
+          acc[cycle.cycle_number] = cycle;
+          return acc;
+        },
+        {} as Record<string, CycleContext>,
+      );
     }
 
     const enrichedPacks = (packsData || []).map((pack) => ({
@@ -106,11 +120,13 @@ export default function PacksPage() {
     setLoading(false);
   }
 
-  function openLabelPreview(pack: Pack) {
+  function openLabelPreview(pack: ExtendedPack) {
     const effectiveStatus = getPackEffectiveStatus(pack);
 
     if (effectiveStatus === "Used") {
-      toast.error("This pack has already been used. Reprinting is blocked for now.");
+      toast.error(
+        "This pack has already been used. Reprinting is blocked for now.",
+      );
       return;
     }
 
@@ -120,6 +136,69 @@ export default function PacksPage() {
     }
 
     setSelectedLabelPack(pack);
+  }
+
+  async function markExpiredPackReviewed(pack: ExtendedPack) {
+    const effectiveStatus = getPackEffectiveStatus(pack);
+
+    if (effectiveStatus !== "Expired") {
+      toast.error("Only expired packs can be marked as reviewed.");
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const reviewedBy = user?.email || "unknown";
+      const reviewedAt = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("packs")
+        .update({
+          expired_reviewed: true,
+          expired_reviewed_at: reviewedAt,
+          expired_reviewed_by: reviewedBy,
+        })
+        .eq("id", pack.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await createAuditLog({
+        action: "expired_pack_reviewed",
+        entityType: "pack",
+        entityId: pack.id,
+        description: `Expired pack ${pack.pack_number} reviewed`,
+        metadata: {
+          pack_number: pack.pack_number,
+          reviewed_by: reviewedBy,
+          reviewed_at: reviewedAt,
+        },
+      });
+
+      const updatedPack: ExtendedPack = {
+        ...pack,
+        expired_reviewed: true,
+        expired_reviewed_at: reviewedAt,
+        expired_reviewed_by: reviewedBy,
+      };
+
+      setPacks((current) =>
+        current.map((item) => (item.id === pack.id ? updatedPack : item)),
+      );
+
+      setSelectedDetailsPack((current) =>
+        current?.id === pack.id ? updatedPack : current,
+      );
+
+      toast.success("Expired pack reviewed.");
+    } catch (error) {
+      toast.error("Error marking expired pack as reviewed.");
+      console.error(error);
+    }
   }
 
   const selectedLabelData: LabelData | null = selectedLabelPack
@@ -156,13 +235,13 @@ export default function PacksPage() {
 
   const totalPacks = packs.length;
   const availablePacks = packs.filter(
-    (pack) => getPackEffectiveStatus(pack) === "Available"
+    (pack) => getPackEffectiveStatus(pack) === "Available",
   );
   const usedPacks = packs.filter(
-    (pack) => getPackEffectiveStatus(pack) === "Used"
+    (pack) => getPackEffectiveStatus(pack) === "Used",
   );
   const expiredPacks = packs.filter(
-    (pack) => getPackEffectiveStatus(pack) === "Expired"
+    (pack) => getPackEffectiveStatus(pack) === "Expired",
   );
   const expiringSoonPacks = packs.filter((pack) => isPackExpiringSoon(pack));
 
@@ -192,7 +271,7 @@ export default function PacksPage() {
 
   const paginatedPacks = filteredPacks.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   return (
@@ -276,7 +355,7 @@ export default function PacksPage() {
                 const effectiveStatus = getPackEffectiveStatus(pack);
                 const expiringSoon = isPackExpiringSoon(pack);
                 const compositionItems = formatLoadComposition(
-                  pack.cycle_load_summary
+                  pack.cycle_load_summary,
                 );
 
                 return (
@@ -290,6 +369,20 @@ export default function PacksPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold">{pack.pack_number}</h3>
                           <StatusBadge value={effectiveStatus} />
+
+                          {effectiveStatus === "Expired" &&
+                            !pack.expired_reviewed && (
+                              <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+                                Needs Review
+                              </span>
+                            )}
+
+                          {effectiveStatus === "Expired" &&
+                            pack.expired_reviewed && (
+                              <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                                Reviewed
+                              </span>
+                            )}
 
                           {expiringSoon && (
                             <span className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
@@ -372,7 +465,7 @@ export default function PacksPage() {
                               Completed at:{" "}
                               <span className="font-medium text-slate-700">
                                 {formatPackDateTime(
-                                  pack.cycle?.released_at || null
+                                  pack.cycle?.released_at || null,
                                 )}
                               </span>
                             </p>
@@ -413,6 +506,20 @@ export default function PacksPage() {
                         >
                           Preview / Print Label
                         </button>
+
+                        {effectiveStatus === "Expired" &&
+                          !pack.expired_reviewed && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markExpiredPackReviewed(pack);
+                              }}
+                              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                            >
+                              Mark Reviewed
+                            </button>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -489,10 +596,10 @@ function InventoryCard({
   const className = danger
     ? "border-red-200 bg-red-50 text-red-700"
     : warning
-    ? "border-orange-200 bg-orange-50 text-orange-700"
-    : good
-    ? "border-green-200 bg-green-50 text-green-700"
-    : "border-slate-200 bg-white text-slate-900";
+      ? "border-orange-200 bg-orange-50 text-orange-700"
+      : good
+        ? "border-green-200 bg-green-50 text-green-700"
+        : "border-slate-200 bg-white text-slate-900";
 
   return (
     <div className={`rounded-2xl border p-5 shadow-sm ${className}`}>
@@ -534,15 +641,14 @@ function StatusBadge({ value }: { value: string }) {
   );
 }
 
-
 function PackDetailsModal({
   pack,
   onClose,
   onPrintLabel,
 }: {
-  pack: Pack;
+  pack: ExtendedPack;
   onClose: () => void;
-  onPrintLabel: (pack: Pack) => void;
+  onPrintLabel: (pack: ExtendedPack) => void;
 }) {
   const effectiveStatus = getPackEffectiveStatus(pack);
   const compositionItems = formatLoadComposition(pack.cycle_load_summary);
@@ -560,7 +666,7 @@ function PackDetailsModal({
     const { data: traceByPackId, error: packIdError } = await supabase
       .from("patient_traces")
       .select(
-        "id, patient_name, provider, treatment_room, procedure, created_at, pack_id, pack_number"
+        "id, patient_name, provider, treatment_room, procedure, created_at, pack_id, pack_number",
       )
       .eq("pack_id", pack.id)
       .maybeSingle();
@@ -578,7 +684,7 @@ function PackDetailsModal({
     const { data: traceByPackNumber, error: packNumberError } = await supabase
       .from("patient_traces")
       .select(
-        "id, patient_name, provider, treatment_room, procedure, created_at, pack_id, pack_number"
+        "id, patient_name, provider, treatment_room, procedure, created_at, pack_id, pack_number",
       )
       .eq("pack_number", pack.pack_number)
       .maybeSingle();
@@ -734,10 +840,7 @@ function PackDetailsModal({
                   <CompactDetail label="Patient" value={trace.patient_name} />
                   <CompactDetail label="Provider" value={trace.provider} />
                   <CompactDetail label="Procedure" value={trace.procedure} />
-                  <CompactDetail
-                    label="Room"
-                    value={trace.treatment_room}
-                  />
+                  <CompactDetail label="Room" value={trace.treatment_room} />
                   <CompactDetail
                     label="Used On"
                     value={
@@ -747,14 +850,14 @@ function PackDetailsModal({
                     }
                   />
                   <button
-      type="button"
-      onClick={() =>
-        (window.location.href = `/patients?traceId=${trace.id}`)
-      }
-      className="mt-3 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-    >
-      View Traceability Record
-    </button>
+                    type="button"
+                    onClick={() =>
+                      (window.location.href = `/patients?traceId=${trace.id}`)
+                    }
+                    className="mt-3 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    View Traceability Record
+                  </button>
                 </div>
               ) : (
                 <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3">
@@ -1015,7 +1118,9 @@ function LabelPreviewModal({
 
           <div className="label-row">
             <span className="label-key">PACK:</span>
-            <span className="label-value label-pack">{labelData.packNumber}</span>
+            <span className="label-value label-pack">
+              {labelData.packNumber}
+            </span>
           </div>
         </div>
       </div>

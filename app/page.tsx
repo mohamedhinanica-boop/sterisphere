@@ -13,7 +13,12 @@ import LatestPatientTraceability from "@/components/dashboard/LatestPatientTrace
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import PerformanceStats from "@/components/dashboard/PerformanceStats";
 import OperationalAlerts from "@/components/dashboard/OperationalAlerts";
-import type { AuditLog, Cycle, Pack, PatientTrace } from "@/components/dashboard/types";
+import type {
+  AuditLog,
+  Cycle,
+  Pack,
+  PatientTrace,
+} from "@/components/dashboard/types";
 
 export default function Home() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -22,19 +27,24 @@ export default function Home() {
   const [packsCount, setPacksCount] = useState(0);
   const [patientRecordsCount, setPatientRecordsCount] = useState(0);
   const [failedCyclesCount, setFailedCyclesCount] = useState(0);
-  const [unreviewedFailedCyclesCount, setUnreviewedFailedCyclesCount] = useState(0);
+  const [unreviewedFailedCyclesCount, setUnreviewedFailedCyclesCount] =
+    useState(0);
   const [pendingCyclesCount, setPendingCyclesCount] = useState(0);
   const [openCyclesCount, setOpenCyclesCount] = useState(0);
   const [closedCyclesCount, setClosedCyclesCount] = useState(0);
   const [availablePacksCount, setAvailablePacksCount] = useState(0);
   const [usedPacksCount, setUsedPacksCount] = useState(0);
   const [expiredPacksCount, setExpiredPacksCount] = useState(0);
+  const [unreviewedExpiredPacksCount, setUnreviewedExpiredPacksCount] =
+    useState(0);
   const [expiringSoonPacksCount, setExpiringSoonPacksCount] = useState(0);
   const [patientTracesTodayCount, setPatientTracesTodayCount] = useState(0);
   const [labelsPrintedTodayCount, setLabelsPrintedTodayCount] = useState(0);
 
   const [latestFailedCycles, setLatestFailedCycles] = useState<Cycle[]>([]);
-  const [latestPatientRecords, setLatestPatientRecords] = useState<PatientTrace[]>([]);
+  const [latestPatientRecords, setLatestPatientRecords] = useState<
+    PatientTrace[]
+  >([]);
   const [recentPacks, setRecentPacks] = useState<Pack[]>([]);
 
   useEffect(() => {
@@ -112,6 +122,13 @@ export default function Home() {
       .lt("expires_at", now.toISOString())
       .neq("status", "Used");
 
+    const { count: unreviewedExpiredPacks } = await supabase
+      .from("packs")
+      .select("*", { count: "exact", head: true })
+      .lt("expires_at", now.toISOString())
+      .neq("status", "Used")
+      .or("expired_reviewed.is.null,expired_reviewed.eq.false");
+
     const { count: expiringSoonPacks } = await supabase
       .from("packs")
       .select("*", { count: "exact", head: true })
@@ -154,13 +171,17 @@ export default function Home() {
 
     const { data: patientData } = await supabase
       .from("patient_traces")
-      .select("id, patient_id, patient_name, provider, treatment_room, pack_number, procedure, created_at")
+      .select(
+        "id, patient_id, patient_name, provider, treatment_room, pack_number, procedure, created_at"
+      )
       .order("created_at", { ascending: false })
       .limit(3);
 
     const { data: packData } = await supabase
       .from("packs")
-      .select("id, pack_number, cycle_number, pack_type, status, expires_at, created_at")
+      .select(
+        "id, pack_number, cycle_number, pack_type, status, expires_at, created_at"
+      )
       .order("created_at", { ascending: false })
       .limit(5);
 
@@ -175,6 +196,7 @@ export default function Home() {
     setAvailablePacksCount(availablePacks || 0);
     setUsedPacksCount(usedPacks || 0);
     setExpiredPacksCount(expiredPacks || 0);
+    setUnreviewedExpiredPacksCount(unreviewedExpiredPacks || 0);
     setExpiringSoonPacksCount(expiringSoonPacks || 0);
     setPatientTracesTodayCount(patientTracesToday || 0);
     setLabelsPrintedTodayCount(labelsPrintedToday || 0);
@@ -215,7 +237,7 @@ export default function Home() {
       <OperationalAlerts
         unreviewedFailedCyclesCount={unreviewedFailedCyclesCount}
         pendingCyclesCount={pendingCyclesCount}
-        expiredPacksCount={expiredPacksCount}
+        expiredPacksCount={unreviewedExpiredPacksCount}
         expiringSoonPacksCount={expiringSoonPacksCount}
         patientTracesTodayCount={patientTracesTodayCount}
         labelsPrintedTodayCount={labelsPrintedTodayCount}
