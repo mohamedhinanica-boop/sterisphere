@@ -129,10 +129,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .is("reviewed_at", null);
 
     const { count: expiredPacks } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true })
-      .lt("expires_at", now.toISOString())
-      .neq("status", "Used");
+  .from("packs")
+  .select("*", { count: "exact", head: true })
+  .lt("expires_at", now.toISOString())
+  .neq("status", "Used")
+  .or("expired_reviewed.is.null,expired_reviewed.eq.false");
 
     const { count: expiringSoonPacks } = await supabase
       .from("packs")

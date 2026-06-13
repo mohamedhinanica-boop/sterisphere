@@ -91,7 +91,9 @@ export default function SteriAssistantWidget({
           <p>🚨 {failedCycles} failed cycle(s) need investigation</p>
         )}
 
-        {expiredPacks > 0 && <p>🚨 {expiredPacks} expired pack(s)</p>}
+        {expiredPacks > 0 && (
+  <p>🚨 {expiredPacks} expired pack(s) awaiting review</p>
+)}
 
         {expiringSoonPacks > 0 && (
           <p>⚠ {expiringSoonPacks} pack(s) expire within 30 days</p>
