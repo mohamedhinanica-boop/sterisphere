@@ -18,6 +18,9 @@ CODE_REFERENCE.md
    - Label printing
    - Expired review workflow
 
+   Localhost modal layout issue:
+PackDetailsModal may render too tall/wide on localhost, making the top close button hard to access. Production/Vercel layout currently renders correctly. Future fix: standardize modal max-height, sticky footer, and responsive two-column layout.
+
 3. Patients / Traceability
    - Patient search
    - Pack validation
@@ -1349,6 +1352,9 @@ Print blocked
 ---
 
 # 18. Known Issues / Watch Areas
+
+Packs : Localhost modal layout issue:
+PackDetailsModal may render too tall/wide on localhost, making the top close button hard to access. Production/Vercel layout currently renders correctly. Future fix: standardize modal max-height, sticky footer, and responsive two-column layout.
 
 ## Modal layout
 
