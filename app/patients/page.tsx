@@ -6,6 +6,8 @@ import { getProviders } from "@/lib/modules/traceability";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import SummaryCard from '@/components/patients/SummaryCard';
+import PreviewRow from '@/components/patients/PreviewRow';
 
 type Patient = {
   id: string;
@@ -957,28 +959,6 @@ export default function PatientsPage() {
         )}
       </section>
     </>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-function PreviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
-    </div>
   );
 }
 
