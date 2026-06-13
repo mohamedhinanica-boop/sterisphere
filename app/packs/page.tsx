@@ -5,6 +5,9 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import toast from "react-hot-toast";
+import InventoryCard from "@/components/packs/InventoryCard";
+import StatusBadge from "@/components/packs/StatusBadge";
+import CompactDetail from "@/components/packs/CompactDetail";
 import type { CycleContext, Pack } from "@/lib/modules/packs";
 import { generateLabelData } from "@/lib/modules/labels/generateLabelData";
 import type { LabelData } from "@/lib/modules/labels/types";
@@ -580,67 +583,6 @@ export default function PacksPage() {
   );
 }
 
-function InventoryCard({
-  title,
-  value,
-  good = false,
-  danger = false,
-  warning = false,
-}: {
-  title: string;
-  value: number;
-  good?: boolean;
-  danger?: boolean;
-  warning?: boolean;
-}) {
-  const className = danger
-    ? "border-red-200 bg-red-50 text-red-700"
-    : warning
-      ? "border-orange-200 bg-orange-50 text-orange-700"
-      : good
-        ? "border-green-200 bg-green-50 text-green-700"
-        : "border-slate-200 bg-white text-slate-900";
-
-  return (
-    <div className={`rounded-2xl border p-5 shadow-sm ${className}`}>
-      <p className="text-sm opacity-80">{title}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ value }: { value: string }) {
-  if (value === "Available") {
-    return (
-      <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-        Available
-      </span>
-    );
-  }
-
-  if (value === "Used") {
-    return (
-      <span className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-        Used
-      </span>
-    );
-  }
-
-  if (value === "Expired") {
-    return (
-      <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-        Expired
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700">
-      {value}
-    </span>
-  );
-}
-
 function PackDetailsModal({
   pack,
   onClose,
@@ -900,17 +842,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
-    </div>
-  );
-}
-
-function CompactDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="font-semibold text-slate-800">{value || "N/A"}</p>
     </div>
   );
 }
