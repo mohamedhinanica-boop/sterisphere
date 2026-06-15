@@ -97,15 +97,20 @@ export default function PatientsPage() {
     fetchProviders();
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
   if (searchParams.get("today") !== "true") return;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const localToday = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
 
   setFilters((current) => ({
     ...current,
-    dateFrom: today,
-    dateTo: today,
+    dateFrom: localToday,
+    dateTo: localToday,
   }));
 
   setCurrentPage(1);
@@ -999,17 +1004,15 @@ function isTraceWithinDateRange(
   if (!dateFrom && !dateTo) return true;
   if (!createdAt) return false;
 
-  const createdDate = new Date(createdAt);
+  const traceDate = new Date(createdAt);
+  const traceLocalDate = [
+    traceDate.getFullYear(),
+    String(traceDate.getMonth() + 1).padStart(2, "0"),
+    String(traceDate.getDate()).padStart(2, "0"),
+  ].join("-");
 
-  if (dateFrom) {
-    const from = new Date(`${dateFrom}T00:00:00`);
-    if (createdDate < from) return false;
-  }
-
-  if (dateTo) {
-    const to = new Date(`${dateTo}T23:59:59`);
-    if (createdDate > to) return false;
-  }
+  if (dateFrom && traceLocalDate < dateFrom) return false;
+  if (dateTo && traceLocalDate > dateTo) return false;
 
   return true;
 }
