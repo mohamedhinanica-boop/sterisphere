@@ -19,6 +19,7 @@ import type {
   Pack,
   PatientTrace,
 } from "@/components/dashboard/types";
+import { countOrZero, getDashboardDateWindows } from "@/components/dashboard/utils";
 
 export default function Home() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -58,15 +59,8 @@ export default function Home() {
   }, []);
 
   async function fetchDashboardData() {
-    const now = new Date();
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const { now, thirtyDaysFromNow, todayStart, tomorrowStart } =
+      getDashboardDateWindows();
 
     const { count: cycles } = await supabase
       .from("cycles")
@@ -185,21 +179,21 @@ export default function Home() {
       .order("created_at", { ascending: false })
       .limit(5);
 
-    setCyclesCount(cycles || 0);
-    setPacksCount(packs || 0);
-    setPatientRecordsCount(patientRecords || 0);
-    setFailedCyclesCount(failedCycles || 0);
-    setUnreviewedFailedCyclesCount(unreviewedFailedCycles || 0);
-    setPendingCyclesCount(pendingCycles || 0);
-    setOpenCyclesCount(openCycles || 0);
-    setClosedCyclesCount(closedCycles || 0);
-    setAvailablePacksCount(availablePacks || 0);
-    setUsedPacksCount(usedPacks || 0);
-    setExpiredPacksCount(expiredPacks || 0);
-    setUnreviewedExpiredPacksCount(unreviewedExpiredPacks || 0);
-    setExpiringSoonPacksCount(expiringSoonPacks || 0);
-    setPatientTracesTodayCount(patientTracesToday || 0);
-    setLabelsPrintedTodayCount(labelsPrintedToday || 0);
+    setCyclesCount(countOrZero(cycles));
+    setPacksCount(countOrZero(packs));
+    setPatientRecordsCount(countOrZero(patientRecords));
+    setFailedCyclesCount(countOrZero(failedCycles));
+    setUnreviewedFailedCyclesCount(countOrZero(unreviewedFailedCycles));
+    setPendingCyclesCount(countOrZero(pendingCycles));
+    setOpenCyclesCount(countOrZero(openCycles));
+    setClosedCyclesCount(countOrZero(closedCycles));
+    setAvailablePacksCount(countOrZero(availablePacks));
+    setUsedPacksCount(countOrZero(usedPacks));
+    setExpiredPacksCount(countOrZero(expiredPacks));
+    setUnreviewedExpiredPacksCount(countOrZero(unreviewedExpiredPacks));
+    setExpiringSoonPacksCount(countOrZero(expiringSoonPacks));
+    setPatientTracesTodayCount(countOrZero(patientTracesToday));
+    setLabelsPrintedTodayCount(countOrZero(labelsPrintedToday));
     setLatestFailedCycles(failedData || []);
     setLatestPatientRecords(patientData || []);
     setRecentPacks(packData || []);

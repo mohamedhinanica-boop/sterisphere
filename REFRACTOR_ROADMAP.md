@@ -10,7 +10,7 @@ Patients
 ✓ Step 3 (TraceabilityRecordsList)
 □ Step 4 (Business Logic)
 ✓ Step 4A: exportUtils
-✓Patients Step 4B: Extract date/filter helpers
+✓ Step 4B: Extract date/filter helpers
 
 Settings
 □ Step 1
