@@ -118,6 +118,14 @@ export default function ReportsPage() {
   const passedCycles = rangedCycles.filter((cycle) => cycle.status === "Passed");
   const failedCycles = rangedCycles.filter((cycle) => cycle.status === "Failed");
   const pendingCycles = rangedCycles.filter((cycle) => cycle.status === "Pending");
+  const openInvestigations = rangedCycles.filter(
+    (cycle) =>
+      cycle.investigation_status === "Open" ||
+      cycle.investigation_status === "In Review"
+  );
+  const closedInvestigations = rangedCycles.filter(
+    (cycle) => cycle.investigation_status === "Closed"
+  );
 
   const availablePacks = rangedPacks.filter(
     (pack) => getEffectivePackStatus(pack) === "Available"
@@ -129,6 +137,7 @@ export default function ReportsPage() {
     (pack) => getEffectivePackStatus(pack) === "Expired"
   );
   const expiringSoonPacks = rangedPacks.filter((pack) => isExpiringSoon(pack));
+  const rootCauseBreakdown = getRootCauseBreakdown(rangedCycles);
 
   const passRate =
     rangedCycles.length > 0
@@ -254,6 +263,15 @@ export default function ReportsPage() {
           packUsageRate={packUsageRate}
         />
 
+        <ComplianceOverview
+          failedCycles={failedCycles.length}
+          openInvestigations={openInvestigations.length}
+          closedInvestigations={closedInvestigations.length}
+          expiredPacks={expiredPacks.length}
+          patientTraces={rangedTraces.length}
+          rootCauseBreakdown={rootCauseBreakdown}
+        />
+
         <ReportSection
           title="Cycle Reports"
           count={filteredCycles.length}
@@ -364,6 +382,15 @@ export default function ReportsPage() {
           />
         </div>
 
+        <ComplianceOverview
+          failedCycles={failedCycles.length}
+          openInvestigations={openInvestigations.length}
+          closedInvestigations={closedInvestigations.length}
+          expiredPacks={expiredPacks.length}
+          patientTraces={rangedTraces.length}
+          rootCauseBreakdown={rootCauseBreakdown}
+        />
+
         <PrintTable title="Cycles" rows={filteredCycles.length}>
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -472,6 +499,101 @@ export default function ReportsPage() {
         </PrintTable>
       </section>
     </>
+  );
+}
+
+type RootCauseBreakdownItem = {
+  rootCause: string;
+  count: number;
+};
+
+function getRootCauseBreakdown(cycles: Cycle[]): RootCauseBreakdownItem[] {
+  const counts = cycles.reduce<Record<string, number>>((breakdown, cycle) => {
+    if (
+      cycle.investigation_status !== "Open" &&
+      cycle.investigation_status !== "In Review" &&
+      cycle.investigation_status !== "Closed"
+    ) {
+      return breakdown;
+    }
+
+    const rootCause =
+      cycle.investigation_root_cause || "Unknown / Under Investigation";
+
+    breakdown[rootCause] = (breakdown[rootCause] || 0) + 1;
+    return breakdown;
+  }, {});
+
+  return Object.entries(counts)
+    .map(([rootCause, count]) => ({ rootCause, count }))
+    .sort((a, b) => b.count - a.count || a.rootCause.localeCompare(b.rootCause));
+}
+
+function ComplianceOverview({
+  failedCycles,
+  openInvestigations,
+  closedInvestigations,
+  expiredPacks,
+  patientTraces,
+  rootCauseBreakdown,
+}: {
+  failedCycles: number;
+  openInvestigations: number;
+  closedInvestigations: number;
+  expiredPacks: number;
+  patientTraces: number;
+  rootCauseBreakdown: RootCauseBreakdownItem[];
+}) {
+  return (
+    <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5">
+        <h2 className="text-2xl font-semibold">Compliance Overview</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Management summary for investigation, pack, and traceability review.
+        </p>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <MetricCard title="Failed Cycles" value={failedCycles} danger={failedCycles > 0} />
+        <MetricCard
+          title="Open Investigations"
+          value={openInvestigations}
+          warning={openInvestigations > 0}
+        />
+        <MetricCard title="Closed Investigations" value={closedInvestigations} good />
+        <MetricCard title="Expired Packs" value={expiredPacks} danger={expiredPacks > 0} />
+        <MetricCard title="Patient Traces" value={patientTraces} />
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Root Cause</th>
+              <th className="px-4 py-3 text-right font-medium">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rootCauseBreakdown.length === 0 ? (
+              <tr>
+                <td className="px-4 py-4 text-slate-500" colSpan={2}>
+                  No investigation root causes found for this range.
+                </td>
+              </tr>
+            ) : (
+              rootCauseBreakdown.map((item) => (
+                <tr key={item.rootCause} className="border-t border-slate-200">
+                  <td className="px-4 py-3">{item.rootCause}</td>
+                  <td className="px-4 py-3 text-right font-semibold">
+                    {item.count}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

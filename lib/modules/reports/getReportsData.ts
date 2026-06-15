@@ -5,7 +5,7 @@ export async function getReportsData(): Promise<ReportsData> {
   const { data: cyclesData, error: cyclesError } = await supabase
     .from("cycles")
     .select(
-      "id, cycle_number, sterilizer, operator, released_by, released_at, status, cycle_state, expected_pack_count, created_at"
+      "id, cycle_number, sterilizer, operator, released_by, released_at, status, cycle_state, expected_pack_count, investigation_status, investigation_root_cause, created_at"
     )
     .order("created_at", { ascending: false });
 

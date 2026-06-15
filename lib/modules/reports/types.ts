@@ -8,6 +8,8 @@ export type Cycle = {
   status: string;
   cycle_state: string | null;
   expected_pack_count: number | null;
+  investigation_status: string | null;
+  investigation_root_cause: string | null;
   created_at: string;
 };
 
