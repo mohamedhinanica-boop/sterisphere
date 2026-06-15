@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import SettingsOverview from "@/components/settings/SettingsOverview";
 import SettingsPolicies from "@/components/settings/SettingsPolicies";
 import SettingsAlerts from "@/components/settings/SettingsAlerts";
+import SettingsProviders from "@/components/settings/SettingsProviders";
 import {
   getExpirationPreset,
   getProviderTitle,
@@ -18,7 +19,6 @@ import {
   InputField,
   ManagementRow,
   Panel,
-  ProviderRoleBadge,
   RoleBadge,
   SectionHeader,
   StatusBadge,
@@ -1150,177 +1150,24 @@ async function updateProvider(providerId: string) {
           )}
 
           {activeTab === "providers" && (
-            <Panel
-              title="Provider Management"
-              description="Manage doctors and providers used in patient traceability."
-            >
-              <SectionHeader
-                activeCount={activeProviders.length}
-                inactiveCount={inactiveProviders.length}
-              />
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-6">
-                <h3 className="font-semibold mb-4">Add Provider</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <input
-                    value={providerForm.firstName}
-                    onChange={(e) =>
-                      setProviderForm((current) => ({
-                        ...current,
-                        firstName: e.target.value,
-                      }))
-                    }
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    placeholder="First Name"
-                  />
-
-                  <input
-                    value={providerForm.lastName}
-                    onChange={(e) =>
-                      setProviderForm((current) => ({
-                        ...current,
-                        lastName: e.target.value,
-                      }))
-                    }
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    placeholder="Last Name"
-                  />
-
-                  <select
-                    value={providerForm.role}
-                    onChange={(e) =>
-                      setProviderForm((current) => ({
-                        ...current,
-                        role: e.target.value,
-                      }))
-                    }
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                  >
-                    <option value="Dentist">Dentist</option>
-                    <option value="Hygienist">Hygienist</option>
-                    <option value="Assistant">Assistant</option>
-                    <option value="Specialist">Specialist</option>
-                    <option value="Other">Other</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={addProvider}
-                    disabled={loading || !canManageSettings()}
-                    className="rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Add Provider
-                  </button>
-                </div>
-
-                {providerPreview && (
-                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
-                    Display name preview: <strong>{providerPreview}</strong>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-  {providers.map((provider) => {
-    const isEditing = editingProviderId === provider.id;
-
-    if (isEditing) {
-      return (
-        <div
-          key={provider.id}
-          className="rounded-xl border border-blue-200 bg-blue-50 p-4"
-        >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <input
-              value={editProviderForm.firstName}
-              onChange={(e) =>
-                setEditProviderForm((current) => ({
-                  ...current,
-                  firstName: e.target.value,
-                }))
-              }
-              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-              placeholder="First Name"
+            <SettingsProviders
+              providers={providers}
+              activeProvidersCount={activeProviders.length}
+              inactiveProvidersCount={inactiveProviders.length}
+              providerForm={providerForm}
+              setProviderForm={setProviderForm}
+              editingProviderId={editingProviderId}
+              editProviderForm={editProviderForm}
+              setEditProviderForm={setEditProviderForm}
+              providerPreview={providerPreview}
+              addProvider={addProvider}
+              updateProvider={updateProvider}
+              toggleProviderStatus={toggleProviderStatus}
+              startEditingProvider={startEditingProvider}
+              cancelEditingProvider={cancelEditingProvider}
+              loading={loading}
+              canManageSettings={canManageSettings()}
             />
-
-            <input
-              value={editProviderForm.lastName}
-              onChange={(e) =>
-                setEditProviderForm((current) => ({
-                  ...current,
-                  lastName: e.target.value,
-                }))
-              }
-              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-              placeholder="Last Name"
-            />
-
-            <select
-              value={editProviderForm.role}
-              onChange={(e) =>
-                setEditProviderForm((current) => ({
-                  ...current,
-                  role: e.target.value,
-                }))
-              }
-              className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-            >
-              <option value="Dentist">Dentist</option>
-              <option value="Hygienist">Hygienist</option>
-              <option value="Assistant">Assistant</option>
-              <option value="Specialist">Specialist</option>
-              <option value="Other">Other</option>
-            </select>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => updateProvider(provider.id)}
-                disabled={loading}
-                className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Save
-              </button>
-
-              <button
-                type="button"
-                onClick={cancelEditingProvider}
-                disabled={loading}
-                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <ManagementRow
-        key={provider.id}
-        title={provider.display_name || provider.full_name}
-        badge={<ProviderRoleBadge role={provider.role || "Provider"} />}
-        active={provider.active}
-        createdAt={provider.created_at}
-        onToggle={() => toggleProviderStatus(provider.id, provider.active)}
-        loading={loading}
-        extraAction={
-          <button
-            type="button"
-            onClick={() => startEditingProvider(provider)}
-            disabled={loading}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Edit
-          </button>
-        }
-      />
-    );
-  })}
-</div>
-            </Panel>
           )}
 
           {activeTab === "sterilizers" && (

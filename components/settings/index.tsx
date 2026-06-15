@@ -28,7 +28,7 @@ export function InputField({
   type = "text",
   min,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -37,7 +37,9 @@ export function InputField({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-2">{label}</label>
+      {label && (
+        <label className="block text-sm font-medium mb-2">{label}</label>
+      )}
       <input
         type={type}
         min={min}
