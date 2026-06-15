@@ -28,3 +28,7 @@ Reports
 ✓ Step 1 (MetricCard, StatusBadge, PackBadge)
 ✓ Step 2 (ReportSection, PrintTable)
 ✓ Step 3 (reportUtils)
+
+Investigation
+✓ Step 1 (UI Components)
+✓ Step 2 (investigationUtils)
