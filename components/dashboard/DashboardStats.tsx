@@ -44,7 +44,8 @@ export default function DashboardStats({
             icon={<Timer />}
             title="Pending Cycles"
             value={pendingCyclesCount}
-            pending={pendingCyclesCount > 0}
+            pending
+            interactive
           />
         </Link>
 
@@ -53,7 +54,8 @@ export default function DashboardStats({
             icon={<ShieldCheck />}
             title="Failed Cycles"
             value={failedCyclesCount}
-            warning={failedCyclesCount > 0}
+            warning
+            interactive
           />
         </Link>
 
@@ -63,6 +65,7 @@ export default function DashboardStats({
             title="Available Packs"
             value={availablePacksCount}
             good
+            interactive
           />
         </Link>
 
@@ -73,7 +76,8 @@ export default function DashboardStats({
             icon={<FileText />}
             title="Today's Traces"
             value={patientTracesTodayCount}
-            good={patientTracesTodayCount > 0}
+            good
+            interactive
           />
         </Link>
       </section>
@@ -88,7 +92,8 @@ export default function DashboardStats({
             icon={<AlertTriangle />}
             title="Expired Packs"
             value={expiredPacksCount}
-            warning={expiredPacksCount > 0}
+            warning
+            interactive
           />
         </Link>
 

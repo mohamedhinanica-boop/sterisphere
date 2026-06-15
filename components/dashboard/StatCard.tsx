@@ -7,6 +7,7 @@ type StatCardProps = {
   warning?: boolean;
   pending?: boolean;
   good?: boolean;
+  interactive?: boolean;
 };
 
 export default function StatCard({
@@ -16,58 +17,55 @@ export default function StatCard({
   warning = false,
   pending = false,
   good = false,
+  interactive = false,
 }: StatCardProps) {
+  const tone = warning ? "critical" : pending ? "warning" : good ? "normal" : "default";
+
+  const cardClasses = {
+    critical: "border-red-200 border-l-red-500 bg-red-50",
+    warning: "border-yellow-200 border-l-yellow-500 bg-yellow-50",
+    normal: "border-green-200 border-l-green-500 bg-green-50",
+    default: "border-slate-200 border-l-slate-300 bg-white",
+  };
+
+  const iconClasses = {
+    critical: "bg-red-100 text-red-600",
+    warning: "bg-yellow-100 text-yellow-600",
+    normal: "bg-green-100 text-green-600",
+    default: "bg-blue-50 text-blue-600",
+  };
+
+  const titleClasses = {
+    critical: "text-red-700",
+    warning: "text-yellow-700",
+    normal: "text-green-700",
+    default: "text-slate-500",
+  };
+
+  const valueClasses = {
+    critical: "text-red-700",
+    warning: "text-yellow-700",
+    normal: "text-green-700",
+    default: "text-slate-950",
+  };
+
   return (
     <div
-      className={`rounded-2xl border p-6 shadow-sm ${
-        warning
-          ? "border-red-200 bg-red-50"
-          : pending
-          ? "border-yellow-200 bg-yellow-50"
-          : good
-          ? "border-green-200 bg-green-50"
-          : "border-slate-200 bg-white"
+      className={`rounded-2xl border border-l-4 p-6 shadow-sm transition duration-200 ${cardClasses[tone]} ${
+        interactive ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md" : ""
       }`}
     >
       <div
-        className={
-          warning
-            ? "mb-4 text-red-600"
-            : pending
-            ? "mb-4 text-yellow-600"
-            : good
-            ? "mb-4 text-green-600"
-            : "mb-4 text-blue-600"
-        }
+        className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${iconClasses[tone]}`}
       >
         {icon}
       </div>
 
-      <p
-        className={
-          warning
-            ? "text-sm text-red-700"
-            : pending
-            ? "text-sm text-yellow-700"
-            : good
-            ? "text-sm text-green-700"
-            : "text-sm text-slate-500"
-        }
-      >
+      <p className={`text-sm ${titleClasses[tone]}`}>
         {title}
       </p>
 
-      <p
-        className={
-          warning
-            ? "mt-1 text-3xl font-bold text-red-700"
-            : pending
-            ? "mt-1 text-3xl font-bold text-yellow-700"
-            : good
-            ? "mt-1 text-3xl font-bold text-green-700"
-            : "mt-1 text-3xl font-bold"
-        }
-      >
+      <p className={`mt-1 text-3xl font-bold ${valueClasses[tone]}`}>
         {value}
       </p>
     </div>
