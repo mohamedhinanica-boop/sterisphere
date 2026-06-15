@@ -142,3 +142,24 @@ Preserved:
 - Current user self-protection
 - User activation/deactivation
 - Role management
+
+Dashboard cards now support contextual navigation
+Steri Assistant now displays alert-specific actions
+Packs/Cycles support URL-driven status filtering
+
+## Phase 4.1 – Dashboard Alert Management V2
+
+### Added
+- Clickable dashboard statistic cards
+- Dashboard-to-workflow navigation
+- URL-driven status filters for Cycles and Packs
+- Today's Traces dashboard navigation
+
+### Improved
+- Steri Assistant now provides contextual operational actions
+- Added assistant severity levels:
+  - Critical
+  - Warning
+  - Normal
+- Replaced generic navigation buttons with alert-specific actions
+- Limited assistant actions to reduce visual clutter

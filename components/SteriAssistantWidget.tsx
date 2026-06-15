@@ -20,27 +20,27 @@ export default function SteriAssistantWidget({
 }: Props) {
   const [collapsed, setCollapsed] = useState(true);
 
-  const hasCriticalIssues =
-    overdueCycles > 0 || failedCycles > 0 || expiredPacks > 0;
-
-  const hasWarnings = expiringSoonPacks > 0;
+  const hasCriticalIssues = failedCycles > 0 || expiredPacks > 0;
+  const hasWarnings = overdueCycles > 0 || expiringSoonPacks > 0;
 
   const actions = [
-    overdueCycles > 0
-      ? { href: "/cycles?status=Pending", label: "Pending Cycles" }
-      : null,
     failedCycles > 0
-      ? { href: "/cycles?status=Failed", label: "Failed Cycles" }
+      ? { href: "/cycles?status=Failed", label: "Investigate Failed Cycles" }
       : null,
     expiredPacks > 0
-      ? { href: "/packs?status=Expired", label: "Expired Packs" }
+      ? { href: "/packs?status=Expired", label: "Review Expired Packs" }
+      : null,
+    overdueCycles > 0
+      ? { href: "/cycles?status=Pending", label: "Review Pending Cycles" }
       : null,
     expiringSoonPacks > 0
-      ? { href: "/packs?filter=expiring-soon", label: "Expiring Soon" }
+      ? { href: "/packs?filter=expiring-soon", label: "Review Expiring Packs" }
       : null,
-  ].filter((action): action is { href: string; label: string } =>
-    Boolean(action)
-  );
+  ]
+    .filter((action): action is { href: string; label: string } =>
+      Boolean(action)
+    )
+    .slice(0, 3);
 
   const status = hasCriticalIssues
     ? "critical"
@@ -71,7 +71,7 @@ export default function SteriAssistantWidget({
         onClick={() => setCollapsed(false)}
         className={`fixed bottom-5 right-5 z-50 rounded-full border shadow-xl px-4 py-3 text-sm font-semibold cursor-pointer transition hover:scale-105 ${containerClass} ${titleClass} ${pulseClass}`}
       >
-        🤖 Steri Assistant
+        Steri Assistant
       </button>
     );
   }
@@ -95,35 +95,48 @@ export default function SteriAssistantWidget({
           onClick={() => setCollapsed(true)}
           className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
         >
-          −
+          -
         </button>
       </div>
 
       <div className="space-y-2 text-sm text-slate-800">
-        {overdueCycles > 0 && (
-          <p>⚠ {overdueCycles} cycle(s) awaiting confirmation</p>
+        {status === "critical" && (
+          <p className="font-semibold">Attention required</p>
         )}
 
-        {failedCycles > 0 && (
-          <p>🚨 {failedCycles} failed cycle(s) need investigation</p>
+        {status === "warning" && (
+          <p className="font-semibold">Review recommended</p>
         )}
 
-        {expiredPacks > 0 && (
-  <p>🚨 {expiredPacks} expired pack(s) awaiting review</p>
-)}
-
-        {expiringSoonPacks > 0 && (
-          <p>⚠ {expiringSoonPacks} pack(s) expire within 30 days</p>
+        {status === "normal" && (
+          <>
+            <p className="font-semibold">All systems operating normally.</p>
+            <p>Available packs: {availablePacks}</p>
+          </>
         )}
 
-        {!hasCriticalIssues && !hasWarnings && (
-          <p>✓ All systems operating normally.</p>
+        {status === "critical" && failedCycles > 0 && (
+          <p>{failedCycles} failed cycle(s) need investigation.</p>
+        )}
+
+        {status === "critical" && expiredPacks > 0 && (
+          <p>{expiredPacks} expired pack(s) need review.</p>
+        )}
+
+        {status === "warning" && overdueCycles > 0 && (
+          <p>{overdueCycles} pending cycle(s) awaiting confirmation.</p>
+        )}
+
+        {status === "warning" && expiringSoonPacks > 0 && (
+          <p>{expiringSoonPacks} pack(s) expire within 30 days.</p>
         )}
       </div>
 
-      <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-600">
-        Available packs: {availablePacks}
-      </div>
+      {status !== "normal" && (
+        <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-600">
+          Available packs: {availablePacks}
+        </div>
+      )}
 
       {actions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
