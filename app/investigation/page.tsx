@@ -19,6 +19,7 @@ import {
   getFailedCycles,
   getInvestigationData,
   markCycleAsReviewed,
+  updateInvestigationDocumentation,
   updateInvestigationLifecycle,
   type FailedCycle,
   type InvestigationLifecycleStatus,
@@ -29,6 +30,43 @@ import {
 } from "@/lib/modules/investigation";
 
 const failedCyclesPageSize = 10;
+const defaultRootCause = "Unknown / Under Investigation";
+const rootCauseOptions = [
+  "Operator Error",
+  "Packaging Issue",
+  "Sterilizer Malfunction",
+  "Chemical Indicator Failure",
+  "Biological Indicator Failure",
+  "Maintenance Issue",
+  "Load Configuration Issue",
+  defaultRootCause,
+];
+const checklistItems = [
+  {
+    key: "cycle_reviewed",
+    text: "Cycle reviewed",
+  },
+  {
+    key: "patient_traceability_reviewed",
+    text: "Patient traceability records reviewed",
+  },
+  {
+    key: "corrective_action_documented",
+    text: "Corrective action documented",
+  },
+  {
+    key: "affected_packs_identified",
+    text: "Affected packs identified",
+  },
+  {
+    key: "providers_notified",
+    text: "Providers notified if required",
+  },
+  {
+    key: "final_report_saved",
+    text: "Final report printed or saved",
+  },
+];
 
 export default function InvestigationPage() {
   const [cycleNumber, setCycleNumber] = useState("");
@@ -108,7 +146,14 @@ export default function InvestigationPage() {
       }
     } catch (error) {
       toast.error("Error loading investigation data.");
-      console.error(error);
+      console.error("Error loading investigation data:", error);
+
+      if (isSupabaseLikeError(error)) {
+        console.error("Supabase error message:", error.message);
+        console.error("Supabase error details:", error.details);
+        console.error("Supabase error hint:", error.hint);
+        console.error("Supabase error code:", error.code);
+      }
     } finally {
       setLoading(false);
     }
@@ -136,6 +181,12 @@ export default function InvestigationPage() {
 
   const riskLevel = getRiskLevel(cycleDetails, packs.length, patients.length);
   const investigationStatus = getInvestigationStatus(cycleDetails);
+  const rootCause = cycleDetails?.investigation_root_cause || defaultRootCause;
+  const preventiveAction =
+    cycleDetails?.investigation_preventive_action || "";
+  const correctiveAction =
+    cycleDetails?.investigation_corrective_action || "";
+  const investigationChecklist = getInvestigationChecklist(cycleDetails);
   const failedCyclesTotalPages = Math.max(
     1,
     Math.ceil(failedCycles.length / failedCyclesPageSize)
@@ -179,6 +230,59 @@ export default function InvestigationPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function saveInvestigationRecord() {
+    if (!cycleDetails) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const updatedDocumentation = await updateInvestigationDocumentation(
+        cycleDetails.id,
+        {
+          rootCause,
+          preventiveAction,
+          correctiveAction,
+          checklist: investigationChecklist,
+        }
+      );
+
+      setCycleDetails({
+        ...cycleDetails,
+        investigation_root_cause:
+          updatedDocumentation.investigation_root_cause || defaultRootCause,
+        investigation_preventive_action:
+          updatedDocumentation.investigation_preventive_action || "",
+        investigation_corrective_action:
+          updatedDocumentation.investigation_corrective_action || "",
+        investigation_checklist:
+          updatedDocumentation.investigation_checklist || {},
+      });
+
+      toast.success("Investigation record saved.");
+    } catch (error) {
+      toast.error("Error saving investigation record.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateChecklistItem(key: string, checked: boolean) {
+    setCycleDetails((current) =>
+      current
+        ? {
+            ...current,
+            investigation_checklist: {
+              ...getInvestigationChecklist(current),
+              [key]: checked,
+            },
+          }
+        : current
+    );
   }
 
   return (
@@ -434,6 +538,18 @@ export default function InvestigationPage() {
                 value={investigationStatus}
               />
               <DetailCard
+                label="Root Cause"
+                value={rootCause}
+              />
+              <DetailCard
+                label="Preventive Action"
+                value={preventiveAction || "Not documented"}
+              />
+              <DetailCard
+                label="Corrective Action"
+                value={correctiveAction || "Not documented"}
+              />
+              <DetailCard
                 label="Sterilizer"
                 value={cycleDetails.sterilizer || "N/A"}
               />
@@ -653,24 +769,101 @@ export default function InvestigationPage() {
             )}
           </ReportBlock>
 
-          <ReportBlock title="Corrective Action Notes">
-            <div className="min-h-32 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-400">
-              Notes, corrective actions, biological indicator results, staff
-              follow-up, or quarantine confirmation can be written here after
-              printing.
+          <ReportBlock title="Investigation Documentation">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-slate-700">
+                  Root Cause
+                </label>
+                <select
+                  value={rootCause}
+                  onChange={(e) =>
+                    setCycleDetails((current) =>
+                      current
+                        ? {
+                            ...current,
+                            investigation_root_cause: e.target.value,
+                          }
+                        : current
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
+                >
+                  {rootCauseOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-slate-700">
+                  Preventive Action
+                </p>
+                <textarea
+                  value={preventiveAction}
+                  onChange={(e) =>
+                    setCycleDetails((current) =>
+                      current
+                        ? {
+                            ...current,
+                            investigation_preventive_action: e.target.value,
+                          }
+                        : current
+                    )
+                  }
+                  className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                  placeholder="Document preventive steps taken to reduce recurrence."
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-sm font-medium text-slate-700">
+                Corrective Action Notes
+              </p>
+              <textarea
+                value={correctiveAction}
+                onChange={(e) =>
+                  setCycleDetails((current) =>
+                    current
+                      ? {
+                          ...current,
+                          investigation_corrective_action: e.target.value,
+                        }
+                      : current
+                  )
+                }
+                className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                placeholder="Document corrective actions, biological indicator results, staff follow-up, or quarantine confirmation."
+              />
             </div>
           </ReportBlock>
 
           <ReportBlock title="Investigation Checklist">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <ChecklistItem text="Cycle reviewed and marked for investigation." />
-              <ChecklistItem text="Affected packs identified." />
-              <ChecklistItem text="Patient traceability records reviewed." />
-              <ChecklistItem text="Providers involved notified if required." />
-              <ChecklistItem text="Corrective action documented." />
-              <ChecklistItem text="Final report printed or saved." />
+              {checklistItems.map((item) => (
+                <ChecklistItem
+                  key={item.key}
+                  text={item.text}
+                  checked={investigationChecklist[item.key]}
+                  onChange={(checked) => updateChecklistItem(item.key, checked)}
+                />
+              ))}
             </div>
           </ReportBlock>
+
+          <div className="no-print mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={saveInvestigationRecord}
+              disabled={loading}
+              className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save Investigation Record
+            </button>
+          </div>
         </section>
       )}
     </>
@@ -703,4 +896,24 @@ function getFailedCycleDateLabel(cycle: FailedCycle) {
   }
 
   return `Created: ${formatDateTime(cycle.created_at)}`;
+}
+
+function getInvestigationChecklist(
+  cycle: InvestigationCycle | null
+): Record<string, boolean> {
+  const savedChecklist = cycle?.investigation_checklist || {};
+
+  return checklistItems.reduce<Record<string, boolean>>((checklist, item) => {
+    checklist[item.key] = Boolean(savedChecklist[item.key]);
+    return checklist;
+  }, {});
+}
+
+function isSupabaseLikeError(error: unknown): error is {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+} {
+  return typeof error === "object" && error !== null;
 }

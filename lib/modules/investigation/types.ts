@@ -35,6 +35,10 @@ export type InvestigationCycle = {
   reviewed_at: string | null;
   investigation_status: string | null;
   investigation_closed_at: string | null;
+  investigation_root_cause: string | null;
+  investigation_preventive_action: string | null;
+  investigation_corrective_action: string | null;
+  investigation_checklist: Record<string, boolean> | null;
   created_at: string;
 };
 
