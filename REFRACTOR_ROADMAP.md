@@ -5,7 +5,7 @@ Packs
 □ Step 4
 
 Patients
-□ Step 1
+✓ Step 1
 
 Settings
 □ Step 1
