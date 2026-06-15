@@ -272,39 +272,41 @@ export default function ReportsPage() {
         <ReportTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === "overview" && (
-          <>
-        <SummaryGrid
-          cycles={rangedCycles.length}
-          passed={passedCycles.length}
-          failed={failedCycles.length}
-          pending={pendingCycles.length}
-          packs={rangedPacks.length}
-          available={availablePacks.length}
-          used={usedPacks.length}
-          expired={expiredPacks.length}
-          expiringSoon={expiringSoonPacks.length}
-          traces={rangedTraces.length}
-          passRate={passRate}
-          packUsageRate={packUsageRate}
-        />
+          <div className="space-y-8">
+            <SummaryGrid
+              cycles={rangedCycles.length}
+              passed={passedCycles.length}
+              failed={failedCycles.length}
+              pending={pendingCycles.length}
+              packs={rangedPacks.length}
+              available={availablePacks.length}
+              used={usedPacks.length}
+              expired={expiredPacks.length}
+              expiringSoon={expiringSoonPacks.length}
+              traces={rangedTraces.length}
+              passRate={passRate}
+              packUsageRate={packUsageRate}
+            />
 
-        <ComplianceOverview
-          failedCycles={failedCycles.length}
-          openInvestigations={openInvestigations.length}
-          closedInvestigations={closedInvestigations.length}
-          expiredPacks={expiredPacks.length}
-          patientTraces={rangedTraces.length}
-          rootCauseBreakdown={rootCauseBreakdown}
-        />
+            <div className="space-y-6 border-t border-slate-200 pt-8">
+              <ComplianceOverview
+                failedCycles={failedCycles.length}
+                openInvestigations={openInvestigations.length}
+                closedInvestigations={closedInvestigations.length}
+                expiredPacks={expiredPacks.length}
+                patientTraces={rangedTraces.length}
+                rootCauseBreakdown={rootCauseBreakdown}
+              />
 
-        <ComplianceAnalytics
-          openInvestigations={openInvestigations.length}
-          closedInvestigations={closedInvestigations.length}
-          closureRate={investigationClosureRate}
-          topRootCauses={topRootCauses}
-          failedCyclesBySterilizer={failedCyclesBySterilizer}
-        />
-          </>
+              <ComplianceAnalytics
+                openInvestigations={openInvestigations.length}
+                closedInvestigations={closedInvestigations.length}
+                closureRate={investigationClosureRate}
+                topRootCauses={topRootCauses}
+                failedCyclesBySterilizer={failedCyclesBySterilizer}
+              />
+            </div>
+          </div>
         )}
 
         {activeTab === "compliance" && (
@@ -583,7 +585,7 @@ function ReportTabs({
   onChange: (tab: ReportTab) => void;
 }) {
   return (
-    <div className="mb-8 overflow-x-auto border-b border-slate-200">
+    <div className="mb-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
       <div className="flex min-w-max gap-2">
         {reportTabs.map((tab) => {
           const selected = activeTab === tab.id;
@@ -593,10 +595,10 @@ function ReportTabs({
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className={`border-b-2 px-4 py-3 text-sm font-medium transition ${
+              className={`rounded-xl px-4 py-3 text-sm transition ${
                 selected
-                  ? "border-slate-950 text-slate-950"
-                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+                  ? "bg-slate-950 font-semibold text-white shadow-sm"
+                  : "font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
               {tab.label}
@@ -669,7 +671,7 @@ function ComplianceOverview({
   rootCauseBreakdown: RootCauseBreakdownItem[];
 }) {
   return (
-    <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-5">
         <h2 className="text-2xl font-semibold">Compliance Overview</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -735,11 +737,11 @@ function ComplianceAnalytics({
   failedCyclesBySterilizer: SterilizerFailureItem[];
 }) {
   return (
-    <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-5">
         <h2 className="text-2xl font-semibold">Compliance Analytics</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Management insights for investigation closure and recurring failure patterns.
+          Closure rates and recurring failure patterns.
         </p>
       </div>
 
