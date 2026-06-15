@@ -16,4 +16,5 @@ Settings
 ✓ Step 1 (SettingsOverview)
 
 Dashboard
-✓ Step 1–2
+✓ Step 1
+✓ Step 2 (Policies)
