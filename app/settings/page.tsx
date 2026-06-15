@@ -7,6 +7,7 @@ import { createAuditLog } from "@/lib/audit";
 import toast from "react-hot-toast";
 import SettingsOverview from "@/components/settings/SettingsOverview";
 import SettingsPolicies from "@/components/settings/SettingsPolicies";
+import SettingsAlerts from "@/components/settings/SettingsAlerts";
 import {
   InputField,
   ManagementRow,
@@ -1032,110 +1033,23 @@ async function updateProvider(providerId: string) {
           )}
 
           {activeTab === "alerts" && (
-            <Panel
-              title="Alerts"
-              description="Configure tablet-friendly notifications for important sterilization events."
-            >
-              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-                <div className="mb-4">
-                  <h3 className="font-semibold text-slate-900">Sound Alerts</h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Optional tablet-friendly sounds for important sterilization
-                    events.
-                  </p>
-                </div>
-
-                <label className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
-                  <div>
-                    <p className="font-medium text-slate-900">
-                      Enable sound alerts
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Master switch for all SteriSphere sound notifications.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={soundAlertsEnabled}
-                    onChange={(e) => setSoundAlertsEnabled(e.target.checked)}
-                    className="mt-1 h-5 w-5"
-                  />
-                </label>
-
-                <div
-                  className={`mt-4 space-y-3 ${
-                    !soundAlertsEnabled ? "pointer-events-none opacity-50" : ""
-                  }`}
-                >
-                  {[
-                    {
-                      label: "Cycle completed",
-                      description:
-                        "Play a sound when a cycle reaches its expected finish time.",
-                      checked: soundAlertCycleComplete,
-                      onChange: setSoundAlertCycleComplete,
-                    },
-                    {
-                      label: "Cycle overdue",
-                      description:
-                        "Play a sound when a pending cycle is past its expected duration.",
-                      checked: soundAlertCycleOverdue,
-                      onChange: setSoundAlertCycleOverdue,
-                    },
-                    {
-                      label: "Failed cycle",
-                      description:
-                        "Play a sound when a failed cycle needs review or investigation.",
-                      checked: soundAlertFailedCycle,
-                      onChange: setSoundAlertFailedCycle,
-                    },
-                    {
-                      label: "Packs expiring soon",
-                      description:
-                        "Play a sound when packs are approaching expiration.",
-                      checked: soundAlertExpiringPacks,
-                      onChange: setSoundAlertExpiringPacks,
-                    },
-                    {
-                      label: "Expired packs",
-                      description:
-                        "Play a sound when expired packs are detected.",
-                      checked: soundAlertExpiredPacks,
-                      onChange: setSoundAlertExpiredPacks,
-                    },
-                  ].map((alert) => (
-                    <label
-                      key={alert.label}
-                      className="flex items-start justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 cursor-pointer"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">
-                          {alert.label}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {alert.description}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={alert.checked}
-                        onChange={(e) => alert.onChange(e.target.checked)}
-                        className="mt-1 h-5 w-5"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={saveSoundAlertSettings}
-                disabled={loading || !canManageSettings()}
-                className="mt-6 rounded-xl bg-slate-950 text-white px-6 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Saving..." : "Save Alert Settings"}
-              </button>
-            </Panel>
+            <SettingsAlerts
+              soundAlertsEnabled={soundAlertsEnabled}
+              soundAlertCycleComplete={soundAlertCycleComplete}
+              soundAlertCycleOverdue={soundAlertCycleOverdue}
+              soundAlertFailedCycle={soundAlertFailedCycle}
+              soundAlertExpiringPacks={soundAlertExpiringPacks}
+              soundAlertExpiredPacks={soundAlertExpiredPacks}
+              onSoundAlertsEnabledChange={setSoundAlertsEnabled}
+              onSoundAlertCycleCompleteChange={setSoundAlertCycleComplete}
+              onSoundAlertCycleOverdueChange={setSoundAlertCycleOverdue}
+              onSoundAlertFailedCycleChange={setSoundAlertFailedCycle}
+              onSoundAlertExpiringPacksChange={setSoundAlertExpiringPacks}
+              onSoundAlertExpiredPacksChange={setSoundAlertExpiredPacks}
+              onSaveSoundAlertSettings={saveSoundAlertSettings}
+              loading={loading}
+              canManageSettings={canManageSettings()}
+            />
           )}
 
           {activeTab === "users" && (
