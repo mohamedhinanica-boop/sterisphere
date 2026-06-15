@@ -32,3 +32,6 @@ Reports
 Investigation
 ✓ Step 1 (UI Components)
 ✓ Step 2 (investigationUtils)
+
+Audit Logs
+✓ Step 1 (Helpers)

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import toast from "react-hot-toast";
+import AuditLogFilters from "@/components/audit-logs/AuditLogFilters";
 import {
   buildAuditExportFileName,
   escapeCsvValue,
@@ -214,111 +215,34 @@ export default function AuditLogsPage() {
         </p>
       </header>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5">
-          <div>
-            <h2 className="text-2xl font-semibold">Audit Filters</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Filter by action, entity, date range, user, description, or
-              metadata.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium hover:bg-slate-50"
-            >
-              Clear Filters
-            </button>
-
-            <button
-              type="button"
-              onClick={exportFilteredCsv}
-              disabled={exporting || filteredLogs.length === 0}
-              className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {exporting ? "Exporting..." : "Export Filtered CSV"}
-            </button>
-
-            <button
-              type="button"
-              onClick={fetchAuditLogs}
-              disabled={loading}
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium cursor-pointer hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <select
-            value={actionFilter}
-            onChange={(e) => {
-              setActionFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="rounded-xl border border-slate-300 px-4 py-3"
-          >
-            {actionOptions.map((action) => (
-              <option key={action} value={action}>
-                {action === "All" ? "All Actions" : action}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={entityFilter}
-            onChange={(e) => {
-              setEntityFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="rounded-xl border border-slate-300 px-4 py-3"
-          >
-            {entityOptions.map((entity) => (
-              <option key={entity} value={entity}>
-                {entity === "All" ? "All Entities" : entity}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) => updateDateFilter("dateFrom", e.target.value)}
-            className="rounded-xl border border-slate-300 px-4 py-3"
-          />
-
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => updateDateFilter("dateTo", e.target.value)}
-            className="rounded-xl border border-slate-300 px-4 py-3"
-          />
-
-          <input
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="md:col-span-2 xl:col-span-4 rounded-xl border border-slate-300 px-4 py-3"
-            placeholder="Search by user, action, entity, description, ID, or metadata"
-          />
-        </div>
-
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-          Showing{" "}
-          <span className="font-semibold text-slate-900">
-            {filteredLogs.length}
-          </span>{" "}
-          of{" "}
-          <span className="font-semibold text-slate-900">{logs.length}</span>{" "}
-          audit event(s).
-        </div>
-      </section>
+      <AuditLogFilters
+        actionFilter={actionFilter}
+        entityFilter={entityFilter}
+        searchTerm={searchTerm}
+        filters={filters}
+        actionOptions={actionOptions}
+        entityOptions={entityOptions}
+        filteredCount={filteredLogs.length}
+        totalCount={logs.length}
+        loading={loading}
+        exporting={exporting}
+        onActionFilterChange={(value) => {
+          setActionFilter(value);
+          setCurrentPage(1);
+        }}
+        onEntityFilterChange={(value) => {
+          setEntityFilter(value);
+          setCurrentPage(1);
+        }}
+        onSearchTermChange={(value) => {
+          setSearchTerm(value);
+          setCurrentPage(1);
+        }}
+        onDateFilterChange={updateDateFilter}
+        onClearFilters={clearFilters}
+        onRefresh={fetchAuditLogs}
+        onExportCsv={exportFilteredCsv}
+      />
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         {loading ? (
