@@ -11,6 +11,11 @@ import PreviewRow from '@/components/patients/PreviewRow';
 import TraceabilityFilters from "@/components/patients/TraceabilityFilters";
 import TraceabilityRecordsList from "@/components/patients/TraceabilityRecordsList";
 import { buildExportFileName, escapeCsvValue } from "@/components/patients/exportUtils";
+import {
+  formatDate,
+  formatDateTime,
+  isTraceWithinDateRange,
+} from "@/components/patients/filterUtils";
 
 type Patient = {
   id: string;
@@ -801,33 +806,3 @@ export default function PatientsPage() {
   );
 }
 
-function isTraceWithinDateRange(
-  createdAt: string | null,
-  dateFrom: string,
-  dateTo: string
-) {
-  if (!dateFrom && !dateTo) return true;
-  if (!createdAt) return false;
-
-  const traceDate = new Date(createdAt);
-  const traceLocalDate = [
-    traceDate.getFullYear(),
-    String(traceDate.getMonth() + 1).padStart(2, "0"),
-    String(traceDate.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  if (dateFrom && traceLocalDate < dateFrom) return false;
-  if (dateTo && traceLocalDate > dateTo) return false;
-
-  return true;
-}
-
-function formatDate(date: string | null) {
-  if (!date) return "N/A";
-  return new Date(date).toLocaleDateString();
-}
-
-function formatDateTime(date: string | null) {
-  if (!date) return "N/A";
-  return new Date(date).toLocaleString();
-}
