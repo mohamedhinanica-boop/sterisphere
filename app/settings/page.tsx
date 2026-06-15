@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { createAuditLog } from "@/lib/audit";
 import toast from "react-hot-toast";
+import SettingsOverview from "@/components/settings/SettingsOverview";
 import {
-  InfoCard,
   InputField,
   ManagementRow,
   Panel,
@@ -894,45 +894,12 @@ async function updateProvider(providerId: string) {
 
         <main>
           {activeTab === "overview" && (
-            <section className="space-y-6">
-              <Panel
-                title="System Overview"
-                description="Quick snapshot of the current SteriSphere configuration."
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <InfoCard
-                    title="Clinic"
-                    value={clinicSettings?.clinic_name || "Not configured"}
-                  />
-                  <InfoCard
-                    title="Pack Shelf Life"
-                    value={`${
-                      clinicSettings?.pack_expiration_days || 365
-                    } days`}
-                  />
-                  <InfoCard
-                    title="Active Users"
-                    value={String(activeUsers.length)}
-                  />
-                  <InfoCard
-                    title="Active Providers"
-                    value={String(activeProviders.length)}
-                  />
-                  <InfoCard
-                    title="Active Sterilizers"
-                    value={String(activeSterilizers.length)}
-                  />
-                  <InfoCard
-                    title="Auto Print Labels"
-                    value={
-                      clinicSettings?.auto_print_labels ? "Enabled" : "Disabled"
-                    }
-                  />
-                  <InfoCard title="Database" value="Connected" />
-                  <InfoCard title="Environment" value="MVP / Development" />
-                </div>
-              </Panel>
-            </section>
+            <SettingsOverview
+              clinicSettings={clinicSettings}
+              activeUsersCount={activeUsers.length}
+              activeProvidersCount={activeProviders.length}
+              activeSterilizersCount={activeSterilizers.length}
+            />
           )}
 
           {activeTab === "general" && (
