@@ -33,6 +33,8 @@ export type InvestigationCycle = {
   expected_pack_count: number | null;
   status: string;
   reviewed_at: string | null;
+  investigation_status: string | null;
+  investigation_closed_at: string | null;
   created_at: string;
 };
 
@@ -42,6 +44,8 @@ export type FailedCycle = {
   sterilizer: string;
   operator: string;
   reviewed_at: string | null;
+  investigation_status: string | null;
+  investigation_closed_at: string | null;
   created_at: string;
 };
 

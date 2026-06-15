@@ -19,7 +19,9 @@ import {
   getFailedCycles,
   getInvestigationData,
   markCycleAsReviewed,
+  updateInvestigationLifecycle,
   type FailedCycle,
+  type InvestigationLifecycleStatus,
   type InvestigationCycle,
   type InvestigationLoadItem,
   type InvestigationPack,
@@ -59,7 +61,7 @@ export default function InvestigationPage() {
       setFailedCycles(data);
     } catch (error) {
       toast.error("Error loading failed cycles.");
-      console.error(error);
+      console.error("Error loading failed cycles:", error);
     }
   }
 
@@ -132,6 +134,36 @@ export default function InvestigationPage() {
   );
 
   const riskLevel = getRiskLevel(cycleDetails, packs.length, patients.length);
+  const investigationStatus = getInvestigationStatus(cycleDetails);
+
+  async function updateLifecycle(status: InvestigationLifecycleStatus) {
+    if (!cycleDetails) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const updatedLifecycle = await updateInvestigationLifecycle(
+        cycleDetails.id,
+        status
+      );
+
+      setCycleDetails({
+        ...cycleDetails,
+        investigation_status: updatedLifecycle.investigation_status,
+        investigation_closed_at: updatedLifecycle.investigation_closed_at,
+      });
+
+      await loadFailedCycles();
+      toast.success(`Investigation marked as ${status}.`);
+    } catch (error) {
+      toast.error("Error updating investigation lifecycle.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
@@ -253,6 +285,9 @@ export default function InvestigationPage() {
                 <p className="mt-1 text-sm text-red-700">
                   {cycle.sterilizer || "Unknown sterilizer"}
                 </p>
+                <div className="mt-3">
+                  <StatusBadge status={getInvestigationStatus(cycle)} />
+                </div>
                 <p className="mt-2 text-xs text-red-500">
                   Created: {formatDateTime(cycle.created_at)}
                 </p>
@@ -289,6 +324,28 @@ export default function InvestigationPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 no-print">
+              {investigationStatus !== "In Review" && (
+                <button
+                  type="button"
+                  onClick={() => updateLifecycle("In Review")}
+                  disabled={loading}
+                  className="rounded-xl border border-yellow-300 bg-yellow-50 px-5 py-3 text-sm font-medium text-yellow-800 hover:bg-yellow-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Mark as In Review
+                </button>
+              )}
+
+              {investigationStatus !== "Closed" && (
+                <button
+                  type="button"
+                  onClick={() => updateLifecycle("Closed")}
+                  disabled={loading}
+                  className="rounded-xl border border-green-300 bg-green-50 px-5 py-3 text-sm font-medium text-green-800 hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Mark as Closed
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={printReport}
@@ -307,6 +364,7 @@ export default function InvestigationPage() {
 
           <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <SummaryCard title="Cycle Status" value={cycleDetails.status} />
+            <SummaryCard title="Investigation" value={investigationStatus} />
             <SummaryCard title="Risk Level" value={riskLevel} />
             <SummaryCard title="Affected Packs" value={String(packs.length)} />
             <SummaryCard
@@ -322,6 +380,10 @@ export default function InvestigationPage() {
                 value={cycleDetails.cycle_number}
               />
               <DetailCard label="Status" value={cycleDetails.status} />
+              <DetailCard
+                label="Investigation"
+                value={investigationStatus}
+              />
               <DetailCard
                 label="Sterilizer"
                 value={cycleDetails.sterilizer || "N/A"}
@@ -346,12 +408,16 @@ export default function InvestigationPage() {
                 label="Reviewed"
                 value={formatDateTime(cycleDetails.reviewed_at)}
               />
+              <DetailCard
+                label="Closed"
+                value={formatDateTime(cycleDetails.investigation_closed_at)}
+              />
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  Status Badge
+                  Investigation Status
                 </p>
                 <div className="mt-2">
-                  <StatusBadge status={cycleDetails.status} />
+                  <StatusBadge status={investigationStatus} />
                 </div>
               </div>
             </div>
@@ -560,4 +626,17 @@ export default function InvestigationPage() {
       )}
     </>
   );
+}
+
+function getInvestigationStatus(
+  cycle: FailedCycle | InvestigationCycle | null
+): InvestigationLifecycleStatus {
+  if (
+    cycle?.investigation_status === "In Review" ||
+    cycle?.investigation_status === "Closed"
+  ) {
+    return cycle.investigation_status;
+  }
+
+  return "Open";
 }

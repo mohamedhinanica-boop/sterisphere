@@ -19,7 +19,7 @@ export async function getInvestigationData(
   const { data: cycleData, error: cycleError } = await supabase
     .from("cycles")
     .select(
-      "id, cycle_number, sterilizer, operator, released_by, released_at, load_contents, expected_pack_count, status, reviewed_at, created_at"
+      "id, cycle_number, sterilizer, operator, released_by, released_at, load_contents, expected_pack_count, status, reviewed_at, investigation_status, investigation_closed_at, created_at"
     )
     .eq("cycle_number", normalizedCycleNumber)
     .maybeSingle<InvestigationCycle>();
