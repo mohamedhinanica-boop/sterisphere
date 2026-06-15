@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import ChecklistItem from "@/components/investigation/ChecklistItem";
+import DetailCard from "@/components/investigation/DetailCard";
+import ReportBlock from "@/components/investigation/ReportBlock";
+import RiskCard from "@/components/investigation/RiskCard";
+import StatusBadge from "@/components/investigation/StatusBadge";
+import SummaryCard from "@/components/investigation/SummaryCard";
 import {
   formatDate,
   formatDateTime,
@@ -549,100 +555,6 @@ export default function InvestigationPage() {
         </section>
       )}
     </>
-  );
-}
-
-function SummaryCard({
-  title,
-  value,
-  subtitle,
-}: {
-  title: string;
-  value: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
-      {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
-    </div>
-  );
-}
-
-function DetailCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 font-semibold text-slate-800">{value || "N/A"}</p>
-    </div>
-  );
-}
-
-function RiskCard({
-  title,
-  value,
-  description,
-}: {
-  title: string;
-  value: number;
-  description: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-medium text-slate-700">{title}</p>
-      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function ChecklistItem({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      ☐ {text}
-    </div>
-  );
-}
-
-function ReportBlock({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mb-8">
-      <h3 className="mb-3 text-xl font-semibold">{title}</h3>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === "Failed") {
-    return (
-      <span className="inline-flex rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
-        Failed
-      </span>
-    );
-  }
-
-  if (status === "Passed") {
-    return (
-      <span className="inline-flex rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
-        Passed
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700">
-      {status}
-    </span>
   );
 }
 
