@@ -25,6 +25,15 @@ import {
 } from "@/lib/modules/reports";
 
 const itemsPerPage = 5;
+const reportTabs = [
+  { id: "overview", label: "Overview" },
+  { id: "compliance", label: "Compliance" },
+  { id: "cycles", label: "Cycles" },
+  { id: "packs", label: "Packs" },
+  { id: "patient_traceability", label: "Patient Traceability" },
+] as const;
+
+type ReportTab = (typeof reportTabs)[number]["id"];
 
 export default function ReportsPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
@@ -35,6 +44,7 @@ export default function ReportsPage() {
 
   const [range, setRange] = useState("30");
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<ReportTab>("overview");
 
   const [cyclesPage, setCyclesPage] = useState(1);
   const [packsPage, setPacksPage] = useState(1);
@@ -125,6 +135,11 @@ export default function ReportsPage() {
   );
   const closedInvestigations = rangedCycles.filter(
     (cycle) => cycle.investigation_status === "Closed"
+  );
+  const recentlyClosedInvestigations = [...closedInvestigations].sort(
+    (a, b) =>
+      new Date(b.investigation_closed_at || b.created_at).getTime() -
+      new Date(a.investigation_closed_at || a.created_at).getTime()
   );
 
   const availablePacks = rangedPacks.filter(
@@ -248,6 +263,10 @@ export default function ReportsPage() {
           </div>
         </section>
 
+        <ReportTabs activeTab={activeTab} onChange={setActiveTab} />
+
+        {activeTab === "overview" && (
+          <>
         <SummaryGrid
           cycles={rangedCycles.length}
           passed={passedCycles.length}
@@ -271,7 +290,18 @@ export default function ReportsPage() {
           patientTraces={rangedTraces.length}
           rootCauseBreakdown={rootCauseBreakdown}
         />
+          </>
+        )}
 
+        {activeTab === "compliance" && (
+        <ComplianceDetails
+          openInvestigations={openInvestigations}
+          recentlyClosedInvestigations={recentlyClosedInvestigations}
+          failedCycles={failedCycles}
+        />
+        )}
+
+        {activeTab === "cycles" && (
         <ReportSection
           title="Cycle Reports"
           count={filteredCycles.length}
@@ -301,7 +331,9 @@ export default function ReportsPage() {
             </div>
           ))}
         </ReportSection>
+        )}
 
+        {activeTab === "packs" && (
         <ReportSection
           title="Pack Reports"
           count={filteredPacks.length}
@@ -334,7 +366,9 @@ export default function ReportsPage() {
             </div>
           ))}
         </ReportSection>
+        )}
 
+        {activeTab === "patient_traceability" && (
         <ReportSection
           title="Patient Traceability Reports"
           count={filteredTraces.length}
@@ -356,6 +390,7 @@ export default function ReportsPage() {
             </div>
           ))}
         </ReportSection>
+        )}
       </div>
 
       <section id="reports-print-area" className="hidden print:block">
@@ -389,6 +424,12 @@ export default function ReportsPage() {
           expiredPacks={expiredPacks.length}
           patientTraces={rangedTraces.length}
           rootCauseBreakdown={rootCauseBreakdown}
+        />
+
+        <ComplianceDetails
+          openInvestigations={openInvestigations}
+          recentlyClosedInvestigations={recentlyClosedInvestigations}
+          failedCycles={failedCycles}
         />
 
         <PrintTable title="Cycles" rows={filteredCycles.length}>
@@ -507,6 +548,39 @@ type RootCauseBreakdownItem = {
   count: number;
 };
 
+function ReportTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: ReportTab;
+  onChange: (tab: ReportTab) => void;
+}) {
+  return (
+    <div className="mb-8 overflow-x-auto border-b border-slate-200">
+      <div className="flex min-w-max gap-2">
+        {reportTabs.map((tab) => {
+          const selected = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onChange(tab.id)}
+              className={`border-b-2 px-4 py-3 text-sm font-medium transition ${
+                selected
+                  ? "border-slate-950 text-slate-950"
+                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function getRootCauseBreakdown(cycles: Cycle[]): RootCauseBreakdownItem[] {
   const counts = cycles.reduce<Record<string, number>>((breakdown, cycle) => {
     if (
@@ -594,6 +668,121 @@ function ComplianceOverview({
         </table>
       </div>
     </section>
+  );
+}
+
+function ComplianceDetails({
+  openInvestigations,
+  recentlyClosedInvestigations,
+  failedCycles,
+}: {
+  openInvestigations: Cycle[];
+  recentlyClosedInvestigations: Cycle[];
+  failedCycles: Cycle[];
+}) {
+  return (
+    <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5">
+        <h2 className="text-2xl font-semibold">Compliance Report Details</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Investigation and failed-cycle detail for audit review.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ComplianceTable
+          title="Open Investigations"
+          emptyMessage="No open investigations found for this range."
+          headers={["Cycle Number", "Investigation Status", "Root Cause", "Created Date"]}
+          rows={openInvestigations.map((cycle) => [
+            cycle.cycle_number,
+            cycle.investigation_status || "Open",
+            cycle.investigation_root_cause || "Unknown / Under Investigation",
+            formatDateTime(cycle.created_at),
+          ])}
+        />
+
+        <ComplianceTable
+          title="Recently Closed Investigations"
+          emptyMessage="No closed investigations found for this range."
+          headers={["Cycle Number", "Root Cause", "Closed Date"]}
+          rows={recentlyClosedInvestigations.map((cycle) => [
+            cycle.cycle_number,
+            cycle.investigation_root_cause || "Unknown / Under Investigation",
+            formatDateTime(cycle.investigation_closed_at),
+          ])}
+        />
+      </div>
+
+      <div className="mt-6">
+        <ComplianceTable
+          title="Failed Cycles"
+          emptyMessage="No failed cycles found for this range."
+          headers={["Cycle Number", "Sterilizer", "Status"]}
+          rows={failedCycles.map((cycle) => [
+            cycle.cycle_number,
+            cycle.sterilizer || "N/A",
+            cycle.status,
+          ])}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ComplianceTable({
+  title,
+  emptyMessage,
+  headers,
+  rows,
+}: {
+  title: string;
+  emptyMessage: string;
+  headers: string[];
+  rows: string[][];
+}) {
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+          {rows.length} record(s)
+        </span>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              {headers.map((header) => (
+                <th key={header} className="px-4 py-3 text-left font-medium">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-4 text-slate-500" colSpan={headers.length}>
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, rowIndex) => (
+                <tr key={`${title}-${rowIndex}`} className="border-t border-slate-200">
+                  {row.map((cell, cellIndex) => (
+                    <td key={`${title}-${rowIndex}-${cellIndex}`} className="px-4 py-3">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

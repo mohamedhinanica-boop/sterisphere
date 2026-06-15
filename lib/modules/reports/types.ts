@@ -10,6 +10,7 @@ export type Cycle = {
   expected_pack_count: number | null;
   investigation_status: string | null;
   investigation_root_cause: string | null;
+  investigation_closed_at: string | null;
   created_at: string;
 };
 
