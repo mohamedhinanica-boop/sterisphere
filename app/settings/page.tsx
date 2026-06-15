@@ -10,6 +10,7 @@ import SettingsPolicies from "@/components/settings/SettingsPolicies";
 import SettingsAlerts from "@/components/settings/SettingsAlerts";
 import SettingsProviders from "@/components/settings/SettingsProviders";
 import SettingsSterilizers from "@/components/settings/SettingsSterilizers";
+import SettingsUsers from "@/components/settings/SettingsUsers";
 import {
   getExpirationPreset,
   getProviderTitle,
@@ -19,9 +20,6 @@ import {
 import {
   InputField,
   Panel,
-  RoleBadge,
-  StatusBadge,
-  StatusCount,
 } from "@/components/settings";
 
 
@@ -1062,94 +1060,16 @@ async function updateProvider(providerId: string) {
           )}
 
           {activeTab === "users" && (
-            <Panel
-              title="Users & Roles"
-              description="Manage account roles and access permissions."
-            >
-              {getCurrentRole() !== "super_admin" && (
-                <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-                  You can view users, but only a super admin can change roles or
-                  activate/deactivate accounts.
-                </div>
-              )}
-
-              <div className="mb-4 flex flex-wrap gap-2 text-sm">
-                <StatusCount label="Active" value={activeUsers.length} />
-                <StatusCount label="Inactive" value={inactiveUsers.length} />
-              </div>
-
-              {roles.length === 0 ? (
-                <p className="text-slate-500">No user roles found.</p>
-              ) : (
-                <div className="space-y-3">
-                  {roles.map((role) => {
-                    const isCurrentUser = role.user_email === currentUserEmail;
-                    const canManageUser =
-                      getCurrentRole() === "super_admin" && !isCurrentUser;
-
-                    return (
-                      <div
-                        key={role.id}
-                        className="rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-                      >
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium">{role.user_email}</p>
-                            <RoleBadge role={role.role} />
-
-                            {isCurrentUser && (
-                              <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                                You
-                              </span>
-                            )}
-
-                            <StatusBadge active={role.active} />
-                          </div>
-
-                          <p className="text-xs text-slate-400 mt-1">
-                            Added: {new Date(role.created_at).toLocaleString()}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col md:flex-row gap-3">
-                          <select
-                            value={role.role}
-                            disabled={loading || !canManageUser}
-                            onChange={(e) =>
-                              updateUserRole(role.id, e.target.value)
-                            }
-                            className="w-full md:w-auto h-fit rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm capitalize disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <option value="super_admin">super_admin</option>
-                            <option value="admin">admin</option>
-                            <option value="clinical_staff">
-                              clinical_staff
-                            </option>
-                            <option value="doctor">doctor</option>
-                            <option value="auditor">auditor</option>
-                          </select>
-
-                          <button
-                            type="button"
-                            disabled={loading || !canManageUser}
-                            onClick={() =>
-                              toggleUserStatus(role.id, role.active)
-                            }
-                            className={`rounded-xl px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                              role.active
-                                ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                                : "bg-green-600 text-white hover:bg-green-700"
-                            }`}
-                          >
-                            {role.active ? "Deactivate" : "Activate"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Panel>
+            <SettingsUsers
+              roles={roles}
+              activeUsersCount={activeUsers.length}
+              inactiveUsersCount={inactiveUsers.length}
+              currentUserEmail={currentUserEmail}
+              currentRole={getCurrentRole()}
+              loading={loading}
+              updateUserRole={updateUserRole}
+              toggleUserStatus={toggleUserStatus}
+            />
           )}
 
           {activeTab === "providers" && (
