@@ -9,6 +9,10 @@ import RiskCard from "@/components/investigation/RiskCard";
 import StatusBadge from "@/components/investigation/StatusBadge";
 import SummaryCard from "@/components/investigation/SummaryCard";
 import {
+  getRiskLevel,
+  getValue,
+} from "@/components/investigation/investigationUtils";
+import {
   formatDate,
   formatDateTime,
   formatInitials,
@@ -556,43 +560,4 @@ export default function InvestigationPage() {
       )}
     </>
   );
-}
-
-function getRiskLevel(
-  cycle: InvestigationCycle | null,
-  packCount: number,
-  patientCount: number
-) {
-  if (!cycle) return "N/A";
-
-  if (cycle.status === "Failed" && patientCount > 0) {
-    return "High";
-  }
-
-  if (cycle.status === "Failed" && packCount > 0) {
-    return "Medium";
-  }
-
-  if (cycle.status === "Failed") {
-    return "Review";
-  }
-
-  return "Low";
-}
-
-function getValue(
-  item: InvestigationLoadItem,
-  ...keys: string[]
-): string | number | null {
-  const record = item as unknown as Record<string, unknown>;
-
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === "string" || typeof value === "number") {
-      return value;
-    }
-  }
-
-  return null;
 }

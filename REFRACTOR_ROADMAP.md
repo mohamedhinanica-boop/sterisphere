@@ -25,6 +25,6 @@ Dashboard
 ✓ Step 7 (Users)
 
 Reports
-✓ Step 1
-✓ Step 2 ReportSection + PrintTable
-□ Step 3 Helpers
+✓ Step 1 (MetricCard, StatusBadge, PackBadge)
+✓ Step 2 (ReportSection, PrintTable)
+✓ Step 3 (reportUtils)
