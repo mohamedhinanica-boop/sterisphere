@@ -16,4 +16,4 @@ Settings
 □ Step 1
 
 Dashboard
-□ Step 1
+✓ Step 1–2

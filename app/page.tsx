@@ -2,7 +2,6 @@
 
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import CycleWizard from "@/components/CycleWizard";
 import FailedCyclesAlert from "@/components/dashboard/FailedCyclesAlert";
 import DashboardStats from "@/components/dashboard/DashboardStats";
@@ -19,7 +18,7 @@ import type {
   Pack,
   PatientTrace,
 } from "@/components/dashboard/types";
-import { countOrZero, getDashboardDateWindows } from "@/components/dashboard/utils";
+import { getDashboardData } from "@/lib/modules/dashboard";
 
 export default function Home() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -59,144 +58,33 @@ export default function Home() {
   }, []);
 
   async function fetchDashboardData() {
-    const { now, thirtyDaysFromNow, todayStart, tomorrowStart } =
-      getDashboardDateWindows();
+    const dashboardData = await getDashboardData();
 
-    const { count: cycles } = await supabase
-      .from("cycles")
-      .select("*", { count: "exact", head: true });
-
-    const { count: packs } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true });
-
-    const { count: patientRecords } = await supabase
-      .from("patient_traces")
-      .select("*", { count: "exact", head: true });
-
-    const { count: failedCycles } = await supabase
-      .from("cycles")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "Failed");
-
-    const { count: unreviewedFailedCycles } = await supabase
-      .from("cycles")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "Failed")
-      .is("reviewed_at", null);
-
-    const { count: pendingCycles } = await supabase
-      .from("cycles")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "Pending");
-
-    const { count: openCycles } = await supabase
-      .from("cycles")
-      .select("*", { count: "exact", head: true })
-      .eq("cycle_state", "Open");
-
-    const { count: closedCycles } = await supabase
-      .from("cycles")
-      .select("*", { count: "exact", head: true })
-      .eq("cycle_state", "Closed");
-
-    const { count: availablePacks } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "Available");
-
-    const { count: usedPacks } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "Used");
-
-    const { count: expiredPacks } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true })
-      .lt("expires_at", now.toISOString())
-      .neq("status", "Used");
-
-    const { count: unreviewedExpiredPacks } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true })
-      .lt("expires_at", now.toISOString())
-      .neq("status", "Used")
-      .or("expired_reviewed.is.null,expired_reviewed.eq.false");
-
-    const { count: expiringSoonPacks } = await supabase
-      .from("packs")
-      .select("*", { count: "exact", head: true })
-      .gte("expires_at", now.toISOString())
-      .lte("expires_at", thirtyDaysFromNow.toISOString())
-      .neq("status", "Used");
-
-    const { count: patientTracesToday } = await supabase
-      .from("patient_traces")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", todayStart.toISOString())
-      .lt("created_at", tomorrowStart.toISOString());
-
-    const { count: labelsPrintedToday } = await supabase
-      .from("audit_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("action", "label_printed")
-      .gte("created_at", todayStart.toISOString())
-      .lt("created_at", tomorrowStart.toISOString());
-
-    const { data: auditLogs, error: auditError } = await supabase
-      .from("audit_logs")
-      .select("id, action, entity_type, description, user_email, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    if (auditError) {
+    if (dashboardData.recentActivityError) {
       toast.error("Error loading recent activity.");
-      console.error(auditError);
+      console.error(dashboardData.recentActivityError);
     } else {
-      setRecentActivity(auditLogs || []);
+      setRecentActivity(dashboardData.recentActivity);
     }
 
-    const { data: failedData } = await supabase
-      .from("cycles")
-      .select("id, cycle_number, sterilizer, operator, status, created_at")
-      .eq("status", "Failed")
-      .order("created_at", { ascending: false })
-      .limit(3);
-
-    const { data: patientData } = await supabase
-      .from("patient_traces")
-      .select(
-        "id, patient_id, patient_name, provider, treatment_room, pack_number, procedure, created_at"
-      )
-      .order("created_at", { ascending: false })
-      .limit(3);
-
-    const { data: packData } = await supabase
-      .from("packs")
-      .select(
-        "id, pack_number, cycle_number, pack_type, status, expires_at, created_at"
-      )
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    setCyclesCount(countOrZero(cycles));
-    setPacksCount(countOrZero(packs));
-    setPatientRecordsCount(countOrZero(patientRecords));
-    setFailedCyclesCount(countOrZero(failedCycles));
-    setUnreviewedFailedCyclesCount(countOrZero(unreviewedFailedCycles));
-    setPendingCyclesCount(countOrZero(pendingCycles));
-    setOpenCyclesCount(countOrZero(openCycles));
-    setClosedCyclesCount(countOrZero(closedCycles));
-    setAvailablePacksCount(countOrZero(availablePacks));
-    setUsedPacksCount(countOrZero(usedPacks));
-    setExpiredPacksCount(countOrZero(expiredPacks));
-    setUnreviewedExpiredPacksCount(countOrZero(unreviewedExpiredPacks));
-    setExpiringSoonPacksCount(countOrZero(expiringSoonPacks));
-    setPatientTracesTodayCount(countOrZero(patientTracesToday));
-    setLabelsPrintedTodayCount(countOrZero(labelsPrintedToday));
-    setLatestFailedCycles(failedData || []);
-    setLatestPatientRecords(patientData || []);
-    setRecentPacks(packData || []);
+    setCyclesCount(dashboardData.cyclesCount);
+    setPacksCount(dashboardData.packsCount);
+    setPatientRecordsCount(dashboardData.patientRecordsCount);
+    setFailedCyclesCount(dashboardData.failedCyclesCount);
+    setUnreviewedFailedCyclesCount(dashboardData.unreviewedFailedCyclesCount);
+    setPendingCyclesCount(dashboardData.pendingCyclesCount);
+    setOpenCyclesCount(dashboardData.openCyclesCount);
+    setClosedCyclesCount(dashboardData.closedCyclesCount);
+    setAvailablePacksCount(dashboardData.availablePacksCount);
+    setUsedPacksCount(dashboardData.usedPacksCount);
+    setExpiredPacksCount(dashboardData.expiredPacksCount);
+    setUnreviewedExpiredPacksCount(dashboardData.unreviewedExpiredPacksCount);
+    setExpiringSoonPacksCount(dashboardData.expiringSoonPacksCount);
+    setPatientTracesTodayCount(dashboardData.patientTracesTodayCount);
+    setLabelsPrintedTodayCount(dashboardData.labelsPrintedTodayCount);
+    setLatestFailedCycles(dashboardData.latestFailedCycles);
+    setLatestPatientRecords(dashboardData.latestPatientRecords);
+    setRecentPacks(dashboardData.recentPacks);
     setLastRefresh(new Date());
   }
 
