@@ -9,6 +9,12 @@ import SettingsOverview from "@/components/settings/SettingsOverview";
 import SettingsPolicies from "@/components/settings/SettingsPolicies";
 import SettingsAlerts from "@/components/settings/SettingsAlerts";
 import {
+  getExpirationPreset,
+  getProviderTitle,
+  normalizeProviderName,
+  normalizeSterilizerName,
+} from "@/components/settings/settingsUtils";
+import {
   InputField,
   ManagementRow,
   Panel,
@@ -1408,29 +1414,4 @@ async function updateProvider(providerId: string) {
       </div>
     </>
   );
-}
-
-function getExpirationPreset(days: number) {
-  if (days === 180) return "180";
-  if (days === 365) return "365";
-  if (days === 730) return "730";
-  return "custom";
-}
-
-function normalizeProviderName(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/^(dr\.?|dre\.?|hyg\.?)\s+/, "")
-    .replace(/\s+/g, " ");
-}
-
-function normalizeSterilizerName(name: string) {
-  return name.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
-function getProviderTitle(role: string) {
-  if (role === "Dentist" || role === "Specialist") return "Dr.";
-  if (role === "Hygienist") return "Hyg.";
-  return "";
 }

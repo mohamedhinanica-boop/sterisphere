@@ -19,7 +19,7 @@ Dashboard
 ✓ Step 1
 ✓ Step 2 (Policies)
 ✓ Step 3 (Alerts)
-□ Step 4 (Helpers)
+✓ Step 4 (Helpers)
 □ Step 5 (Providers)
 □ Step 6 (Sterilizers)
 □ Step 7 (Users)
