@@ -110,6 +110,7 @@ export default function Home() {
         failedCyclesCount={failedCyclesCount}
         availablePacksCount={availablePacksCount}
         patientRecordsCount={patientRecordsCount}
+        patientTracesTodayCount={patientTracesTodayCount}
         packsCount={packsCount}
         usedPacksCount={usedPacksCount}
         expiredPacksCount={expiredPacksCount}

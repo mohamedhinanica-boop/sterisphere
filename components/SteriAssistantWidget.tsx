@@ -25,6 +25,23 @@ export default function SteriAssistantWidget({
 
   const hasWarnings = expiringSoonPacks > 0;
 
+  const actions = [
+    overdueCycles > 0
+      ? { href: "/cycles?status=Pending", label: "Pending Cycles" }
+      : null,
+    failedCycles > 0
+      ? { href: "/cycles?status=Failed", label: "Failed Cycles" }
+      : null,
+    expiredPacks > 0
+      ? { href: "/packs?status=Expired", label: "Expired Packs" }
+      : null,
+    expiringSoonPacks > 0
+      ? { href: "/packs?filter=expiring-soon", label: "Expiring Soon" }
+      : null,
+  ].filter((action): action is { href: string; label: string } =>
+    Boolean(action)
+  );
+
   const status = hasCriticalIssues
     ? "critical"
     : hasWarnings
@@ -108,28 +125,19 @@ export default function SteriAssistantWidget({
         Available packs: {availablePacks}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          href="/cycles"
-          className="text-xs rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
-        >
-          Cycles
-        </Link>
-
-        <Link
-          href="/packs"
-          className="text-xs rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
-        >
-          Packs
-        </Link>
-
-        <Link
-          href="/investigation"
-          className="text-xs rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
-        >
-          Review
-        </Link>
-      </div>
+      {actions.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {actions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="text-xs rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -50,6 +50,16 @@ export default function CyclesPage() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+
+    if (status) {
+      setStatusFilter(status);
+      setCurrentPage(1);
+    }
+  }, []);
+
+  useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(new Date());
     }, 60000);

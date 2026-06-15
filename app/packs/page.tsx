@@ -41,7 +41,14 @@ export default function PacksPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
     const filter = params.get("filter");
+
+    if (status) {
+      setStatusFilter(status);
+      setCurrentPage(1);
+      return;
+    }
 
     if (filter === "expired") {
       setStatusFilter("Expired");

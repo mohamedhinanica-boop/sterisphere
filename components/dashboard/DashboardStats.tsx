@@ -15,6 +15,7 @@ type DashboardStatsProps = {
   failedCyclesCount: number;
   availablePacksCount: number;
   patientRecordsCount: number;
+  patientTracesTodayCount: number;
   packsCount: number;
   usedPacksCount: number;
   expiredPacksCount: number;
@@ -27,6 +28,7 @@ export default function DashboardStats({
   failedCyclesCount,
   availablePacksCount,
   patientRecordsCount,
+  patientTracesTodayCount,
   packsCount,
   usedPacksCount,
   expiredPacksCount,
@@ -37,14 +39,16 @@ export default function DashboardStats({
       <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-6">
         <StatCard icon={<ClipboardCheck />} title="Total Cycles" value={cyclesCount} />
 
-        <StatCard
-          icon={<Timer />}
-          title="Pending Cycles"
-          value={pendingCyclesCount}
-          pending={pendingCyclesCount > 0}
-        />
+        <Link href="/cycles?status=Pending" className="block">
+          <StatCard
+            icon={<Timer />}
+            title="Pending Cycles"
+            value={pendingCyclesCount}
+            pending={pendingCyclesCount > 0}
+          />
+        </Link>
 
-        <Link href="/investigation?filter=failed">
+        <Link href="/cycles?status=Failed" className="block">
           <StatCard
             icon={<ShieldCheck />}
             title="Failed Cycles"
@@ -53,14 +57,25 @@ export default function DashboardStats({
           />
         </Link>
 
-        <StatCard
-          icon={<PackageCheck />}
-          title="Available Packs"
-          value={availablePacksCount}
-          good
-        />
+        <Link href="/packs?status=Available" className="block">
+          <StatCard
+            icon={<PackageCheck />}
+            title="Available Packs"
+            value={availablePacksCount}
+            good
+          />
+        </Link>
 
         <StatCard icon={<FileText />} title="Patient Records" value={patientRecordsCount} />
+
+        <Link href="/patients?today=true" className="block">
+          <StatCard
+            icon={<FileText />}
+            title="Today's Traces"
+            value={patientTracesTodayCount}
+            good={patientTracesTodayCount > 0}
+          />
+        </Link>
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -68,12 +83,14 @@ export default function DashboardStats({
 
         <StatCard icon={<FileText />} title="Used Packs" value={usedPacksCount} />
 
-        <StatCard
-          icon={<AlertTriangle />}
-          title="Expired Packs"
-          value={expiredPacksCount}
-          warning={expiredPacksCount > 0}
-        />
+        <Link href="/packs?status=Expired" className="block">
+          <StatCard
+            icon={<AlertTriangle />}
+            title="Expired Packs"
+            value={expiredPacksCount}
+            warning={expiredPacksCount > 0}
+          />
+        </Link>
 
         <StatCard
           icon={<Timer />}
