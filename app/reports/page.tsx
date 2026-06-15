@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import MetricCard from "@/components/reports/MetricCard";
+import PackBadge from "@/components/reports/PackBadge";
+import StatusBadge from "@/components/reports/StatusBadge";
 import {
   type AuditLog,
   type Cycle,
@@ -547,35 +550,6 @@ function SummaryGrid({
   );
 }
 
-function MetricCard({
-  title,
-  value,
-  good = false,
-  danger = false,
-  warning = false,
-}: {
-  title: string;
-  value: string | number;
-  good?: boolean;
-  danger?: boolean;
-  warning?: boolean;
-}) {
-  const className = danger
-    ? "border-red-200 bg-red-50 text-red-700"
-    : warning
-    ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-    : good
-    ? "border-green-200 bg-green-50 text-green-700"
-    : "border-slate-200 bg-white text-slate-900";
-
-  return (
-    <div className={`rounded-2xl border p-5 shadow-sm ${className}`}>
-      <p className="text-sm opacity-80">{title}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-    </div>
-  );
-}
-
 function ReportSection({
   title,
   count,
@@ -651,62 +625,6 @@ function PrintTable({
       </h2>
       {rows === 0 ? <p>No records.</p> : children}
     </section>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === "Passed") {
-    return (
-      <span className="w-fit rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-        Passed
-      </span>
-    );
-  }
-
-  if (status === "Failed") {
-    return (
-      <span className="w-fit rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-        Failed
-      </span>
-    );
-  }
-
-  return (
-    <span className="w-fit rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700">
-      {status}
-    </span>
-  );
-}
-
-function PackBadge({ status }: { status: string }) {
-  if (status === "Available") {
-    return (
-      <span className="w-fit rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-        Available
-      </span>
-    );
-  }
-
-  if (status === "Used") {
-    return (
-      <span className="w-fit rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-        Used
-      </span>
-    );
-  }
-
-  if (status === "Expired") {
-    return (
-      <span className="w-fit rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-        Expired
-      </span>
-    );
-  }
-
-  return (
-    <span className="w-fit rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700">
-      {status}
-    </span>
   );
 }
 

@@ -1,41 +1,144 @@
 June 2026
 
+Patients Refactor Step 4A
+- Extracted CSV export helper functions into:
+  components/patients/exportUtils.ts
+
+Moved:
+- escapeCsvValue
+- buildExportFileName
+- slugify
+
+No behavior changes.
+
+
+June 2026
+
+Patients Refactor Step 4B
+- Extracted filtering and date helper functions into:
+  components/patients/filterUtils.ts
+
+Moved:
+- isTraceWithinDateRange
+- formatDate
+- formatDateTime
+
+Preserved:
+- Dashboard → Patient Traces Today navigation
+- Local date filtering behavior
+- CSV export compatibility
+
+
+June 2026
+
+Dashboard Refactor Step 1
+- Extracted dashboard helper functions into:
+  components/dashboard/utils.ts
+
+Moved:
+- getDashboardDateWindows
+- countOrZero
+
+No behavior changes.
+
+
+June 2026
+
+Dashboard Refactor Step 2
+- Extracted dashboard data-loading logic into:
+  lib/modules/dashboard.ts
+
+Moved:
+- Dashboard Supabase queries
+- Dashboard aggregation logic
+- Dashboard count calculations
+
+Preserved:
+- Operational Alerts
+- Dashboard statistics
+- Steri Assistant
+- Auto-refresh
+- Quick Actions
+
+
+June 2026
+
+Settings Refactor Step 1
+- Extracted System Overview tab into:
+  components/settings/SettingsOverview.tsx
+
+No behavior changes.
+
+
+June 2026
+
+Settings Refactor Step 2
+- Extracted Sterilization Policies tab into:
+  components/settings/SettingsPolicies.tsx
+
+No behavior changes.
+
+
+June 2026
+
+Settings Refactor Step 3
+- Extracted Alerts tab into:
+  components/settings/SettingsAlerts.tsx
+
+Preserved:
+- Sound alert settings
+- Alert toggle behavior
+- Save functionality
+
+
+June 2026
+
+Settings Refactor Step 4
+- Extracted Settings helper functions into:
+  components/settings/settingsUtils.ts
+
+Moved:
+- getExpirationPreset
+- normalizeProviderName
+- normalizeSterilizerName
+- getProviderTitle
+
+
+June 2026
+
+Settings Refactor Step 5
+- Extracted Provider Management tab into:
+  components/settings/SettingsProviders.tsx
+
+Preserved:
+- Add provider
+- Edit provider
+- Activate/deactivate provider
+- Duplicate prevention
+- Provider preview
+
+
+June 2026
+
+Settings Refactor Step 6
+- Extracted Sterilizer Management tab into:
+  components/settings/SettingsSterilizers.tsx
+
 Fix:
-Resolved timezone issue affecting Dashboard → Patient Traces Today navigation.
+- Resolved sterilizer activation/deactivation failure.
+- Removed invalid updated_at update from sterilizers mutations.
+- Sterilizer status updates now function correctly.
 
-The /patients?today=true filter now uses local date comparison rather than UTC-based date handling, ensuring traceability records created today are correctly displayed.
-
-
-June 2026
-
-Patients Refactor Step 2
-- Extracted Traceability Filters & Export section into:
-  components/patients/TraceabilityFilters.tsx
-
-Preserved:
-- Today trace navigation (/patients?today=true)
-- Provider filtering
-- Date filtering
-- CSV export
-- Search filters
-- Pagination
-
-No business logic changes.
 
 June 2026
 
-Patients Refactor Step 3
-- Extracted Recent Patient Traces section into:
-  components/patients/TraceabilityRecordsList.tsx
+Settings Refactor Step 7
+- Extracted Users & Roles tab into:
+  components/settings/SettingsUsers.tsx
 
 Preserved:
-- Trace search
-- Selected trace highlighting
-- Pagination
-- /patients?traceId=
-- /patients?today=true
-
-Additional Fix:
-- Clear Filters now removes query parameters from the URL.
-- Navigating from Dashboard → Patient Traces Today no longer re-applies filters after refresh.
-
+- RBAC protections
+- Super Admin restrictions
+- Current user self-protection
+- User activation/deactivation
+- Role management
