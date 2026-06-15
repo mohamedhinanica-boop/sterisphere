@@ -29,6 +29,7 @@ export default function Home() {
   const [failedCyclesCount, setFailedCyclesCount] = useState(0);
   const [unreviewedFailedCyclesCount, setUnreviewedFailedCyclesCount] =
     useState(0);
+  const [openInvestigationsCount, setOpenInvestigationsCount] = useState(0);
   const [pendingCyclesCount, setPendingCyclesCount] = useState(0);
   const [openCyclesCount, setOpenCyclesCount] = useState(0);
   const [closedCyclesCount, setClosedCyclesCount] = useState(0);
@@ -72,6 +73,7 @@ export default function Home() {
     setPatientRecordsCount(dashboardData.patientRecordsCount);
     setFailedCyclesCount(dashboardData.failedCyclesCount);
     setUnreviewedFailedCyclesCount(dashboardData.unreviewedFailedCyclesCount);
+    setOpenInvestigationsCount(dashboardData.openInvestigationsCount);
     setPendingCyclesCount(dashboardData.pendingCyclesCount);
     setOpenCyclesCount(dashboardData.openCyclesCount);
     setClosedCyclesCount(dashboardData.closedCyclesCount);
@@ -108,6 +110,7 @@ export default function Home() {
         cyclesCount={cyclesCount}
         pendingCyclesCount={pendingCyclesCount}
         failedCyclesCount={failedCyclesCount}
+        openInvestigationsCount={openInvestigationsCount}
         availablePacksCount={availablePacksCount}
         patientRecordsCount={patientRecordsCount}
         patientTracesTodayCount={patientTracesTodayCount}

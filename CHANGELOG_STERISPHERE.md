@@ -163,3 +163,56 @@ Packs/Cycles support URL-driven status filtering
   - Normal
 - Replaced generic navigation buttons with alert-specific actions
 - Limited assistant actions to reduce visual clutter
+## Phase 4.1 – Dashboard Alert Management V2
+
+### Added
+- Clickable dashboard statistic cards
+- Dashboard-to-workflow navigation
+- URL-driven status filtering
+- Today's Traces navigation
+
+### Improved
+- Contextual Steri Assistant actions
+- Severity-aware assistant messaging
+- Alert prioritization
+- Dashboard severity styling
+- Interactive dashboard cards
+- Hover and navigation polish
+
+## Phase 4.2 – Investigation Workflow V2
+
+### Added
+- Investigation lifecycle statuses:
+  - Open
+  - In Review
+  - Closed
+- Investigation status badges
+- Investigation closure timestamp tracking
+
+### Improved
+- Failed cycle investigation workflow
+- Investigation reporting now includes lifecycle status
+- Added lifecycle actions:
+  - Mark as In Review
+  - Mark as Closed
+
+### Technical
+- Added investigation_status support
+- Added investigation_closed_at tracking
+- Preserved existing review workflow and reviewed_at behavior
+-we must add pagination
+Future enhancement:
+- Require upload or reference of management authorization before reopening a closed investigation.
+- Store supporting document/reference in audit metadata.
+
+## Phase 4.3 – Investigation Monitoring
+
+### Added
+- Open Investigations dashboard card
+- Investigation severity indicators
+- Dashboard investigation monitoring
+
+### Improved
+- Steri Assistant now tracks active investigations
+- Investigation count updates in real time as investigations are closed
+- Compliance workload is now visible from the dashboard

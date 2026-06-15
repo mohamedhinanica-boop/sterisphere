@@ -68,6 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [assistantData, setAssistantData] = useState({
     overdueCycles: 0,
     failedCycles: 0,
+    openInvestigations: 0,
     expiredPacks: 0,
     expiringSoonPacks: 0,
     availablePacks: 0,
@@ -128,6 +129,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .eq("status", "Failed")
       .is("reviewed_at", null);
 
+    const { count: openInvestigations } = await supabase
+      .from("cycles")
+      .select("*", { count: "exact", head: true })
+      .in("investigation_status", ["Open", "In Review"]);
+
     const { count: expiredPacks } = await supabase
   .from("packs")
   .select("*", { count: "exact", head: true })
@@ -150,6 +156,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setAssistantData({
       overdueCycles: overdueCycles || 0,
       failedCycles: failedCycles || 0,
+      openInvestigations: openInvestigations || 0,
       expiredPacks: expiredPacks || 0,
       expiringSoonPacks: expiringSoonPacks || 0,
       availablePacks: availablePacks || 0,
@@ -264,6 +271,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <SteriAssistantWidget
             overdueCycles={assistantData.overdueCycles}
             failedCycles={assistantData.failedCycles}
+            openInvestigations={assistantData.openInvestigations}
             expiredPacks={assistantData.expiredPacks}
             expiringSoonPacks={assistantData.expiringSoonPacks}
             availablePacks={assistantData.availablePacks}

@@ -13,6 +13,7 @@ type DashboardStatsProps = {
   cyclesCount: number;
   pendingCyclesCount: number;
   failedCyclesCount: number;
+  openInvestigationsCount: number;
   availablePacksCount: number;
   patientRecordsCount: number;
   patientTracesTodayCount: number;
@@ -26,6 +27,7 @@ export default function DashboardStats({
   cyclesCount,
   pendingCyclesCount,
   failedCyclesCount,
+  openInvestigationsCount,
   availablePacksCount,
   patientRecordsCount,
   patientTracesTodayCount,
@@ -82,7 +84,19 @@ export default function DashboardStats({
         </Link>
       </section>
 
-      <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <Link href="/investigation" className="block">
+          <StatCard
+            icon={<ClipboardCheck />}
+            title="Open Investigations"
+            value={openInvestigationsCount}
+            good={openInvestigationsCount === 0}
+            pending={openInvestigationsCount > 0 && openInvestigationsCount <= 3}
+            warning={openInvestigationsCount >= 4}
+            interactive
+          />
+        </Link>
+
         <StatCard icon={<PackageCheck />} title="Total Packs" value={packsCount} />
 
         <StatCard icon={<FileText />} title="Used Packs" value={usedPacksCount} />

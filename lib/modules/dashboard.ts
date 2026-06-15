@@ -18,6 +18,7 @@ export type DashboardData = {
   patientRecordsCount: number;
   failedCyclesCount: number;
   unreviewedFailedCyclesCount: number;
+  openInvestigationsCount: number;
   pendingCyclesCount: number;
   openCyclesCount: number;
   closedCyclesCount: number;
@@ -59,6 +60,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     .select("*", { count: "exact", head: true })
     .eq("status", "Failed")
     .is("reviewed_at", null);
+
+  const { count: openInvestigations } = await supabase
+    .from("cycles")
+    .select("*", { count: "exact", head: true })
+    .in("investigation_status", ["Open", "In Review"]);
 
   const { count: pendingCycles } = await supabase
     .from("cycles")
@@ -155,6 +161,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     patientRecordsCount: countOrZero(patientRecords),
     failedCyclesCount: countOrZero(failedCycles),
     unreviewedFailedCyclesCount: countOrZero(unreviewedFailedCycles),
+    openInvestigationsCount: countOrZero(openInvestigations),
     pendingCyclesCount: countOrZero(pendingCycles),
     openCyclesCount: countOrZero(openCycles),
     closedCyclesCount: countOrZero(closedCycles),

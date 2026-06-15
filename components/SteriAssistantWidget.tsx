@@ -6,6 +6,7 @@ import Link from "next/link";
 type Props = {
   overdueCycles: number;
   failedCycles: number;
+  openInvestigations: number;
   expiredPacks: number;
   expiringSoonPacks: number;
   availablePacks: number;
@@ -14,6 +15,7 @@ type Props = {
 export default function SteriAssistantWidget({
   overdueCycles,
   failedCycles,
+  openInvestigations,
   expiredPacks,
   expiringSoonPacks,
   availablePacks,
@@ -21,11 +23,15 @@ export default function SteriAssistantWidget({
   const [collapsed, setCollapsed] = useState(true);
 
   const hasCriticalIssues = failedCycles > 0 || expiredPacks > 0;
-  const hasWarnings = overdueCycles > 0 || expiringSoonPacks > 0;
+  const hasWarnings =
+    overdueCycles > 0 || expiringSoonPacks > 0 || openInvestigations > 0;
 
   const actions = [
     failedCycles > 0
       ? { href: "/cycles?status=Failed", label: "Investigate Failed Cycles" }
+      : null,
+    openInvestigations > 0
+      ? { href: "/investigation", label: "Review Investigations" }
       : null,
     expiredPacks > 0
       ? { href: "/packs?status=Expired", label: "Review Expired Packs" }
@@ -39,8 +45,7 @@ export default function SteriAssistantWidget({
   ]
     .filter((action): action is { href: string; label: string } =>
       Boolean(action)
-    )
-    .slice(0, 3);
+    );
 
   const status = hasCriticalIssues
     ? "critical"
@@ -117,6 +122,10 @@ export default function SteriAssistantWidget({
 
         {status === "critical" && failedCycles > 0 && (
           <p>{failedCycles} failed cycle(s) need investigation.</p>
+        )}
+
+        {openInvestigations > 0 && (
+          <p>{openInvestigations} open investigation(s) need review.</p>
         )}
 
         {status === "critical" && expiredPacks > 0 && (
