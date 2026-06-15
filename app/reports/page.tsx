@@ -153,6 +153,12 @@ export default function ReportsPage() {
   );
   const expiringSoonPacks = rangedPacks.filter((pack) => isExpiringSoon(pack));
   const rootCauseBreakdown = getRootCauseBreakdown(rangedCycles);
+  const topRootCauses = rootCauseBreakdown.slice(0, 5);
+  const failedCyclesBySterilizer = getFailedCyclesBySterilizer(failedCycles);
+  const investigationClosureRate = getInvestigationClosureRate(
+    openInvestigations.length,
+    closedInvestigations.length
+  );
 
   const passRate =
     rangedCycles.length > 0
@@ -290,6 +296,14 @@ export default function ReportsPage() {
           patientTraces={rangedTraces.length}
           rootCauseBreakdown={rootCauseBreakdown}
         />
+
+        <ComplianceAnalytics
+          openInvestigations={openInvestigations.length}
+          closedInvestigations={closedInvestigations.length}
+          closureRate={investigationClosureRate}
+          topRootCauses={topRootCauses}
+          failedCyclesBySterilizer={failedCyclesBySterilizer}
+        />
           </>
         )}
 
@@ -426,6 +440,14 @@ export default function ReportsPage() {
           rootCauseBreakdown={rootCauseBreakdown}
         />
 
+        <ComplianceAnalytics
+          openInvestigations={openInvestigations.length}
+          closedInvestigations={closedInvestigations.length}
+          closureRate={investigationClosureRate}
+          topRootCauses={topRootCauses}
+          failedCyclesBySterilizer={failedCyclesBySterilizer}
+        />
+
         <ComplianceDetails
           openInvestigations={openInvestigations}
           recentlyClosedInvestigations={recentlyClosedInvestigations}
@@ -548,6 +570,11 @@ type RootCauseBreakdownItem = {
   count: number;
 };
 
+type SterilizerFailureItem = {
+  sterilizer: string;
+  count: number;
+};
+
 function ReportTabs({
   activeTab,
   onChange,
@@ -601,6 +628,29 @@ function getRootCauseBreakdown(cycles: Cycle[]): RootCauseBreakdownItem[] {
   return Object.entries(counts)
     .map(([rootCause, count]) => ({ rootCause, count }))
     .sort((a, b) => b.count - a.count || a.rootCause.localeCompare(b.rootCause));
+}
+
+function getFailedCyclesBySterilizer(cycles: Cycle[]): SterilizerFailureItem[] {
+  const counts = cycles.reduce<Record<string, number>>((breakdown, cycle) => {
+    const sterilizer = cycle.sterilizer || "Unknown sterilizer";
+
+    breakdown[sterilizer] = (breakdown[sterilizer] || 0) + 1;
+    return breakdown;
+  }, {});
+
+  return Object.entries(counts)
+    .map(([sterilizer, count]) => ({ sterilizer, count }))
+    .sort((a, b) => b.count - a.count || a.sterilizer.localeCompare(b.sterilizer));
+}
+
+function getInvestigationClosureRate(openCount: number, closedCount: number) {
+  const total = openCount + closedCount;
+
+  if (total === 0) {
+    return "0.0";
+  }
+
+  return ((closedCount / total) * 100).toFixed(1);
 }
 
 function ComplianceOverview({
@@ -668,6 +718,114 @@ function ComplianceOverview({
         </table>
       </div>
     </section>
+  );
+}
+
+function ComplianceAnalytics({
+  openInvestigations,
+  closedInvestigations,
+  closureRate,
+  topRootCauses,
+  failedCyclesBySterilizer,
+}: {
+  openInvestigations: number;
+  closedInvestigations: number;
+  closureRate: string;
+  topRootCauses: RootCauseBreakdownItem[];
+  failedCyclesBySterilizer: SterilizerFailureItem[];
+}) {
+  return (
+    <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5">
+        <h2 className="text-2xl font-semibold">Compliance Analytics</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Management insights for investigation closure and recurring failure patterns.
+        </p>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard
+          title="Open Investigations"
+          value={openInvestigations}
+          warning={openInvestigations > 0}
+        />
+        <MetricCard title="Closed Investigations" value={closedInvestigations} good />
+        <MetricCard title="Closure Rate" value={`${closureRate}%`} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ComplianceRankedList
+          title="Top Root Causes"
+          emptyMessage="No root causes found for this range."
+          labelHeader="Root Cause"
+          valueHeader="Count"
+          items={topRootCauses.map((item) => ({
+            label: item.rootCause,
+            value: item.count,
+          }))}
+        />
+
+        <ComplianceRankedList
+          title="Failed Cycles by Sterilizer"
+          emptyMessage="No failed cycles found for this range."
+          labelHeader="Sterilizer"
+          valueHeader="Failed Cycles"
+          items={failedCyclesBySterilizer.map((item) => ({
+            label: item.sterilizer,
+            value: item.count,
+          }))}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ComplianceRankedList({
+  title,
+  emptyMessage,
+  labelHeader,
+  valueHeader,
+  items,
+}: {
+  title: string;
+  emptyMessage: string;
+  labelHeader: string;
+  valueHeader: string;
+  items: { label: string; value: number }[];
+}) {
+  return (
+    <div>
+      <h3 className="mb-3 text-lg font-semibold">{title}</h3>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">{labelHeader}</th>
+              <th className="px-4 py-3 text-right font-medium">{valueHeader}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr>
+                <td className="px-4 py-4 text-slate-500" colSpan={2}>
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              items.map((item) => (
+                <tr key={item.label} className="border-t border-slate-200">
+                  <td className="px-4 py-3">{item.label}</td>
+                  <td className="px-4 py-3 text-right font-semibold">
+                    {item.value}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
