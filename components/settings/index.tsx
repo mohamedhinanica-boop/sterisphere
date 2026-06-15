@@ -25,16 +25,22 @@ export function InputField({
   value,
   onChange,
   placeholder,
+  type = "text",
+  min,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  type?: string;
+  min?: string;
 }) {
   return (
     <div>
       <label className="block text-sm font-medium mb-2">{label}</label>
       <input
+        type={type}
+        min={min}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"

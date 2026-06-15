@@ -13,7 +13,7 @@ Patients
 ✓ Step 4B: Extract date/filter helpers
 
 Settings
-□ Step 1
+✓ Step 1 (SettingsOverview)
 
 Dashboard
 ✓ Step 1–2
