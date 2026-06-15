@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import MetricCard from "@/components/reports/MetricCard";
 import PackBadge from "@/components/reports/PackBadge";
+import PrintTable from "@/components/reports/PrintTable";
+import ReportSection from "@/components/reports/ReportSection";
 import StatusBadge from "@/components/reports/StatusBadge";
+import {
+  getEffectivePackStatus,
+  getRangeLabel,
+  isExpiringSoon,
+  paginate,
+} from "@/components/reports/reportUtils";
 import {
   type AuditLog,
   type Cycle,
@@ -73,30 +81,6 @@ export default function ReportsPage() {
     return new Date(date) >= start;
   }
 
-  function getEffectivePackStatus(pack: Pack) {
-    if (pack.status === "Used") return "Used";
-
-    if (pack.expires_at && new Date(pack.expires_at) < new Date()) {
-      return "Expired";
-    }
-
-    return pack.status || "Available";
-  }
-
-  function isExpiringSoon(pack: Pack) {
-    if (!pack.expires_at || getEffectivePackStatus(pack) !== "Available") {
-      return false;
-    }
-
-    const today = new Date();
-    const expiry = new Date(pack.expires_at);
-    const diffInDays = Math.ceil(
-      (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    return diffInDays >= 0 && diffInDays <= 30;
-  }
-
   const rangedCycles = cycles.filter((cycle) => inSelectedRange(cycle.created_at));
   const rangedPacks = packs.filter((pack) => inSelectedRange(pack.created_at));
   const rangedTraces = patientTraces.filter((trace) =>
@@ -156,9 +140,9 @@ export default function ReportsPage() {
       ? ((usedPacks.length / rangedPacks.length) * 100).toFixed(1)
       : "0.0";
 
-  const paginatedCycles = paginate(filteredCycles, cyclesPage);
-  const paginatedPacks = paginate(filteredPacks, packsPage);
-  const paginatedTraces = paginate(filteredTraces, tracesPage);
+  const paginatedCycles = paginate(filteredCycles, cyclesPage, itemsPerPage);
+  const paginatedPacks = paginate(filteredPacks, packsPage, itemsPerPage);
+  const paginatedTraces = paginate(filteredTraces, tracesPage, itemsPerPage);
 
   function printFullReport() {
     window.print();
@@ -491,18 +475,6 @@ export default function ReportsPage() {
   );
 }
 
-function paginate<T>(items: T[], page: number) {
-  return items.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-}
-
-function getRangeLabel(range: string) {
-  if (range === "today") return "Today";
-  if (range === "7") return "Last 7 days";
-  if (range === "30") return "Last 30 days";
-  if (range === "90") return "Last 90 days";
-  return "All time";
-}
-
 function SummaryGrid({
   cycles,
   passed,
@@ -549,82 +521,3 @@ function SummaryGrid({
     </section>
   );
 }
-
-function ReportSection({
-  title,
-  count,
-  page,
-  totalPages,
-  onPrevious,
-  onNext,
-  children,
-}: {
-  title: string;
-  count: number;
-  page: number;
-  totalPages: number;
-  onPrevious: () => void;
-  onNext: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-2xl font-semibold">{title}</h2>
-          <p className="text-sm text-slate-500 mt-1">{count} record(s)</p>
-        </div>
-      </div>
-
-      <div className="space-y-3">{children}</div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-3 mt-6">
-          <p className="text-sm text-slate-500">
-            Page {page} of {totalPages}
-          </p>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              disabled={page === 1}
-              onClick={onPrevious}
-              className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-
-            <button
-              type="button"
-              disabled={page === totalPages}
-              onClick={onNext}
-              className="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PrintTable({
-  title,
-  rows,
-  children,
-}: {
-  title: string;
-  rows: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-8">
-      <h2 className="text-xl font-semibold mb-2">
-        {title} ({rows})
-      </h2>
-      {rows === 0 ? <p>No records.</p> : children}
-    </section>
-  );
-}
-

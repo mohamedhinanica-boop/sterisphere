@@ -23,3 +23,8 @@ Dashboard
 ✓ Step 5 (Providers)
 ✓ Step 6 (Sterilizers)
 ✓ Step 7 (Users)
+
+Reports
+✓ Step 1
+✓ Step 2 ReportSection + PrintTable
+□ Step 3 Helpers
