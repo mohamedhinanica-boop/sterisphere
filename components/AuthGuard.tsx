@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 const routePermissions: Record<string, string[]> = {
   "/": ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
+  "/assistant": ["super_admin", "admin", "clinical_staff"],
   "/cycles": ["super_admin", "admin", "clinical_staff"],
   "/packs": ["super_admin", "admin", "clinical_staff"],
   "/patients": ["super_admin", "admin", "clinical_staff", "doctor"],
