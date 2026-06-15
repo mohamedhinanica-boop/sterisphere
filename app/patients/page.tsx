@@ -4,7 +4,7 @@ import { createAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
 import { getProviders } from "@/lib/modules/traceability";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import SummaryCard from '@/components/patients/SummaryCard';
 import PreviewRow from '@/components/patients/PreviewRow';
@@ -62,6 +62,7 @@ type TraceFilters = {
 const itemsPerPage = 5;
 
 export default function PatientsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const selectedTraceId = searchParams.get("traceId");
 
@@ -253,6 +254,7 @@ export default function PatientsPage() {
     });
     setTraceSearch("");
     setCurrentPage(1);
+    router.replace("/patients", { scroll: false });
   }
 
   function selectPatient(patient: Patient) {
