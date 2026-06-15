@@ -12,6 +12,7 @@ import {
   getRiskLevel,
   getValue,
 } from "@/components/investigation/investigationUtils";
+import { supabase } from "@/lib/supabase";
 import {
   formatDate,
   formatDateTime,
@@ -80,11 +81,14 @@ export default function InvestigationPage() {
   const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
   const [failedCyclesPage, setFailedCyclesPage] = useState(1);
   const [investigationNotice, setInvestigationNotice] = useState("");
+  const [currentUserRole, setCurrentUserRole] = useState("");
+  const [reopenReason, setReopenReason] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cycle = params.get("cycle");
 
+    loadCurrentUserRole();
     loadFailedCycles();
 
     if (cycle) {
@@ -92,6 +96,30 @@ export default function InvestigationPage() {
       investigateCycle(cycle);
     }
   }, []);
+
+  async function loadCurrentUserRole() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.email) {
+      setCurrentUserRole("");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_email", user.email)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading current user role:", error);
+      return;
+    }
+
+    setCurrentUserRole(data?.role || "");
+  }
 
   async function loadFailedCycles() {
     try {
@@ -187,6 +215,9 @@ export default function InvestigationPage() {
   const correctiveAction =
     cycleDetails?.investigation_corrective_action || "";
   const investigationChecklist = getInvestigationChecklist(cycleDetails);
+  const isInvestigationClosed = investigationStatus === "Closed";
+  const canReopenInvestigation =
+    isInvestigationClosed && currentUserRole === "super_admin";
   const failedCyclesTotalPages = Math.max(
     1,
     Math.ceil(failedCycles.length / failedCyclesPageSize)
@@ -208,12 +239,21 @@ export default function InvestigationPage() {
       return;
     }
 
+    if (isInvestigationClosed) {
+      toast.error("Closed investigations cannot be modified.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const updatedLifecycle = await updateInvestigationLifecycle(
         cycleDetails.id,
-        status
+        status,
+        {
+          cycleNumber: cycleDetails.cycle_number,
+          previousStatus: investigationStatus,
+        }
       );
 
       setCycleDetails({
@@ -232,8 +272,51 @@ export default function InvestigationPage() {
     }
   }
 
+  async function reopenInvestigation() {
+    if (!cycleDetails) {
+      return;
+    }
+
+    if (!canReopenInvestigation) {
+      toast.error("Only super admin users can reopen investigations.");
+      return;
+    }
+
+    const reason = reopenReason.trim();
+
+    if (!reason) {
+      toast.error("Please enter a reopen reason.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await updateInvestigationLifecycle(cycleDetails.id, "In Review", {
+        cycleNumber: cycleDetails.cycle_number,
+        previousStatus: investigationStatus,
+        reopenReason: reason,
+      });
+
+      setReopenReason("");
+      await investigateCycle(cycleDetails.cycle_number);
+      await loadFailedCycles();
+      toast.success("Investigation reopened.");
+    } catch (error) {
+      toast.error("Error reopening investigation.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function saveInvestigationRecord() {
     if (!cycleDetails) {
+      return;
+    }
+
+    if (isInvestigationClosed) {
+      toast.error("Closed investigations cannot be modified.");
       return;
     }
 
@@ -247,6 +330,11 @@ export default function InvestigationPage() {
           preventiveAction,
           correctiveAction,
           checklist: investigationChecklist,
+        },
+        {
+          cycleNumber: cycleDetails.cycle_number,
+          previousStatus: investigationStatus,
+          newStatus: investigationStatus,
         }
       );
 
@@ -272,6 +360,10 @@ export default function InvestigationPage() {
   }
 
   function updateChecklistItem(key: string, checked: boolean) {
+    if (isInvestigationClosed) {
+      return;
+    }
+
     setCycleDetails((current) =>
       current
         ? {
@@ -477,7 +569,7 @@ export default function InvestigationPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 no-print">
-              {investigationStatus !== "In Review" && (
+              {!isInvestigationClosed && investigationStatus !== "In Review" && (
                 <button
                   type="button"
                   onClick={() => updateLifecycle("In Review")}
@@ -488,7 +580,7 @@ export default function InvestigationPage() {
                 </button>
               )}
 
-              {investigationStatus !== "Closed" && (
+              {!isInvestigationClosed && (
                 <button
                   type="button"
                   onClick={() => updateLifecycle("Closed")}
@@ -512,6 +604,41 @@ export default function InvestigationPage() {
           {investigationNotice && (
             <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
               {investigationNotice}
+            </div>
+          )}
+
+          {isInvestigationClosed && (
+            <div className="mb-6 rounded-xl border border-slate-300 bg-slate-100 p-4">
+              <h3 className="text-base font-semibold text-slate-900">
+                Investigation Closed
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                This investigation is locked and cannot be modified.
+              </p>
+            </div>
+          )}
+
+          {canReopenInvestigation && (
+            <div className="no-print mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+              <label className="text-sm font-medium text-yellow-900">
+                Reopen Reason
+              </label>
+              <textarea
+                value={reopenReason}
+                onChange={(event) => setReopenReason(event.target.value)}
+                className="mt-2 min-h-24 w-full rounded-xl border border-yellow-200 bg-white px-4 py-3 text-sm"
+                placeholder="Document why this closed investigation needs to be reopened."
+              />
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={reopenInvestigation}
+                  disabled={loading || !reopenReason.trim()}
+                  className="rounded-xl border border-yellow-300 bg-white px-5 py-3 text-sm font-medium text-yellow-800 hover:bg-yellow-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Reopen Investigation
+                </button>
+              </div>
             </div>
           )}
 
@@ -777,6 +904,7 @@ export default function InvestigationPage() {
                 </label>
                 <select
                   value={rootCause}
+                  disabled={isInvestigationClosed}
                   onChange={(e) =>
                     setCycleDetails((current) =>
                       current
@@ -787,7 +915,7 @@ export default function InvestigationPage() {
                         : current
                     )
                   }
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                 >
                   {rootCauseOptions.map((option) => (
                     <option key={option} value={option}>
@@ -803,6 +931,7 @@ export default function InvestigationPage() {
                 </p>
                 <textarea
                   value={preventiveAction}
+                  disabled={isInvestigationClosed}
                   onChange={(e) =>
                     setCycleDetails((current) =>
                       current
@@ -813,7 +942,7 @@ export default function InvestigationPage() {
                         : current
                     )
                   }
-                  className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                  className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                   placeholder="Document preventive steps taken to reduce recurrence."
                 />
               </div>
@@ -825,6 +954,7 @@ export default function InvestigationPage() {
               </p>
               <textarea
                 value={correctiveAction}
+                disabled={isInvestigationClosed}
                 onChange={(e) =>
                   setCycleDetails((current) =>
                     current
@@ -835,7 +965,7 @@ export default function InvestigationPage() {
                       : current
                   )
                 }
-                className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                 placeholder="Document corrective actions, biological indicator results, staff follow-up, or quarantine confirmation."
               />
             </div>
@@ -848,22 +978,25 @@ export default function InvestigationPage() {
                   key={item.key}
                   text={item.text}
                   checked={investigationChecklist[item.key]}
+                  disabled={isInvestigationClosed}
                   onChange={(checked) => updateChecklistItem(item.key, checked)}
                 />
               ))}
             </div>
           </ReportBlock>
 
-          <div className="no-print mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={saveInvestigationRecord}
-              disabled={loading}
-              className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Save Investigation Record
-            </button>
-          </div>
+          {!isInvestigationClosed && (
+            <div className="no-print mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={saveInvestigationRecord}
+                disabled={loading}
+                className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save Investigation Record
+              </button>
+            </div>
+          )}
         </section>
       )}
     </>

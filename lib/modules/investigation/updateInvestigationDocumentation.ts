@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { createAuditLog } from "@/lib/audit";
 
 type InvestigationDocumentation = {
   rootCause: string;
@@ -9,7 +10,12 @@ type InvestigationDocumentation = {
 
 export async function updateInvestigationDocumentation(
   cycleId: string,
-  documentation: InvestigationDocumentation
+  documentation: InvestigationDocumentation,
+  auditContext: {
+    cycleNumber: string;
+    previousStatus: string;
+    newStatus: string;
+  }
 ) {
   const { data, error } = await supabase
     .from("cycles")
@@ -33,6 +39,19 @@ export async function updateInvestigationDocumentation(
   if (error) {
     throw error;
   }
+
+  await createAuditLog({
+    action: "Investigation Record Updated",
+    entityType: "cycle",
+    entityId: cycleId,
+    description: `Investigation record updated for cycle ${auditContext.cycleNumber}`,
+    metadata: {
+      cycle_id: cycleId,
+      cycle_number: auditContext.cycleNumber,
+      previous_status: auditContext.previousStatus,
+      new_status: auditContext.newStatus,
+    },
+  });
 
   return data;
 }
