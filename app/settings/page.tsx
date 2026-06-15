@@ -9,6 +9,7 @@ import SettingsOverview from "@/components/settings/SettingsOverview";
 import SettingsPolicies from "@/components/settings/SettingsPolicies";
 import SettingsAlerts from "@/components/settings/SettingsAlerts";
 import SettingsProviders from "@/components/settings/SettingsProviders";
+import SettingsSterilizers from "@/components/settings/SettingsSterilizers";
 import {
   getExpirationPreset,
   getProviderTitle,
@@ -17,13 +18,10 @@ import {
 } from "@/components/settings/settingsUtils";
 import {
   InputField,
-  ManagementRow,
   Panel,
   RoleBadge,
-  SectionHeader,
   StatusBadge,
   StatusCount,
-  SterilizerTypeBadge,
 } from "@/components/settings";
 
 
@@ -816,13 +814,18 @@ async function updateProvider(providerId: string) {
       .from("sterilizers")
       .update({
         active: !currentStatus,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", sterilizerId);
 
     if (error) {
       toast.error(error.message || "Error updating sterilizer.");
-      console.error(error);
+      console.error("Sterilizer status update error:", {
+        error,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
       setLoading(false);
       return;
     }
@@ -1171,76 +1174,17 @@ async function updateProvider(providerId: string) {
           )}
 
           {activeTab === "sterilizers" && (
-            <Panel
-              title="Sterilizer Management"
-              description="Manage sterilizers used during cycle creation."
-            >
-              <SectionHeader
-                activeCount={activeSterilizers.length}
-                inactiveCount={inactiveSterilizers.length}
-              />
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-6">
-                <h3 className="font-semibold mb-4">Add Sterilizer</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <input
-                    value={sterilizerForm.name}
-                    onChange={(e) =>
-                      setSterilizerForm((current) => ({
-                        ...current,
-                        name: e.target.value,
-                      }))
-                    }
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    placeholder="Example: STATIM 5000 #1"
-                  />
-
-                  <select
-                    value={sterilizerForm.type}
-                    onChange={(e) =>
-                      setSterilizerForm((current) => ({
-                        ...current,
-                        type: e.target.value,
-                      }))
-                    }
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                  >
-                    <option value="Autoclave">Autoclave</option>
-                    <option value="Statim">Statim</option>
-                    <option value="Washer">Washer</option>
-                    <option value="Other">Other</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={addSterilizer}
-                    disabled={loading || !canManageSettings()}
-                    className="rounded-xl bg-slate-950 text-white px-5 py-3 font-medium cursor-pointer hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Add Sterilizer
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {sterilizers.map((sterilizer) => (
-                  <ManagementRow
-                    key={sterilizer.id}
-                    title={sterilizer.name}
-                    badge={
-                      <SterilizerTypeBadge type={sterilizer.type || "Other"} />
-                    }
-                    active={sterilizer.active}
-                    createdAt={sterilizer.created_at}
-                    onToggle={() =>
-                      toggleSterilizerStatus(sterilizer.id, sterilizer.active)
-                    }
-                    loading={loading}
-                  />
-                ))}
-              </div>
-            </Panel>
+            <SettingsSterilizers
+              sterilizers={sterilizers}
+              activeSterilizersCount={activeSterilizers.length}
+              inactiveSterilizersCount={inactiveSterilizers.length}
+              sterilizerForm={sterilizerForm}
+              setSterilizerForm={setSterilizerForm}
+              addSterilizer={addSterilizer}
+              onToggleSterilizerStatus={toggleSterilizerStatus}
+              loading={loading}
+              canManageSettings={canManageSettings()}
+            />
           )}
 
 
