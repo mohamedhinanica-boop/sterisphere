@@ -10,6 +10,7 @@ import SummaryCard from '@/components/patients/SummaryCard';
 import PreviewRow from '@/components/patients/PreviewRow';
 import TraceabilityFilters from "@/components/patients/TraceabilityFilters";
 import TraceabilityRecordsList from "@/components/patients/TraceabilityRecordsList";
+import { buildExportFileName, escapeCsvValue } from "@/components/patients/exportUtils";
 
 type Patient = {
   id: string;
@@ -819,53 +820,6 @@ function isTraceWithinDateRange(
   if (dateTo && traceLocalDate > dateTo) return false;
 
   return true;
-}
-
-function escapeCsvValue(value: string) {
-  const safeValue = value ?? "";
-  const escaped = safeValue.replace(/"/g, '""');
-  return `"${escaped}"`;
-}
-
-function buildExportFileName(filters: TraceFilters, quickSearch: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const parts = ["traceability"];
-
-  if (filters.provider) {
-    parts.push(slugify(filters.provider));
-  }
-
-  if (filters.dateFrom && filters.dateTo) {
-    parts.push(`${filters.dateFrom}-to-${filters.dateTo}`);
-  } else if (filters.dateFrom) {
-    parts.push(`from-${filters.dateFrom}`);
-  } else if (filters.dateTo) {
-    parts.push(`to-${filters.dateTo}`);
-  }
-
-  if (filters.patientName) {
-    parts.push(slugify(filters.patientName));
-  }
-
-  if (filters.packNumber) {
-    parts.push(slugify(filters.packNumber));
-  }
-
-  if (quickSearch) {
-    parts.push("search");
-  }
-
-  parts.push(today);
-
-  return `${parts.join("-")}.csv`;
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 function formatDate(date: string | null) {
