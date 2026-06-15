@@ -28,6 +28,8 @@ import {
   type InvestigationPatientTrace,
 } from "@/lib/modules/investigation";
 
+const failedCyclesPageSize = 10;
+
 export default function InvestigationPage() {
   const [cycleNumber, setCycleNumber] = useState("");
   const [packs, setPacks] = useState<InvestigationPack[]>([]);
@@ -38,20 +40,18 @@ export default function InvestigationPage() {
   const [cycleDetails, setCycleDetails] =
     useState<InvestigationCycle | null>(null);
   const [failedCycles, setFailedCycles] = useState<FailedCycle[]>([]);
+  const [failedCyclesPage, setFailedCyclesPage] = useState(1);
   const [investigationNotice, setInvestigationNotice] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cycle = params.get("cycle");
-    const filter = params.get("filter");
+
+    loadFailedCycles();
 
     if (cycle) {
       setCycleNumber(cycle);
       investigateCycle(cycle);
-    }
-
-    if (filter === "failed") {
-      loadFailedCycles();
     }
   }, []);
 
@@ -59,6 +59,7 @@ export default function InvestigationPage() {
     try {
       const data = await getFailedCycles();
       setFailedCycles(data);
+      setFailedCyclesPage(1);
     } catch (error) {
       toast.error("Error loading failed cycles.");
       console.error("Error loading failed cycles:", error);
@@ -135,6 +136,21 @@ export default function InvestigationPage() {
 
   const riskLevel = getRiskLevel(cycleDetails, packs.length, patients.length);
   const investigationStatus = getInvestigationStatus(cycleDetails);
+  const failedCyclesTotalPages = Math.max(
+    1,
+    Math.ceil(failedCycles.length / failedCyclesPageSize)
+  );
+  const failedCyclesStartIndex = (failedCyclesPage - 1) * failedCyclesPageSize;
+  const paginatedFailedCycles = failedCycles.slice(
+    failedCyclesStartIndex,
+    failedCyclesStartIndex + failedCyclesPageSize
+  );
+  const failedCyclesShowingStart =
+    failedCycles.length === 0 ? 0 : failedCyclesStartIndex + 1;
+  const failedCyclesShowingEnd = Math.min(
+    failedCyclesStartIndex + failedCyclesPageSize,
+    failedCycles.length
+  );
 
   async function updateLifecycle(status: InvestigationLifecycleStatus) {
     if (!cycleDetails) {
@@ -231,7 +247,7 @@ export default function InvestigationPage() {
               onClick={loadFailedCycles}
               className="rounded-xl border border-slate-300 px-6 py-3 font-medium hover:bg-slate-50"
             >
-              Load Failed Cycles
+              Refresh Failed Cycles
             </button>
           </div>
         </div>
@@ -269,7 +285,7 @@ export default function InvestigationPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {failedCycles.map((cycle) => (
+            {paginatedFailedCycles.map((cycle) => (
               <button
                 key={cycle.id}
                 type="button"
@@ -289,10 +305,43 @@ export default function InvestigationPage() {
                   <StatusBadge status={getInvestigationStatus(cycle)} />
                 </div>
                 <p className="mt-2 text-xs text-red-500">
-                  Created: {formatDateTime(cycle.created_at)}
+                  {getFailedCycleDateLabel(cycle)}
                 </p>
               </button>
             ))}
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 border-t border-red-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-red-700">
+              Showing {failedCyclesShowingStart}-{failedCyclesShowingEnd} of{" "}
+              {failedCycles.length} failed cycles
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setFailedCyclesPage((page) => Math.max(1, page - 1))
+                }
+                disabled={failedCyclesPage === 1}
+                className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setFailedCyclesPage((page) =>
+                    Math.min(failedCyclesTotalPages, page + 1)
+                  )
+                }
+                disabled={failedCyclesPage >= failedCyclesTotalPages}
+                className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -639,4 +688,19 @@ function getInvestigationStatus(
   }
 
   return "Open";
+}
+
+function getFailedCycleDateLabel(cycle: FailedCycle) {
+  if (
+    getInvestigationStatus(cycle) === "Closed" &&
+    cycle.investigation_closed_at
+  ) {
+    return `Closed: ${formatDateTime(cycle.investigation_closed_at)}`;
+  }
+
+  if (cycle.reviewed_at) {
+    return `Reviewed: ${formatDateTime(cycle.reviewed_at)}`;
+  }
+
+  return `Created: ${formatDateTime(cycle.created_at)}`;
 }
