@@ -22,6 +22,9 @@ import { supabase } from "@/lib/supabase";
 const primaryActions = [
   { title: "Start Cycle", href: "/cycles", icon: ClipboardCheck },
   { title: "Trace Patient", href: "/patients", icon: Search },
+];
+
+const workflowActions = [
   { title: "Scan QR", href: "/patients", icon: QrCode },
   { title: "Pack Inventory", href: "/packs", icon: Package },
 ];
@@ -137,16 +140,16 @@ export default function AssistantPage() {
 
       <section className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <KpiCard
+          title="Running Cycles"
+          value={status.pendingCycles}
+          loading={loading}
+          tone={status.pendingCycles > 0 ? "warning" : "neutral"}
+        />
+        <KpiCard
           title="Available Packs"
           value={status.availablePacks}
           loading={loading}
           tone="normal"
-        />
-        <KpiCard
-          title="Running/Pending Cycles"
-          value={status.pendingCycles}
-          loading={loading}
-          tone={status.pendingCycles > 0 ? "warning" : "neutral"}
         />
         <KpiCard
           title="Expired Packs"
@@ -155,10 +158,10 @@ export default function AssistantPage() {
           tone={status.expiredPacks > 0 ? "critical" : "neutral"}
         />
         <KpiCard
-          title="Open Investigations"
-          value={status.openInvestigations}
+          title="Alerts/Open Investigations"
+          value={alertCount}
           loading={loading}
-          tone={status.openInvestigations > 0 ? "warning" : "neutral"}
+          tone={alertCount > 0 ? "warning" : "neutral"}
         />
       </section>
 
@@ -171,9 +174,18 @@ export default function AssistantPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {secondaryActions.map((action) => (
+            {workflowActions.map((action) => (
               <ActionTile key={action.title} {...action} />
             ))}
+          </div>
+
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4">
+            <RunningCycleStatus pendingCycles={status.pendingCycles} loading={loading} />
+            <div className="grid grid-cols-2 gap-3">
+              {secondaryActions.map((action) => (
+                <UtilityTile key={action.title} {...action} />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -227,21 +239,71 @@ function ActionTile({
   return (
     <Link
       href={href}
-      className={`flex min-h-32 flex-col justify-between rounded-3xl border p-5 shadow-sm ${
+      className={`flex flex-col justify-between rounded-3xl border p-5 shadow-sm ${
         primary
-          ? "border-slate-900 bg-white text-slate-950"
-          : "border-slate-200 bg-white text-slate-800"
+          ? "min-h-52 border-slate-950 bg-slate-950 text-white"
+          : "min-h-32 border-slate-200 bg-white text-slate-800"
       }`}
     >
       <span
         className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
-          primary ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700"
+          primary ? "bg-white text-slate-950" : "bg-slate-100 text-slate-700"
         }`}
       >
         <Icon className="h-7 w-7" />
       </span>
-      <span className="text-2xl font-bold">{title}</span>
+      <span className={primary ? "text-4xl font-bold" : "text-2xl font-bold"}>
+        {title}
+      </span>
     </Link>
+  );
+}
+
+function UtilityTile({
+  title,
+  href,
+  icon: Icon,
+}: {
+  title: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-24 flex-col justify-between rounded-3xl border border-slate-200 bg-white/80 p-4 text-slate-600 shadow-sm"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="text-lg font-semibold">{title}</span>
+    </Link>
+  );
+}
+
+function RunningCycleStatus({
+  pendingCycles,
+  loading,
+}: {
+  pendingCycles: number;
+  loading: boolean;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Running Cycle Status</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {loading
+              ? "Checking cycle queue..."
+              : pendingCycles > 0
+                ? "Cycles are awaiting review."
+                : "No active cycles"}
+          </p>
+        </div>
+        <Timer className="h-7 w-7 text-slate-400" />
+      </div>
+    </section>
   );
 }
 
@@ -277,24 +339,26 @@ function AssistantPanel({
           <p>Loading workstation status...</p>
         ) : hasAlerts ? (
           <>
-            <p className="text-lg font-semibold">Review recommended</p>
+            <p className="text-lg font-semibold">
+              Start with the highest-risk items first.
+            </p>
+            {status.failedCycles > 0 && (
+              <p>Investigate failed cycles before releasing related packs.</p>
+            )}
             {status.expiredPacks > 0 && (
-              <p>{status.expiredPacks} expired pack(s) need review.</p>
+              <p>Review expired packs and keep them out of patient use.</p>
             )}
             {status.pendingCycles > 0 && (
-              <p>{status.pendingCycles} pending cycle(s) need confirmation.</p>
-            )}
-            {status.failedCycles > 0 && (
-              <p>{status.failedCycles} failed cycle(s) need investigation.</p>
+              <p>Confirm pending cycles before starting the next load.</p>
             )}
             {status.openInvestigations > 0 && (
-              <p>{status.openInvestigations} open investigation(s) need review.</p>
+              <p>Check open investigations for follow-up actions.</p>
             )}
           </>
         ) : (
           <>
-            <p className="text-lg font-semibold">All clear.</p>
-            <p>Daily sterilization and traceability workflows are ready.</p>
+            <p className="text-lg font-semibold">Workstation ready.</p>
+            <p>No urgent sterilization or traceability alerts are active.</p>
           </>
         )}
       </div>
