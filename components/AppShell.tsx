@@ -60,6 +60,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
+  const isAssistantPage = pathname === "/assistant";
 
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -95,13 +96,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (!isLoginPage) {
+    if (!isLoginPage && !isAssistantPage) {
       loadUser();
     }
-  }, [isLoginPage]);
+  }, [isLoginPage, isAssistantPage]);
 
   useEffect(() => {
-    if (isLoginPage) return;
+    if (isLoginPage || isAssistantPage) return;
 
     fetchAssistantData();
 
@@ -110,7 +111,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [isLoginPage]);
+  }, [isLoginPage, isAssistantPage]);
 
   async function fetchAssistantData() {
     const now = new Date();
@@ -171,6 +172,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isLoginPage) {
     return <>{children}</>;
+  }
+
+  if (isAssistantPage) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-slate-100 text-slate-950">
+          {children}
+        </div>
+      </AuthGuard>
+    );
   }
 
   return (

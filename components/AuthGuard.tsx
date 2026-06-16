@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
 
-const accessCheckTimeoutMs = 12000;
+const accessCheckTimeoutMs = 30000;
 
 const routePermissions: Record<string, string[]> = {
   "/": ["super_admin", "admin", "clinical_staff", "doctor", "auditor"],
@@ -65,15 +65,35 @@ export default function AuthGuard({
           return;
         }
 
-        console.info("[AuthGuard] Loading auth user.");
+        console.info("[AuthGuard] Loading auth session.");
         const {
-          data: { user },
-          error: userError,
+          data: { session },
+          error: sessionError,
         } = await withTimeout(
-          supabase.auth.getUser(),
+          supabase.auth.getSession(),
           accessCheckTimeoutMs,
-          "Auth user lookup timed out."
+          "Authentication check timed out"
         );
+
+        console.info("[AuthGuard] Auth session loaded.", {
+          hasSession: Boolean(session),
+          hasError: Boolean(sessionError),
+        });
+
+        let user = session?.user || null;
+        let userError = sessionError;
+
+        if (!user && !sessionError) {
+          console.info("[AuthGuard] Session missing user; falling back to getUser.");
+          const userResult = await withTimeout(
+            supabase.auth.getUser(),
+            accessCheckTimeoutMs,
+            "Authentication check timed out"
+          );
+
+          user = userResult.data.user;
+          userError = userResult.error;
+        }
 
         console.info("[AuthGuard] Auth user loaded.", {
           hasUser: Boolean(user),
@@ -96,22 +116,9 @@ export default function AuthGuard({
           null;
         let roleError: unknown = null;
 
-        try {
-          const result = await withTimeout(
-            supabase
-              .from("user_roles")
-              .select("role, active")
-              .eq("user_email", user.email)
-              .maybeSingle(),
-            accessCheckTimeoutMs,
-            "Role lookup timed out."
-          );
-
-          roleData = result.data;
-          roleError = result.error;
-        } catch (error) {
-          roleError = error;
-        }
+        const roleResult = await getRoleWithRetry(user.email);
+        roleData = roleResult.data;
+        roleError = roleResult.error;
 
         console.info("[AuthGuard] Role lookup result.", {
           role: roleData?.role || null,
@@ -237,4 +244,39 @@ async function withTimeout<T>(
       clearTimeout(timeoutId);
     }
   }
+}
+
+async function getRoleWithRetry(userEmail: string) {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      console.info("[AuthGuard] Role lookup attempt.", { attempt });
+
+      const result = await withTimeout(
+        supabase
+          .from("user_roles")
+          .select("role, active")
+          .eq("user_email", userEmail)
+          .maybeSingle(),
+        accessCheckTimeoutMs,
+        "Role verification timed out"
+      );
+
+      if (!result.error) {
+        return result;
+      }
+
+      lastError = result.error;
+      console.error("[AuthGuard] Role lookup error:", result.error);
+    } catch (error) {
+      lastError = error;
+      console.error("[AuthGuard] Role lookup error:", error);
+    }
+  }
+
+  return {
+    data: null,
+    error: lastError,
+  };
 }
