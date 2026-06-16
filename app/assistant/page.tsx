@@ -38,7 +38,6 @@ type WorkstationStatus = {
   pendingCycles: number;
   availablePacks: number;
   expiredPacks: number;
-  openInvestigations: number;
   failedCycles: number;
 };
 
@@ -47,30 +46,50 @@ type CurrentUser = {
   role: string;
 };
 
+type RunningCycle = {
+  id: string;
+  cycle_number: string;
+  sterilizer: string;
+  status: string;
+  cycle_state: string | null;
+  expected_finish_at: string | null;
+  created_at: string;
+};
+
 export default function AssistantPage() {
   const [status, setStatus] = useState<WorkstationStatus>({
     pendingCycles: 0,
     availablePacks: 0,
     expiredPacks: 0,
-    openInvestigations: 0,
     failedCycles: 0,
   });
+  const [runningCycle, setRunningCycle] = useState<RunningCycle | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser>({
     email: "",
     role: "",
   });
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     loadWorkstation();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   async function loadWorkstation() {
     setLoading(true);
 
     try {
-      const [dashboardData] = await Promise.all([
+      const [dashboardData, currentRunningCycle] = await Promise.all([
         getDashboardData(),
+        loadRunningCycle(),
         loadCurrentUser(),
       ]);
 
@@ -78,9 +97,9 @@ export default function AssistantPage() {
         pendingCycles: dashboardData.pendingCyclesCount,
         availablePacks: dashboardData.availablePacksCount,
         expiredPacks: dashboardData.unreviewedExpiredPacksCount,
-        openInvestigations: dashboardData.openInvestigationsCount,
         failedCycles: dashboardData.unreviewedFailedCyclesCount,
       });
+      setRunningCycle(currentRunningCycle);
     } catch (error) {
       toast.error("Error loading workstation status.");
       console.error("Assistant workstation status error:", error);
@@ -112,11 +131,27 @@ export default function AssistantPage() {
     });
   }
 
-  const alertCount =
-    status.expiredPacks +
-    status.pendingCycles +
-    status.failedCycles +
-    status.openInvestigations;
+  async function loadRunningCycle(): Promise<RunningCycle | null> {
+    const { data, error } = await supabase
+      .from("cycles")
+      .select(
+        "id, cycle_number, sterilizer, status, cycle_state, expected_finish_at, created_at"
+      )
+      .eq("status", "Pending")
+      .eq("cycle_state", "Open")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<RunningCycle>();
+
+    if (error) {
+      console.error("Assistant running cycle lookup error:", error);
+      return null;
+    }
+
+    return data;
+  }
+
+  const pendingReviews = status.failedCycles + status.pendingCycles;
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-100 p-3 pb-20 lg:h-screen lg:overflow-hidden">
@@ -158,10 +193,16 @@ export default function AssistantPage() {
           tone={status.expiredPacks > 0 ? "critical" : "neutral"}
         />
         <KpiCard
-          title="Alerts/Open Investigations"
-          value={alertCount}
+          title="Pending Reviews"
+          value={pendingReviews}
           loading={loading}
-          tone={alertCount > 0 ? "warning" : "neutral"}
+          tone={
+            status.failedCycles > 0
+              ? "critical"
+              : pendingReviews > 0
+                ? "warning"
+                : "neutral"
+          }
         />
       </section>
 
@@ -182,7 +223,8 @@ export default function AssistantPage() {
 
         <OperationalCenter
           status={status}
-          alertCount={alertCount}
+          runningCycle={runningCycle}
+          now={now}
           loading={loading}
         />
       </section>
@@ -256,19 +298,29 @@ function ActionTile({
 
 function OperationalCenter({
   status,
-  alertCount,
+  runningCycle,
+  now,
   loading,
 }: {
   status: WorkstationStatus;
-  alertCount: number;
+  runningCycle: RunningCycle | null;
+  now: Date;
   loading: boolean;
 }) {
-  const hasAlerts = alertCount > 0;
+  const hasFailedReviews = status.failedCycles > 0;
+  const hasPendingReviews = status.pendingCycles > 0;
+  const hasRunningCycle = Boolean(runningCycle);
+  const hasPriority = hasFailedReviews || hasRunningCycle || hasPendingReviews;
+  const timing = runningCycle
+    ? getCycleTiming(runningCycle.expected_finish_at, now)
+    : null;
 
   return (
     <aside
       className={`rounded-3xl border p-4 shadow-sm ${
-        hasAlerts
+        hasFailedReviews
+          ? "border-red-200 bg-red-50 text-red-900"
+          : hasPriority
           ? "border-yellow-200 bg-yellow-50 text-yellow-900"
           : "border-blue-200 bg-blue-50 text-blue-900"
       }`}
@@ -277,61 +329,154 @@ function OperationalCenter({
         <div>
           <h2 className="text-2xl font-bold">Operational Center</h2>
           <p className="mt-1 text-sm opacity-75">
-            Status, guidance, and utility actions
+            Live cycle status and review guidance
           </p>
         </div>
-        {hasAlerts && <ShieldAlert className="h-7 w-7 shrink-0" />}
+        {hasPriority ? (
+          <ShieldAlert className="h-7 w-7 shrink-0" />
+        ) : (
+          <Timer className="h-7 w-7 shrink-0 opacity-70" />
+        )}
       </div>
 
-      <section className="mt-4 rounded-2xl border border-white/60 bg-white/60 p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-bold">Running Cycle Status</h3>
-            <p className="mt-1 text-sm opacity-75">
-              {loading
-                ? "Checking cycle queue..."
-                : status.pendingCycles > 0
-                  ? "Cycles are awaiting review."
-                  : "No active cycles"}
+      {loading ? (
+        <section className="mt-4 rounded-2xl border border-white/60 bg-white/60 p-4">
+          <p className="text-lg font-semibold">Checking command center...</p>
+          <p className="mt-2 text-sm opacity-75">
+            Loading cycle status and pending reviews.
+          </p>
+        </section>
+      ) : hasFailedReviews ? (
+        <section className="mt-4 rounded-2xl border border-red-200 bg-white/75 p-4">
+          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
+            Critical status
+          </span>
+          <h3 className="mt-3 text-xl font-bold">
+            Failed cycle requiring review
+          </h3>
+          <p className="mt-2 text-sm">
+            {status.failedCycles} failed{" "}
+            {status.failedCycles === 1 ? "cycle is" : "cycles are"} awaiting
+            investigation review before related work can move forward.
+          </p>
+          <Link
+            href="/investigation"
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm"
+          >
+            Investigation Center
+          </Link>
+        </section>
+      ) : runningCycle && timing ? (
+        <section className="mt-4 rounded-2xl border border-yellow-200 bg-white/75 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
+                Running
+              </span>
+              <h3 className="mt-3 text-xl font-bold">
+                {runningCycle.cycle_number}
+              </h3>
+              <p className="mt-1 text-sm opacity-75">
+                {runningCycle.sterilizer}
+              </p>
+            </div>
+            <span
+              className={`rounded-xl border px-3 py-2 text-sm font-bold ${timing.badgeClass}`}
+            >
+              {timing.label}
+            </span>
+          </div>
+
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="font-semibold opacity-70">Started</dt>
+              <dd className="mt-1 font-bold">
+                {formatCompactDateTime(runningCycle.created_at)}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold opacity-70">Expected Finish</dt>
+              <dd className="mt-1 font-bold">
+                {formatCompactDateTime(runningCycle.expected_finish_at)}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold opacity-70">Time Remaining</dt>
+              <dd className={`mt-1 font-bold ${timing.textClass}`}>
+                {timing.description}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold opacity-70">Status</dt>
+              <dd className="mt-1 font-bold">Running</dd>
+            </div>
+          </dl>
+
+          <Link
+            href="/cycles?status=Pending"
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm"
+          >
+            Open Cycle
+          </Link>
+        </section>
+      ) : hasPendingReviews ? (
+        <section className="mt-4 rounded-2xl border border-yellow-200 bg-white/75 p-4">
+          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
+            Review recommended
+          </span>
+          <h3 className="mt-3 text-xl font-bold">Pending cycle review</h3>
+          <p className="mt-2 text-sm">
+            {status.pendingCycles}{" "}
+            {status.pendingCycles === 1 ? "cycle is" : "cycles are"} awaiting
+            confirmation. Review before releasing packs or starting related
+            traceability work.
+          </p>
+          <Link
+            href="/cycles?status=Pending"
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm"
+          >
+            Review Cycles
+          </Link>
+        </section>
+      ) : (
+        <section className="mt-4 rounded-2xl border border-blue-200 bg-white/75 p-4">
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
+            Normal state
+          </span>
+          <h3 className="mt-3 text-xl font-bold">No Active Cycles</h3>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <p>
+              <span className="block font-semibold opacity-70">
+                Available Packs
+              </span>
+              <span className="text-lg font-bold">{status.availablePacks}</span>
+            </p>
+            <p>
+              <span className="block font-semibold opacity-70">
+                Expired Packs
+              </span>
+              <span className="text-lg font-bold">{status.expiredPacks}</span>
             </p>
           </div>
-          <Timer className="h-6 w-6 opacity-60" />
-        </div>
-        <div className="mt-3 rounded-xl border border-dashed border-current/20 p-3 text-sm opacity-75">
-          Reserved for future running-cycle details.
-        </div>
-      </section>
+          <p className="mt-3 text-sm font-semibold">
+            All systems operating normally.
+          </p>
+        </section>
+      )}
 
-      <section className="mt-4">
-        <h3 className="text-base font-bold">Steri Assistant</h3>
-        <div className="mt-2 space-y-2 text-sm">
-          {loading ? (
-            <p>Loading workstation status...</p>
-          ) : hasAlerts ? (
-            <>
-              <p className="text-lg font-semibold">
-                Start with the highest-risk items first.
-              </p>
-              {status.failedCycles > 0 && (
-                <p>Investigate failed cycles before releasing related packs.</p>
-              )}
-              {status.expiredPacks > 0 && (
-                <p>Review expired packs and keep them out of patient use.</p>
-              )}
-              {status.pendingCycles > 0 && (
-                <p>Confirm pending cycles before starting the next load.</p>
-              )}
-              {status.openInvestigations > 0 && (
-                <p>Check open investigations for follow-up actions.</p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-semibold">Workstation ready.</p>
-              <p>No urgent sterilization or traceability alerts are active.</p>
-            </>
-          )}
-        </div>
+      <section className="mt-4 rounded-2xl border border-white/60 bg-white/60 p-3 text-sm">
+        <h3 className="font-bold">Steri Assistant</h3>
+        <p className="mt-2">
+          {loading
+            ? "Preparing workstation guidance."
+            : hasFailedReviews
+              ? "Start with failed-cycle investigations before routine tasks."
+              : hasRunningCycle
+                ? "Monitor the active cycle and confirm results when it finishes."
+                : hasPendingReviews
+                  ? "Confirm pending cycle outcomes before moving packs forward."
+                  : "Workstation ready for the next sterilization or traceability task."}
+        </p>
       </section>
 
       <section className="mt-4 grid grid-cols-2 gap-3">
@@ -352,6 +497,49 @@ function OperationalCenter({
       </section>
     </aside>
   );
+}
+
+function getCycleTiming(expectedFinishAt: string | null, now: Date) {
+  if (!expectedFinishAt) {
+    return {
+      label: "No finish time",
+      description: "N/A",
+      textClass: "text-slate-700",
+      badgeClass: "border-slate-200 bg-slate-100 text-slate-700",
+    };
+  }
+
+  const finishTime = new Date(expectedFinishAt).getTime();
+  const diffMinutes = Math.ceil((finishTime - now.getTime()) / 60000);
+
+  if (diffMinutes > 0) {
+    return {
+      label: `${diffMinutes} min remaining`,
+      description: `${diffMinutes} min`,
+      textClass: "text-blue-700",
+      badgeClass: "border-blue-200 bg-blue-100 text-blue-700",
+    };
+  }
+
+  const overdueMinutes = Math.abs(diffMinutes);
+
+  return {
+    label: `Overdue by ${overdueMinutes} min`,
+    description: `Overdue by ${overdueMinutes} min`,
+    textClass: "text-red-700",
+    badgeClass: "border-red-200 bg-red-100 text-red-700",
+  };
+}
+
+function formatCompactDateTime(date: string | null) {
+  if (!date) {
+    return "N/A";
+  }
+
+  return new Date(date).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function BottomNavigation() {
