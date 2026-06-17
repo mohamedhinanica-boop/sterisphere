@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
@@ -36,11 +37,13 @@ type LoadItem = {
 };
 
 export default function GuidedCycleStartPage() {
+  const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [sterilizer, setSterilizer] = useState("");
   const [loadItems, setLoadItems] = useState<LoadItem[]>([]);
   const [duration, setDuration] = useState<number | null>(null);
   const [customDuration, setCustomDuration] = useState("");
+  const [returnCountdown, setReturnCountdown] = useState(8);
 
   const selectedDuration = useMemo(() => {
     if (duration !== null) {
@@ -109,6 +112,28 @@ export default function GuidedCycleStartPage() {
   }
 
   const isSuccess = stepIndex === 4;
+
+  useEffect(() => {
+    if (!isSuccess) {
+      return;
+    }
+
+    setReturnCountdown(8);
+
+    const timer = window.setInterval(() => {
+      setReturnCountdown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          router.push("/assistant");
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [isSuccess, router]);
 
   return (
     <main className="flex min-h-[100svh] flex-col bg-slate-100 p-3 text-slate-950 lg:h-[100svh] lg:overflow-hidden">
@@ -358,11 +383,14 @@ export default function GuidedCycleStartPage() {
             <p className="mt-3 text-lg text-slate-600">
               Guided workflow completed successfully.
             </p>
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              Returning to Workstation in {returnCountdown} seconds...
+            </p>
             <Link
               href="/assistant"
               className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white"
             >
-              Return to Workstation
+              Return Now
             </Link>
           </div>
         )}
