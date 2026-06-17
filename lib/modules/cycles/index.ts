@@ -9,7 +9,7 @@ export type {
   SavedLoadItem,
 } from "./types";
 
-export { calculateExpectedPackCount } from "./utils";
+export { calculateExpectedPackCount, formatCycleDuration } from "./utils";
 export { createCycle } from "./createCycle";
 export { generatePacksForCycle } from "./generatePacksForCycle";
 export { reviewCycle } from "./reviewCycle";

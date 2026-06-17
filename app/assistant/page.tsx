@@ -16,6 +16,7 @@ import {
   Timer,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { formatCycleDuration } from "@/lib/modules/cycles";
 import { getDashboardData } from "@/lib/modules/dashboard";
 import { supabase } from "@/lib/supabase";
 
@@ -516,19 +517,22 @@ function getCycleTiming(expectedFinishAt: string | null, now: Date) {
   const diffMinutes = Math.ceil((finishTime - now.getTime()) / 60000);
 
   if (diffMinutes > 0) {
+    const duration = formatCycleDuration(diffMinutes);
+
     return {
-      label: `${diffMinutes} min remaining`,
-      description: `${diffMinutes} min`,
+      label: `${duration} remaining`,
+      description: duration,
       textClass: "text-blue-700",
       badgeClass: "border-blue-200 bg-blue-100 text-blue-700",
     };
   }
 
-  const overdueMinutes = Math.abs(diffMinutes);
+  const overdueMinutes = Math.max(1, Math.abs(diffMinutes));
+  const duration = formatCycleDuration(overdueMinutes);
 
   return {
-    label: `Overdue by ${overdueMinutes} min`,
-    description: `Overdue by ${overdueMinutes} min`,
+    label: `Overdue by ${duration}`,
+    description: `Overdue by ${duration}`,
     textClass: "text-red-700",
     badgeClass: "border-red-200 bg-red-100 text-red-700",
   };

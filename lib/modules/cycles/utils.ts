@@ -8,6 +8,22 @@ export function calculateExpectedPackCount(loadItems: LoadItem[]) {
   }, 0);
 }
 
+export function formatCycleDuration(totalMinutes: number) {
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min`;
+  }
+
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  }
+
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
 export function buildLoadSummary(loadItems: LoadItem[], loadNotes: string) {
   const composition = loadItems
     .map((item) => `${item.packType} × ${item.quantity}`)
