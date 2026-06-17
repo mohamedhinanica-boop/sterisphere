@@ -151,7 +151,7 @@ export default function AuthGuard({
         }
 
         const userRole = roleData.role || "";
-        const allowedRoles = routePermissions[pathname] || [];
+        const allowedRoles = getAllowedRoles(pathname);
 
         if (!allowedRoles.includes(userRole)) {
           router.push("/");
@@ -223,6 +223,14 @@ export default function AuthGuard({
   }
 
   return <>{children}</>;
+}
+
+function getAllowedRoles(pathname: string) {
+  if (pathname === "/assistant" || pathname.startsWith("/assistant/")) {
+    return routePermissions["/assistant"] || [];
+  }
+
+  return routePermissions[pathname] || [];
 }
 
 async function withTimeout<T>(
