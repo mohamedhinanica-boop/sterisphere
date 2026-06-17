@@ -325,7 +325,7 @@ export default function GuidedCycleStartPage() {
                     selectDuration(null);
                     setCustomDuration(event.target.value);
                   }}
-                  className="h-12 w-full rounded-xl border border-slate-300 px-3 text-center text-lg font-bold text-slate-950"
+                  className="h-12 w-full rounded-xl border-2 border-slate-300 bg-white px-3 text-center text-lg font-bold text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
                   placeholder="Min"
                 />
               </div>
