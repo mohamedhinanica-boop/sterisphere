@@ -21,7 +21,7 @@ import { getDashboardData } from "@/lib/modules/dashboard";
 import { supabase } from "@/lib/supabase";
 
 const primaryActions = [
-  { title: "Start Cycle", href: "/cycles", icon: ClipboardCheck },
+  { title: "Start Cycle", href: "/assistant/cycle/start", icon: ClipboardCheck },
   { title: "Trace Patient", href: "/patients", icon: Search },
 ];
 

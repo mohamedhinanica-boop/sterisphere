@@ -60,7 +60,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
-  const isAssistantPage = pathname === "/assistant";
+  const isAssistantPage = pathname?.startsWith("/assistant");
 
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
