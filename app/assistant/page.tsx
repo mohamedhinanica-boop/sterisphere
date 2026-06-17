@@ -154,10 +154,10 @@ export default function AssistantPage() {
   const pendingReviews = status.failedCycles + status.pendingCycles;
 
   return (
-    <main className="flex min-h-screen flex-col bg-slate-100 p-3 pb-20 lg:h-screen lg:overflow-hidden">
-      <header className="mb-3 flex flex-col gap-2 rounded-3xl bg-slate-950 px-5 py-3 text-white shadow-sm md:flex-row md:items-center md:justify-between">
+    <main className="flex min-h-[100svh] flex-col bg-slate-100 p-2 pb-20 sm:p-3 lg:h-[100svh] lg:overflow-hidden">
+      <header className="mb-2 flex flex-col gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-white shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-normal">
+          <h1 className="text-xl font-bold tracking-normal sm:text-2xl">
             SteriSphere Workstation
           </h1>
           <p className="mt-1 text-sm text-slate-300">
@@ -165,7 +165,7 @@ export default function AssistantPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white/10 px-3 py-2 text-sm">
+        <div className="rounded-2xl bg-white/10 px-3 py-1.5 text-sm">
           <p className="font-medium">{currentUser.email || "Signed in"}</p>
           <p className="mt-1 capitalize text-slate-300">
             {currentUser.role || "Workstation"}
@@ -173,7 +173,7 @@ export default function AssistantPage() {
         </div>
       </header>
 
-      <section className="mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+      <section className="mb-2 grid grid-cols-2 gap-2 md:grid-cols-4">
         <KpiCard
           title="Running Cycles"
           value={status.pendingCycles}
@@ -206,15 +206,15 @@ export default function AssistantPage() {
         />
       </section>
 
-      <section className="grid flex-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(330px,0.9fr)] lg:overflow-hidden">
-        <div className="grid gap-3 lg:grid-rows-[minmax(0,1fr)_auto]">
-          <div className="grid grid-cols-2 gap-3">
+      <section className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.9fr)] xl:grid-cols-[minmax(0,2fr)_minmax(330px,0.9fr)] lg:overflow-hidden">
+        <div className="grid min-h-0 gap-2 lg:grid-rows-[minmax(0,1fr)_auto]">
+          <div className="grid min-h-0 grid-cols-2 gap-2">
             {primaryActions.map((action) => (
               <ActionTile key={action.title} {...action} primary />
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {workflowActions.map((action) => (
               <ActionTile key={action.title} {...action} />
             ))}
@@ -253,11 +253,11 @@ function KpiCard({
   };
 
   return (
-    <div className={`rounded-2xl border p-3 shadow-sm ${toneClasses[tone]}`}>
+    <div className={`rounded-2xl border p-2.5 shadow-sm sm:p-3 ${toneClasses[tone]}`}>
       <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
         {title}
       </p>
-      <p className="mt-1 text-2xl font-bold">{loading ? "-" : value}</p>
+      <p className="mt-1 text-xl font-bold sm:text-2xl">{loading ? "-" : value}</p>
     </div>
   );
 }
@@ -276,20 +276,26 @@ function ActionTile({
   return (
     <Link
       href={href}
-      className={`flex flex-col justify-between rounded-3xl border p-5 shadow-sm ${
+      className={`flex min-h-0 flex-col justify-between rounded-2xl border p-4 shadow-sm ${
         primary
-          ? "min-h-44 border-slate-950 bg-slate-950 text-white"
-          : "min-h-28 border-slate-200 bg-white text-slate-800"
+          ? "min-h-[clamp(7.5rem,19vh,10rem)] border-slate-950 bg-slate-950 text-white"
+          : "min-h-[clamp(5.75rem,13vh,7rem)] border-slate-200 bg-white text-slate-800"
       }`}
     >
       <span
-        className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+        className={`flex h-10 w-10 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${
           primary ? "bg-white text-slate-950" : "bg-slate-100 text-slate-700"
         }`}
       >
-        <Icon className="h-6 w-6" />
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
       </span>
-      <span className={primary ? "text-3xl font-bold" : "text-xl font-bold"}>
+      <span
+        className={
+          primary
+            ? "text-[clamp(1.5rem,2.5vw,1.875rem)] font-bold"
+            : "text-[clamp(1.125rem,2vw,1.25rem)] font-bold"
+        }
+      >
         {title}
       </span>
     </Link>
@@ -311,13 +317,14 @@ function OperationalCenter({
   const hasPendingReviews = status.pendingCycles > 0;
   const hasRunningCycle = Boolean(runningCycle);
   const hasPriority = hasFailedReviews || hasRunningCycle || hasPendingReviews;
+  const isIdle = !loading && !hasPriority;
   const timing = runningCycle
     ? getCycleTiming(runningCycle.expected_finish_at, now)
     : null;
 
   return (
     <aside
-      className={`rounded-3xl border p-4 shadow-sm ${
+      className={`flex min-h-0 flex-col rounded-2xl border p-3 shadow-sm sm:p-4 ${
         hasFailedReviews
           ? "border-red-200 bg-red-50 text-red-900"
           : hasPriority
@@ -340,14 +347,14 @@ function OperationalCenter({
       </div>
 
       {loading ? (
-        <section className="mt-4 rounded-2xl border border-white/60 bg-white/60 p-4">
+        <section className="mt-3 rounded-2xl border border-white/60 bg-white/60 p-3 sm:p-4">
           <p className="text-lg font-semibold">Checking command center...</p>
           <p className="mt-2 text-sm opacity-75">
             Loading cycle status and pending reviews.
           </p>
         </section>
       ) : hasFailedReviews ? (
-        <section className="mt-4 rounded-2xl border border-red-200 bg-white/75 p-4">
+        <section className="mt-3 rounded-2xl border border-red-200 bg-white/75 p-3 sm:p-4">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
             Critical status
           </span>
@@ -361,13 +368,13 @@ function OperationalCenter({
           </p>
           <Link
             href="/investigation"
-            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm"
           >
             Investigation Center
           </Link>
         </section>
       ) : runningCycle && timing ? (
-        <section className="mt-4 rounded-2xl border border-yellow-200 bg-white/75 p-4">
+        <section className="mt-3 rounded-2xl border border-yellow-200 bg-white/75 p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
@@ -387,7 +394,7 @@ function OperationalCenter({
             </span>
           </div>
 
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:gap-3">
             <div>
               <dt className="font-semibold opacity-70">Started</dt>
               <dd className="mt-1 font-bold">
@@ -414,13 +421,13 @@ function OperationalCenter({
 
           <Link
             href="/cycles?status=Pending"
-            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm"
           >
             Open Cycle
           </Link>
         </section>
       ) : hasPendingReviews ? (
-        <section className="mt-4 rounded-2xl border border-yellow-200 bg-white/75 p-4">
+        <section className="mt-3 rounded-2xl border border-yellow-200 bg-white/75 p-3 sm:p-4">
           <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
             Review recommended
           </span>
@@ -433,13 +440,13 @@ function OperationalCenter({
           </p>
           <Link
             href="/cycles?status=Pending"
-            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm"
           >
             Review Cycles
           </Link>
         </section>
       ) : (
-        <section className="mt-4 rounded-2xl border border-blue-200 bg-white/75 p-4">
+        <section className="mt-3 rounded-2xl border border-blue-200 bg-white/75 p-3 sm:p-4">
           <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
             Normal state
           </span>
@@ -464,37 +471,33 @@ function OperationalCenter({
         </section>
       )}
 
-      <section className="mt-4 rounded-2xl border border-white/60 bg-white/60 p-3 text-sm">
-        <h3 className="font-bold">Steri Assistant</h3>
-        <p className="mt-2">
-          {loading
-            ? "Preparing workstation guidance."
-            : hasFailedReviews
-              ? "Start with failed-cycle investigations before routine tasks."
-              : hasRunningCycle
-                ? "Monitor the active cycle and confirm results when it finishes."
-                : hasPendingReviews
-                  ? "Confirm pending cycle outcomes before moving packs forward."
-                  : "Workstation ready for the next sterilization or traceability task."}
-        </p>
-      </section>
+      {isIdle && (
+        <>
+          <section className="mt-3 rounded-2xl border border-white/60 bg-white/60 p-3 text-sm">
+            <h3 className="font-bold">Steri Assistant</h3>
+            <p className="mt-2">
+              Workstation ready for the next sterilization or traceability task.
+            </p>
+          </section>
 
-      <section className="mt-4 grid grid-cols-2 gap-3">
-        {secondaryActions.map((action) => {
-          const Icon = action.icon;
+          <section className="mt-3 grid grid-cols-2 gap-2">
+            {secondaryActions.map((action) => {
+              const Icon = action.icon;
 
-          return (
-            <Link
-              key={action.title}
-              href={action.href}
-              className="flex min-h-20 flex-col justify-between rounded-2xl border border-white/70 bg-white/70 p-3 text-sm font-semibold shadow-sm"
-            >
-              <Icon className="h-5 w-5 opacity-70" />
-              {action.title}
-            </Link>
-          );
-        })}
-      </section>
+              return (
+                <Link
+                  key={action.title}
+                  href={action.href}
+                  className="flex min-h-[clamp(4.75rem,10vh,5.75rem)] flex-col justify-between rounded-2xl border border-white/70 bg-white/70 p-3 text-sm font-semibold shadow-sm"
+                >
+                  <Icon className="h-5 w-5 opacity-70" />
+                  {action.title}
+                </Link>
+              );
+            })}
+          </section>
+        </>
+      )}
     </aside>
   );
 }
