@@ -175,7 +175,7 @@ export default function GuidedCycleReviewPage() {
         {!isComplete && (
           <Link
             href="/assistant"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             <ArrowLeft className="h-5 w-5" />
             Cancel
@@ -242,7 +242,7 @@ function CycleSelection({
         <button
           type="button"
           onClick={onRefresh}
-          className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700"
+          className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           Refresh
         </button>
@@ -293,7 +293,7 @@ function CycleCard({
     <button
       type="button"
       onClick={onSelect}
-      className="flex min-h-[17rem] flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left shadow-sm transition hover:border-slate-950 hover:bg-white"
+      className="flex min-h-[17rem] flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
     >
       <div>
         <div className="flex items-start justify-between gap-3">
@@ -420,7 +420,7 @@ function ReviewStep({
               type="button"
               onClick={() => onSubmit("Passed")}
               disabled={reviewing}
-              className="flex min-h-32 flex-col justify-between rounded-2xl border border-green-200 bg-green-50 p-4 text-left text-green-800 shadow-sm disabled:opacity-50"
+              className="flex min-h-32 flex-col justify-between rounded-2xl border border-green-200 bg-green-50 p-4 text-left text-green-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
             >
               <Check className="h-8 w-8" />
               <span className="text-2xl font-black">Mark Passed</span>
@@ -430,7 +430,7 @@ function ReviewStep({
               type="button"
               onClick={() => onSubmit("Failed")}
               disabled={reviewing}
-              className="flex min-h-32 flex-col justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-left text-red-800 shadow-sm disabled:opacity-50"
+              className="flex min-h-32 flex-col justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-left text-red-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
             >
               <XCircle className="h-8 w-8" />
               <span className="text-2xl font-black">Mark Failed</span>
@@ -442,7 +442,7 @@ function ReviewStep({
               type="button"
               onClick={onBack}
               disabled={reviewing}
-              className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 disabled:opacity-50"
+              className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
             >
               Back
             </button>
@@ -498,7 +498,7 @@ function ReviewSuccess({
       </p>
       <Link
         href="/assistant"
-        className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white"
+        className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
       >
         Return Now
       </Link>

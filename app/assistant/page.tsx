@@ -276,7 +276,7 @@ function ActionTile({
   return (
     <Link
       href={href}
-      className={`flex min-h-0 flex-col justify-between rounded-2xl border p-4 shadow-sm ${
+      className={`flex min-h-0 flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${
         primary
           ? "min-h-[clamp(7.5rem,19vh,10rem)] border-slate-950 bg-slate-950 text-white"
           : "min-h-[clamp(5.75rem,13vh,7rem)] border-slate-200 bg-white text-slate-800"
@@ -368,7 +368,7 @@ function OperationalCenter({
           </p>
           <Link
             href="/investigation"
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Investigation Center
           </Link>
@@ -421,7 +421,7 @@ function OperationalCenter({
 
           <Link
             href="/assistant/cycle/review"
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Open Cycle
           </Link>
@@ -440,7 +440,7 @@ function OperationalCenter({
           </p>
           <Link
             href="/assistant/cycle/review"
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
@@ -488,7 +488,7 @@ function OperationalCenter({
                 <Link
                   key={action.title}
                   href={action.href}
-                  className="flex min-h-[clamp(4.75rem,10vh,5.75rem)] flex-col justify-between rounded-2xl border border-white/70 bg-white/70 p-3 text-sm font-semibold shadow-sm"
+                  className="flex min-h-[clamp(4.75rem,10vh,5.75rem)] flex-col justify-between rounded-2xl border border-white/70 bg-white/70 p-3 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
                 >
                   <Icon className="h-5 w-5 opacity-70" />
                   {action.title}
@@ -566,7 +566,7 @@ function BottomNavigation() {
             <Link
               key={item.label}
               href={item.href}
-              className="flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-medium text-slate-700"
+              className="flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
             >
               <Icon className="mb-1 h-5 w-5" />
               {item.label}
@@ -576,7 +576,7 @@ function BottomNavigation() {
 
         <button
           type="button"
-          className="flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-medium text-slate-700"
+          className="flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           <MoreHorizontal className="mb-1 h-5 w-5" />
           More

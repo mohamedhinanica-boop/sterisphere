@@ -359,7 +359,7 @@ export default function GuidedPatientTraceStartPage() {
         {!isSuccess && (
           <Link
             href="/assistant"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             <ArrowLeft className="h-5 w-5" />
             Cancel
@@ -418,7 +418,7 @@ export default function GuidedPatientTraceStartPage() {
                     type="button"
                     onClick={scannerActive ? stopScanner : startScanner}
                     disabled={scannerLoading}
-                    className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                    className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
                   >
                     {scannerActive
                       ? "Stop Scanner"
@@ -448,7 +448,7 @@ export default function GuidedPatientTraceStartPage() {
                   type="button"
                   onClick={() => validatePack()}
                   disabled={validatingPack || !packNumber.trim()}
-                  className="mt-3 min-h-12 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="mt-3 min-h-12 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
                 >
                   {validatingPack ? "Validating..." : "Validate Pack"}
                 </button>
@@ -529,7 +529,7 @@ export default function GuidedPatientTraceStartPage() {
                         key={patient.id}
                         type="button"
                         onClick={() => selectPatient(patient)}
-                        className={`min-h-28 rounded-2xl border p-4 text-left shadow-sm ${
+                        className={`min-h-28 rounded-2xl border p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${
                           selectedPatient?.id === patient.id
                             ? "border-slate-950 bg-slate-950 text-white"
                             : "border-slate-200 bg-white text-slate-800"
@@ -602,7 +602,7 @@ export default function GuidedPatientTraceStartPage() {
                     type="button"
                     onClick={createManualPatient}
                     disabled={creatingPatient || !manualPatient.fullName.trim()}
-                    className="min-h-12 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="min-h-12 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
                   >
                     {creatingPatient ? "Creating..." : "Create and Select"}
                   </button>
@@ -718,7 +718,7 @@ export default function GuidedPatientTraceStartPage() {
             </p>
             <Link
               href="/assistant"
-              className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white"
+              className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
             >
               Return to Workstation
             </Link>
@@ -806,7 +806,7 @@ function StepFooter({
         <button
           type="button"
           onClick={onBack}
-          className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700"
+          className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           Back
         </button>
@@ -818,7 +818,7 @@ function StepFooter({
         type="button"
         onClick={onContinue}
         disabled={!canContinue}
-        className="min-h-12 rounded-xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
+        className="min-h-12 rounded-xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
       >
         {continueLabel}
       </button>

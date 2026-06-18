@@ -263,7 +263,7 @@ export default function GuidedCycleStartPage() {
         {!isSuccess && (
           <Link
             href="/assistant"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             <ArrowLeft className="h-5 w-5" />
             Cancel
@@ -361,7 +361,7 @@ export default function GuidedCycleStartPage() {
                     <button
                       type="button"
                       onClick={() => toggleLoadItem(option)}
-                      className="flex min-h-24 w-full flex-col justify-between text-left"
+                      className="flex min-h-24 w-full flex-col justify-between text-left transition-all active:scale-[0.98] active:brightness-95"
                     >
                       <Package className="h-6 w-6" />
                       <span className="text-lg font-bold">{option}</span>
@@ -374,7 +374,7 @@ export default function GuidedCycleStartPage() {
                           onClick={() =>
                             updateLoadQuantity(option, item.quantity - 1)
                           }
-                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-xl font-bold"
+                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-xl font-bold transition-all hover:bg-white/20 active:scale-[0.98] active:brightness-95 active:shadow-inner"
                         >
                           -
                         </button>
@@ -392,7 +392,7 @@ export default function GuidedCycleStartPage() {
                           onClick={() =>
                             updateLoadQuantity(option, item.quantity + 1)
                           }
-                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-xl font-bold"
+                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-xl font-bold transition-all hover:bg-white/20 active:scale-[0.98] active:brightness-95 active:shadow-inner"
                         >
                           +
                         </button>
@@ -437,7 +437,7 @@ export default function GuidedCycleStartPage() {
                 <button
                   type="button"
                   onClick={() => selectDuration(null)}
-                  className="mb-3 flex min-h-16 w-full items-center text-left text-lg font-bold"
+                  className="mb-3 flex min-h-16 w-full items-center text-left text-lg font-bold transition-all active:scale-[0.98] active:brightness-95"
                 >
                   Custom
                 </button>
@@ -521,7 +521,7 @@ export default function GuidedCycleStartPage() {
             </p>
             <Link
               href="/assistant"
-              className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white"
+              className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
             >
               Return Now
             </Link>
@@ -578,7 +578,7 @@ function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[clamp(6.5rem,18vh,9rem)] flex-col justify-between rounded-2xl border p-4 text-left shadow-sm ${
+      className={`flex min-h-[clamp(6.5rem,18vh,9rem)] flex-col justify-between rounded-2xl border p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${
         selected
           ? "border-slate-950 bg-slate-950 text-white"
           : "border-slate-200 bg-slate-50 text-slate-800"
@@ -610,7 +610,7 @@ function StepFooter({
         <button
           type="button"
           onClick={onBack}
-          className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700"
+          className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           Back
         </button>
@@ -622,7 +622,7 @@ function StepFooter({
         type="button"
         onClick={onContinue}
         disabled={!canContinue}
-        className="min-h-12 rounded-xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
+        className="min-h-12 rounded-xl bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
       >
         {continueLabel}
       </button>
