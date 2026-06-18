@@ -12,6 +12,7 @@ import {
   Search,
   Stethoscope,
   UserPlus,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -161,7 +162,7 @@ export default function GuidedPatientTraceStartPage() {
     setPackValidationMessage("");
   }
 
-  async function validatePack(nextPackNumber = packNumber) {
+  async function validatePackNumber(nextPackNumber: string) {
     const normalizedPackNumber = nextPackNumber.trim();
 
     if (!normalizedPackNumber) {
@@ -171,6 +172,7 @@ export default function GuidedPatientTraceStartPage() {
 
     setValidatingPack(true);
     setValidatedPack(null);
+    setPackNumber(normalizedPackNumber);
 
     try {
       const pack = await validatePackUsage(supabase, normalizedPackNumber);
@@ -189,6 +191,18 @@ export default function GuidedPatientTraceStartPage() {
     }
   }
 
+  async function validateManualPack() {
+    await validatePackNumber(packNumber);
+  }
+
+  function goToStep(nextStepIndex: number) {
+    if (nextStepIndex >= stepIndex || isSuccess) {
+      return;
+    }
+
+    setStepIndex(nextStepIndex);
+  }
+
   async function startScanner() {
     setScannerLoading(true);
 
@@ -202,8 +216,7 @@ export default function GuidedPatientTraceStartPage() {
         { fps: 10, qrbox: { width: 240, height: 240 } },
         async (decodedText: string) => {
           await stopScanner();
-          updatePackNumber(decodedText);
-          await validatePack(decodedText);
+          await validatePackNumber(decodedText);
         },
         undefined
       );
@@ -241,6 +254,11 @@ export default function GuidedPatientTraceStartPage() {
   function selectPatient(patient: Patient) {
     setSelectedPatient(patient);
     setPatientSearch(patient.full_name);
+  }
+
+  function clearSelectedPatient() {
+    setSelectedPatient(null);
+    setPatientSearch("");
   }
 
   async function createManualPatient() {
@@ -374,18 +392,21 @@ export default function GuidedPatientTraceStartPage() {
             const isComplete = index < stepIndex;
 
             return (
-              <div
+              <button
                 key={step}
-                className={`rounded-2xl border px-3 py-2 text-center text-sm font-bold shadow-sm ${
+                type="button"
+                onClick={() => goToStep(index)}
+                disabled={!isComplete}
+                className={`rounded-2xl border px-3 py-2 text-center text-sm font-bold shadow-sm transition-all ${
                   isActive
                     ? "border-slate-950 bg-slate-950 text-white"
                     : isComplete
-                      ? "border-green-200 bg-green-50 text-green-700"
-                      : "border-slate-200 bg-white text-slate-500"
+                      ? "border-green-200 bg-green-50 text-green-700 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+                      : "cursor-not-allowed border-slate-200 bg-white text-slate-500"
                 }`}
               >
                 {step}
-              </div>
+              </button>
             );
           })}
         </nav>
@@ -400,11 +421,12 @@ export default function GuidedPatientTraceStartPage() {
             footer={
               <StepFooter
                 canContinue={canContinue}
+                onBack={() => router.push("/assistant")}
                 onContinue={continueToNextStep}
               />
             }
           >
-            <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -446,7 +468,7 @@ export default function GuidedPatientTraceStartPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => validatePack()}
+                  onClick={validateManualPack}
                   disabled={validatingPack || !packNumber.trim()}
                   className="mt-3 min-h-12 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
                 >
@@ -499,8 +521,8 @@ export default function GuidedPatientTraceStartPage() {
               />
             }
           >
-            <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
-              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
+              <div className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
                   Patient Search
                 </label>
@@ -514,7 +536,32 @@ export default function GuidedPatientTraceStartPage() {
                   placeholder="Name or file ID"
                 />
 
-                <div className="mt-4 grid min-h-0 gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+                {selectedPatient && (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
+                    <div>
+                      <p className="text-sm font-bold uppercase tracking-wide">
+                        Selected Patient
+                      </p>
+                      <p className="mt-1 text-xl font-bold">
+                        {selectedPatient.full_name}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold opacity-80">
+                        File ID: {selectedPatient.external_id || "N/A"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={clearSelectedPatient}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-green-300 bg-white px-4 py-2 text-sm font-bold text-green-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+                    >
+                      <X className="h-4 w-4" />
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {loadingData ? (
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-500">
                       Loading patients...
@@ -744,7 +791,7 @@ function WorkflowStep({
 }) {
   return (
     <div className="flex min-h-0 flex-col">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex shrink-0 items-center gap-3">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
           <Icon className="h-6 w-6" />
         </span>
@@ -754,8 +801,8 @@ function WorkflowStep({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">{children}</div>
-      {footer}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>
+      <div className="shrink-0">{footer}</div>
     </div>
   );
 }
@@ -801,18 +848,15 @@ function StepFooter({
   onContinue: () => void;
 }) {
   return (
-    <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
-      {onBack ? (
-        <button
-          type="button"
-          onClick={onBack}
-          className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
-        >
-          Back
-        </button>
-      ) : (
-        <span />
-      )}
+    <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 bg-white pt-4">
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={!onBack}
+        className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+      >
+        Back
+      </button>
 
       <button
         type="button"
