@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   Package,
   Printer,
-  QrCode,
   Search,
   ShieldAlert,
   Timer,
@@ -26,7 +25,7 @@ const primaryActions = [
 ];
 
 const workflowActions = [
-  { title: "Scan QR", href: "/patients", icon: QrCode },
+  { title: "Review Cycles", href: "/assistant/cycle/review", icon: ClipboardCheck },
   { title: "Pack Inventory", href: "/packs", icon: Package },
 ];
 
@@ -421,7 +420,7 @@ function OperationalCenter({
           </dl>
 
           <Link
-            href="/cycles?status=Pending"
+            href="/assistant/cycle/review"
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm"
           >
             Open Cycle
@@ -440,7 +439,7 @@ function OperationalCenter({
             traceability work.
           </p>
           <Link
-            href="/cycles?status=Pending"
+            href="/assistant/cycle/review"
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm"
           >
             Review Cycles
