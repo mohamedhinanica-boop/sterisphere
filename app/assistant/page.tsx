@@ -63,7 +63,7 @@ export default function AssistantPage() {
     expiredPacks: 0,
     failedCycles: 0,
   });
-  const [runningCycle, setRunningCycle] = useState<RunningCycle | null>(null);
+  const [activeCycles, setActiveCycles] = useState<RunningCycle[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser>({
     email: "",
     role: "",
@@ -87,19 +87,19 @@ export default function AssistantPage() {
     setLoading(true);
 
     try {
-      const [dashboardData, currentRunningCycle] = await Promise.all([
+      const [dashboardData, currentActiveCycles] = await Promise.all([
         getDashboardData(),
-        loadRunningCycle(),
+        loadActiveCycles(),
         loadCurrentUser(),
       ]);
 
       setStatus({
-        pendingCycles: dashboardData.pendingCyclesCount,
+        pendingCycles: currentActiveCycles.length,
         availablePacks: dashboardData.availablePacksCount,
         expiredPacks: dashboardData.unreviewedExpiredPacksCount,
         failedCycles: dashboardData.unreviewedFailedCyclesCount,
       });
-      setRunningCycle(currentRunningCycle);
+      setActiveCycles(currentActiveCycles);
     } catch (error) {
       toast.error("Error loading workstation status.");
       console.error("Assistant workstation status error:", error);
@@ -131,7 +131,7 @@ export default function AssistantPage() {
     });
   }
 
-  async function loadRunningCycle(): Promise<RunningCycle | null> {
+  async function loadActiveCycles(): Promise<RunningCycle[]> {
     const { data, error } = await supabase
       .from("cycles")
       .select(
@@ -139,19 +139,21 @@ export default function AssistantPage() {
       )
       .eq("status", "Pending")
       .eq("cycle_state", "Open")
+      .order("expected_finish_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle<RunningCycle>();
+      .returns<RunningCycle[]>();
 
     if (error) {
-      console.error("Assistant running cycle lookup error:", error);
-      return null;
+      console.error("Assistant running cycles lookup error:", error);
+      return [];
     }
 
-    return data;
+    return data || [];
   }
 
   const pendingReviews = status.failedCycles + status.pendingCycles;
+  const runningCycle = activeCycles[0] || null;
+  const activeCycleStats = getActiveCycleStats(activeCycles, now);
 
   return (
     <main className="flex min-h-[100svh] flex-col bg-slate-100 p-2 pb-20 sm:p-3 lg:h-[100svh] lg:overflow-hidden">
@@ -216,14 +218,28 @@ export default function AssistantPage() {
 
           <div className="grid grid-cols-2 gap-2">
             {workflowActions.map((action) => (
-              <ActionTile key={action.title} {...action} />
+              <ActionTile
+                key={action.title}
+                {...action}
+                badge={
+                  action.href === "/assistant/cycles" &&
+                  activeCycleStats.count > 0
+                    ? String(activeCycleStats.count)
+                    : undefined
+                }
+                tone={
+                  action.href === "/assistant/cycles"
+                    ? activeCycleStats.tileTone
+                    : "default"
+                }
+              />
             ))}
           </div>
         </div>
 
         <OperationalCenter
           status={status}
-          runningCycle={runningCycle}
+          activeCycles={activeCycles}
           now={now}
           loading={loading}
         />
@@ -267,28 +283,45 @@ function ActionTile({
   href,
   icon: Icon,
   primary = false,
+  badge,
+  tone = "default",
 }: {
   title: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
   primary?: boolean;
+  badge?: string;
+  tone?: "default" | "warning" | "critical";
 }) {
+  const toneClasses = {
+    default: "border-slate-200 bg-white text-slate-800",
+    warning: "border-yellow-200 bg-yellow-50 text-yellow-900",
+    critical: "border-red-200 bg-red-50 text-red-800",
+  };
+
   return (
     <Link
       href={href}
       className={`flex min-h-0 flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${
         primary
           ? "min-h-[clamp(7.5rem,19vh,10rem)] border-slate-950 bg-slate-950 text-white"
-          : "min-h-[clamp(5.75rem,13vh,7rem)] border-slate-200 bg-white text-slate-800"
+          : `min-h-[clamp(5.75rem,13vh,7rem)] ${toneClasses[tone]}`
       }`}
     >
-      <span
-        className={`flex h-10 w-10 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${
-          primary ? "bg-white text-slate-950" : "bg-slate-100 text-slate-700"
-        }`}
-      >
-        <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-      </span>
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className={`flex h-10 w-10 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${
+            primary ? "bg-white text-slate-950" : "bg-white/70 text-slate-700"
+          }`}
+        >
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+        </span>
+        {badge && (
+          <span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-black text-white">
+            {badge}
+          </span>
+        )}
+      </div>
       <span
         className={
           primary
@@ -304,23 +337,28 @@ function ActionTile({
 
 function OperationalCenter({
   status,
-  runningCycle,
+  activeCycles,
   now,
   loading,
 }: {
   status: WorkstationStatus;
-  runningCycle: RunningCycle | null;
+  activeCycles: RunningCycle[];
   now: Date;
   loading: boolean;
 }) {
   const hasFailedReviews = status.failedCycles > 0;
   const hasPendingReviews = status.pendingCycles > 0;
+  const runningCycle = activeCycles[0] || null;
   const hasRunningCycle = Boolean(runningCycle);
   const hasPriority = hasFailedReviews || hasRunningCycle || hasPendingReviews;
   const isIdle = !loading && !hasPriority;
   const timing = runningCycle
     ? getCycleTiming(runningCycle.expected_finish_at, now)
     : null;
+  const openCycleHref =
+    activeCycles.length === 1 && runningCycle
+      ? `/assistant/cycles/${runningCycle.id}`
+      : "/assistant/cycles";
 
   return (
     <aside
@@ -420,10 +458,10 @@ function OperationalCenter({
           </dl>
 
           <Link
-            href="/assistant/cycles"
+            href={openCycleHref}
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
-            Open Cycle
+            {activeCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
         </section>
       ) : hasPendingReviews ? (
@@ -500,6 +538,32 @@ function OperationalCenter({
       )}
     </aside>
   );
+}
+
+function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
+  const hasOverdue = activeCycles.some((cycle) => {
+    if (!cycle.expected_finish_at) {
+      return false;
+    }
+
+    return new Date(cycle.expected_finish_at).getTime() <= now.getTime();
+  });
+  const hasDueSoon = activeCycles.some((cycle) => {
+    if (!cycle.expected_finish_at) {
+      return false;
+    }
+
+    const diffMinutes = Math.ceil(
+      (new Date(cycle.expected_finish_at).getTime() - now.getTime()) / 60000
+    );
+
+    return diffMinutes > 0 && diffMinutes <= 30;
+  });
+
+  return {
+    count: activeCycles.length,
+    tileTone: hasOverdue ? "critical" : hasDueSoon ? "warning" : "default",
+  } as const;
 }
 
 function getCycleTiming(expectedFinishAt: string | null, now: Date) {

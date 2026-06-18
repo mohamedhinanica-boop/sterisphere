@@ -144,7 +144,7 @@ export default function AssistantRunningCyclesPage() {
         ) : cycles.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid min-h-0 gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-h-0 gap-3 overflow-y-auto pb-1 pr-1 md:grid-cols-2 xl:grid-cols-3">
             {cycleTimings.map(({ cycle, timing }) => (
               <CycleMonitorCard key={cycle.id} cycle={cycle} timing={timing} />
             ))}
@@ -249,7 +249,7 @@ function CycleMonitorCard({
 
       <div className="mt-auto grid grid-cols-2 gap-3 border-t border-black/10 pt-4">
         <Link
-          href="/cycles?status=Pending"
+          href={`/assistant/cycles/${cycle.id}`}
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white/80 px-4 py-3 text-sm font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           <Timer className="h-4 w-4" />
