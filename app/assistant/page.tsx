@@ -21,7 +21,7 @@ import { supabase } from "@/lib/supabase";
 
 const primaryActions = [
   { title: "Start Cycle", href: "/assistant/cycle/start", icon: ClipboardCheck },
-  { title: "Trace Patient", href: "/assistant/trace/start", icon: Search },
+  { title: "Scan QR", href: "/assistant/trace/start?mode=scan", icon: Search },
 ];
 
 const workflowActions = [

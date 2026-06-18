@@ -71,6 +71,7 @@ export default function GuidedPatientTraceStartPage() {
   const [assistantNotification, setAssistantNotification] =
     useState<AssistantNotification | null>(null);
   const [returnCountdown, setReturnCountdown] = useState(8);
+  const [isScanMode, setIsScanMode] = useState(false);
 
   const isSuccess = stepIndex === 4;
   const dismissAssistantNotification = useCallback(() => {
@@ -127,6 +128,12 @@ export default function GuidedPatientTraceStartPage() {
     }
 
     loadWizardData();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setIsScanMode(params.get("mode") === "scan");
+    setStepIndex(0);
   }, []);
 
   useEffect(() => {
@@ -441,8 +448,12 @@ export default function GuidedPatientTraceStartPage() {
         {stepIndex === 0 && (
           <WorkflowStep
             icon={QrCode}
-            title="Scan or Enter Pack"
-            subtitle="Validate that the pack exists, is available, and has not expired."
+            title={isScanMode ? "Scan Pack QR" : "Scan or Enter Pack"}
+            subtitle={
+              isScanMode
+                ? "Scan a pack label first, or use manual entry as a fallback."
+                : "Validate that the pack exists, is available, and has not expired."
+            }
             footer={
               <StepFooter
                 canContinue={canContinue}
@@ -451,13 +462,29 @@ export default function GuidedPatientTraceStartPage() {
               />
             }
           >
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div
+              className={`grid gap-3 ${
+                isScanMode
+                  ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]"
+                  : "lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]"
+              }`}
+            >
+              <div
+                className={`rounded-2xl border p-4 ${
+                  isScanMode
+                    ? "border-slate-300 bg-slate-50 shadow-sm"
+                    : "border-slate-200 bg-slate-50"
+                }`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-xl font-bold">QR Scan</h3>
+                    <h3 className="text-xl font-bold">
+                      {isScanMode ? "Scan Pack Label" : "QR Scan"}
+                    </h3>
                     <p className="mt-1 text-sm text-slate-600">
-                      Use the tablet camera to scan a pack label.
+                      {isScanMode
+                        ? "Position the pack QR code inside the scanner area."
+                        : "Use the tablet camera to scan a pack label."}
                     </p>
                   </div>
 
@@ -477,13 +504,32 @@ export default function GuidedPatientTraceStartPage() {
 
                 <div
                   id={scannerElementId}
-                  className="mt-4 min-h-[18rem] overflow-hidden rounded-2xl border border-slate-300 bg-white"
+                  className={`mt-4 overflow-hidden rounded-2xl border border-slate-300 bg-white ${
+                    isScanMode ? "min-h-[24rem]" : "min-h-[18rem]"
+                  }`}
                 />
+
+                {isScanMode && validatedPack && (
+                  <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                    <ReviewCard
+                      title="Pack Number"
+                      value={validatedPack.pack_number}
+                    />
+                    <ReviewCard
+                      title="Cycle"
+                      value={validatedPack.cycle_number}
+                    />
+                    <ReviewCard
+                      title="Expires"
+                      value={formatDateTime(validatedPack.expires_at)}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4">
                 <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
-                  Manual Pack Number
+                  {isScanMode ? "Manual Fallback" : "Manual Pack Number"}
                 </label>
                 <input
                   ref={packInputRef}
@@ -513,7 +559,7 @@ export default function GuidedPatientTraceStartPage() {
                   </div>
                 )}
 
-                {validatedPack && (
+                {validatedPack && !isScanMode && (
                   <div className="mt-4 grid gap-3 text-sm">
                     <ReviewCard
                       title="Pack Number"
