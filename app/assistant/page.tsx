@@ -26,7 +26,7 @@ const primaryActions = [
 
 const workflowActions = [
   { title: "Review Cycles", href: "/assistant/cycle/review", icon: ClipboardCheck },
-  { title: "Pack Inventory", href: "/packs", icon: Package },
+  { title: "Pack Inventory", href: "/assistant/inventory", icon: Package },
 ];
 
 const secondaryActions = [
@@ -553,7 +553,7 @@ function BottomNavigation() {
     { label: "Home", href: "/assistant", icon: Home },
     { label: "Cycles", href: "/cycles", icon: Timer },
     { label: "Trace", href: "/patients", icon: Search },
-    { label: "Inventory", href: "/packs", icon: Package },
+    { label: "Inventory", href: "/assistant/inventory", icon: Package },
   ];
 
   return (
