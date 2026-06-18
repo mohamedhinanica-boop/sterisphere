@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ComponentType } from "react";
 import {
   ArrowLeft,
   Check,
@@ -11,15 +12,11 @@ import {
   Package,
   ShieldCheck,
 } from "lucide-react";
+import toast from "react-hot-toast";
+import { createCycle, type Cycle } from "@/lib/modules/cycles";
+import { supabase } from "@/lib/supabase";
 
 const steps = ["Sterilizer", "Load", "Duration", "Review"] as const;
-
-const sterilizerOptions = [
-  "Autoclave 1",
-  "Washer 500 v2",
-  "STATIM 5000",
-  "STATIM 1000",
-];
 
 const loadOptions = [
   "Exam Kit",
@@ -36,13 +33,25 @@ type LoadItem = {
   quantity: number;
 };
 
+type Sterilizer = {
+  id: string;
+  name: string;
+  type: string | null;
+  active: boolean;
+};
+
 export default function GuidedCycleStartPage() {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
+  const [sterilizers, setSterilizers] = useState<Sterilizer[]>([]);
+  const [loadingSterilizers, setLoadingSterilizers] = useState(true);
   const [sterilizer, setSterilizer] = useState("");
   const [loadItems, setLoadItems] = useState<LoadItem[]>([]);
   const [duration, setDuration] = useState<number | null>(null);
   const [customDuration, setCustomDuration] = useState("");
+  const [savingCycle, setSavingCycle] = useState(false);
+  const [cycleError, setCycleError] = useState("");
+  const [createdCycle, setCreatedCycle] = useState<Cycle | null>(null);
   const [returnCountdown, setReturnCountdown] = useState(8);
 
   const selectedDuration = useMemo(() => {
@@ -70,6 +79,33 @@ export default function GuidedCycleStartPage() {
     (stepIndex === 0 && Boolean(sterilizer)) ||
     (stepIndex === 1 && loadItems.length > 0) ||
     (stepIndex === 2 && Boolean(selectedDuration));
+
+  useEffect(() => {
+    async function fetchActiveSterilizers() {
+      setLoadingSterilizers(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("sterilizers")
+          .select("id, name, type, active")
+          .eq("active", true)
+          .order("name", { ascending: true });
+
+        if (error) {
+          throw error;
+        }
+
+        setSterilizers(data || []);
+      } catch (error) {
+        toast.error("Error loading sterilizers.");
+        console.error("Guided cycle sterilizer load error:", error);
+      } finally {
+        setLoadingSterilizers(false);
+      }
+    }
+
+    fetchActiveSterilizers();
+  }, []);
 
   function toggleLoadItem(name: string) {
     setLoadItems((current) => {
@@ -107,8 +143,65 @@ export default function GuidedCycleStartPage() {
     setStepIndex((current) => Math.min(current + 1, 3));
   }
 
-  function startCyclePreview() {
-    setStepIndex(4);
+  async function getNextCycleCounter() {
+    const year = new Date().getFullYear();
+    const prefix = `STERI-${year}-`;
+
+    const { data, error } = await supabase
+      .from("cycles")
+      .select("cycle_number")
+      .like("cycle_number", `${prefix}%`);
+
+    if (error) {
+      throw new Error("Unable to generate cycle number.");
+    }
+
+    const maxExistingNumber =
+      data?.reduce((max, cycle) => {
+        const numericPart = Number(cycle.cycle_number.replace(prefix, ""));
+        return Number.isFinite(numericPart) && numericPart > max
+          ? numericPart
+          : max;
+      }, 0) || 0;
+
+    return maxExistingNumber + 1;
+  }
+
+  async function startCycle() {
+    if (!selectedDuration || loadItems.length === 0 || !sterilizer) {
+      setCycleError("Complete all guided cycle steps before starting.");
+      return;
+    }
+
+    setSavingCycle(true);
+    setCycleError("");
+
+    try {
+      const cycleCounter = await getNextCycleCounter();
+      const result = await createCycle({
+        sterilizer,
+        loadNotes: "",
+        durationMinutes: String(selectedDuration),
+        loadItems: loadItems.map((item) => ({
+          packType: item.name,
+          quantity: String(item.quantity),
+        })),
+        cycleCounter,
+      });
+
+      setCreatedCycle(result.cycle);
+      setStepIndex(4);
+      toast.success(`Cycle ${result.cycle.cycle_number} started.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error starting cycle.";
+
+      setCycleError(message);
+      toast.error(message);
+      console.error("Guided cycle creation error:", error);
+    } finally {
+      setSavingCycle(false);
+    }
   }
 
   const isSuccess = stepIndex === 4;
@@ -196,14 +289,25 @@ export default function GuidedCycleStartPage() {
             }
           >
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {sterilizerOptions.map((option) => (
-                <ChoiceCard
-                  key={option}
-                  label={option}
-                  selected={sterilizer === option}
-                  onClick={() => setSterilizer(option)}
-                />
-              ))}
+              {loadingSterilizers ? (
+                <div className="col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
+                  Loading sterilizers...
+                </div>
+              ) : sterilizers.length === 0 ? (
+                <div className="col-span-full rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
+                  No active sterilizers are available.
+                </div>
+              ) : (
+                sterilizers.map((option) => (
+                  <ChoiceCard
+                    key={option.id}
+                    label={option.name}
+                    detail={option.type || undefined}
+                    selected={sterilizer === option.name}
+                    onClick={() => setSterilizer(option.name)}
+                  />
+                ))
+              )}
             </div>
           </WorkflowStep>
         )}
@@ -340,13 +444,18 @@ export default function GuidedCycleStartPage() {
             subtitle="Confirm the guided setup before starting the cycle."
             footer={
               <StepFooter
-                canContinue
-                continueLabel="Start Cycle"
+                canContinue={!savingCycle}
+                continueLabel={savingCycle ? "Starting..." : "Start Cycle"}
                 onBack={() => setStepIndex(2)}
-                onContinue={startCyclePreview}
+                onContinue={startCycle}
               />
             }
           >
+            {cycleError && (
+              <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+                {cycleError}
+              </div>
+            )}
             <div className="grid gap-3 lg:grid-cols-4">
               <ReviewCard title="Sterilizer" value={sterilizer} />
               <ReviewCard
@@ -381,7 +490,11 @@ export default function GuidedCycleStartPage() {
             </div>
             <h2 className="mt-5 text-4xl font-bold">Cycle Ready</h2>
             <p className="mt-3 text-lg text-slate-600">
-              Guided workflow completed successfully.
+              Cycle {createdCycle?.cycle_number || "N/A"} started successfully.
+            </p>
+            <p className="mt-2 text-base font-semibold text-slate-700">
+              Expected finish:{" "}
+              {formatDateTime(createdCycle?.expected_finish_at || null)}
             </p>
             <p className="mt-2 text-sm font-semibold text-slate-500">
               Returning to Workstation in {returnCountdown} seconds...
@@ -432,10 +545,12 @@ function WorkflowStep({
 
 function ChoiceCard({
   label,
+  detail,
   selected,
   onClick,
 }: {
   label: string;
+  detail?: string;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -450,7 +565,10 @@ function ChoiceCard({
       }`}
     >
       <ShieldCheck className="h-6 w-6 opacity-80" />
-      <span className="text-xl font-bold">{label}</span>
+      <span>
+        <span className="block text-xl font-bold">{label}</span>
+        {detail && <span className="mt-1 block text-sm opacity-75">{detail}</span>}
+      </span>
     </button>
   );
 }
@@ -501,4 +619,17 @@ function ReviewCard({ title, value }: { title: string; value: string }) {
       <p className="mt-3 text-xl font-bold text-slate-950">{value}</p>
     </div>
   );
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "N/A";
+  }
+
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
