@@ -465,12 +465,12 @@ export default function GuidedPatientTraceStartPage() {
             <div
               className={`grid gap-3 ${
                 isScanMode
-                  ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]"
+                  ? "lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]"
                   : "lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]"
               }`}
             >
               <div
-                className={`rounded-2xl border p-4 ${
+                className={`rounded-2xl border p-3 ${
                   isScanMode
                     ? "border-slate-300 bg-slate-50 shadow-sm"
                     : "border-slate-200 bg-slate-50"
@@ -504,19 +504,15 @@ export default function GuidedPatientTraceStartPage() {
 
                 <div
                   id={scannerElementId}
-                  className={`mt-4 overflow-hidden rounded-2xl border border-slate-300 bg-white ${
+                  className={`mt-3 overflow-hidden rounded-2xl border border-slate-300 bg-white ${
                     isScanMode
-                      ? "min-h-[15rem] md:min-h-[16rem] xl:min-h-[18rem]"
-                      : "min-h-[18rem]"
+                      ? "min-h-[12.5rem] md:min-h-[13.5rem] xl:min-h-[15rem]"
+                      : "min-h-[16rem]"
                   }`}
                 />
-
-                {isScanMode && validatedPack && (
-                  <PackDetailsGrid pack={validatedPack} compact />
-                )}
               </div>
 
-              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-3">
                 <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
                   {isScanMode ? "Manual Fallback" : "Manual Pack Number"}
                 </label>
@@ -538,7 +534,7 @@ export default function GuidedPatientTraceStartPage() {
 
                 {packValidationMessage && (
                   <div
-                    className={`mt-4 rounded-2xl border p-4 text-sm font-bold ${
+                    className={`mt-3 rounded-2xl border p-3 text-sm font-bold ${
                       validatedPack
                         ? "border-green-200 bg-green-50 text-green-700"
                         : "border-red-200 bg-red-50 text-red-700"
@@ -548,7 +544,7 @@ export default function GuidedPatientTraceStartPage() {
                   </div>
                 )}
 
-                {validatedPack && !isScanMode && (
+                {validatedPack && (
                   <PackDetailsGrid pack={validatedPack} />
                 )}
               </div>
@@ -569,8 +565,8 @@ export default function GuidedPatientTraceStartPage() {
               />
             }
           >
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
-              <div className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
+              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
                   Patient Search
                 </label>
@@ -597,7 +593,7 @@ export default function GuidedPatientTraceStartPage() {
                   )}
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="mt-4 grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1 md:grid-cols-2">
                   {loadingData ? (
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-500">
                       Loading patients...
@@ -633,7 +629,7 @@ export default function GuidedPatientTraceStartPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="self-start rounded-2xl border border-slate-200 bg-white p-3">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
                     <UserPlus className="h-5 w-5" />
