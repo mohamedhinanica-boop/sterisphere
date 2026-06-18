@@ -328,7 +328,6 @@ export default function GuidedPatientTraceStartPage() {
         variant: "success",
       });
       setStepIndex(4);
-      toast.success("Trace successfully recorded.", { duration: 5500 });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Trace could not be recorded.";

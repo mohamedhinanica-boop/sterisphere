@@ -204,9 +204,6 @@ export default function GuidedCycleStartPage() {
         variant: "success",
       });
       setStepIndex(4);
-      toast.success(`Cycle ${result.cycle.cycle_number} started.`, {
-        duration: 5500,
-      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Error starting cycle.";
