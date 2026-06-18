@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ComponentType } from "react";
 import {
@@ -15,6 +15,9 @@ import {
 import toast from "react-hot-toast";
 import { createCycle, type Cycle } from "@/lib/modules/cycles";
 import { supabase } from "@/lib/supabase";
+import AssistantNotificationBanner, {
+  type AssistantNotification,
+} from "@/components/AssistantNotificationBanner";
 
 const steps = ["Sterilizer", "Load", "Duration", "Review"] as const;
 
@@ -52,6 +55,8 @@ export default function GuidedCycleStartPage() {
   const [savingCycle, setSavingCycle] = useState(false);
   const [cycleError, setCycleError] = useState("");
   const [createdCycle, setCreatedCycle] = useState<Cycle | null>(null);
+  const [assistantNotification, setAssistantNotification] =
+    useState<AssistantNotification | null>(null);
   const [returnCountdown, setReturnCountdown] = useState(8);
 
   const selectedDuration = useMemo(() => {
@@ -190,8 +195,18 @@ export default function GuidedCycleStartPage() {
       });
 
       setCreatedCycle(result.cycle);
+      setAssistantNotification({
+        title: "Cycle Started Successfully",
+        message: result.cycle.cycle_number,
+        detail: `Expected finish: ${formatDateTime(
+          result.cycle.expected_finish_at || null
+        )}`,
+        variant: "success",
+      });
       setStepIndex(4);
-      toast.success(`Cycle ${result.cycle.cycle_number} started.`);
+      toast.success(`Cycle ${result.cycle.cycle_number} started.`, {
+        duration: 5500,
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Error starting cycle.";
@@ -205,6 +220,9 @@ export default function GuidedCycleStartPage() {
   }
 
   const isSuccess = stepIndex === 4;
+  const dismissAssistantNotification = useCallback(() => {
+    setAssistantNotification(null);
+  }, []);
 
   useEffect(() => {
     if (!isSuccess) {
@@ -230,6 +248,11 @@ export default function GuidedCycleStartPage() {
 
   return (
     <main className="flex min-h-[100svh] flex-col bg-slate-100 p-3 text-slate-950 lg:h-[100svh] lg:overflow-hidden">
+      <AssistantNotificationBanner
+        notification={assistantNotification}
+        onDismiss={dismissAssistantNotification}
+      />
+
       <header className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-white shadow-sm">
         <div>
           <p className="text-sm font-semibold text-slate-300">

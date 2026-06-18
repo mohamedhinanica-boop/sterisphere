@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import {
   ArrowLeft,
@@ -24,6 +24,9 @@ import {
   type ValidatedPack,
 } from "@/lib/modules/traceability";
 import { supabase } from "@/lib/supabase";
+import AssistantNotificationBanner, {
+  type AssistantNotification,
+} from "@/components/AssistantNotificationBanner";
 
 const steps = ["Pack", "Patient", "Care", "Review"] as const;
 
@@ -63,9 +66,14 @@ export default function GuidedPatientTraceStartPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [savingTrace, setSavingTrace] = useState(false);
   const [traceDateTime, setTraceDateTime] = useState<Date | null>(null);
+  const [assistantNotification, setAssistantNotification] =
+    useState<AssistantNotification | null>(null);
   const [returnCountdown, setReturnCountdown] = useState(8);
 
   const isSuccess = stepIndex === 4;
+  const dismissAssistantNotification = useCallback(() => {
+    setAssistantNotification(null);
+  }, []);
 
   const filteredPatients = useMemo(() => {
     const search = patientSearch.trim().toLowerCase();
@@ -313,8 +321,14 @@ export default function GuidedPatientTraceStartPage() {
         procedure: procedure.trim(),
       });
 
+      setAssistantNotification({
+        title: "Trace Recorded Successfully",
+        message: `Pack ${validatedPack.pack_number}`,
+        detail: selectedPatient.full_name,
+        variant: "success",
+      });
       setStepIndex(4);
-      toast.success("Trace successfully recorded.");
+      toast.success("Trace successfully recorded.", { duration: 5500 });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Trace could not be recorded.";
@@ -328,6 +342,11 @@ export default function GuidedPatientTraceStartPage() {
 
   return (
     <main className="flex min-h-[100svh] flex-col bg-slate-100 p-3 text-slate-950 lg:h-[100svh] lg:overflow-hidden">
+      <AssistantNotificationBanner
+        notification={assistantNotification}
+        onDismiss={dismissAssistantNotification}
+      />
+
       <header className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-white shadow-sm">
         <div>
           <p className="text-sm font-semibold text-slate-300">
