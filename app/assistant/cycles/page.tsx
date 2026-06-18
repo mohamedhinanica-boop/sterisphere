@@ -5,8 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ClipboardCheck,
-  Clock,
-  PackageCheck,
   PlayCircle,
   Timer,
 } from "lucide-react";
@@ -15,21 +13,26 @@ import type { Cycle } from "@/lib/modules/cycles";
 import { supabase } from "@/lib/supabase";
 
 type CycleTiming = {
-  band: "green" | "yellow" | "red";
+  state: "running" | "ready" | "overdue";
   remainingMs: number;
   elapsedMs: number;
   remainingLabel: string;
   elapsedLabel: string;
-  bandLabel: string;
+  stateLabel: string;
   cardClass: string;
   badgeClass: string;
   textClass: string;
 };
 
+type CycleFilter = "all" | "running" | "ready" | "overdue";
+
+const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
+
 export default function AssistantRunningCyclesPage() {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
+  const [filter, setFilter] = useState<CycleFilter>("all");
 
   useEffect(() => {
     loadActiveCycles();
@@ -51,13 +54,17 @@ export default function AssistantRunningCyclesPage() {
   }, [cycles, now]);
 
   const summary = useMemo(() => {
-    const dueSoon = cycleTimings.filter(
-      ({ timing }) => timing.band === "yellow"
+    const running = cycleTimings.filter(
+      ({ timing }) => timing.state === "running"
+    ).length;
+    const ready = cycleTimings.filter(
+      ({ timing }) => timing.state === "ready"
     ).length;
     const overdue = cycleTimings.filter(
-      ({ timing }) => timing.band === "red"
+      ({ timing }) => timing.state === "overdue"
     ).length;
     const positiveRemaining = cycleTimings
+      .filter(({ timing }) => timing.state === "running")
       .map(({ timing }) => timing.remainingMs)
       .filter((remainingMs) => remainingMs > 0);
     const averageRemainingMs =
@@ -67,13 +74,21 @@ export default function AssistantRunningCyclesPage() {
         : 0;
 
     return {
-      running: cycles.length,
-      dueSoon,
+      running,
+      ready,
       overdue,
       averageRemaining:
         averageRemainingMs > 0 ? formatDurationFromMs(averageRemainingMs) : "N/A",
     };
-  }, [cycleTimings, cycles.length]);
+  }, [cycleTimings]);
+
+  const filteredCycleTimings = useMemo(() => {
+    if (filter === "all") {
+      return cycleTimings;
+    }
+
+    return cycleTimings.filter(({ timing }) => timing.state === filter);
+  }, [cycleTimings, filter]);
 
   async function loadActiveCycles() {
     setLoading(true);
@@ -97,8 +112,8 @@ export default function AssistantRunningCyclesPage() {
 
       setCycles(data || []);
     } catch (error) {
-      toast.error("Error loading running cycles.");
-      console.error("Assistant running cycles load error:", error);
+      toast.error("Error loading cycle operations.");
+      console.error("Assistant cycle operations load error:", error);
     } finally {
       setLoading(false);
     }
@@ -112,7 +127,7 @@ export default function AssistantRunningCyclesPage() {
             SteriSphere Workstation
           </p>
           <h1 className="text-2xl font-bold tracking-normal">
-            Running Cycles Center
+            Cycle Operations Center
           </h1>
         </div>
 
@@ -126,32 +141,83 @@ export default function AssistantRunningCyclesPage() {
       </header>
 
       <section className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard title="Running Cycles" value={String(summary.running)} />
-        <SummaryCard title="Due Soon" value={String(summary.dueSoon)} tone="yellow" />
-        <SummaryCard title="Overdue" value={String(summary.overdue)} tone="red" />
+        <SummaryCard title="Running" value={String(summary.running)} tone="green" />
+        <SummaryCard
+          title="Ready for Review"
+          value={String(summary.ready)}
+          tone="yellow"
+        />
+        <SummaryCard
+          title="Overdue Review"
+          value={String(summary.overdue)}
+          tone="red"
+        />
         <SummaryCard
           title="Average Remaining"
           value={summary.averageRemaining}
-          tone="green"
         />
       </section>
 
       <section className="min-h-0 flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:overflow-hidden">
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-lg font-bold text-slate-500">
-            Loading running cycles...
+            Loading cycle operations...
           </div>
         ) : cycles.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid min-h-0 gap-3 overflow-y-auto pb-1 pr-1 md:grid-cols-2 xl:grid-cols-3">
-            {cycleTimings.map(({ cycle, timing }) => (
-              <CycleMonitorCard key={cycle.id} cycle={cycle} timing={timing} />
-            ))}
+          <div className="flex min-h-0 flex-col">
+            <FilterChips activeFilter={filter} onChange={setFilter} />
+
+            {filteredCycleTimings.length === 0 ? (
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-lg font-bold text-slate-500">
+                No cycles match this filter.
+              </div>
+            ) : (
+              <div className="mt-3 grid min-h-0 flex-1 gap-3 overflow-y-auto pb-4 pr-1 md:grid-cols-2 xl:grid-cols-3">
+                {filteredCycleTimings.map(({ cycle, timing }) => (
+                  <CycleMonitorCard key={cycle.id} cycle={cycle} timing={timing} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>
     </main>
+  );
+}
+
+function FilterChips({
+  activeFilter,
+  onChange,
+}: {
+  activeFilter: CycleFilter;
+  onChange: (filter: CycleFilter) => void;
+}) {
+  const filters: Array<{ label: string; value: CycleFilter }> = [
+    { label: "All", value: "all" },
+    { label: "Running", value: "running" },
+    { label: "Ready Review", value: "ready" },
+    { label: "Overdue", value: "overdue" },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {filters.map((filter) => (
+        <button
+          key={filter.value}
+          type="button"
+          onClick={() => onChange(filter.value)}
+          className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold transition-all hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner ${
+            activeFilter === filter.value
+              ? "border-slate-950 bg-slate-950 text-white"
+              : "border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          {filter.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -215,7 +281,7 @@ function CycleMonitorCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-wide opacity-70">
-            {timing.bandLabel}
+            {timing.stateLabel}
           </p>
           <h2 className="mt-1 break-words text-3xl font-black">
             {cycle.cycle_number}
@@ -224,7 +290,7 @@ function CycleMonitorCard({
         <span
           className={`rounded-xl border px-3 py-2 text-sm font-black uppercase ${timing.badgeClass}`}
         >
-          {timing.band === "red" ? "Overdue" : "Running"}
+          {timing.stateLabel}
         </span>
       </div>
 
@@ -287,41 +353,45 @@ function getCycleTiming(cycle: Cycle, now: Date): CycleTiming {
     : null;
   const elapsedMs = Math.max(0, now.getTime() - startedAt);
   const remainingMs = finishAt ? finishAt - now.getTime() : 0;
-  const remainingMinutes = Math.ceil(remainingMs / 60000);
-  const isOverdue = Boolean(finishAt && remainingMs <= 0);
-  const band = isOverdue ? "red" : remainingMinutes <= 30 ? "yellow" : "green";
-  const overdueLabel = `OVERDUE BY ${formatDurationFromMs(
-    Math.abs(remainingMs)
-  ).toUpperCase()}`;
-  const remainingLabel = finishAt
-    ? isOverdue
-      ? overdueLabel
-      : `${formatDurationFromMs(remainingMs)} remaining`
-    : "No finish time";
+  const passedMs = finishAt ? now.getTime() - finishAt : 0;
+  const state =
+    finishAt && remainingMs <= 0
+      ? passedMs > REVIEW_OVERDUE_THRESHOLD_MS
+        ? "overdue"
+        : "ready"
+      : "running";
+  const remainingLabel =
+    state === "overdue"
+      ? `Review overdue by ${formatDurationFromMs(Math.abs(remainingMs))}`
+      : state === "ready"
+        ? "Ready for review"
+        : finishAt
+          ? `${formatDurationFromMs(remainingMs)} remaining`
+          : "No finish time";
 
   const styles = {
-    green: {
-      cardClass: "border-green-200 bg-green-50 text-green-950",
-      badgeClass: "border-green-300 bg-green-100 text-green-800",
-      textClass: "text-green-800",
-      bandLabel: "More than 30 min remaining",
+    running: {
+      cardClass: "border-blue-200 bg-blue-50 text-blue-950",
+      badgeClass: "border-blue-300 bg-blue-100 text-blue-800",
+      textClass: "text-blue-800",
+      stateLabel: "Running",
     },
-    yellow: {
+    ready: {
       cardClass: "border-yellow-200 bg-yellow-50 text-yellow-950",
       badgeClass: "border-yellow-300 bg-yellow-100 text-yellow-900",
       textClass: "text-yellow-900",
-      bandLabel: "Due soon",
+      stateLabel: "Ready for Review",
     },
-    red: {
+    overdue: {
       cardClass: "border-red-200 bg-red-50 text-red-950",
       badgeClass: "border-red-300 bg-red-100 text-red-800",
       textClass: "text-red-800",
-      bandLabel: "Overdue",
+      stateLabel: "Overdue Review",
     },
-  }[band];
+  }[state];
 
   return {
-    band,
+    state,
     remainingMs,
     elapsedMs,
     remainingLabel,

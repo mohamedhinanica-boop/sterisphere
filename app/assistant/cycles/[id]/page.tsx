@@ -13,6 +13,8 @@ import toast from "react-hot-toast";
 import type { Cycle } from "@/lib/modules/cycles";
 import { supabase } from "@/lib/supabase";
 
+const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
+
 export default function AssistantCycleDetailsPage() {
   const params = useParams<{ id: string }>();
   const cycleId = params.id;
@@ -64,7 +66,7 @@ export default function AssistantCycleDetailsPage() {
       <header className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-white shadow-sm">
         <div>
           <p className="text-sm font-semibold text-slate-300">
-            Running Cycles Center
+            Cycle Operations Center
           </p>
           <h1 className="text-2xl font-bold tracking-normal">Cycle Details</h1>
         </div>
@@ -74,7 +76,7 @@ export default function AssistantCycleDetailsPage() {
           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           <ArrowLeft className="h-5 w-5" />
-          Running Cycles
+          Cycle Center
         </Link>
       </header>
 
@@ -92,7 +94,7 @@ export default function AssistantCycleDetailsPage() {
                 href="/assistant/cycles"
                 className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-base font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
               >
-                Back to Running Cycles
+                Back to Cycle Center
               </Link>
             </div>
           </div>
@@ -158,7 +160,7 @@ export default function AssistantCycleDetailsPage() {
                 className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-base font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
               >
                 <ArrowLeft className="h-5 w-5" />
-                Back to Running Cycles
+                Back to Cycle Center
               </Link>
               <Link
                 href={`/assistant/cycle/review?cycleId=${cycle.id}`}
@@ -200,31 +202,38 @@ function getCycleTiming(cycle: Cycle, now: Date) {
   const startedAt = new Date(cycle.created_at).getTime();
   const elapsedMs = Math.max(0, now.getTime() - startedAt);
   const remainingMs = finishAt ? finishAt - now.getTime() : 0;
-  const remainingMinutes = Math.ceil(remainingMs / 60000);
-  const overdue = Boolean(finishAt && remainingMs <= 0);
-  const dueSoon = !overdue && remainingMinutes <= 30;
-  const remainingLabel = finishAt
-    ? overdue
-      ? `OVERDUE BY ${formatDurationFromMs(Math.abs(remainingMs)).toUpperCase()}`
-      : `${formatDurationFromMs(remainingMs)} remaining`
-    : "No finish time";
+  const passedMs = finishAt ? now.getTime() - finishAt : 0;
+  const state =
+    finishAt && remainingMs <= 0
+      ? passedMs > REVIEW_OVERDUE_THRESHOLD_MS
+        ? "overdue"
+        : "ready"
+      : "running";
+  const remainingLabel =
+    state === "overdue"
+      ? `Review overdue by ${formatDurationFromMs(Math.abs(remainingMs))}`
+      : state === "ready"
+        ? "Ready for review"
+        : finishAt
+          ? `${formatDurationFromMs(remainingMs)} remaining`
+          : "No finish time";
 
-  if (overdue) {
+  if (state === "overdue") {
     return {
       remainingLabel,
       elapsedLabel: formatDurationFromMs(elapsedMs),
-      badgeLabel: "Overdue",
+      badgeLabel: "Overdue Review",
       panelClass: "border-red-200 bg-red-50 text-red-950",
       badgeClass: "border-red-300 bg-red-100 text-red-800",
       textClass: "text-red-800",
     };
   }
 
-  if (dueSoon) {
+  if (state === "ready") {
     return {
       remainingLabel,
       elapsedLabel: formatDurationFromMs(elapsedMs),
-      badgeLabel: "Due Soon",
+      badgeLabel: "Ready for Review",
       panelClass: "border-yellow-200 bg-yellow-50 text-yellow-950",
       badgeClass: "border-yellow-300 bg-yellow-100 text-yellow-900",
       textClass: "text-yellow-900",
@@ -235,9 +244,9 @@ function getCycleTiming(cycle: Cycle, now: Date) {
     remainingLabel,
     elapsedLabel: formatDurationFromMs(elapsedMs),
     badgeLabel: "Running",
-    panelClass: "border-green-200 bg-green-50 text-green-950",
-    badgeClass: "border-green-300 bg-green-100 text-green-800",
-    textClass: "text-green-800",
+    panelClass: "border-blue-200 bg-blue-50 text-blue-950",
+    badgeClass: "border-blue-300 bg-blue-100 text-blue-800",
+    textClass: "text-blue-800",
   };
 }
 

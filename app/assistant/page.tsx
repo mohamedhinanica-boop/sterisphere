@@ -25,9 +25,11 @@ const primaryActions = [
 ];
 
 const workflowActions = [
-  { title: "Review Running Cycles", href: "/assistant/cycles", icon: ClipboardCheck },
+  { title: "Cycle Center", href: "/assistant/cycles", icon: ClipboardCheck },
   { title: "Pack Inventory", href: "/assistant/inventory", icon: Package },
 ];
+
+const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
 
 const secondaryActions = [
   { title: "Print Labels", href: "/packs", icon: Printer },
@@ -144,7 +146,7 @@ export default function AssistantPage() {
       .returns<RunningCycle[]>();
 
     if (error) {
-      console.error("Assistant running cycles lookup error:", error);
+      console.error("Assistant cycle operations lookup error:", error);
       return [];
     }
 
@@ -152,7 +154,6 @@ export default function AssistantPage() {
   }
 
   const pendingReviews = status.failedCycles + status.pendingCycles;
-  const runningCycle = activeCycles[0] || null;
   const activeCycleStats = getActiveCycleStats(activeCycles, now);
 
   return (
@@ -347,25 +348,43 @@ function OperationalCenter({
   loading: boolean;
 }) {
   const hasFailedReviews = status.failedCycles > 0;
-  const hasPendingReviews = status.pendingCycles > 0;
-  const runningCycle = activeCycles[0] || null;
-  const hasRunningCycle = Boolean(runningCycle);
-  const hasPriority = hasFailedReviews || hasRunningCycle || hasPendingReviews;
+  const overdueCycles = activeCycles.filter(
+    (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "overdue"
+  );
+  const readyCycles = activeCycles.filter(
+    (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "ready"
+  );
+  const runningCycles = activeCycles.filter(
+    (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "running"
+  );
+  const focusCycle =
+    overdueCycles[0] || readyCycles[0] || runningCycles[0] || null;
+  const hasPriority = hasFailedReviews || Boolean(focusCycle);
   const isIdle = !loading && !hasPriority;
-  const timing = runningCycle
-    ? getCycleTiming(runningCycle.expected_finish_at, now)
+  const timing = focusCycle
+    ? getCycleTiming(focusCycle.expected_finish_at, now)
     : null;
   const openCycleHref =
-    activeCycles.length === 1 && runningCycle
-      ? `/assistant/cycles/${runningCycle.id}`
+    runningCycles.length === 1
+      ? `/assistant/cycles/${runningCycles[0].id}`
       : "/assistant/cycles";
+  const reviewCycleHref =
+    activeCycles.length === 1 && focusCycle
+      ? `/assistant/cycle/review?cycleId=${focusCycle.id}`
+      : "/assistant/cycle/review";
 
   return (
     <aside
       className={`flex min-h-0 flex-col rounded-2xl border p-3 shadow-sm sm:p-4 ${
-        hasFailedReviews
+        overdueCycles.length > 0
           ? "border-red-200 bg-red-50 text-red-900"
-          : hasPriority
+          : readyCycles.length > 0
+            ? "border-yellow-200 bg-yellow-50 text-yellow-900"
+            : runningCycles.length > 0
+              ? "border-blue-200 bg-blue-50 text-blue-900"
+              : hasFailedReviews
+                ? "border-red-200 bg-red-50 text-red-900"
+                : hasPriority
           ? "border-yellow-200 bg-yellow-50 text-yellow-900"
           : "border-blue-200 bg-blue-50 text-blue-900"
       }`}
@@ -391,38 +410,68 @@ function OperationalCenter({
             Loading cycle status and pending reviews.
           </p>
         </section>
-      ) : hasFailedReviews ? (
+      ) : overdueCycles.length > 0 && focusCycle && timing ? (
         <section className="mt-3 rounded-2xl border border-red-200 bg-white/75 p-3 sm:p-4">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
-            Critical status
+            Review Required
           </span>
-          <h3 className="mt-3 text-xl font-bold">
-            Failed cycle requiring review
-          </h3>
+          <h3 className="mt-3 text-xl font-bold">Overdue Review</h3>
           <p className="mt-2 text-sm">
-            {status.failedCycles} failed{" "}
-            {status.failedCycles === 1 ? "cycle is" : "cycles are"} awaiting
-            investigation review before related work can move forward.
+            {overdueCycles.length}{" "}
+            {overdueCycles.length === 1 ? "cycle is" : "cycles are"} past the
+            review threshold. Review before releasing packs.
           </p>
           <Link
-            href="/investigation"
+            href={reviewCycleHref}
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
-            Investigation Center
+            Review Cycles
           </Link>
         </section>
-      ) : runningCycle && timing ? (
+      ) : readyCycles.length > 0 && focusCycle && timing ? (
         <section className="mt-3 rounded-2xl border border-yellow-200 bg-white/75 p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
-                Running
+              <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
+                Ready for Review
               </span>
               <h3 className="mt-3 text-xl font-bold">
-                {runningCycle.cycle_number}
+                {focusCycle.cycle_number}
               </h3>
               <p className="mt-1 text-sm opacity-75">
-                {runningCycle.sterilizer}
+                {focusCycle.sterilizer}
+              </p>
+            </div>
+            <span
+              className={`rounded-xl border px-3 py-2 text-sm font-bold ${timing.badgeClass}`}
+            >
+              Ready
+            </span>
+          </div>
+          <p className="mt-3 text-sm">
+            {readyCycles.length}{" "}
+            {readyCycles.length === 1 ? "cycle has" : "cycles have"} reached
+            expected finish and can be reviewed.
+          </p>
+          <Link
+            href={reviewCycleHref}
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          >
+            Review Cycles
+          </Link>
+        </section>
+      ) : runningCycles.length > 0 && focusCycle && timing ? (
+        <section className="mt-3 rounded-2xl border border-blue-200 bg-white/75 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
+                Running Cycle
+              </span>
+              <h3 className="mt-3 text-xl font-bold">
+                {focusCycle.cycle_number}
+              </h3>
+              <p className="mt-1 text-sm opacity-75">
+                {focusCycle.sterilizer}
               </p>
             </div>
             <span
@@ -436,13 +485,13 @@ function OperationalCenter({
             <div>
               <dt className="font-semibold opacity-70">Started</dt>
               <dd className="mt-1 font-bold">
-                {formatCompactDateTime(runningCycle.created_at)}
+                {formatCompactDateTime(focusCycle.created_at)}
               </dd>
             </div>
             <div>
               <dt className="font-semibold opacity-70">Expected Finish</dt>
               <dd className="mt-1 font-bold">
-                {formatCompactDateTime(runningCycle.expected_finish_at)}
+                {formatCompactDateTime(focusCycle.expected_finish_at)}
               </dd>
             </div>
             <div>
@@ -461,26 +510,27 @@ function OperationalCenter({
             href={openCycleHref}
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
-            {activeCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
+            {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
         </section>
-      ) : hasPendingReviews ? (
-        <section className="mt-3 rounded-2xl border border-yellow-200 bg-white/75 p-3 sm:p-4">
-          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
-            Review recommended
+      ) : hasFailedReviews ? (
+        <section className="mt-3 rounded-2xl border border-red-200 bg-white/75 p-3 sm:p-4">
+          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
+            Critical status
           </span>
-          <h3 className="mt-3 text-xl font-bold">Pending cycle review</h3>
+          <h3 className="mt-3 text-xl font-bold">
+            Failed cycle requiring review
+          </h3>
           <p className="mt-2 text-sm">
-            {status.pendingCycles}{" "}
-            {status.pendingCycles === 1 ? "cycle is" : "cycles are"} awaiting
-            confirmation. Review before releasing packs or starting related
-            traceability work.
+            {status.failedCycles} failed{" "}
+            {status.failedCycles === 1 ? "cycle is" : "cycles are"} awaiting
+            investigation review before related work can move forward.
           </p>
           <Link
-            href="/assistant/cycle/review"
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            href="/investigation"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
-            Review Cycles
+            Investigation Center
           </Link>
         </section>
       ) : (
@@ -541,29 +591,33 @@ function OperationalCenter({
 }
 
 function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
-  const hasOverdue = activeCycles.some((cycle) => {
-    if (!cycle.expected_finish_at) {
-      return false;
-    }
-
-    return new Date(cycle.expected_finish_at).getTime() <= now.getTime();
-  });
-  const hasDueSoon = activeCycles.some((cycle) => {
-    if (!cycle.expected_finish_at) {
-      return false;
-    }
-
-    const diffMinutes = Math.ceil(
-      (new Date(cycle.expected_finish_at).getTime() - now.getTime()) / 60000
-    );
-
-    return diffMinutes > 0 && diffMinutes <= 30;
-  });
+  const states = activeCycles.map((cycle) =>
+    getCycleOperationalState(cycle.expected_finish_at, now)
+  );
+  const hasOverdue = states.includes("overdue");
+  const hasReady = states.includes("ready");
 
   return {
     count: activeCycles.length,
-    tileTone: hasOverdue ? "critical" : hasDueSoon ? "warning" : "default",
+    tileTone: hasOverdue ? "critical" : hasReady ? "warning" : "default",
   } as const;
+}
+
+function getCycleOperationalState(expectedFinishAt: string | null, now: Date) {
+  if (!expectedFinishAt) {
+    return "running";
+  }
+
+  const finishTime = new Date(expectedFinishAt).getTime();
+  const remainingMs = finishTime - now.getTime();
+
+  if (remainingMs > 0) {
+    return "running";
+  }
+
+  return Math.abs(remainingMs) > REVIEW_OVERDUE_THRESHOLD_MS
+    ? "overdue"
+    : "ready";
 }
 
 function getCycleTiming(expectedFinishAt: string | null, now: Date) {
