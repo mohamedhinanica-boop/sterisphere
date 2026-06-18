@@ -8,7 +8,9 @@ export async function validatePackUsage(
 
   const { data: pack, error: packError } = await supabase
     .from("packs")
-    .select("id, pack_number, cycle_number, status, expires_at")
+    .select(
+      "id, pack_number, cycle_number, pack_type, contents, status, expires_at, created_at"
+    )
     .eq("pack_number", packNumber)
     .maybeSingle();
 

@@ -43,8 +43,11 @@ export type ValidatedPack = {
   id: string;
   pack_number: string;
   cycle_number: string;
+  pack_type?: string | null;
+  contents?: string | null;
   status: string | null;
   expires_at: string | null;
+  created_at?: string | null;
 };
 
 export type CreatePatientTraceInput = {
