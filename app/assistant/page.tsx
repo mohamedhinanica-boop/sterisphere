@@ -25,7 +25,7 @@ const primaryActions = [
 ];
 
 const workflowActions = [
-  { title: "Review Cycles", href: "/assistant/cycle/review", icon: ClipboardCheck },
+  { title: "Review Running Cycles", href: "/assistant/cycles", icon: ClipboardCheck },
   { title: "Pack Inventory", href: "/assistant/inventory", icon: Package },
 ];
 
@@ -420,7 +420,7 @@ function OperationalCenter({
           </dl>
 
           <Link
-            href="/assistant/cycle/review"
+            href="/assistant/cycles"
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Open Cycle

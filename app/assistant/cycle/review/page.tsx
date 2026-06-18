@@ -107,7 +107,23 @@ export default function GuidedCycleReviewPage() {
         throw error;
       }
 
-      setCycles(data || []);
+      const nextCycles = data || [];
+      const selectedCycleId = new URLSearchParams(window.location.search).get(
+        "cycleId"
+      );
+
+      setCycles(nextCycles);
+
+      if (selectedCycleId) {
+        const nextSelectedCycle = nextCycles.find(
+          (cycle) =>
+            cycle.id === selectedCycleId && shouldShowCycleForReview(cycle, now)
+        );
+
+        if (nextSelectedCycle) {
+          setSelectedCycle(nextSelectedCycle);
+        }
+      }
     } catch (error) {
       toast.error("Error loading cycles for review.");
       console.error("Assistant cycle review load error:", error);
