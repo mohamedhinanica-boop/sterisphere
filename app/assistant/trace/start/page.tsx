@@ -552,40 +552,28 @@ export default function GuidedPatientTraceStartPage() {
                 <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
                   Patient Search
                 </label>
-                <input
-                  value={patientSearch}
-                  onChange={(event) => {
-                    setPatientSearch(event.target.value);
-                    setSelectedPatient(null);
-                  }}
-                  className="mt-3 min-h-14 rounded-xl border-2 border-slate-300 px-4 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
-                  placeholder="Name or file ID"
-                />
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={patientSearch}
+                    onChange={(event) => {
+                      setPatientSearch(event.target.value);
+                      setSelectedPatient(null);
+                    }}
+                    className="min-h-14 min-w-0 flex-1 rounded-xl border-2 border-slate-300 px-4 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                    placeholder="Name or file ID"
+                  />
 
-                {selectedPatient && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
-                    <div>
-                      <p className="text-sm font-bold uppercase tracking-wide">
-                        Selected Patient
-                      </p>
-                      <p className="mt-1 text-xl font-bold">
-                        {selectedPatient.full_name}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold opacity-80">
-                        File ID: {selectedPatient.external_id || "N/A"}
-                      </p>
-                    </div>
-
+                  {(selectedPatient || patientSearch.trim()) && (
                     <button
                       type="button"
                       onClick={clearSelectedPatient}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-green-300 bg-white px-4 py-2 text-sm font-bold text-green-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+                      className="inline-flex min-h-14 shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
                     >
                       <X className="h-4 w-4" />
                       Clear
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {loadingData ? (
