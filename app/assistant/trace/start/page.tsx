@@ -40,6 +40,7 @@ type ManualPatientForm = {
 export default function GuidedPatientTraceStartPage() {
   const router = useRouter();
   const scannerRef = useRef<any>(null);
+  const packInputRef = useRef<HTMLInputElement>(null);
   const scannerElementId = "trace-pack-qr-reader";
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -162,8 +163,17 @@ export default function GuidedPatientTraceStartPage() {
     setPackValidationMessage("");
   }
 
+  function normalizePackNumber(nextPackNumber: string) {
+    return nextPackNumber.trim().toUpperCase();
+  }
+
   async function validatePackNumber(nextPackNumber: string) {
-    const normalizedPackNumber = nextPackNumber.trim();
+    const normalizedPackNumber = normalizePackNumber(nextPackNumber);
+
+    console.log("[GuidedTrace] validatePackNumber input", {
+      inputPackNumber: nextPackNumber,
+      normalizedPackNumber,
+    });
 
     if (!normalizedPackNumber) {
       setPackValidationMessage("Enter or scan a pack number.");
@@ -176,11 +186,16 @@ export default function GuidedPatientTraceStartPage() {
 
     try {
       const pack = await validatePackUsage(supabase, normalizedPackNumber);
+
+      console.log("[GuidedTrace] validatePackUsage result", pack);
+
       setPackNumber(pack.pack_number);
       setValidatedPack(pack);
       setPackValidationMessage("Pack validated and available.");
       toast.success("Pack validated.");
     } catch (error) {
+      console.error("[GuidedTrace] validatePackUsage error", error);
+
       const message =
         error instanceof Error ? error.message : "Pack could not be validated.";
 
@@ -192,7 +207,14 @@ export default function GuidedPatientTraceStartPage() {
   }
 
   async function validateManualPack() {
-    await validatePackNumber(packNumber);
+    const manualPackNumber = packInputRef.current?.value ?? packNumber;
+
+    console.log("[GuidedTrace] manual validate clicked", {
+      inputPackNumber: manualPackNumber,
+      statePackNumber: packNumber,
+    });
+
+    await validatePackNumber(manualPackNumber);
   }
 
   function goToStep(nextStepIndex: number) {
@@ -215,6 +237,9 @@ export default function GuidedPatientTraceStartPage() {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 240, height: 240 } },
         async (decodedText: string) => {
+          console.log("[GuidedTrace] QR decoded", {
+            inputPackNumber: decodedText,
+          });
           await stopScanner();
           await validatePackNumber(decodedText);
         },
@@ -461,6 +486,7 @@ export default function GuidedPatientTraceStartPage() {
                   Manual Pack Number
                 </label>
                 <input
+                  ref={packInputRef}
                   value={packNumber}
                   onChange={(event) => updatePackNumber(event.target.value)}
                   className="mt-3 min-h-14 rounded-xl border-2 border-slate-300 px-4 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
