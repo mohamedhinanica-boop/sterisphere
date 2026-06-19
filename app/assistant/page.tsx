@@ -315,11 +315,11 @@ export default function AssistantPage() {
 
   return (
     <main
-      className="grid h-[100dvh] max-h-[100svh] min-h-0 gap-2 overflow-hidden bg-slate-100 p-2 text-slate-950 sm:p-3"
+      className="grid h-full min-h-0 gap-2 overflow-hidden bg-slate-100 p-2 text-slate-950 sm:p-3"
       style={{
         gridTemplateAreas: `"header" "kpis" "middle" "activity" "actions" "nav"`,
         gridTemplateRows:
-          "clamp(4rem,8svh,4.75rem) clamp(4rem,8svh,4.75rem) minmax(13rem,1fr) clamp(7rem,17svh,9.5rem) clamp(5.25rem,11svh,6.5rem) clamp(3.25rem,7svh,4rem)",
+          "clamp(3.75rem,7dvh,4.5rem) clamp(3.75rem,7dvh,4.5rem) minmax(0,1.45fr) minmax(0,0.58fr) clamp(5.5rem,11dvh,6.5rem) clamp(3.5rem,7dvh,4.25rem)",
       }}
     >
       <header
@@ -599,7 +599,7 @@ function RecentActivityCard({
   activity: AssistantActivityItem[];
   loading: boolean;
 }) {
-  const rows = activity.slice(0, 5);
+  const rows = activity.slice(0, 4);
 
   return (
     <article className="h-full min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
@@ -639,7 +639,7 @@ function RecentActivityCard({
           rows.map((item) => (
             <div
               key={item.id}
-              className="grid min-h-[1.375rem] grid-cols-[4.75rem_minmax(9rem,1fr)_minmax(8rem,0.75fr)_auto] items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-0.5 last:border-b-0"
+              className="grid min-h-[1.5rem] grid-cols-[4.75rem_minmax(9rem,1fr)_minmax(8rem,0.75fr)_auto] items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-0.5 last:border-b-0"
             >
               <span className="text-xs font-black text-slate-500">{item.time}</span>
               <span className="truncate text-xs font-bold text-slate-800">
@@ -824,14 +824,14 @@ function OperationalCenter({
       </div>
 
       {loading ? (
-        <section className="mt-2 rounded-xl border border-white/60 bg-white/60 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-white/60 bg-white/60 p-3">
           <p className="text-lg font-semibold">Checking command center...</p>
           <p className="mt-2 text-sm opacity-75">
             Loading cycle status and pending reviews.
           </p>
         </section>
       ) : overdueCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-2 rounded-xl border border-red-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-3">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
             Review Required
           </span>
@@ -843,13 +843,13 @@ function OperationalCenter({
           </p>
           <Link
             href={reviewCycleHref}
-            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
         </section>
       ) : readyCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-2 rounded-xl border border-yellow-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-yellow-200 bg-white/75 p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
@@ -875,13 +875,13 @@ function OperationalCenter({
           </p>
           <Link
             href={reviewCycleHref}
-            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
         </section>
       ) : runningCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-2 rounded-xl border border-blue-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
@@ -928,13 +928,13 @@ function OperationalCenter({
 
           <Link
             href={openCycleHref}
-            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
         </section>
       ) : hasFailedReviews ? (
-        <section className="mt-2 rounded-xl border border-red-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-3">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
             Critical status
           </span>
@@ -948,13 +948,13 @@ function OperationalCenter({
           </p>
           <Link
             href="/assistant/investigations"
-            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Investigation Center
           </Link>
         </section>
       ) : (
-        <section className="mt-2 rounded-xl border border-blue-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-3">
           <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
             Normal state
           </span>

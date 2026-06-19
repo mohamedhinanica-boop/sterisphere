@@ -177,7 +177,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isAssistantPage) {
     return (
       <AuthGuard>
-        <div className="min-h-screen bg-slate-100 text-slate-950">
+        <div className="h-[100dvh] min-h-0 overflow-hidden bg-slate-100 text-slate-950">
           {children}
         </div>
       </AuthGuard>
