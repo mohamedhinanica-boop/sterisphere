@@ -4,11 +4,13 @@ import Link from "next/link";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 import {
+  CheckCircle2,
   ClipboardCheck,
   FileSearch,
   Home,
   MoreHorizontal,
   Package,
+  PackageX,
   Printer,
   Search,
   ShieldAlert,
@@ -57,6 +59,50 @@ type RunningCycle = {
   expected_finish_at: string | null;
   created_at: string;
 };
+type WorkQueueCycle = {
+  id: string;
+  cycle_number: string;
+  sterilizer: string;
+  expected_finish_at: string | null;
+  created_at: string;
+};
+
+type WorkQueueInvestigation = {
+  id: string;
+  cycle_number: string;
+  investigation_status: string | null;
+  created_at: string;
+};
+
+type WorkQueuePack = {
+  id: string;
+  pack_number: string;
+  expires_at: string | null;
+  status: string | null;
+};
+
+type QueueCounts = {
+  readyCycles: number;
+  openInvestigations: number;
+  expiredPacks: number;
+  expiringPacks: number;
+};
+
+type NextRecommendedAction = {
+  title: string;
+  label: string;
+  identifier: string;
+  detail: string;
+  href: string;
+  buttonLabel: string;
+  tone: "red" | "yellow" | "blue" | "green";
+  icon: ComponentType<{ className?: string }>;
+};
+
+type WorkQueueData = {
+  nextAction: NextRecommendedAction | null;
+  counts: QueueCounts;
+};
 
 export default function AssistantPage() {
   const [status, setStatus] = useState<WorkstationStatus>({
@@ -66,6 +112,15 @@ export default function AssistantPage() {
     failedCycles: 0,
   });
   const [activeCycles, setActiveCycles] = useState<RunningCycle[]>([]);
+  const [workQueue, setWorkQueue] = useState<WorkQueueData>({
+    nextAction: null,
+    counts: {
+      readyCycles: 0,
+      openInvestigations: 0,
+      expiredPacks: 0,
+      expiringPacks: 0,
+    },
+  });
   const [currentUser, setCurrentUser] = useState<CurrentUser>({
     email: "",
     role: "",
@@ -89,11 +144,13 @@ export default function AssistantPage() {
     setLoading(true);
 
     try {
-      const [dashboardData, currentActiveCycles] = await Promise.all([
-        getDashboardData(),
-        loadActiveCycles(),
-        loadCurrentUser(),
-      ]);
+      const [dashboardData, currentActiveCycles, currentWorkQueue] =
+        await Promise.all([
+          getDashboardData(),
+          loadActiveCycles(),
+          loadWorkQueueData(),
+          loadCurrentUser(),
+        ]);
 
       setStatus({
         pendingCycles: currentActiveCycles.length,
@@ -102,6 +159,7 @@ export default function AssistantPage() {
         failedCycles: dashboardData.unreviewedFailedCyclesCount,
       });
       setActiveCycles(currentActiveCycles);
+      setWorkQueue(currentWorkQueue);
     } catch (error) {
       toast.error("Error loading workstation status.");
       console.error("Assistant workstation status error:", error);
@@ -153,6 +211,90 @@ export default function AssistantPage() {
     return data || [];
   }
 
+  async function loadWorkQueueData(): Promise<WorkQueueData> {
+    const queueNow = new Date();
+    const nowIso = queueNow.toISOString();
+    const thirtyDaysFromNow = new Date(queueNow);
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    const [
+      readyCyclesResult,
+      investigationsResult,
+      expiredPacksResult,
+      expiringPacksResult,
+      runningCyclesResult,
+    ] = await Promise.all([
+      supabase
+        .from("cycles")
+        .select("id, cycle_number, sterilizer, expected_finish_at, created_at")
+        .eq("status", "Pending")
+        .lte("expected_finish_at", nowIso)
+        .order("expected_finish_at", { ascending: true, nullsFirst: false })
+        .returns<WorkQueueCycle[]>(),
+      supabase
+        .from("cycles")
+        .select("id, cycle_number, investigation_status, created_at")
+        .eq("investigation_status", "Open")
+        .order("created_at", { ascending: true })
+        .returns<WorkQueueInvestigation[]>(),
+      supabase
+        .from("packs")
+        .select("id, pack_number, expires_at, status")
+        .eq("status", "Expired")
+        .order("expires_at", { ascending: true, nullsFirst: false })
+        .returns<WorkQueuePack[]>(),
+      supabase
+        .from("packs")
+        .select("id, pack_number, expires_at, status")
+        .gte("expires_at", nowIso)
+        .lte("expires_at", thirtyDaysFromNow.toISOString())
+        .neq("status", "Used")
+        .order("expires_at", { ascending: true, nullsFirst: false })
+        .returns<WorkQueuePack[]>(),
+      supabase
+        .from("cycles")
+        .select("id, cycle_number, sterilizer, expected_finish_at, created_at")
+        .eq("status", "Pending")
+        .gt("expected_finish_at", nowIso)
+        .order("expected_finish_at", { ascending: true, nullsFirst: false })
+        .returns<WorkQueueCycle[]>(),
+    ]);
+
+    const queryErrors = [
+      readyCyclesResult.error,
+      investigationsResult.error,
+      expiredPacksResult.error,
+      expiringPacksResult.error,
+      runningCyclesResult.error,
+    ].filter(Boolean);
+
+    if (queryErrors.length > 0) {
+      throw queryErrors[0];
+    }
+
+    const readyCycles = readyCyclesResult.data || [];
+    const openInvestigations = investigationsResult.data || [];
+    const expiredPacks = expiredPacksResult.data || [];
+    const expiringPacks = expiringPacksResult.data || [];
+    const runningCycles = runningCyclesResult.data || [];
+
+    return {
+      counts: {
+        readyCycles: readyCycles.length,
+        openInvestigations: openInvestigations.length,
+        expiredPacks: expiredPacks.length,
+        expiringPacks: expiringPacks.length,
+      },
+      nextAction: getNextRecommendedAction({
+        readyCycles,
+        openInvestigations,
+        expiredPacks,
+        expiringPacks,
+        runningCycles,
+        now: queueNow,
+      }),
+    };
+  }
   const pendingReviews = status.failedCycles + status.pendingCycles;
   const activeCycleStats = getActiveCycleStats(activeCycles, now);
 
@@ -209,9 +351,11 @@ export default function AssistantPage() {
         />
       </section>
 
-      <section className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.9fr)] xl:grid-cols-[minmax(0,2fr)_minmax(330px,0.9fr)] lg:overflow-hidden">
-        <div className="grid min-h-0 gap-2 lg:grid-rows-[minmax(0,1fr)_auto]">
-          <div className="grid min-h-0 grid-cols-2 gap-2">
+      <section className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1.7fr)_minmax(310px,0.9fr)] xl:grid-cols-[minmax(0,1.85fr)_minmax(330px,0.9fr)] lg:overflow-hidden">
+        <div className="grid min-h-0 gap-2 lg:grid-rows-[auto_auto_minmax(0,1fr)]">
+          <SmartWorkQueue workQueue={workQueue} loading={loading} />
+
+          <div className="grid grid-cols-2 gap-2">
             {primaryActions.map((action) => (
               <ActionTile key={action.title} {...action} primary />
             ))}
@@ -251,6 +395,170 @@ export default function AssistantPage() {
   );
 }
 
+function SmartWorkQueue({
+  workQueue,
+  loading,
+}: {
+  workQueue: WorkQueueData;
+  loading: boolean;
+}) {
+  const hasActions = Boolean(workQueue.nextAction);
+
+  return (
+    <section className="grid gap-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(260px,0.75fr)]">
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
+            Next Recommended Action
+          </p>
+          <h2 className="mt-3 text-3xl font-black text-slate-900">
+            Checking work queue...
+          </h2>
+          <p className="mt-2 text-base font-semibold text-slate-500">
+            Prioritizing cycles, investigations, and inventory.
+          </p>
+        </div>
+      ) : hasActions && workQueue.nextAction ? (
+        <NextActionCard action={workQueue.nextAction} />
+      ) : (
+        <AllClearCard />
+      )}
+
+      <AttentionQueue counts={workQueue.counts} loading={loading} />
+    </section>
+  );
+}
+
+function NextActionCard({ action }: { action: NextRecommendedAction }) {
+  const Icon = action.icon;
+  const toneClasses = {
+    red: "border-red-200 bg-red-50 text-red-950",
+    yellow: "border-yellow-200 bg-yellow-50 text-yellow-950",
+    blue: "border-blue-200 bg-blue-50 text-blue-950",
+    green: "border-green-200 bg-green-50 text-green-950",
+  }[action.tone];
+  const buttonClasses = {
+    red: "bg-red-600 text-white",
+    yellow: "bg-yellow-500 text-yellow-950",
+    blue: "bg-slate-950 text-white",
+    green: "bg-green-700 text-white",
+  }[action.tone];
+
+  return (
+    <article className={`rounded-2xl border p-4 shadow-sm ${toneClasses}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wide opacity-70">
+            Next Recommended Action
+          </p>
+          <h2 className="mt-2 text-3xl font-black leading-tight">
+            {action.title}
+          </h2>
+        </div>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/75 shadow-sm">
+          <Icon className="h-7 w-7" />
+        </span>
+      </div>
+
+      <p className="mt-3 text-sm font-black uppercase tracking-wide opacity-70">
+        {action.label}
+      </p>
+      <p className="mt-1 break-words text-3xl font-black">
+        {action.identifier}
+      </p>
+      <p className="mt-2 text-lg font-bold opacity-85">{action.detail}</p>
+
+      <Link
+        href={action.href}
+        className={`mt-4 inline-flex min-h-12 items-center justify-center rounded-xl px-6 py-3 text-base font-black shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${buttonClasses}`}
+      >
+        {action.buttonLabel}
+      </Link>
+    </article>
+  );
+}
+
+function AllClearCard() {
+  return (
+    <article className="rounded-2xl border border-green-200 bg-green-50 p-4 text-green-950 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wide text-green-700">
+            Next Recommended Action
+          </p>
+          <h2 className="mt-2 text-4xl font-black leading-tight">All Clear</h2>
+        </div>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/75 text-green-700 shadow-sm">
+          <CheckCircle2 className="h-7 w-7" />
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-1 text-lg font-bold text-green-900">
+        <p>No cycles require review.</p>
+        <p>No investigations are open.</p>
+        <p>No expired packs detected.</p>
+      </div>
+
+      <Link
+        href="/assistant/cycle/start"
+        className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl bg-green-700 px-6 py-3 text-base font-black text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+      >
+        Start New Cycle
+      </Link>
+    </article>
+  );
+}
+
+function AttentionQueue({
+  counts,
+  loading,
+}: {
+  counts: QueueCounts;
+  loading: boolean;
+}) {
+  const rows = [
+    {
+      label: "Cycles Ready For Review",
+      count: counts.readyCycles,
+      href: "/assistant/cycle/review",
+    },
+    {
+      label: "Open Investigations",
+      count: counts.openInvestigations,
+      href: "/investigation",
+    },
+    {
+      label: "Expired Packs",
+      count: counts.expiredPacks,
+      href: "/assistant/inventory",
+    },
+    {
+      label: "Packs Expiring Soon",
+      count: counts.expiringPacks,
+      href: "/assistant/inventory",
+    },
+  ];
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-2xl font-black text-slate-950">Attention Queue</h2>
+      <div className="mt-3 grid gap-2">
+        {rows.map((row) => (
+          <Link
+            key={row.label}
+            href={row.href}
+            className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-800 transition-all hover:bg-white hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          >
+            <span className="text-base font-black">
+              {loading ? "-" : row.count} {row.label}
+            </span>
+            <span className="text-xl font-black text-slate-500">{">"}</span>
+          </Link>
+        ))}
+      </div>
+    </article>
+  );
+}
 function KpiCard({
   title,
   value,
@@ -590,6 +898,93 @@ function OperationalCenter({
   );
 }
 
+function getNextRecommendedAction({
+  readyCycles,
+  openInvestigations,
+  expiredPacks,
+  expiringPacks,
+  runningCycles,
+  now,
+}: {
+  readyCycles: WorkQueueCycle[];
+  openInvestigations: WorkQueueInvestigation[];
+  expiredPacks: WorkQueuePack[];
+  expiringPacks: WorkQueuePack[];
+  runningCycles: WorkQueueCycle[];
+  now: Date;
+}): NextRecommendedAction | null {
+  const cycleForReview = readyCycles[0];
+  if (cycleForReview) {
+    return {
+      title: "Review Cycle",
+      label: "Cycle Review",
+      identifier: cycleForReview.cycle_number,
+      detail: formatOverdueDetail(cycleForReview.expected_finish_at, now),
+      href: `/assistant/cycle/review?cycleId=${cycleForReview.id}`,
+      buttonLabel: "Review Now",
+      tone: "red",
+      icon: ClipboardCheck,
+    };
+  }
+
+  const investigation = openInvestigations[0];
+  if (investigation) {
+    return {
+      title: "Open Investigation",
+      label: "Cycle",
+      identifier: investigation.cycle_number,
+      detail: "Investigation remains open.",
+      href: "/investigation",
+      buttonLabel: "Open Investigation",
+      tone: "red",
+      icon: FileSearch,
+    };
+  }
+
+  const expiredPack = expiredPacks[0];
+  if (expiredPack) {
+    return {
+      title: "Expired Pack",
+      label: "Inventory Review",
+      identifier: expiredPack.pack_number,
+      detail: formatExpiredDetail(expiredPack.expires_at, now),
+      href: "/assistant/inventory",
+      buttonLabel: "Review Inventory",
+      tone: "red",
+      icon: PackageX,
+    };
+  }
+
+  const expiringPack = expiringPacks[0];
+  if (expiringPack) {
+    return {
+      title: "Pack Expiring Soon",
+      label: "Inventory",
+      identifier: expiringPack.pack_number,
+      detail: formatExpiringDetail(expiringPack.expires_at, now),
+      href: `/assistant/inventory?packId=${expiringPack.id}`,
+      buttonLabel: "View Pack",
+      tone: "yellow",
+      icon: Package,
+    };
+  }
+
+  const runningCycle = runningCycles[0];
+  if (runningCycle) {
+    return {
+      title: "Running Cycle",
+      label: "Cycle In Progress",
+      identifier: runningCycle.cycle_number,
+      detail: formatRemainingDetail(runningCycle.expected_finish_at, now),
+      href: `/assistant/cycles/${runningCycle.id}`,
+      buttonLabel: "Open Cycle",
+      tone: "blue",
+      icon: Timer,
+    };
+  }
+
+  return null;
+}
 function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
   const states = activeCycles.map((cycle) =>
     getCycleOperationalState(cycle.expected_finish_at, now)
@@ -655,6 +1050,57 @@ function getCycleTiming(expectedFinishAt: string | null, now: Date) {
   };
 }
 
+function formatOverdueDetail(value: string | null, now: Date) {
+  if (!value) {
+    return "Ready for review.";
+  }
+
+  const elapsedMinutes = Math.max(
+    1,
+    Math.ceil((now.getTime() - new Date(value).getTime()) / 60000)
+  );
+
+  return `Review overdue by ${formatCycleDuration(elapsedMinutes)}`;
+}
+
+function formatExpiredDetail(value: string | null, now: Date) {
+  if (!value) {
+    return "Expiration date unavailable.";
+  }
+
+  const elapsedDays = Math.max(
+    1,
+    Math.ceil((now.getTime() - new Date(value).getTime()) / 86400000)
+  );
+
+  return `Expired ${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} ago`;
+}
+
+function formatExpiringDetail(value: string | null, now: Date) {
+  if (!value) {
+    return "Expiration date unavailable.";
+  }
+
+  const remainingDays = Math.max(
+    1,
+    Math.ceil((new Date(value).getTime() - now.getTime()) / 86400000)
+  );
+
+  return `Expires in ${remainingDays} ${remainingDays === 1 ? "day" : "days"}`;
+}
+
+function formatRemainingDetail(value: string | null, now: Date) {
+  if (!value) {
+    return "No finish time available.";
+  }
+
+  const remainingMinutes = Math.max(
+    1,
+    Math.ceil((new Date(value).getTime() - now.getTime()) / 60000)
+  );
+
+  return `${formatCycleDuration(remainingMinutes)} remaining`;
+}
 function formatCompactDateTime(date: string | null) {
   if (!date) {
     return "N/A";
