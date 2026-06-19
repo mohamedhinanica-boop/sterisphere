@@ -319,7 +319,7 @@ export default function AssistantPage() {
       style={{
         gridTemplateAreas: `"header" "kpis" "middle" "activity" "actions" "nav"`,
         gridTemplateRows:
-          "clamp(3.75rem,7dvh,4.5rem) clamp(3.75rem,7dvh,4.5rem) minmax(0,1.45fr) minmax(0,0.58fr) clamp(5.5rem,11dvh,6.5rem) clamp(3.5rem,7dvh,4.25rem)",
+          "clamp(3.5rem,6.5dvh,4.25rem) clamp(3.5rem,6.5dvh,4.25rem) minmax(0,1.5fr) minmax(0,0.55fr) clamp(5.1rem,10dvh,6rem) clamp(3.25rem,6.5dvh,4rem)",
       }}
     >
       <header
@@ -327,10 +327,10 @@ export default function AssistantPage() {
         style={{ gridArea: "header" }}
       >
         <div>
-          <h1 className="text-xl font-bold tracking-normal">
+          <h1 className="text-lg font-bold tracking-normal">
             SteriSphere Workstation
           </h1>
-          <p className="mt-0.5 text-sm text-slate-300">
+          <p className="mt-0.5 text-xs font-semibold text-slate-300">
             Daily sterilization and traceability actions
           </p>
         </div>
@@ -440,7 +440,7 @@ function SmartWorkQueue({
   return (
     <section className="grid h-full min-h-0 gap-2 md:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.85fr)] md:overflow-hidden">
       {loading ? (
-        <div className="flex h-full min-h-0 flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex h-full min-h-0 flex-col rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
           <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
             Next Recommended Action
           </p>
@@ -478,13 +478,13 @@ function NextActionCard({ action }: { action: NextRecommendedAction }) {
   }[action.tone];
 
   return (
-    <article className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border p-3 shadow-sm ${toneClasses}`}>
+    <article className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border p-2.5 shadow-sm ${toneClasses}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold uppercase tracking-wide opacity-70">
+          <p className="text-xs font-bold uppercase tracking-wide opacity-70">
             Next Recommended Action
           </p>
-          <h2 className="mt-0.5 text-2xl font-black leading-tight">
+          <h2 className="mt-0.5 text-xl font-black leading-tight">
             {action.title}
           </h2>
         </div>
@@ -496,14 +496,14 @@ function NextActionCard({ action }: { action: NextRecommendedAction }) {
       <p className="mt-1.5 text-xs font-black uppercase tracking-wide opacity-70">
         {action.label}
       </p>
-      <p className="mt-0.5 break-words text-2xl font-black leading-tight">
+      <p className="mt-0.5 break-words text-xl font-black leading-tight">
         {action.identifier}
       </p>
-      <p className="mt-1 line-clamp-2 text-base font-bold opacity-85">{action.detail}</p>
+      <p className="mt-1 line-clamp-2 text-sm font-bold opacity-85">{action.detail}</p>
 
       <Link
         href={action.href}
-        className={`mt-auto inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-black shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${buttonClasses}`}
+        className={`mt-auto inline-flex min-h-9 w-fit items-center justify-center rounded-xl px-3.5 py-1.5 text-sm font-black shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${buttonClasses}`}
       >
         {action.buttonLabel}
       </Link>
@@ -516,10 +516,10 @@ function AllClearCard() {
     <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-green-200 bg-green-50 p-3 text-green-950 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold uppercase tracking-wide text-green-700">
+          <p className="text-xs font-bold uppercase tracking-wide text-green-700">
             Next Recommended Action
           </p>
-          <h2 className="mt-0.5 text-2xl font-black leading-tight">All Clear</h2>
+          <h2 className="mt-0.5 text-xl font-black leading-tight">All Clear</h2>
         </div>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/75 text-green-700 shadow-sm">
           <CheckCircle2 className="h-6 w-6" />
@@ -534,7 +534,7 @@ function AllClearCard() {
 
       <Link
         href="/assistant/cycle/start"
-        className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-sm font-black text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+        className="mt-auto inline-flex min-h-9 w-fit items-center justify-center rounded-xl bg-green-700 px-3.5 py-1.5 text-sm font-black text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
       >
         Start New Cycle
       </Link>
@@ -573,16 +573,16 @@ function AttentionQueue({
   ];
 
   return (
-    <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
       <h2 className="text-lg font-black text-slate-950">Attention Queue</h2>
-      <div className="mt-2 grid gap-1">
+      <div className="mt-2 grid min-h-0 flex-1 grid-rows-4 gap-1">
         {rows.map((row) => (
           <Link
             key={row.label}
             href={row.href}
-            className="flex min-h-9 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-slate-800 transition-all hover:bg-white hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="flex min-h-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-slate-800 transition-all hover:bg-white hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
-            <span className="text-sm font-black">
+            <span className="truncate text-xs font-black sm:text-sm">
               {loading ? "-" : row.count} {row.label}
             </span>
             <span className="text-lg font-black text-slate-500">{">"}</span>
@@ -690,11 +690,11 @@ function KpiCard({
   };
 
   return (
-    <div className={`h-full min-h-0 rounded-xl border p-2 shadow-sm sm:p-2.5 ${toneClasses[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
+    <div className={`h-full min-h-0 rounded-xl border p-2 shadow-sm ${toneClasses[tone]}`}>
+      <p className="text-[0.7rem] font-bold uppercase tracking-wide opacity-75">
         {title}
       </p>
-      <p className="mt-0.5 text-2xl font-black leading-none">{loading ? "-" : value}</p>
+      <p className="mt-0.5 text-xl font-black leading-none">{loading ? "-" : value}</p>
     </div>
   );
 }
@@ -731,7 +731,7 @@ function ActionTile({
     >
       <div className="flex items-start justify-between gap-2">
         <span
-          className={`flex h-8 w-8 items-center justify-center rounded-xl sm:h-9 sm:w-9 ${
+          className={`flex h-8 w-8 items-center justify-center rounded-xl ${
             primary ? "bg-white text-slate-950" : "bg-white/70 text-slate-700"
           }`}
         >
@@ -746,8 +746,8 @@ function ActionTile({
       <span
         className={
           primary
-            ? "text-[clamp(1rem,1.6vw,1.2rem)] font-bold"
-            : "text-[clamp(0.95rem,1.5vw,1.1rem)] font-bold"
+            ? "text-[clamp(0.95rem,1.4vw,1.1rem)] font-bold"
+            : "text-[clamp(0.9rem,1.3vw,1rem)] font-bold"
         }
       >
         {title}
@@ -795,7 +795,7 @@ function OperationalCenter({
 
   return (
     <aside
-      className={`flex h-full min-h-0 flex-col overflow-hidden rounded-xl border p-3 shadow-sm ${
+      className={`flex h-full min-h-0 flex-col overflow-hidden rounded-xl border p-2.5 shadow-sm ${
         overdueCycles.length > 0
           ? "border-red-200 bg-red-50 text-red-900"
           : readyCycles.length > 0
@@ -811,8 +811,8 @@ function OperationalCenter({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold leading-tight">Operational Center</h2>
-          <p className="mt-0.5 text-sm opacity-75">
+          <h2 className="text-lg font-bold leading-tight">Operational Center</h2>
+          <p className="mt-0.5 text-xs font-semibold opacity-75">
             Live cycle status and review guidance
           </p>
         </div>
@@ -824,84 +824,84 @@ function OperationalCenter({
       </div>
 
       {loading ? (
-        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-white/60 bg-white/60 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-white/60 bg-white/60 p-2.5">
           <p className="text-lg font-semibold">Checking command center...</p>
           <p className="mt-2 text-sm opacity-75">
             Loading cycle status and pending reviews.
           </p>
         </section>
       ) : overdueCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-3">
-          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-2.5">
+          <span className="w-fit rounded-full bg-red-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-red-700">
             Review Required
           </span>
-          <h3 className="mt-2 text-lg font-bold">Overdue Review</h3>
-          <p className="mt-1.5 text-sm">
+          <h3 className="mt-1.5 text-base font-bold">Overdue Review</h3>
+          <p className="mt-1 line-clamp-2 text-xs font-semibold">
             {overdueCycles.length}{" "}
             {overdueCycles.length === 1 ? "cycle is" : "cycles are"} past the
             review threshold. Review before releasing packs.
           </p>
           <Link
             href={reviewCycleHref}
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-9 w-fit items-center justify-center rounded-xl bg-red-600 px-3.5 py-1.5 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
         </section>
       ) : readyCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-yellow-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-yellow-200 bg-white/75 p-2.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
+              <span className="w-fit rounded-full bg-yellow-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-yellow-800">
                 Ready for Review
               </span>
-              <h3 className="mt-2 text-lg font-bold">
+              <h3 className="mt-1.5 text-base font-bold">
                 {focusCycle.cycle_number}
               </h3>
-              <p className="mt-0.5 text-sm opacity-75">
+              <p className="mt-0.5 text-xs font-semibold opacity-75">
                 {focusCycle.sterilizer}
               </p>
             </div>
             <span
-              className={`rounded-xl border px-3 py-2 text-sm font-bold ${timing.badgeClass}`}
+              className={`rounded-xl border px-2.5 py-1 text-xs font-bold ${timing.badgeClass}`}
             >
               Ready
             </span>
           </div>
-          <p className="mt-3 text-sm">
+          <p className="mt-1.5 line-clamp-2 text-xs font-semibold">
             {readyCycles.length}{" "}
             {readyCycles.length === 1 ? "cycle has" : "cycles have"} reached
             expected finish and can be reviewed.
           </p>
           <Link
             href={reviewCycleHref}
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-9 w-fit items-center justify-center rounded-xl bg-yellow-500 px-3.5 py-1.5 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
         </section>
       ) : runningCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-3">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-2.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
+              <span className="w-fit rounded-full bg-blue-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-blue-700">
                 Running Cycle
               </span>
-              <h3 className="mt-2 text-lg font-bold">
+              <h3 className="mt-1.5 text-base font-bold">
                 {focusCycle.cycle_number}
               </h3>
-              <p className="mt-0.5 text-sm opacity-75">
+              <p className="mt-0.5 text-xs font-semibold opacity-75">
                 {focusCycle.sterilizer}
               </p>
             </div>
             <span
-              className={`rounded-xl border px-3 py-2 text-sm font-bold ${timing.badgeClass}`}
+              className={`rounded-xl border px-2.5 py-1 text-xs font-bold ${timing.badgeClass}`}
             >
               {timing.label}
             </span>
           </div>
 
-          <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+          <dl className="mt-1.5 grid grid-cols-2 gap-1.5 text-xs">
             <div>
               <dt className="font-semibold opacity-70">Started</dt>
               <dd className="mt-1 font-bold">
@@ -928,37 +928,37 @@ function OperationalCenter({
 
           <Link
             href={openCycleHref}
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-9 w-fit items-center justify-center rounded-xl bg-slate-950 px-3.5 py-1.5 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
         </section>
       ) : hasFailedReviews ? (
-        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-3">
-          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-2.5">
+          <span className="w-fit rounded-full bg-red-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-red-700">
             Critical status
           </span>
-          <h3 className="mt-2 text-lg font-bold">
+          <h3 className="mt-1.5 text-base font-bold">
             Failed cycle requiring review
           </h3>
-          <p className="mt-1.5 text-sm">
+          <p className="mt-1 line-clamp-2 text-xs font-semibold">
             {status.failedCycles} failed{" "}
             {status.failedCycles === 1 ? "cycle is" : "cycles are"} awaiting
             investigation review before related work can move forward.
           </p>
           <Link
             href="/assistant/investigations"
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-9 w-fit items-center justify-center rounded-xl bg-red-600 px-3.5 py-1.5 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Investigation Center
           </Link>
         </section>
       ) : (
-        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-3">
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
+        <section className="mt-2 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-2.5">
+          <span className="w-fit rounded-full bg-blue-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-blue-700">
             Normal state
           </span>
-          <h3 className="mt-2 text-lg font-bold">No Active Cycles</h3>
+          <h3 className="mt-1.5 text-base font-bold">No Active Cycles</h3>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <p>
               <span className="block font-semibold opacity-70">
@@ -1253,7 +1253,7 @@ function BottomNavigation() {
 
   return (
     <nav
-      className="min-h-0 rounded-xl border border-slate-200 bg-white px-3 py-1 shadow-lg"
+      className="min-h-0 rounded-xl border border-slate-200 bg-white px-3 py-0.5 shadow-lg"
       style={{ gridArea: "nav" }}
     >
       <div className="mx-auto grid h-full max-w-5xl grid-cols-5 gap-2">
