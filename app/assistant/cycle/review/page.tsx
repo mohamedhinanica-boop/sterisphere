@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   Clock,
   PackageCheck,
@@ -18,6 +20,8 @@ import AssistantNotificationBanner, {
 } from "@/components/AssistantNotificationBanner";
 import { formatCycleDuration, reviewCycle, type Cycle } from "@/lib/modules/cycles";
 import { supabase } from "@/lib/supabase";
+
+const CYCLES_PER_PAGE = 3;
 
 type ReviewResult = {
   status: "Passed" | "Failed";
@@ -240,16 +244,31 @@ function CycleSelection({
   onRefresh: () => void;
   onSelect: (cycle: Cycle) => void;
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(cycles.length / CYCLES_PER_PAGE));
+  const pagedCycles = cycles.slice(
+    (currentPage - 1) * CYCLES_PER_PAGE,
+    currentPage * CYCLES_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [cycles.length]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, pageCount));
+  }, [pageCount]);
+
   return (
-    <div className="flex min-h-0 flex-col">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-            <ClipboardCheck className="h-6 w-6" />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            <ClipboardCheck className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-2xl font-bold">Cycles Ready for Review</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <h2 className="text-xl font-bold">Cycles Ready for Review</h2>
+            <p className="mt-0.5 text-sm text-slate-600">
               Select a cycle to mark Passed or Failed.
             </p>
           </div>
@@ -258,18 +277,18 @@ function CycleSelection({
         <button
           type="button"
           onClick={onRefresh}
-          className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="min-h-10 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           Refresh
         </button>
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
           Loading cycles...
         </div>
       ) : cycles.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
           <div>
             <Clock className="mx-auto h-10 w-10 text-slate-500" />
             <h3 className="mt-3 text-2xl font-bold">No Cycles Need Review</h3>
@@ -279,21 +298,67 @@ function CycleSelection({
           </div>
         </div>
       ) : (
-        <div className="grid min-h-0 gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
-          {cycles.map((cycle) => (
-            <CycleCard
-              key={cycle.id}
-              cycle={cycle}
-              now={now}
-              onSelect={() => onSelect(cycle)}
-            />
-          ))}
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <CycleReviewPagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onPrevious={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            onNext={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
+          />
+
+          <div className="grid min-h-0 flex-1 gap-2 overflow-hidden md:grid-cols-2 lg:grid-cols-3">
+            {pagedCycles.map((cycle) => (
+              <CycleCard
+                key={cycle.id}
+                cycle={cycle}
+                now={now}
+                onSelect={() => onSelect(cycle)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+function CycleReviewPagination({
+  currentPage,
+  pageCount,
+  onPrevious,
+  onNext,
+}: {
+  currentPage: number;
+  pageCount: number;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5">
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={currentPage <= 1}
+        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Previous
+      </button>
+      <p className="text-sm font-black text-slate-700" aria-live="polite">
+        {currentPage} / {pageCount}
+      </p>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={currentPage >= pageCount}
+        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-950 px-3 py-1.5 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        Next
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 function CycleCard({
   cycle,
   now,
@@ -309,43 +374,45 @@ function CycleCard({
     <button
       type="button"
       onClick={onSelect}
-      className="flex min-h-[17rem] flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+      className="flex h-full min-h-0 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-950 hover:bg-white hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
     >
-      <div>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
-              {cycle.status}
-            </p>
-            <h3 className="mt-1 break-words text-2xl font-black">
-              {cycle.cycle_number}
-            </h3>
-          </div>
-          <span
-            className={`rounded-xl border px-3 py-2 text-sm font-bold ${timing.badgeClass}`}
-          >
-            {timing.label}
-          </span>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            {cycle.status}
+          </p>
+          <h3 className="mt-0.5 break-words text-2xl font-black leading-tight">
+            {cycle.cycle_number}
+          </h3>
         </div>
-
-        <div className="mt-4 grid gap-2 text-sm">
-          <Detail label="Sterilizer" value={cycle.sterilizer} />
-          <Detail label="Load" value={cycle.load_contents || "N/A"} />
-          <Detail label="Started" value={formatDateTime(cycle.created_at)} />
-          <Detail
-            label="Expected Finish"
-            value={formatDateTime(cycle.expected_finish_at || null)}
-          />
-        </div>
+        <span
+          className={`shrink-0 rounded-lg border px-2 py-1 text-xs font-bold ${timing.badgeClass}`}
+        >
+          {timing.label}
+        </span>
       </div>
 
-      <p className={`mt-4 text-base font-black ${timing.textClass}`}>
+      <p className={`mt-2 text-base font-black ${timing.textClass}`}>
         {timing.description}
       </p>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+        <Detail label="Sterilizer" value={cycle.sterilizer} />
+        <Detail
+          label="Expected Finish"
+          value={formatDateTime(cycle.expected_finish_at || null)}
+        />
+        <Detail label="Load" value={cycle.load_contents || "N/A"} wide />
+        <Detail label="Started" value={formatDateTime(cycle.created_at)} compact />
+        <Detail label="Operator" value={cycle.operator || "N/A"} compact />
+      </div>
+
+      <span className="mt-auto border-t border-slate-200 pt-2 text-sm font-black text-slate-900">
+        Select Cycle
+      </span>
     </button>
   );
 }
-
 function ReviewStep({
   cycle,
   now,
@@ -362,48 +429,49 @@ function ReviewStep({
   const timing = getCycleTiming(cycle.expected_finish_at || null, now);
 
   return (
-    <div className="flex min-h-0 flex-col">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-          <PackageCheck className="h-6 w-6" />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <PackageCheck className="h-5 w-5" />
         </span>
         <div>
-          <h2 className="text-2xl font-bold">Review Cycle</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <h2 className="text-xl font-bold">Review Cycle</h2>
+          <p className="mt-0.5 text-sm text-slate-600">
             Confirm the sterilization outcome.
           </p>
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)]">
-        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.45fr)]">
+        <section className="min-h-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Cycle
               </p>
-              <h3 className="mt-1 break-words text-3xl font-black">
+              <h3 className="mt-0.5 break-words text-3xl font-black leading-tight">
                 {cycle.cycle_number}
               </h3>
             </div>
             <span
-              className={`rounded-xl border px-3 py-2 text-sm font-bold ${timing.badgeClass}`}
+              className={`rounded-lg border px-2 py-1 text-xs font-bold ${timing.badgeClass}`}
             >
               {timing.label}
             </span>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <p className={`mt-2 text-base font-black ${timing.textClass}`}>
+            {timing.description}
+          </p>
+
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
             <ReviewCard title="Sterilizer" value={cycle.sterilizer} />
             <ReviewCard title="Status" value={cycle.status} />
+            <ReviewCard title="Expected Packs" value={String(cycle.expected_pack_count || 0)} />
             <ReviewCard title="Started" value={formatDateTime(cycle.created_at)} />
             <ReviewCard
               title="Expected Finish"
               value={formatDateTime(cycle.expected_finish_at || null)}
-            />
-            <ReviewCard
-              title="Expected Packs"
-              value={String(cycle.expected_pack_count || 0)}
             />
             <ReviewCard
               title="Duration"
@@ -415,50 +483,50 @@ function ReviewStep({
             />
           </div>
 
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
+          <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Load Contents
             </p>
-            <p className="mt-3 break-words text-lg font-bold">
+            <p className="mt-1 line-clamp-3 break-words text-base font-bold">
               {cycle.load_contents || "N/A"}
             </p>
           </div>
         </section>
 
-        <section className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4">
+        <section className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white p-3">
           <h3 className="text-xl font-bold">Outcome</h3>
-          <p className="mt-1 text-sm text-slate-600">
-            Passed cycles generate packs. Failed cycles require investigation.
+          <p className="mt-0.5 text-sm text-slate-600">
+            Passed generates packs. Failed requires investigation.
           </p>
 
-          <div className="mt-4 grid flex-1 gap-3">
+          <div className="mt-3 grid flex-1 gap-2">
             <button
               type="button"
               onClick={() => onSubmit("Passed")}
               disabled={reviewing}
-              className="flex min-h-32 flex-col justify-between rounded-2xl border border-green-200 bg-green-50 p-4 text-left text-green-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
+              className="flex min-h-24 flex-col justify-between rounded-xl border border-green-200 bg-green-50 p-3 text-left text-green-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
             >
-              <Check className="h-8 w-8" />
-              <span className="text-2xl font-black">Mark Passed</span>
+              <Check className="h-7 w-7" />
+              <span className="text-xl font-black">Mark Passed</span>
             </button>
 
             <button
               type="button"
               onClick={() => onSubmit("Failed")}
               disabled={reviewing}
-              className="flex min-h-32 flex-col justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-left text-red-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
+              className="flex min-h-24 flex-col justify-between rounded-xl border border-red-200 bg-red-50 p-3 text-left text-red-800 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
             >
-              <XCircle className="h-8 w-8" />
-              <span className="text-2xl font-black">Mark Failed</span>
+              <XCircle className="h-7 w-7" />
+              <span className="text-xl font-black">Mark Failed</span>
             </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-200 pt-3">
             <button
               type="button"
               onClick={onBack}
               disabled={reviewing}
-              className="min-h-12 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
+              className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:opacity-50 disabled:active:scale-100"
             >
               Back
             </button>
@@ -471,7 +539,6 @@ function ReviewStep({
     </div>
   );
 }
-
 function ReviewSuccess({
   result,
   returnCountdown,
@@ -579,32 +646,44 @@ function getCycleTiming(expectedFinishAt: string | null, now: Date) {
   };
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({
+  label,
+  value,
+  compact = false,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+  wide?: boolean;
+}) {
   return (
-    <p>
-      <span className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+    <p className={wide ? "col-span-2" : undefined}>
+      <span className="block text-[0.68rem] font-bold uppercase tracking-wide text-slate-500">
         {label}
       </span>
-      <span className="mt-1 line-clamp-2 block break-words text-base font-bold text-slate-950">
+      <span
+        className={`mt-0.5 block break-words font-bold text-slate-950 ${
+          compact ? "line-clamp-1 text-xs" : "line-clamp-2 text-sm"
+        }`}
+      >
         {value}
       </span>
     </p>
   );
 }
-
 function ReviewCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
         {title}
       </p>
-      <p className="mt-3 break-words text-xl font-bold text-slate-950">
+      <p className="mt-1 line-clamp-2 break-words text-base font-bold text-slate-950">
         {value}
       </p>
     </div>
   );
 }
-
 function formatDateTime(value: string | null) {
   if (!value) {
     return "N/A";

@@ -35,7 +35,7 @@ const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
 
 const secondaryActions = [
   { title: "Print Labels", href: "/packs", icon: Printer },
-  { title: "Investigations", href: "/investigation", icon: FileSearch },
+  { title: "Investigations", href: "/assistant/investigations", icon: FileSearch },
 ];
 
 type WorkstationStatus = {
@@ -522,7 +522,7 @@ function AttentionQueue({
     {
       label: "Open Investigations",
       count: counts.openInvestigations,
-      href: "/investigation",
+      href: "/assistant/investigations",
     },
     {
       label: "Expired Packs",
@@ -832,7 +832,7 @@ function OperationalCenter({
             investigation review before related work can move forward.
           </p>
           <Link
-            href="/investigation"
+            href="/assistant/investigations"
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Investigation Center
@@ -931,7 +931,7 @@ function getNextRecommendedAction({
       label: "Cycle",
       identifier: investigation.cycle_number,
       detail: "Investigation remains open.",
-      href: "/investigation",
+      href: "/assistant/investigations",
       buttonLabel: "Open Investigation",
       tone: "red",
       icon: FileSearch,
