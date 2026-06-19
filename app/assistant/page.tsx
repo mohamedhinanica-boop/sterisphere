@@ -39,7 +39,6 @@ const secondaryActions = [
 ];
 
 type WorkstationStatus = {
-  pendingCycles: number;
   availablePacks: number;
   expiredPacks: number;
   failedCycles: number;
@@ -106,7 +105,6 @@ type WorkQueueData = {
 
 export default function AssistantPage() {
   const [status, setStatus] = useState<WorkstationStatus>({
-    pendingCycles: 0,
     availablePacks: 0,
     expiredPacks: 0,
     failedCycles: 0,
@@ -153,7 +151,6 @@ export default function AssistantPage() {
         ]);
 
       setStatus({
-        pendingCycles: currentActiveCycles.length,
         availablePacks: dashboardData.availablePacksCount,
         expiredPacks: dashboardData.unreviewedExpiredPacksCount,
         failedCycles: dashboardData.unreviewedFailedCyclesCount,
@@ -198,7 +195,6 @@ export default function AssistantPage() {
         "id, cycle_number, sterilizer, status, cycle_state, expected_finish_at, created_at"
       )
       .eq("status", "Pending")
-      .eq("cycle_state", "Open")
       .order("expected_finish_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
       .returns<RunningCycle[]>();
@@ -295,7 +291,9 @@ export default function AssistantPage() {
       }),
     };
   }
-  const pendingReviews = status.failedCycles + status.pendingCycles;
+  const cycleStateCounts = getAssistantCycleStateCounts(activeCycles, now);
+  const pendingReviews =
+    cycleStateCounts.readyReview + cycleStateCounts.overdueReview;
   const activeCycleStats = getActiveCycleStats(activeCycles, now);
 
   return (
@@ -321,9 +319,9 @@ export default function AssistantPage() {
       <section className="mb-2 grid grid-cols-2 gap-2 md:grid-cols-4">
         <KpiCard
           title="Running Cycles"
-          value={status.pendingCycles}
+          value={cycleStateCounts.running}
           loading={loading}
-          tone={status.pendingCycles > 0 ? "warning" : "neutral"}
+          tone={cycleStateCounts.running > 0 ? "warning" : "neutral"}
         />
         <KpiCard
           title="Available Packs"
@@ -342,7 +340,7 @@ export default function AssistantPage() {
           value={pendingReviews}
           loading={loading}
           tone={
-            status.failedCycles > 0
+            cycleStateCounts.overdueReview > 0
               ? "critical"
               : pendingReviews > 0
                 ? "warning"
@@ -993,6 +991,25 @@ function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
     count: activeCycles.length,
     tileTone: hasOverdue ? "critical" : hasReady ? "warning" : "default",
   } as const;
+}
+
+function getAssistantCycleStateCounts(activeCycles: RunningCycle[], now: Date) {
+  return activeCycles.reduce(
+    (counts, cycle) => {
+      const state = getCycleOperationalState(cycle.expected_finish_at, now);
+
+      if (state === "running") {
+        counts.running += 1;
+      } else if (state === "ready") {
+        counts.readyReview += 1;
+      } else {
+        counts.overdueReview += 1;
+      }
+
+      return counts;
+    },
+    { running: 0, readyReview: 0, overdueReview: 0 }
+  );
 }
 
 function getCycleOperationalState(expectedFinishAt: string | null, now: Date) {
