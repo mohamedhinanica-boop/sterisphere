@@ -314,8 +314,8 @@ export default function AssistantPage() {
   const activeCycleStats = getActiveCycleStats(activeCycles, now);
 
   return (
-    <main className="flex min-h-[100svh] flex-col bg-slate-100 p-2 pb-16 sm:p-3 lg:h-[100svh] lg:overflow-hidden lg:pb-16">
-      <header className="mb-2 flex flex-col gap-2 rounded-xl bg-slate-950 px-4 py-2 text-white shadow-sm md:flex-row md:items-center md:justify-between">
+    <main className="grid h-[100svh] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-slate-100 p-2 pb-[4.25rem] text-slate-950 sm:p-3 sm:pb-[4.5rem]">
+      <header className="mb-2 flex min-h-[4.75rem] flex-col justify-center gap-1 rounded-xl bg-slate-950 px-4 py-2 text-white shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-normal">
             SteriSphere Workstation
@@ -325,9 +325,9 @@ export default function AssistantPage() {
           </p>
         </div>
 
-        <div className="rounded-xl bg-white/10 px-3 py-1.5 text-sm">
+        <div className="rounded-xl bg-white/10 px-3 py-1.5 text-xs sm:text-sm">
           <p className="font-medium">{currentUser.email || "Signed in"}</p>
-          <p className="mt-1 capitalize text-slate-300">
+          <p className="mt-0.5 capitalize text-slate-300">
             {currentUser.role || "Workstation"}
           </p>
         </div>
@@ -366,12 +366,9 @@ export default function AssistantPage() {
         />
       </section>
 
-      <section className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-2 lg:overflow-hidden">
-        <div className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.85fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.85fr)] lg:overflow-hidden">
-          <div className="grid min-h-0 gap-2 lg:overflow-hidden">
-            <SmartWorkQueue workQueue={workQueue} loading={loading} />
-            <RecentActivityCard activity={recentActivity} loading={loading} />
-          </div>
+      <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto_auto] gap-2 overflow-hidden">
+        <div className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.9fr)] xl:grid-cols-[minmax(0,2fr)_minmax(340px,0.9fr)] lg:overflow-hidden">
+          <SmartWorkQueue workQueue={workQueue} loading={loading} />
 
           <OperationalCenter
             status={status}
@@ -380,6 +377,8 @@ export default function AssistantPage() {
             loading={loading}
           />
         </div>
+
+        <RecentActivityCard activity={recentActivity} loading={loading} />
 
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {primaryActions.map((action) => (
@@ -420,16 +419,16 @@ function SmartWorkQueue({
   const hasActions = Boolean(workQueue.nextAction);
 
   return (
-    <section className="grid gap-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(260px,0.75fr)]">
+    <section className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.75fr)] lg:overflow-hidden">
       {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:min-h-0">
           <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
             Next Recommended Action
           </p>
-          <h2 className="mt-2 text-2xl font-black text-slate-900">
+          <h2 className="mt-1 text-xl font-black text-slate-900">
             Checking work queue...
           </h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
+          <p className="mt-0.5 text-sm font-semibold text-slate-500">
             Prioritizing cycles, investigations, and inventory.
           </p>
         </div>
@@ -460,32 +459,32 @@ function NextActionCard({ action }: { action: NextRecommendedAction }) {
   }[action.tone];
 
   return (
-    <article className={`rounded-xl border p-3 shadow-sm ${toneClasses}`}>
+    <article className={`relative min-h-0 overflow-hidden rounded-xl border p-3 shadow-sm ${toneClasses}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-wide opacity-70">
             Next Recommended Action
           </p>
-          <h2 className="mt-1 text-2xl font-black leading-tight">
+          <h2 className="mt-0.5 text-2xl font-black leading-tight">
             {action.title}
           </h2>
         </div>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/75 shadow-sm">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/75 shadow-sm">
           <Icon className="h-6 w-6" />
         </span>
       </div>
 
-      <p className="mt-2 text-xs font-black uppercase tracking-wide opacity-70">
+      <p className="mt-1.5 text-xs font-black uppercase tracking-wide opacity-70">
         {action.label}
       </p>
-      <p className="mt-0.5 break-words text-2xl font-black">
+      <p className="mt-0.5 break-words text-2xl font-black leading-tight">
         {action.identifier}
       </p>
       <p className="mt-1 text-base font-bold opacity-85">{action.detail}</p>
 
       <Link
         href={action.href}
-        className={`mt-3 inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-black shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${buttonClasses}`}
+        className={`mt-2 inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-black shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${buttonClasses}`}
       >
         {action.buttonLabel}
       </Link>
@@ -495,20 +494,20 @@ function NextActionCard({ action }: { action: NextRecommendedAction }) {
 
 function AllClearCard() {
   return (
-    <article className="rounded-xl border border-green-200 bg-green-50 p-3 text-green-950 shadow-sm">
+    <article className="min-h-0 overflow-hidden rounded-xl border border-green-200 bg-green-50 p-3 text-green-950 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-wide text-green-700">
             Next Recommended Action
           </p>
-          <h2 className="mt-1 text-3xl font-black leading-tight">All Clear</h2>
+          <h2 className="mt-0.5 text-2xl font-black leading-tight">All Clear</h2>
         </div>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/75 text-green-700 shadow-sm">
           <CheckCircle2 className="h-6 w-6" />
         </span>
       </div>
 
-      <div className="mt-2 space-y-0.5 text-base font-bold text-green-900">
+      <div className="mt-1.5 space-y-0.5 text-sm font-bold text-green-900">
         <p>No cycles require review.</p>
         <p>No investigations are open.</p>
         <p>No expired packs detected.</p>
@@ -516,7 +515,7 @@ function AllClearCard() {
 
       <Link
         href="/assistant/cycle/start"
-        className="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-sm font-black text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+        className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-green-700 px-4 py-2 text-sm font-black text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
       >
         Start New Cycle
       </Link>
@@ -555,14 +554,14 @@ function AttentionQueue({
   ];
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <h2 className="text-xl font-black text-slate-950">Attention Queue</h2>
-      <div className="mt-2 grid gap-1.5">
+    <article className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <h2 className="text-lg font-black text-slate-950">Attention Queue</h2>
+      <div className="mt-2 grid gap-1">
         {rows.map((row) => (
           <Link
             key={row.label}
             href={row.href}
-            className="flex min-h-9 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-800 transition-all hover:bg-white hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="flex min-h-9 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-slate-800 transition-all hover:bg-white hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             <span className="text-sm font-black">
               {loading ? "-" : row.count} {row.label}
@@ -584,56 +583,58 @@ function RecentActivityCard({
   const rows = activity.slice(0, 6);
 
   return (
-    <article className="min-h-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
+    <article className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-            <Activity className="h-5 w-5" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            <Activity className="h-4 w-4" />
           </span>
           <div>
-            <h2 className="text-lg font-black text-slate-950">Recent Activity</h2>
-            <p className="text-xs font-semibold text-slate-500">Today</p>
+            <h2 className="text-lg font-black leading-tight text-slate-950">
+              Recent Activity
+            </h2>
+            <p className="text-xs font-semibold text-slate-500">
+              Today&apos;s latest events
+            </p>
           </div>
         </div>
         <Link
           href="/assistant/activity"
-          className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition-all hover:bg-slate-50 active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="inline-flex min-h-9 items-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-blue-800 transition-all hover:bg-blue-50 active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
-          View Activity
+          View All Activity
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
-      <div className="mt-2 grid gap-1.5 lg:max-h-[10rem] lg:overflow-hidden">
+      <div className="grid gap-0 overflow-hidden rounded-xl border border-slate-200">
         {loading ? (
-          <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
+          <p className="bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
             Loading activity...
           </p>
         ) : rows.length === 0 ? (
-          <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
+          <p className="bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
             No activity recorded today.
           </p>
         ) : (
           rows.map((item) => (
             <div
               key={item.id}
-              className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5"
+              className="grid min-h-7 grid-cols-[4.75rem_minmax(9rem,1fr)_minmax(8rem,0.75fr)_auto] items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-1 last:border-b-0"
             >
               <span className="text-xs font-black text-slate-500">{item.time}</span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-slate-900">
-                  {item.title}
-                </p>
-                <p className="truncate text-xs font-semibold text-slate-500">
-                  {item.entityLabel}
-                </p>
-              </div>
+              <span className="truncate text-sm font-bold text-slate-800">
+                {item.title}
+              </span>
+              <span className="truncate text-xs font-bold text-slate-500">
+                {item.entityLabel}
+              </span>
               <span
                 className={`rounded-full border px-2 py-0.5 text-[0.68rem] font-black uppercase ${getActivityVariantClass(
                   item.variant
                 )}`}
               >
-                {item.variant}
+                {formatActivityVariant(item.variant)}
               </span>
             </div>
           ))
@@ -641,6 +642,15 @@ function RecentActivityCard({
       </div>
     </article>
   );
+}
+
+function formatActivityVariant(variant: AssistantActivityItem["variant"]) {
+  return {
+    success: "Passed",
+    warning: "Started",
+    critical: "Open",
+    neutral: "Recorded",
+  }[variant];
 }
 function KpiCard({
   title,
@@ -661,11 +671,11 @@ function KpiCard({
   };
 
   return (
-    <div className={`rounded-xl border p-2 shadow-sm sm:p-2.5 ${toneClasses[tone]}`}>
+    <div className={`min-h-[4.25rem] rounded-xl border p-2 shadow-sm sm:p-2.5 ${toneClasses[tone]}`}>
       <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
         {title}
       </p>
-      <p className="mt-0.5 text-xl font-bold">{loading ? "-" : value}</p>
+      <p className="mt-0.5 text-2xl font-black leading-none">{loading ? "-" : value}</p>
     </div>
   );
 }
@@ -696,8 +706,8 @@ function ActionTile({
       href={href}
       className={`flex min-h-0 flex-col justify-between rounded-xl border p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${
         primary
-          ? "min-h-[clamp(4.75rem,10vh,5.75rem)] border-slate-950 bg-slate-950 text-white"
-          : `min-h-[clamp(4.75rem,10vh,5.75rem)] ${toneClasses[tone]}`
+          ? "min-h-[clamp(4.5rem,10vh,5.25rem)] border-slate-950 bg-slate-950 text-white"
+          : `min-h-[clamp(4.5rem,10vh,5.25rem)] ${toneClasses[tone]}`
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -766,7 +776,7 @@ function OperationalCenter({
 
   return (
     <aside
-      className={`flex min-h-0 flex-col overflow-y-auto rounded-xl border p-3 shadow-sm sm:p-3 ${
+      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border p-3 shadow-sm sm:p-3 ${
         overdueCycles.length > 0
           ? "border-red-200 bg-red-50 text-red-900"
           : readyCycles.length > 0
@@ -782,8 +792,8 @@ function OperationalCenter({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Operational Center</h2>
-          <p className="mt-1 text-sm opacity-75">
+          <h2 className="text-xl font-bold leading-tight">Operational Center</h2>
+          <p className="mt-0.5 text-sm opacity-75">
             Live cycle status and review guidance
           </p>
         </div>
@@ -795,41 +805,41 @@ function OperationalCenter({
       </div>
 
       {loading ? (
-        <section className="mt-3 rounded-2xl border border-white/60 bg-white/60 p-3 sm:p-4">
+        <section className="mt-2 rounded-xl border border-white/60 bg-white/60 p-3">
           <p className="text-lg font-semibold">Checking command center...</p>
           <p className="mt-2 text-sm opacity-75">
             Loading cycle status and pending reviews.
           </p>
         </section>
       ) : overdueCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-3 rounded-2xl border border-red-200 bg-white/75 p-3 sm:p-4">
+        <section className="mt-2 rounded-xl border border-red-200 bg-white/75 p-3">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
             Review Required
           </span>
-          <h3 className="mt-3 text-xl font-bold">Overdue Review</h3>
-          <p className="mt-2 text-sm">
+          <h3 className="mt-2 text-lg font-bold">Overdue Review</h3>
+          <p className="mt-1.5 text-sm">
             {overdueCycles.length}{" "}
             {overdueCycles.length === 1 ? "cycle is" : "cycles are"} past the
             review threshold. Review before releasing packs.
           </p>
           <Link
             href={reviewCycleHref}
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
         </section>
       ) : readyCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-3 rounded-2xl border border-yellow-200 bg-white/75 p-3 sm:p-4">
+        <section className="mt-2 rounded-xl border border-yellow-200 bg-white/75 p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-800">
                 Ready for Review
               </span>
-              <h3 className="mt-3 text-xl font-bold">
+              <h3 className="mt-2 text-lg font-bold">
                 {focusCycle.cycle_number}
               </h3>
-              <p className="mt-1 text-sm opacity-75">
+              <p className="mt-0.5 text-sm opacity-75">
                 {focusCycle.sterilizer}
               </p>
             </div>
@@ -846,22 +856,22 @@ function OperationalCenter({
           </p>
           <Link
             href={reviewCycleHref}
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-500 px-4 py-3 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Review Cycles
           </Link>
         </section>
       ) : runningCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-3 rounded-2xl border border-blue-200 bg-white/75 p-3 sm:p-4">
+        <section className="mt-2 rounded-xl border border-blue-200 bg-white/75 p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
                 Running Cycle
               </span>
-              <h3 className="mt-3 text-xl font-bold">
+              <h3 className="mt-2 text-lg font-bold">
                 {focusCycle.cycle_number}
               </h3>
-              <p className="mt-1 text-sm opacity-75">
+              <p className="mt-0.5 text-sm opacity-75">
                 {focusCycle.sterilizer}
               </p>
             </div>
@@ -872,7 +882,7 @@ function OperationalCenter({
             </span>
           </div>
 
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:gap-3">
+          <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
             <div>
               <dt className="font-semibold opacity-70">Started</dt>
               <dd className="mt-1 font-bold">
@@ -899,37 +909,37 @@ function OperationalCenter({
 
           <Link
             href={openCycleHref}
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
         </section>
       ) : hasFailedReviews ? (
-        <section className="mt-3 rounded-2xl border border-red-200 bg-white/75 p-3 sm:p-4">
+        <section className="mt-2 rounded-xl border border-red-200 bg-white/75 p-3">
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
             Critical status
           </span>
-          <h3 className="mt-3 text-xl font-bold">
+          <h3 className="mt-2 text-lg font-bold">
             Failed cycle requiring review
           </h3>
-          <p className="mt-2 text-sm">
+          <p className="mt-1.5 text-sm">
             {status.failedCycles} failed{" "}
             {status.failedCycles === 1 ? "cycle is" : "cycles are"} awaiting
             investigation review before related work can move forward.
           </p>
           <Link
             href="/assistant/investigations"
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             Investigation Center
           </Link>
         </section>
       ) : (
-        <section className="mt-3 rounded-2xl border border-blue-200 bg-white/75 p-3 sm:p-4">
+        <section className="mt-2 rounded-xl border border-blue-200 bg-white/75 p-3">
           <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
             Normal state
           </span>
-          <h3 className="mt-3 text-xl font-bold">No Active Cycles</h3>
+          <h3 className="mt-2 text-lg font-bold">No Active Cycles</h3>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <p>
               <span className="block font-semibold opacity-70">
@@ -952,14 +962,14 @@ function OperationalCenter({
 
       {isIdle && (
         <>
-          <section className="mt-3 rounded-2xl border border-white/60 bg-white/60 p-3 text-sm">
+          <section className="mt-2 rounded-xl border border-white/60 bg-white/60 p-2 text-sm">
             <h3 className="font-bold">Steri Assistant</h3>
             <p className="mt-2">
               Workstation ready for the next sterilization or traceability task.
             </p>
           </section>
 
-          <section className="mt-3 grid grid-cols-2 gap-2">
+          <section className="mt-2 grid grid-cols-2 gap-2">
             {secondaryActions.map((action) => {
               const Icon = action.icon;
 
@@ -967,7 +977,7 @@ function OperationalCenter({
                 <Link
                   key={action.title}
                   href={action.href}
-                  className="flex min-h-[clamp(4.75rem,10vh,5.75rem)] flex-col justify-between rounded-2xl border border-white/70 bg-white/70 p-3 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+                  className="flex min-h-[4.25rem] flex-col justify-between rounded-xl border border-white/70 bg-white/70 p-2.5 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
                 >
                   <Icon className="h-5 w-5 opacity-70" />
                   {action.title}
@@ -1223,7 +1233,7 @@ function BottomNavigation() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-3 py-1.5 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-3 py-1 shadow-lg">
       <div className="mx-auto grid max-w-5xl grid-cols-5 gap-2">
         {items.map((item) => {
           const Icon = item.icon;
@@ -1232,7 +1242,7 @@ function BottomNavigation() {
             <Link
               key={item.label}
               href={item.href}
-              className="flex min-h-12 flex-col items-center justify-center rounded-xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
+              className="flex min-h-11 flex-col items-center justify-center rounded-xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
             >
               <Icon className="mb-1 h-5 w-5" />
               {item.label}
@@ -1242,7 +1252,7 @@ function BottomNavigation() {
 
         <button
           type="button"
-          className="flex min-h-12 flex-col items-center justify-center rounded-xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="flex min-h-11 flex-col items-center justify-center rounded-xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           <MoreHorizontal className="mb-1 h-5 w-5" />
           More
