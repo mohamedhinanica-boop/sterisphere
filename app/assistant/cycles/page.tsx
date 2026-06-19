@@ -147,27 +147,27 @@ export default function AssistantRunningCyclesPage() {
   }
 
   return (
-    <main className="flex min-h-[100svh] flex-col bg-slate-100 p-3 text-slate-950 lg:h-[100svh] lg:overflow-hidden">
-      <header className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-white shadow-sm">
+    <main className="flex min-h-[100svh] flex-col bg-slate-100 p-2 text-slate-950 lg:h-[100svh] lg:overflow-hidden lg:p-3">
+      <header className="mb-2 flex items-center justify-between gap-3 rounded-xl bg-slate-950 px-3 py-2 text-white shadow-sm lg:px-4">
         <div>
-          <p className="text-sm font-semibold text-slate-300">
+          <p className="text-xs font-semibold text-slate-300 lg:text-sm">
             SteriSphere Workstation
           </p>
-          <h1 className="text-2xl font-bold tracking-normal">
+          <h1 className="text-xl font-bold tracking-normal lg:text-2xl">
             Cycle Operations Center
           </h1>
         </div>
 
         <Link
           href="/assistant"
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           <ArrowLeft className="h-5 w-5" />
           Workstation
         </Link>
       </header>
 
-      <section className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="mb-2 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <SummaryCard title="Running" value={String(summary.running)} tone="green" />
         <SummaryCard
           title="Ready for Review"
@@ -185,7 +185,7 @@ export default function AssistantRunningCyclesPage() {
         />
       </section>
 
-      <section className="min-h-0 flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:overflow-hidden">
+      <section className="min-h-0 flex-1 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:overflow-hidden">
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-lg font-bold text-slate-500">
             Loading cycle operations...
@@ -201,7 +201,7 @@ export default function AssistantRunningCyclesPage() {
                 No cycles in this category.
               </div>
             ) : (
-              <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
+              <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2">
                 <CyclePaginationControls
                   currentPage={currentPage}
                   pageCount={pageCount}
@@ -213,7 +213,7 @@ export default function AssistantRunningCyclesPage() {
                   }
                 />
 
-                <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto pb-2 pr-1 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid min-h-0 flex-1 gap-2 overflow-y-auto md:grid-cols-2 lg:grid-cols-3 lg:overflow-hidden">
                   {pagedCycleTimings.map(({ cycle, timing }) => (
                     <CycleMonitorCard
                       key={cycle.id}
@@ -252,7 +252,7 @@ function FilterChips({
           key={filter.value}
           type="button"
           onClick={() => onChange(filter.value)}
-          className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold transition-all hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner ${
+          className={`min-h-10 rounded-xl border px-3 py-1.5 text-xs font-bold transition-all hover:shadow-sm active:scale-[0.98] active:brightness-95 active:shadow-inner lg:text-sm ${
             activeFilter === filter.value
               ? "border-slate-950 bg-slate-950 text-white"
               : "border-slate-200 bg-white text-slate-700"
@@ -280,12 +280,12 @@ function CyclePaginationControls({
   const isLastPage = currentPage >= pageCount;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5">
       <button
         type="button"
         onClick={onPrevious}
         disabled={isFirstPage}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-sm"
+        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-sm lg:text-sm"
       >
         <ChevronLeft className="h-4 w-4" />
         Previous
@@ -299,7 +299,7 @@ function CyclePaginationControls({
         type="button"
         onClick={onNext}
         disabled={isLastPage}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-sm"
+        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-950 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-sm lg:text-sm"
       >
         Next
         <ChevronRight className="h-4 w-4" />
@@ -325,11 +325,11 @@ function SummaryCard({
   };
 
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${toneClasses[tone]}`}>
-      <p className="text-sm font-bold uppercase tracking-wide opacity-70">
+    <div className={`rounded-xl border p-3 shadow-sm ${toneClasses[tone]}`}>
+      <p className="text-xs font-bold uppercase tracking-wide opacity-70">
         {title}
       </p>
-      <p className="mt-2 break-words text-3xl font-black">{value}</p>
+      <p className="mt-1 break-words text-2xl font-black">{value}</p>
     </div>
   );
 }
@@ -363,54 +363,57 @@ function CycleMonitorCard({
 }) {
   return (
     <article
-      className={`flex min-h-[24rem] flex-col rounded-2xl border p-4 shadow-sm ${timing.cardClass}`}
+      className={`flex h-full min-h-0 flex-col rounded-xl border p-3 shadow-sm ${timing.cardClass}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-wide opacity-70">
-            {timing.stateLabel}
-          </p>
-          <h2 className="mt-1 break-words text-3xl font-black">
-            {cycle.cycle_number}
-          </h2>
-        </div>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="break-words text-2xl font-black leading-tight">
+          {cycle.cycle_number}
+        </h2>
         <span
-          className={`rounded-xl border px-3 py-2 text-sm font-black uppercase ${timing.badgeClass}`}
+          className={`shrink-0 rounded-lg border px-2 py-1 text-xs font-black uppercase ${timing.badgeClass}`}
         >
           {timing.stateLabel}
         </span>
       </div>
 
-      <p className={`mt-3 text-2xl font-black ${timing.textClass}`}>
+      <p className={`mt-2 text-xl font-black leading-tight ${timing.textClass}`}>
         {timing.remainingLabel}
       </p>
 
-      <div className="mt-3 grid gap-2 text-sm">
+      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
         <CycleDetail label="Sterilizer" value={cycle.sterilizer} />
-        <CycleDetail label="Operator" value={cycle.operator || "N/A"} />
-        <CycleDetail label="Load Contents" value={cycle.load_contents || "N/A"} />
-        <div className="grid grid-cols-2 gap-2">
-          <CycleDetail label="Start Time" value={formatDateTime(cycle.created_at)} />
-          <CycleDetail
-            label="Expected Finish"
-            value={formatDateTime(cycle.expected_finish_at || null)}
-          />
-          <CycleDetail label="Elapsed Time" value={timing.elapsedLabel} />
-          <CycleDetail label="Remaining Time" value={timing.remainingLabel} />
-        </div>
+        <CycleDetail
+          label="Expected Finish"
+          value={formatDateTime(cycle.expected_finish_at || null)}
+        />
+        <CycleDetail
+          label="Load Contents"
+          value={cycle.load_contents || "N/A"}
+          wide
+        />
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-3 border-t border-black/10 pt-3">
+      <div className="mt-2 grid grid-cols-3 gap-2 border-t border-black/10 pt-2 text-xs">
+        <CycleDetail label="Operator" value={cycle.operator || "N/A"} compact />
+        <CycleDetail
+          label="Started"
+          value={formatDateTime(cycle.created_at)}
+          compact
+        />
+        <CycleDetail label="Elapsed" value={timing.elapsedLabel} compact />
+      </div>
+
+      <div className="mt-auto grid grid-cols-2 gap-2 border-t border-black/10 pt-2">
         <Link
           href={`/assistant/cycles/${cycle.id}`}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white/80 px-4 py-3 text-sm font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white/80 px-2 py-2 text-xs font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner lg:text-sm"
         >
           <Timer className="h-4 w-4" />
           View Details
         </Link>
         <Link
           href={`/assistant/cycle/review?cycleId=${cycle.id}`}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-950 px-2 py-2 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner lg:text-sm"
         >
           <ClipboardCheck className="h-4 w-4" />
           Review Cycle
@@ -420,13 +423,27 @@ function CycleMonitorCard({
   );
 }
 
-function CycleDetail({ label, value }: { label: string; value: string }) {
+function CycleDetail({
+  label,
+  value,
+  compact = false,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+  wide?: boolean;
+}) {
   return (
-    <p>
-      <span className="block text-xs font-bold uppercase tracking-wide opacity-65">
+    <p className={wide ? "col-span-2" : undefined}>
+      <span className="block text-[0.68rem] font-bold uppercase tracking-wide opacity-65">
         {label}
       </span>
-      <span className="mt-1 line-clamp-2 block break-words text-base font-black">
+      <span
+        className={`mt-0.5 block break-words font-black leading-snug ${
+          compact ? "line-clamp-1 text-xs" : "line-clamp-2 text-sm"
+        }`}
+      >
         {value}
       </span>
     </p>
