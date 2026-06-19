@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   PlayCircle,
   Timer,
@@ -26,6 +28,7 @@ type CycleTiming = {
 
 type CycleFilter = "all" | "running" | "ready" | "overdue";
 
+const CYCLES_PER_PAGE = 3;
 const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
 
 export default function AssistantRunningCyclesPage() {
@@ -33,6 +36,7 @@ export default function AssistantRunningCyclesPage() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [filter, setFilter] = useState<CycleFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadActiveCycles();
@@ -89,6 +93,29 @@ export default function AssistantRunningCyclesPage() {
 
     return cycleTimings.filter(({ timing }) => timing.state === filter);
   }, [cycleTimings, filter]);
+
+  const pageCount = Math.max(
+    1,
+    Math.ceil(filteredCycleTimings.length / CYCLES_PER_PAGE)
+  );
+
+  const pagedCycleTimings = useMemo(() => {
+    const startIndex = (currentPage - 1) * CYCLES_PER_PAGE;
+
+    return filteredCycleTimings.slice(
+      startIndex,
+      startIndex + CYCLES_PER_PAGE
+    );
+  }, [currentPage, filteredCycleTimings]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, pageCount));
+  }, [pageCount]);
+
+  function handleFilterChange(nextFilter: CycleFilter) {
+    setFilter(nextFilter);
+    setCurrentPage(1);
+  }
 
   async function loadActiveCycles() {
     setLoading(true);
@@ -166,18 +193,35 @@ export default function AssistantRunningCyclesPage() {
         ) : cycles.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="flex min-h-0 flex-col">
-            <FilterChips activeFilter={filter} onChange={setFilter} />
+          <div className="flex h-full min-h-0 flex-col">
+            <FilterChips activeFilter={filter} onChange={handleFilterChange} />
 
             {filteredCycleTimings.length === 0 ? (
               <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-lg font-bold text-slate-500">
-                No cycles match this filter.
+                No cycles in this category.
               </div>
             ) : (
-              <div className="mt-3 grid min-h-0 flex-1 gap-3 overflow-y-auto pb-4 pr-1 md:grid-cols-2 xl:grid-cols-3">
-                {filteredCycleTimings.map(({ cycle, timing }) => (
-                  <CycleMonitorCard key={cycle.id} cycle={cycle} timing={timing} />
-                ))}
+              <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
+                <CyclePaginationControls
+                  currentPage={currentPage}
+                  pageCount={pageCount}
+                  onPrevious={() =>
+                    setCurrentPage((page) => Math.max(1, page - 1))
+                  }
+                  onNext={() =>
+                    setCurrentPage((page) => Math.min(pageCount, page + 1))
+                  }
+                />
+
+                <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto pb-2 pr-1 md:grid-cols-2 lg:grid-cols-3">
+                  {pagedCycleTimings.map(({ cycle, timing }) => (
+                    <CycleMonitorCard
+                      key={cycle.id}
+                      cycle={cycle}
+                      timing={timing}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -217,6 +261,49 @@ function FilterChips({
           {filter.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function CyclePaginationControls({
+  currentPage,
+  pageCount,
+  onPrevious,
+  onNext,
+}: {
+  currentPage: number;
+  pageCount: number;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const isFirstPage = currentPage <= 1;
+  const isLastPage = currentPage >= pageCount;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={isFirstPage}
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-sm"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Previous
+      </button>
+
+      <p className="text-sm font-black text-slate-700" aria-live="polite">
+        {currentPage} / {pageCount}
+      </p>
+
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={isLastPage}
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-sm"
+      >
+        Next
+        <ChevronRight className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -276,7 +363,7 @@ function CycleMonitorCard({
 }) {
   return (
     <article
-      className={`flex min-h-[28rem] flex-col rounded-2xl border p-4 shadow-sm ${timing.cardClass}`}
+      className={`flex min-h-[24rem] flex-col rounded-2xl border p-4 shadow-sm ${timing.cardClass}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -294,15 +381,15 @@ function CycleMonitorCard({
         </span>
       </div>
 
-      <p className={`mt-4 text-2xl font-black ${timing.textClass}`}>
+      <p className={`mt-3 text-2xl font-black ${timing.textClass}`}>
         {timing.remainingLabel}
       </p>
 
-      <div className="mt-4 grid gap-3 text-sm">
+      <div className="mt-3 grid gap-2 text-sm">
         <CycleDetail label="Sterilizer" value={cycle.sterilizer} />
         <CycleDetail label="Operator" value={cycle.operator || "N/A"} />
         <CycleDetail label="Load Contents" value={cycle.load_contents || "N/A"} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <CycleDetail label="Start Time" value={formatDateTime(cycle.created_at)} />
           <CycleDetail
             label="Expected Finish"
@@ -313,7 +400,7 @@ function CycleMonitorCard({
         </div>
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-3 border-t border-black/10 pt-4">
+      <div className="mt-auto grid grid-cols-2 gap-3 border-t border-black/10 pt-3">
         <Link
           href={`/assistant/cycles/${cycle.id}`}
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white/80 px-4 py-3 text-sm font-bold text-slate-800 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
