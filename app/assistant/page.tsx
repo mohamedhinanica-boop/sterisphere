@@ -314,8 +314,8 @@ export default function AssistantPage() {
   const activeCycleStats = getActiveCycleStats(activeCycles, now);
 
   return (
-    <main className="grid h-[100svh] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-slate-100 p-2 pb-[4.25rem] text-slate-950 sm:p-3 sm:pb-[4.5rem]">
-      <header className="mb-2 flex min-h-[4.75rem] flex-col justify-center gap-1 rounded-xl bg-slate-950 px-4 py-2 text-white shadow-sm md:flex-row md:items-center md:justify-between">
+    <main className="grid h-[100svh] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-slate-100 p-2 pb-[4rem] text-slate-950 sm:p-3 sm:pb-[4.25rem]">
+      <header className="mb-2 flex min-h-[4.25rem] flex-col justify-center gap-1 rounded-xl bg-slate-950 px-4 py-2 text-white shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-normal">
             SteriSphere Workstation
@@ -366,8 +366,8 @@ export default function AssistantPage() {
         />
       </section>
 
-      <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto_auto] gap-2 overflow-hidden">
-        <div className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.9fr)] xl:grid-cols-[minmax(0,2fr)_minmax(340px,0.9fr)] lg:overflow-hidden">
+      <section className="grid min-h-0 grid-rows-[minmax(14rem,1fr)_minmax(9.5rem,10.5rem)_minmax(5.75rem,6.5rem)] gap-2 overflow-hidden">
+        <div className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(320px,0.88fr)] xl:grid-cols-[minmax(0,2.15fr)_minmax(360px,0.9fr)] lg:overflow-hidden">
           <SmartWorkQueue workQueue={workQueue} loading={loading} />
 
           <OperationalCenter
@@ -419,7 +419,7 @@ function SmartWorkQueue({
   const hasActions = Boolean(workQueue.nextAction);
 
   return (
-    <section className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.75fr)] lg:overflow-hidden">
+    <section className="grid min-h-0 gap-2 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.85fr)] lg:overflow-hidden">
       {loading ? (
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:min-h-0">
           <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
@@ -580,17 +580,17 @@ function RecentActivityCard({
   activity: AssistantActivityItem[];
   loading: boolean;
 }) {
-  const rows = activity.slice(0, 6);
+  const rows = activity.slice(0, 5);
 
   return (
-    <article className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
-      <div className="mb-1.5 flex items-center justify-between gap-3">
+    <article className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+      <div className="mb-1 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
             <Activity className="h-4 w-4" />
           </span>
           <div>
-            <h2 className="text-lg font-black leading-tight text-slate-950">
+            <h2 className="text-base font-black leading-tight text-slate-950">
               Recent Activity
             </h2>
             <p className="text-xs font-semibold text-slate-500">
@@ -600,7 +600,7 @@ function RecentActivityCard({
         </div>
         <Link
           href="/assistant/activity"
-          className="inline-flex min-h-9 items-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-blue-800 transition-all hover:bg-blue-50 active:scale-[0.98] active:brightness-95 active:shadow-inner"
+          className="inline-flex min-h-8 items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-black text-blue-800 transition-all hover:bg-blue-50 active:scale-[0.98] active:brightness-95 active:shadow-inner"
         >
           View All Activity
           <ArrowRight className="h-4 w-4" />
@@ -620,17 +620,17 @@ function RecentActivityCard({
           rows.map((item) => (
             <div
               key={item.id}
-              className="grid min-h-7 grid-cols-[4.75rem_minmax(9rem,1fr)_minmax(8rem,0.75fr)_auto] items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-1 last:border-b-0"
+              className="grid min-h-[1.375rem] grid-cols-[4.75rem_minmax(9rem,1fr)_minmax(8rem,0.75fr)_auto] items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-0.5 last:border-b-0"
             >
               <span className="text-xs font-black text-slate-500">{item.time}</span>
-              <span className="truncate text-sm font-bold text-slate-800">
+              <span className="truncate text-xs font-bold text-slate-800">
                 {item.title}
               </span>
               <span className="truncate text-xs font-bold text-slate-500">
                 {item.entityLabel}
               </span>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[0.68rem] font-black uppercase ${getActivityVariantClass(
+                className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-black uppercase ${getActivityVariantClass(
                   item.variant
                 )}`}
               >
@@ -706,8 +706,8 @@ function ActionTile({
       href={href}
       className={`flex min-h-0 flex-col justify-between rounded-xl border p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner ${
         primary
-          ? "min-h-[clamp(4.5rem,10vh,5.25rem)] border-slate-950 bg-slate-950 text-white"
-          : `min-h-[clamp(4.5rem,10vh,5.25rem)] ${toneClasses[tone]}`
+          ? "min-h-[clamp(5.5rem,11vh,6.5rem)] border-slate-950 bg-slate-950 text-white"
+          : `min-h-[clamp(5.5rem,11vh,6.5rem)] ${toneClasses[tone]}`
       }`}
     >
       <div className="flex items-start justify-between gap-2">
