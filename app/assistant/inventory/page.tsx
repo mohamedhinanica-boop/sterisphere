@@ -184,9 +184,16 @@ export default function AssistantInventoryPage() {
         used_trace_created_at:
           tracesByPackNumber[pack.pack_number]?.created_at || null,
       }));
+      const requestedPackId = new URLSearchParams(window.location.search).get(
+        "packId"
+      );
 
       setPacks(enrichedPacks);
       setSelectedPack((current) => {
+        if (requestedPackId) {
+          return enrichedPacks.find((pack) => pack.id === requestedPackId) || null;
+        }
+
         if (!current) {
           return current;
         }
@@ -302,7 +309,7 @@ export default function AssistantInventoryPage() {
       return;
     }
 
-    window.location.href = `/patients?traceId=${selectedTrace.id}`;
+    window.location.href = `/assistant/trace/${selectedTrace.id}`;
   }
 
   return (
