@@ -415,11 +415,6 @@ export default function AssistantPage() {
                   ? activeCycleStats.badge
                   : undefined
               }
-              subtitle={
-                action.href === "/assistant/cycles"
-                  ? activeCycleStats.subtitle
-                  : undefined
-              }
               tone={
                 action.href === "/assistant/cycles"
                   ? activeCycleStats.tileTone
@@ -711,7 +706,6 @@ function ActionTile({
   icon: Icon,
   primary = false,
   badge,
-  subtitle,
   tone = "default",
 }: {
   title: string;
@@ -719,7 +713,6 @@ function ActionTile({
   icon: ComponentType<{ className?: string }>;
   primary?: boolean;
   badge?: string;
-  subtitle?: string;
   tone?: "default" | "active" | "warning" | "critical";
 }) {
   const toneClasses = {
@@ -752,21 +745,14 @@ function ActionTile({
           </span>
         )}
       </div>
-      <span>
-        <span
-          className={
-            primary
-              ? "block text-[clamp(0.95rem,1.4vw,1.1rem)] font-bold leading-tight"
-              : "block text-[clamp(0.9rem,1.3vw,1rem)] font-bold leading-tight"
-          }
-        >
-          {title}
-        </span>
-        {subtitle && (
-          <span className="mt-0.5 block truncate text-xs font-bold opacity-70">
-            {subtitle}
-          </span>
-        )}
+      <span
+        className={
+          primary
+            ? "text-[clamp(0.95rem,1.4vw,1.1rem)] font-bold"
+            : "text-[clamp(0.9rem,1.3vw,1rem)] font-bold"
+        }
+      >
+        {title}
       </span>
     </Link>
   );
@@ -875,54 +861,54 @@ function OperationalCenter({
           </dl>
 
           {activeCycle && timing ? (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-2">
+        <section className="mt-1 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-1.5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="w-fit rounded-full bg-blue-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-blue-700">
+              <span className="w-fit rounded-full bg-blue-100 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-blue-700">
                 Active Cycle
               </span>
-              <h3 className="mt-1 text-sm font-bold">
+              <h3 className="mt-0.5 text-sm font-bold leading-tight">
                 {activeCycle.cycle_number}
               </h3>
-              <p className="mt-0.5 text-xs font-semibold opacity-75">
+              <p className="text-[0.7rem] font-semibold opacity-75">
                 {activeCycle.sterilizer}
               </p>
             </div>
             <span
-              className={`rounded-xl border px-2 py-0.5 text-xs font-bold ${timing.badgeClass}`}
+              className={`rounded-xl border px-2 py-0.5 text-[0.7rem] font-bold ${timing.badgeClass}`}
             >
               {timing.label}
             </span>
           </div>
 
-          <dl className="mt-1 grid grid-cols-2 gap-1 text-xs">
+          <dl className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[0.7rem]">
             <div>
               <dt className="font-semibold opacity-70">Started</dt>
-              <dd className="mt-0.5 font-bold">
+              <dd className="font-bold">
                 {formatCompactDateTime(activeCycle.created_at)}
               </dd>
             </div>
             <div>
-              <dt className="font-semibold opacity-70">Expected Finish</dt>
-              <dd className="mt-0.5 font-bold">
+              <dt className="font-semibold opacity-70">Finish</dt>
+              <dd className="font-bold">
                 {formatCompactDateTime(activeCycle.expected_finish_at)}
               </dd>
             </div>
             <div>
-              <dt className="font-semibold opacity-70">Time Remaining</dt>
-              <dd className={`mt-0.5 font-bold ${timing.textClass}`}>
+              <dt className="font-semibold opacity-70">Remaining</dt>
+              <dd className={`font-bold ${timing.textClass}`}>
                 {timing.description}
               </dd>
             </div>
             <div>
               <dt className="font-semibold opacity-70">Status</dt>
-              <dd className="mt-0.5 font-bold">Running</dd>
+              <dd className="font-bold">Running</dd>
             </div>
           </dl>
 
           <Link
             href={openCycleHref}
-            className="mt-auto inline-flex min-h-8 w-fit items-center justify-center rounded-xl bg-slate-950 px-3 py-1 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            className="mt-auto inline-flex min-h-7 w-fit items-center justify-center rounded-xl bg-slate-950 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
           >
             {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
@@ -1161,12 +1147,6 @@ function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
     count: activeCycles.length,
     badge:
       running > 0 ? String(running) : reviewCount > 0 ? String(reviewCount) : undefined,
-    subtitle:
-      running > 0
-        ? `${running} running${reviewCount > 0 ? ` / ${reviewCount} review` : ""}`
-        : reviewCount > 0
-          ? `${reviewCount} ready for review`
-          : "No active cycles",
     tileTone: hasOverdue
       ? "critical"
       : running > 0
