@@ -841,67 +841,67 @@ function OperationalCenter({
         </section>
       ) : (
         <>
-          <dl className="mt-1.5 grid grid-cols-4 gap-1 text-center text-[0.68rem]">
-            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
-              <dt className="truncate font-bold uppercase opacity-70">Running</dt>
-              <dd className="text-sm font-black">{runningCycles.length}</dd>
+          <dl className="mt-1.5 grid grid-cols-4 gap-1.5 text-center text-[0.62rem]">
+            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
+              <dt className="truncate font-bold uppercase opacity-60">Running</dt>
+              <dd className="text-xs font-black leading-tight">{runningCycles.length}</dd>
             </div>
-            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
-              <dt className="truncate font-bold uppercase opacity-70">Ready</dt>
-              <dd className="text-sm font-black">{queueCounts.readyCycles}</dd>
+            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
+              <dt className="truncate font-bold uppercase opacity-60">Ready</dt>
+              <dd className="text-xs font-black leading-tight">{queueCounts.readyCycles}</dd>
             </div>
-            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
-              <dt className="truncate font-bold uppercase opacity-70">Investig.</dt>
-              <dd className="text-sm font-black">{queueCounts.openInvestigations}</dd>
+            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
+              <dt className="truncate font-bold uppercase opacity-60">Investig.</dt>
+              <dd className="text-xs font-black leading-tight">{queueCounts.openInvestigations}</dd>
             </div>
-            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
-              <dt className="truncate font-bold uppercase opacity-70">Expired</dt>
-              <dd className="text-sm font-black">{queueCounts.expiredPacks}</dd>
+            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
+              <dt className="truncate font-bold uppercase opacity-60">Expired</dt>
+              <dd className="text-xs font-black leading-tight">{queueCounts.expiredPacks}</dd>
             </div>
           </dl>
 
           {activeCycle && timing ? (
-        <section className="mt-1 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-1.5">
+        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/70 p-2">
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <span className="w-fit rounded-full bg-blue-100 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-blue-700">
+            <div className="min-w-0">
+              <span className="w-fit rounded-full bg-blue-100 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-blue-700">
                 Active Cycle
               </span>
-              <h3 className="mt-0.5 text-sm font-bold leading-tight">
+              <h3 className="mt-1 truncate text-base font-black leading-tight">
                 {activeCycle.cycle_number}
               </h3>
-              <p className="text-[0.7rem] font-semibold opacity-75">
+              <p className="mt-0.5 truncate text-[0.68rem] font-semibold opacity-60">
                 {activeCycle.sterilizer}
               </p>
             </div>
             <span
-              className={`rounded-xl border px-2 py-0.5 text-[0.7rem] font-bold ${timing.badgeClass}`}
+              className={`shrink-0 rounded-xl border px-2 py-0.5 text-[0.68rem] font-bold ${timing.badgeClass}`}
             >
               {timing.label}
             </span>
           </div>
 
-          <dl className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[0.7rem]">
+          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[0.68rem]">
             <div>
-              <dt className="font-semibold opacity-70">Started</dt>
+              <dt className="font-semibold opacity-55">Started</dt>
               <dd className="font-bold">
                 {formatCompactDateTime(activeCycle.created_at)}
               </dd>
             </div>
             <div>
-              <dt className="font-semibold opacity-70">Finish</dt>
+              <dt className="font-semibold opacity-55">Finish</dt>
               <dd className="font-bold">
                 {formatCompactDateTime(activeCycle.expected_finish_at)}
               </dd>
             </div>
             <div>
-              <dt className="font-semibold opacity-70">Remaining</dt>
-              <dd className={`font-bold ${timing.textClass}`}>
+              <dt className="font-semibold opacity-55">Remaining</dt>
+              <dd className={`text-xs font-black ${timing.textClass}`}>
                 {timing.description}
               </dd>
             </div>
             <div>
-              <dt className="font-semibold opacity-70">Status</dt>
+              <dt className="font-semibold opacity-55">Status</dt>
               <dd className="font-bold">Running</dd>
             </div>
           </dl>
