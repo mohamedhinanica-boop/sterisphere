@@ -41,7 +41,7 @@ const workflowActions = [
 const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
 
 const secondaryActions = [
-  { title: "Print Labels", href: "/packs", icon: Printer },
+  { title: "Print Labels", href: "/assistant/inventory", icon: Printer },
   { title: "Investigations", href: "/assistant/investigations", icon: FileSearch },
 ];
 
@@ -388,6 +388,7 @@ export default function AssistantPage() {
         <OperationalCenter
           status={status}
           activeCycles={activeCycles}
+          queueCounts={workQueue.counts}
           now={now}
           loading={loading}
         />
@@ -410,8 +411,13 @@ export default function AssistantPage() {
               {...action}
               badge={
                 action.href === "/assistant/cycles" &&
-                activeCycleStats.count > 0
-                  ? String(activeCycleStats.count)
+                activeCycleStats.badge
+                  ? activeCycleStats.badge
+                  : undefined
+              }
+              subtitle={
+                action.href === "/assistant/cycles"
+                  ? activeCycleStats.subtitle
                   : undefined
               }
               tone={
@@ -705,6 +711,7 @@ function ActionTile({
   icon: Icon,
   primary = false,
   badge,
+  subtitle,
   tone = "default",
 }: {
   title: string;
@@ -712,10 +719,12 @@ function ActionTile({
   icon: ComponentType<{ className?: string }>;
   primary?: boolean;
   badge?: string;
-  tone?: "default" | "warning" | "critical";
+  subtitle?: string;
+  tone?: "default" | "active" | "warning" | "critical";
 }) {
   const toneClasses = {
     default: "border-slate-200 bg-white text-slate-800",
+    active: "border-blue-200 bg-blue-50 text-blue-900",
     warning: "border-yellow-200 bg-yellow-50 text-yellow-900",
     critical: "border-red-200 bg-red-50 text-red-800",
   };
@@ -743,14 +752,21 @@ function ActionTile({
           </span>
         )}
       </div>
-      <span
-        className={
-          primary
-            ? "text-[clamp(0.95rem,1.4vw,1.1rem)] font-bold"
-            : "text-[clamp(0.9rem,1.3vw,1rem)] font-bold"
-        }
-      >
-        {title}
+      <span>
+        <span
+          className={
+            primary
+              ? "block text-[clamp(0.95rem,1.4vw,1.1rem)] font-bold leading-tight"
+              : "block text-[clamp(0.9rem,1.3vw,1rem)] font-bold leading-tight"
+          }
+        >
+          {title}
+        </span>
+        {subtitle && (
+          <span className="mt-0.5 block truncate text-xs font-bold opacity-70">
+            {subtitle}
+          </span>
+        )}
       </span>
     </Link>
   );
@@ -759,11 +775,13 @@ function ActionTile({
 function OperationalCenter({
   status,
   activeCycles,
+  queueCounts,
   now,
   loading,
 }: {
   status: WorkstationStatus;
   activeCycles: RunningCycle[];
+  queueCounts: QueueCounts;
   now: Date;
   loading: boolean;
 }) {
@@ -777,35 +795,38 @@ function OperationalCenter({
   const runningCycles = activeCycles.filter(
     (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "running"
   );
-  const focusCycle =
-    overdueCycles[0] || readyCycles[0] || runningCycles[0] || null;
-  const hasPriority = hasFailedReviews || Boolean(focusCycle);
-  const isIdle = !loading && !hasPriority;
-  const timing = focusCycle
-    ? getCycleTiming(focusCycle.expected_finish_at, now)
+  const activeCycle = runningCycles[0] || null;
+  const timing = activeCycle
+    ? getCycleTiming(activeCycle.expected_finish_at, now)
     : null;
   const openCycleHref =
     runningCycles.length === 1
       ? `/assistant/cycles/${runningCycles[0].id}`
       : "/assistant/cycles";
-  const reviewCycleHref =
-    activeCycles.length === 1 && focusCycle
-      ? `/assistant/cycle/review?cycleId=${focusCycle.id}`
-      : "/assistant/cycle/review";
+  const hasQueueWork =
+    queueCounts.readyCycles > 0 ||
+    queueCounts.openInvestigations > 0 ||
+    queueCounts.expiredPacks > 0 ||
+    hasFailedReviews ||
+    overdueCycles.length > 0 ||
+    readyCycles.length > 0;
+  const hasOperationalWork = runningCycles.length > 0 || hasQueueWork;
+  const isIdle = !loading && !hasOperationalWork;
+  const fallbackStatus = getOperationalFallbackStatus({
+    queueCounts,
+    failedReviews: status.failedCycles,
+    availablePacks: status.availablePacks,
+  });
 
   return (
     <aside
       className={`flex h-full min-h-0 flex-col overflow-hidden rounded-xl border p-2 shadow-sm ${
-        overdueCycles.length > 0
-          ? "border-red-200 bg-red-50 text-red-900"
-          : readyCycles.length > 0
-            ? "border-yellow-200 bg-yellow-50 text-yellow-900"
-            : runningCycles.length > 0
-              ? "border-blue-200 bg-blue-50 text-blue-900"
-              : hasFailedReviews
-                ? "border-red-200 bg-red-50 text-red-900"
-                : hasPriority
-          ? "border-yellow-200 bg-yellow-50 text-yellow-900"
+        runningCycles.length > 0
+          ? "border-blue-200 bg-blue-50 text-blue-900"
+          : queueCounts.openInvestigations > 0 || queueCounts.expiredPacks > 0 || hasFailedReviews
+            ? "border-red-200 bg-red-50 text-red-900"
+            : hasQueueWork
+              ? "border-yellow-200 bg-yellow-50 text-yellow-900"
           : "border-blue-200 bg-blue-50 text-blue-900"
       }`}
     >
@@ -813,13 +834,15 @@ function OperationalCenter({
         <div>
           <h2 className="text-base font-bold leading-tight">Operational Center</h2>
           <p className="mt-0.5 text-[0.7rem] font-semibold opacity-75">
-            Live cycle status and review guidance
+            Live cycle status and workload summary
           </p>
         </div>
-        {hasPriority ? (
+        {runningCycles.length > 0 ? (
+          <Timer className="h-5 w-5 shrink-0 opacity-70" />
+        ) : hasQueueWork ? (
           <ShieldAlert className="h-5 w-5 shrink-0" />
         ) : (
-          <Timer className="h-5 w-5 shrink-0 opacity-70" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 opacity-70" />
         )}
       </div>
 
@@ -830,68 +853,39 @@ function OperationalCenter({
             Loading cycle status and pending reviews.
           </p>
         </section>
-      ) : overdueCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-2">
-          <span className="w-fit rounded-full bg-red-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-red-700">
-            Review Required
-          </span>
-          <h3 className="mt-1 text-sm font-bold">Overdue Review</h3>
-          <p className="mt-0.5 line-clamp-2 text-xs font-semibold">
-            {overdueCycles.length}{" "}
-            {overdueCycles.length === 1 ? "cycle is" : "cycles are"} past the
-            review threshold. Review before releasing packs.
-          </p>
-          <Link
-            href={reviewCycleHref}
-            className="mt-auto inline-flex min-h-8 w-fit items-center justify-center rounded-xl bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
-          >
-            Review Cycles
-          </Link>
-        </section>
-      ) : readyCycles.length > 0 && focusCycle && timing ? (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-yellow-200 bg-white/75 p-2">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <span className="w-fit rounded-full bg-yellow-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-yellow-800">
-                Ready for Review
-              </span>
-              <h3 className="mt-1 text-sm font-bold">
-                {focusCycle.cycle_number}
-              </h3>
-              <p className="mt-0.5 text-xs font-semibold opacity-75">
-                {focusCycle.sterilizer}
-              </p>
+      ) : (
+        <>
+          <dl className="mt-1.5 grid grid-cols-4 gap-1 text-center text-[0.68rem]">
+            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
+              <dt className="truncate font-bold uppercase opacity-70">Running</dt>
+              <dd className="text-sm font-black">{runningCycles.length}</dd>
             </div>
-            <span
-              className={`rounded-xl border px-2 py-0.5 text-xs font-bold ${timing.badgeClass}`}
-            >
-              Ready
-            </span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-xs font-semibold">
-            {readyCycles.length}{" "}
-            {readyCycles.length === 1 ? "cycle has" : "cycles have"} reached
-            expected finish and can be reviewed.
-          </p>
-          <Link
-            href={reviewCycleHref}
-            className="mt-auto inline-flex min-h-8 w-fit items-center justify-center rounded-xl bg-yellow-500 px-3 py-1 text-xs font-bold text-yellow-950 shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
-          >
-            Review Cycles
-          </Link>
-        </section>
-      ) : runningCycles.length > 0 && focusCycle && timing ? (
+            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
+              <dt className="truncate font-bold uppercase opacity-70">Ready</dt>
+              <dd className="text-sm font-black">{queueCounts.readyCycles}</dd>
+            </div>
+            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
+              <dt className="truncate font-bold uppercase opacity-70">Investig.</dt>
+              <dd className="text-sm font-black">{queueCounts.openInvestigations}</dd>
+            </div>
+            <div className="rounded-lg border border-white/60 bg-white/65 px-1 py-1">
+              <dt className="truncate font-bold uppercase opacity-70">Expired</dt>
+              <dd className="text-sm font-black">{queueCounts.expiredPacks}</dd>
+            </div>
+          </dl>
+
+          {activeCycle && timing ? (
         <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-2">
           <div className="flex items-start justify-between gap-2">
             <div>
               <span className="w-fit rounded-full bg-blue-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-blue-700">
-                Running Cycle
+                Active Cycle
               </span>
               <h3 className="mt-1 text-sm font-bold">
-                {focusCycle.cycle_number}
+                {activeCycle.cycle_number}
               </h3>
               <p className="mt-0.5 text-xs font-semibold opacity-75">
-                {focusCycle.sterilizer}
+                {activeCycle.sterilizer}
               </p>
             </div>
             <span
@@ -905,13 +899,13 @@ function OperationalCenter({
             <div>
               <dt className="font-semibold opacity-70">Started</dt>
               <dd className="mt-0.5 font-bold">
-                {formatCompactDateTime(focusCycle.created_at)}
+                {formatCompactDateTime(activeCycle.created_at)}
               </dd>
             </div>
             <div>
               <dt className="font-semibold opacity-70">Expected Finish</dt>
               <dd className="mt-0.5 font-bold">
-                {formatCompactDateTime(focusCycle.expected_finish_at)}
+                {formatCompactDateTime(activeCycle.expected_finish_at)}
               </dd>
             </div>
             <div>
@@ -933,50 +927,26 @@ function OperationalCenter({
             {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
           </Link>
         </section>
-      ) : hasFailedReviews ? (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-red-200 bg-white/75 p-2">
-          <span className="w-fit rounded-full bg-red-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-red-700">
-            Critical status
-          </span>
-          <h3 className="mt-1 text-sm font-bold">
-            Failed cycle requiring review
-          </h3>
-          <p className="mt-0.5 line-clamp-2 text-xs font-semibold">
-            {status.failedCycles} failed{" "}
-            {status.failedCycles === 1 ? "cycle is" : "cycles are"} awaiting
-            investigation review before related work can move forward.
-          </p>
-          <Link
-            href="/assistant/investigations"
-            className="mt-auto inline-flex min-h-8 w-fit items-center justify-center rounded-xl bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
-          >
-            Investigation Center
-          </Link>
-        </section>
-      ) : (
+          ) : (
         <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-2">
-          <span className="w-fit rounded-full bg-blue-100 px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-blue-700">
-            Normal state
+          <span className={`w-fit rounded-full px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide ${fallbackStatus.badgeClass}`}>
+            {fallbackStatus.label}
           </span>
-          <h3 className="mt-1 text-sm font-bold">No Active Cycles</h3>
-          <div className="mt-1.5 grid grid-cols-2 gap-2 text-xs">
-            <p>
-              <span className="block font-semibold opacity-70">
-                Available Packs
-              </span>
-              <span className="text-base font-bold">{status.availablePacks}</span>
-            </p>
-            <p>
-              <span className="block font-semibold opacity-70">
-                Expired Packs
-              </span>
-              <span className="text-base font-bold">{status.expiredPacks}</span>
-            </p>
-          </div>
-          <p className="mt-1.5 text-xs font-semibold">
-            All systems operating normally.
+          <h3 className="mt-1 text-sm font-bold">{fallbackStatus.title}</h3>
+          <p className="mt-0.5 line-clamp-2 text-xs font-semibold">
+            {fallbackStatus.detail}
           </p>
+          {fallbackStatus.href && (
+            <Link
+              href={fallbackStatus.href}
+              className="mt-auto inline-flex min-h-8 w-fit items-center justify-center rounded-xl bg-slate-950 px-3 py-1 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
+            >
+              {fallbackStatus.buttonLabel}
+            </Link>
+          )}
         </section>
+          )}
+        </>
       )}
 
       {isIdle && (
@@ -1097,16 +1067,113 @@ function getNextRecommendedAction({
 
   return null;
 }
+
+function getOperationalFallbackStatus({
+  queueCounts,
+  failedReviews,
+  availablePacks,
+}: {
+  queueCounts: QueueCounts;
+  failedReviews: number;
+  availablePacks: number;
+}) {
+  if (queueCounts.openInvestigations > 0 || failedReviews > 0) {
+    const investigationCount =
+      queueCounts.openInvestigations > 0
+        ? queueCounts.openInvestigations
+        : failedReviews;
+
+    return {
+      label: "Investigation",
+      title: "Investigation Queue Active",
+      detail: `${investigationCount} investigation item${
+        investigationCount === 1 ? "" : "s"
+      } in the workstation queue.`,
+      href: "/assistant/investigations",
+      buttonLabel: "Open Investigations",
+      badgeClass: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (queueCounts.expiredPacks > 0) {
+    return {
+      label: "Inventory",
+      title: "Inventory Attention Needed",
+      detail: `${queueCounts.expiredPacks} expired pack${
+        queueCounts.expiredPacks === 1 ? "" : "s"
+      } waiting in inventory.`,
+      href: "/assistant/inventory",
+      buttonLabel: "Open Inventory",
+      badgeClass: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (queueCounts.readyCycles > 0) {
+    return {
+      label: "Cycle Queue",
+      title: "Completed Cycles Waiting",
+      detail: `${queueCounts.readyCycles} completed cycle${
+        queueCounts.readyCycles === 1 ? "" : "s"
+      } queued for release workflow.`,
+      href: "/assistant/cycles",
+      buttonLabel: "Open Cycle Center",
+      badgeClass: "bg-yellow-100 text-yellow-800",
+    };
+  }
+
+  if (queueCounts.expiringPacks > 0) {
+    return {
+      label: "Inventory",
+      title: "Packs Expiring Soon",
+      detail: `${queueCounts.expiringPacks} pack${
+        queueCounts.expiringPacks === 1 ? "" : "s"
+      } approaching expiration.`,
+      href: "/assistant/inventory",
+      buttonLabel: "Open Inventory",
+      badgeClass: "bg-yellow-100 text-yellow-800",
+    };
+  }
+
+  return {
+    label: "Normal",
+    title: "No Active Cycles",
+    detail: `${availablePacks} available pack${
+      availablePacks === 1 ? "" : "s"
+    }. Workstation ready for the next sterilization or traceability task.`,
+    href: null,
+    buttonLabel: null,
+    badgeClass: "bg-blue-100 text-blue-700",
+  };
+}
+
 function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
   const states = activeCycles.map((cycle) =>
     getCycleOperationalState(cycle.expected_finish_at, now)
   );
+  const running = states.filter((state) => state === "running").length;
+  const readyReview = states.filter((state) => state === "ready").length;
+  const overdueReview = states.filter((state) => state === "overdue").length;
+  const reviewCount = readyReview + overdueReview;
   const hasOverdue = states.includes("overdue");
   const hasReady = states.includes("ready");
 
   return {
     count: activeCycles.length,
-    tileTone: hasOverdue ? "critical" : hasReady ? "warning" : "default",
+    badge:
+      running > 0 ? String(running) : reviewCount > 0 ? String(reviewCount) : undefined,
+    subtitle:
+      running > 0
+        ? `${running} running${reviewCount > 0 ? ` / ${reviewCount} review` : ""}`
+        : reviewCount > 0
+          ? `${reviewCount} ready for review`
+          : "No active cycles",
+    tileTone: hasOverdue
+      ? "critical"
+      : running > 0
+        ? "active"
+        : hasReady
+          ? "warning"
+          : "default",
   } as const;
 }
 
@@ -1246,8 +1313,8 @@ function formatCompactDateTime(date: string | null) {
 function BottomNavigation() {
   const items = [
     { label: "Home", href: "/assistant", icon: Home },
-    { label: "Cycles", href: "/cycles", icon: Timer },
-    { label: "Trace", href: "/patients", icon: Search },
+    { label: "Cycles", href: "/assistant/cycles", icon: Timer },
+    { label: "Trace", href: "/assistant/trace/start", icon: Search },
     { label: "Inventory", href: "/assistant/inventory", icon: Package },
   ];
 
