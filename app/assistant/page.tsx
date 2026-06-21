@@ -754,9 +754,19 @@ function OperationalCenter() {
             0%, 100% { opacity: 0.18; filter: blur(24px); transform: scale(0.96); }
             50% { opacity: 0.3; filter: blur(28px); transform: scale(1.04); }
           }
+          @keyframes steri-assistant-rotate {
+            0%, 70% { transform: rotate(0deg); }
+            88%, 100% { transform: rotate(360deg); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .steri-assistant-glow,
+            .steri-assistant-icon {
+              animation: none !important;
+            }
+          }
         `}</style>
         <div
-          className="absolute h-24 w-24 rounded-full bg-blue-300/20"
+          className="steri-assistant-glow absolute h-24 w-24 rounded-full bg-blue-300/20"
           style={{ animation: "steri-assistant-glow 8s ease-in-out infinite" }}
         />
         <h2 className="relative mb-3 text-base font-bold leading-tight">
@@ -766,7 +776,8 @@ function OperationalCenter() {
           <img
             src="/branding/sterisphere-icon.png"
             alt="SteriSphere"
-            className="h-[4.5rem] w-[4.5rem] object-contain"
+            className="steri-assistant-icon h-[4.5rem] w-[4.5rem] object-contain"
+            style={{ animation: "steri-assistant-rotate 16s ease-in-out infinite" }}
           />
         </div>
         <div className="relative mt-3">
