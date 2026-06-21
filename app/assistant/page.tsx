@@ -749,25 +749,29 @@ function OperationalCenter() {
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-blue-200 bg-blue-50 p-2 text-blue-950 shadow-sm">
       <div className="relative flex h-full min-h-0 flex-col items-center justify-center px-4 py-3 text-center">
-        <div className="absolute h-24 w-24 rounded-full bg-blue-300/20 blur-2xl" />
+        <style>{`
+          @keyframes steri-assistant-glow {
+            0%, 100% { opacity: 0.18; filter: blur(24px); transform: scale(0.96); }
+            50% { opacity: 0.3; filter: blur(28px); transform: scale(1.04); }
+          }
+        `}</style>
+        <div
+          className="absolute h-24 w-24 rounded-full bg-blue-300/20"
+          style={{ animation: "steri-assistant-glow 8s ease-in-out infinite" }}
+        />
         <h2 className="relative mb-3 text-base font-bold leading-tight">
           Steri Assistant
         </h2>
-        <div className="relative flex h-16 w-16 items-center justify-center">
+        <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center">
           <img
             src="/branding/sterisphere-icon.png"
             alt="SteriSphere"
-            className="h-16 w-16 object-contain"
+            className="h-[4.5rem] w-[4.5rem] object-contain"
           />
         </div>
         <div className="relative mt-3">
           <p className="text-sm font-black tracking-normal text-blue-950">
             Trace. Protect. Assure.
-          </p>
-          <p className="mt-1 text-xs font-semibold leading-snug text-blue-900/70">
-            Intelligent sterilization assistance
-            <br />
-            coming soon.
           </p>
         </div>
       </div>
