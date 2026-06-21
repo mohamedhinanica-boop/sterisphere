@@ -463,14 +463,14 @@ export default function GuidedPatientTraceStartPage() {
             }
           >
             <div
-              className={`grid gap-3 ${
+              className={`grid min-h-0 gap-3 lg:items-start ${
                 isScanMode
                   ? "lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]"
                   : "lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]"
               }`}
             >
               <div
-                className={`rounded-2xl border p-3 ${
+                className={`self-start rounded-2xl border p-3 ${
                   isScanMode
                     ? "border-slate-300 bg-slate-50 shadow-sm"
                     : "border-slate-200 bg-slate-50"
@@ -504,15 +504,15 @@ export default function GuidedPatientTraceStartPage() {
 
                 <div
                   id={scannerElementId}
-                  className={`mt-3 overflow-hidden rounded-2xl border border-slate-300 bg-white ${
+                  className={`mt-3 overflow-hidden rounded-2xl border border-slate-300 bg-white [&>div]:!h-full [&_canvas]:!h-full [&_canvas]:!w-full [&_canvas]:object-cover [&_img]:mx-auto [&_video]:!h-full [&_video]:!w-full [&_video]:object-cover ${
                     isScanMode
-                      ? "min-h-[12.5rem] md:min-h-[13.5rem] xl:min-h-[15rem]"
-                      : "min-h-[16rem]"
+                      ? "h-[12.5rem] md:h-[13.5rem] lg:h-[38svh] lg:max-h-[18rem] xl:max-h-[19rem]"
+                      : "h-[14rem] md:h-[16rem] lg:h-[42svh] lg:max-h-[20rem]"
                   }`}
                 />
               </div>
 
-              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="flex min-h-0 flex-col self-start rounded-2xl border border-slate-200 bg-white p-3 lg:max-h-[52svh] lg:overflow-y-auto xl:max-h-[24rem]">
                 <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
                   {isScanMode ? "Manual Fallback" : "Manual Pack Number"}
                 </label>
