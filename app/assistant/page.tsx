@@ -9,8 +9,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileSearch,
-  Home,
-  MoreHorizontal,
   Package,
   PackageX,
   Search,
@@ -310,9 +308,9 @@ export default function AssistantPage() {
     <main
       className="grid h-full min-h-0 gap-2 overflow-hidden bg-slate-100 p-2 text-slate-950 sm:p-3"
       style={{
-        gridTemplateAreas: `"header" "kpis" "middle" "activity" "actions" "nav"`,
+        gridTemplateAreas: `"header" "kpis" "middle" "activity" "actions"`,
         gridTemplateRows:
-          "clamp(3.25rem,5.8dvh,3.85rem) clamp(3.25rem,5.8dvh,3.85rem) minmax(0,0.95fr) minmax(0,1.05fr) clamp(5.1rem,10dvh,6rem) clamp(3.25rem,6.5dvh,4rem)",
+          "clamp(3.25rem,5.8dvh,3.85rem) clamp(3.25rem,5.8dvh,3.85rem) minmax(0,0.95fr) minmax(0,1.12fr) clamp(5.75rem,12dvh,7rem)",
       }}
     >
       <header
@@ -345,18 +343,21 @@ export default function AssistantPage() {
           value={cycleStateCounts.running}
           loading={loading}
           tone={cycleStateCounts.running > 0 ? "warning" : "neutral"}
+          href="/assistant/cycles?status=Running"
         />
         <KpiCard
           title="Available Packs"
           value={status.availablePacks}
           loading={loading}
           tone="normal"
+          href="/assistant/inventory?status=Available"
         />
         <KpiCard
           title="Expired Packs"
           value={status.expiredPacks}
           loading={loading}
           tone={status.expiredPacks > 0 ? "critical" : "neutral"}
+          href="/assistant/inventory?status=Expired"
         />
         <KpiCard
           title="Pending Reviews"
@@ -369,6 +370,7 @@ export default function AssistantPage() {
                 ? "warning"
                 : "neutral"
           }
+          href="/assistant/cycle/review"
         />
       </section>
 
@@ -410,8 +412,6 @@ export default function AssistantPage() {
             />
           ))}
       </div>
-
-      <BottomNavigation />
     </main>
   );
 }
@@ -664,11 +664,13 @@ function KpiCard({
   value,
   loading,
   tone,
+  href,
 }: {
   title: string;
   value: number;
   loading: boolean;
   tone: "normal" | "neutral" | "warning" | "critical";
+  href: string;
 }) {
   const toneClasses = {
     normal: "border-green-200 bg-green-50 text-green-700",
@@ -678,12 +680,15 @@ function KpiCard({
   };
 
   return (
-    <div className={`h-full min-h-0 rounded-xl border p-2 shadow-sm ${toneClasses[tone]}`}>
+    <Link
+      href={href}
+      className={`h-full min-h-0 rounded-xl border p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 active:scale-[0.98] active:brightness-95 active:shadow-inner ${toneClasses[tone]}`}
+    >
       <p className="text-[0.7rem] font-bold uppercase tracking-wide opacity-75">
         {title}
       </p>
       <p className="mt-0.5 text-xl font-black leading-none">{loading ? "-" : value}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -1034,45 +1039,4 @@ function formatCompactDateTime(date: string | null) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function BottomNavigation() {
-  const items = [
-    { label: "Home", href: "/assistant", icon: Home },
-    { label: "Cycles", href: "/assistant/cycles", icon: Timer },
-    { label: "Trace", href: "/assistant/trace/start", icon: Search },
-    { label: "Inventory", href: "/assistant/inventory", icon: Package },
-  ];
-
-  return (
-    <nav
-      className="min-h-0 rounded-xl border border-slate-200 bg-white px-3 py-0.5 shadow-lg"
-      style={{ gridArea: "nav" }}
-    >
-      <div className="mx-auto grid h-full max-w-5xl grid-cols-5 gap-2">
-        {items.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="flex h-full min-h-0 flex-col items-center justify-center rounded-xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
-            >
-              <Icon className="mb-1 h-5 w-5" />
-              {item.label}
-            </Link>
-          );
-        })}
-
-        <button
-          type="button"
-          className="flex h-full min-h-0 flex-col items-center justify-center rounded-xl text-xs font-medium text-slate-700 transition-all hover:bg-slate-100 active:scale-[0.98] active:brightness-95 active:shadow-inner"
-        >
-          <MoreHorizontal className="mb-1 h-5 w-5" />
-          More
-        </button>
-      </div>
-    </nav>
-  );
 }
