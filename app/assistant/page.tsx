@@ -13,9 +13,7 @@ import {
   MoreHorizontal,
   Package,
   PackageX,
-  Printer,
   Search,
-  ShieldAlert,
   Timer,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -39,11 +37,6 @@ const workflowActions = [
 ];
 
 const REVIEW_OVERDUE_THRESHOLD_MS = 5 * 60 * 1000;
-
-const secondaryActions = [
-  { title: "Print Labels", href: "/assistant/inventory", icon: Printer },
-  { title: "Investigations", href: "/assistant/investigations", icon: FileSearch },
-];
 
 type WorkstationStatus = {
   availablePacks: number;
@@ -385,13 +378,7 @@ export default function AssistantPage() {
       >
         <SmartWorkQueue workQueue={workQueue} loading={loading} />
 
-        <OperationalCenter
-          status={status}
-          activeCycles={activeCycles}
-          queueCounts={workQueue.counts}
-          now={now}
-          loading={loading}
-        />
+        <OperationalCenter />
       </div>
 
       <div className="min-h-0 overflow-hidden" style={{ gridArea: "activity" }}>
@@ -758,210 +745,32 @@ function ActionTile({
   );
 }
 
-function OperationalCenter({
-  status,
-  activeCycles,
-  queueCounts,
-  now,
-  loading,
-}: {
-  status: WorkstationStatus;
-  activeCycles: RunningCycle[];
-  queueCounts: QueueCounts;
-  now: Date;
-  loading: boolean;
-}) {
-  const hasFailedReviews = status.failedCycles > 0;
-  const overdueCycles = activeCycles.filter(
-    (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "overdue"
-  );
-  const readyCycles = activeCycles.filter(
-    (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "ready"
-  );
-  const runningCycles = activeCycles.filter(
-    (cycle) => getCycleOperationalState(cycle.expected_finish_at, now) === "running"
-  );
-  const activeCycle = runningCycles[0] || null;
-  const timing = activeCycle
-    ? getCycleTiming(activeCycle.expected_finish_at, now)
-    : null;
-  const openCycleHref =
-    runningCycles.length === 1
-      ? `/assistant/cycles/${runningCycles[0].id}`
-      : "/assistant/cycles";
-  const hasQueueWork =
-    queueCounts.readyCycles > 0 ||
-    queueCounts.openInvestigations > 0 ||
-    queueCounts.expiredPacks > 0 ||
-    hasFailedReviews ||
-    overdueCycles.length > 0 ||
-    readyCycles.length > 0;
-  const hasOperationalWork = runningCycles.length > 0 || hasQueueWork;
-  const isIdle = !loading && !hasOperationalWork;
-  const fallbackStatus = getOperationalFallbackStatus({
-    queueCounts,
-    failedReviews: status.failedCycles,
-    availablePacks: status.availablePacks,
-  });
-
+function OperationalCenter() {
   return (
-    <aside
-      className={`flex h-full min-h-0 flex-col overflow-hidden rounded-xl border p-2 shadow-sm ${
-        runningCycles.length > 0
-          ? "border-blue-200 bg-blue-50 text-blue-900"
-          : queueCounts.openInvestigations > 0 || queueCounts.expiredPacks > 0 || hasFailedReviews
-            ? "border-red-200 bg-red-50 text-red-900"
-            : hasQueueWork
-              ? "border-yellow-200 bg-yellow-50 text-yellow-900"
-          : "border-blue-200 bg-blue-50 text-blue-900"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-base font-bold leading-tight">Operational Center</h2>
-          <p className="mt-0.5 text-[0.7rem] font-semibold opacity-75">
-            Live cycle status and workload summary
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-blue-200 bg-blue-50 p-2 text-blue-950 shadow-sm">
+      <div className="relative flex h-full min-h-0 flex-col items-center justify-center px-4 py-3 text-center">
+        <div className="absolute h-24 w-24 rounded-full bg-blue-300/20 blur-2xl" />
+        <h2 className="relative mb-3 text-base font-bold leading-tight">
+          Steri Assistant
+        </h2>
+        <div className="relative flex h-16 w-16 items-center justify-center">
+          <img
+            src="/branding/sterisphere-icon.png"
+            alt="SteriSphere"
+            className="h-16 w-16 object-contain"
+          />
+        </div>
+        <div className="relative mt-3">
+          <p className="text-sm font-black tracking-normal text-blue-950">
+            Trace. Protect. Assure.
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-snug text-blue-900/70">
+            Intelligent sterilization assistance
+            <br />
+            coming soon.
           </p>
         </div>
-        {runningCycles.length > 0 ? (
-          <Timer className="h-5 w-5 shrink-0 opacity-70" />
-        ) : hasQueueWork ? (
-          <ShieldAlert className="h-5 w-5 shrink-0" />
-        ) : (
-          <CheckCircle2 className="h-5 w-5 shrink-0 opacity-70" />
-        )}
       </div>
-
-      {loading ? (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-white/60 bg-white/60 p-2">
-          <p className="text-base font-semibold">Checking command center...</p>
-          <p className="mt-1 text-xs opacity-75">
-            Loading cycle status and pending reviews.
-          </p>
-        </section>
-      ) : (
-        <>
-          <dl className="mt-1.5 grid grid-cols-4 gap-1.5 text-center text-[0.62rem]">
-            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
-              <dt className="truncate font-bold uppercase opacity-60">Running</dt>
-              <dd className="text-xs font-black leading-tight">{runningCycles.length}</dd>
-            </div>
-            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
-              <dt className="truncate font-bold uppercase opacity-60">Ready</dt>
-              <dd className="text-xs font-black leading-tight">{queueCounts.readyCycles}</dd>
-            </div>
-            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
-              <dt className="truncate font-bold uppercase opacity-60">Investig.</dt>
-              <dd className="text-xs font-black leading-tight">{queueCounts.openInvestigations}</dd>
-            </div>
-            <div className="rounded-lg border border-white/50 bg-white/45 px-1 py-0.5">
-              <dt className="truncate font-bold uppercase opacity-60">Expired</dt>
-              <dd className="text-xs font-black leading-tight">{queueCounts.expiredPacks}</dd>
-            </div>
-          </dl>
-
-          {activeCycle && timing ? (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/70 p-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <span className="w-fit rounded-full bg-blue-100 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-blue-700">
-                Active Cycle
-              </span>
-              <h3 className="mt-1 truncate text-base font-black leading-tight">
-                {activeCycle.cycle_number}
-              </h3>
-              <p className="mt-0.5 truncate text-[0.68rem] font-semibold opacity-60">
-                {activeCycle.sterilizer}
-              </p>
-            </div>
-            <span
-              className={`shrink-0 rounded-xl border px-2 py-0.5 text-[0.68rem] font-bold ${timing.badgeClass}`}
-            >
-              {timing.label}
-            </span>
-          </div>
-
-          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[0.68rem]">
-            <div>
-              <dt className="font-semibold opacity-55">Started</dt>
-              <dd className="font-bold">
-                {formatCompactDateTime(activeCycle.created_at)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-semibold opacity-55">Finish</dt>
-              <dd className="font-bold">
-                {formatCompactDateTime(activeCycle.expected_finish_at)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-semibold opacity-55">Remaining</dt>
-              <dd className={`text-xs font-black ${timing.textClass}`}>
-                {timing.description}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-semibold opacity-55">Status</dt>
-              <dd className="font-bold">Running</dd>
-            </div>
-          </dl>
-
-          <Link
-            href={openCycleHref}
-            className="mt-auto inline-flex min-h-7 w-fit items-center justify-center rounded-xl bg-slate-950 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
-          >
-            {runningCycles.length > 1 ? "Open Cycles" : "Open Cycle"}
-          </Link>
-        </section>
-          ) : (
-        <section className="mt-1.5 flex min-h-0 flex-1 flex-col rounded-xl border border-blue-200 bg-white/75 p-2">
-          <span className={`w-fit rounded-full px-2.5 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide ${fallbackStatus.badgeClass}`}>
-            {fallbackStatus.label}
-          </span>
-          <h3 className="mt-1 text-sm font-bold">{fallbackStatus.title}</h3>
-          <p className="mt-0.5 line-clamp-2 text-xs font-semibold">
-            {fallbackStatus.detail}
-          </p>
-          {fallbackStatus.href && (
-            <Link
-              href={fallbackStatus.href}
-              className="mt-auto inline-flex min-h-8 w-fit items-center justify-center rounded-xl bg-slate-950 px-3 py-1 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
-            >
-              {fallbackStatus.buttonLabel}
-            </Link>
-          )}
-        </section>
-          )}
-        </>
-      )}
-
-      {isIdle && (
-        <>
-          <section className="mt-1.5 rounded-xl border border-white/60 bg-white/60 p-1.5 text-xs">
-            <h3 className="font-bold">Steri Assistant</h3>
-            <p className="mt-1 line-clamp-2">
-              Workstation ready for the next sterilization or traceability task.
-            </p>
-          </section>
-
-          <section className="mt-1.5 grid grid-cols-2 gap-1.5">
-            {secondaryActions.map((action) => {
-              const Icon = action.icon;
-
-              return (
-                <Link
-                  key={action.title}
-                  href={action.href}
-                  className="flex min-h-[3.25rem] flex-col justify-between rounded-xl border border-white/70 bg-white/70 p-2 text-xs font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner"
-                >
-                  <Icon className="h-4 w-4 opacity-70" />
-                  {action.title}
-                </Link>
-              );
-            })}
-          </section>
-        </>
-      )}
     </aside>
   );
 }
@@ -1052,84 +861,6 @@ function getNextRecommendedAction({
   }
 
   return null;
-}
-
-function getOperationalFallbackStatus({
-  queueCounts,
-  failedReviews,
-  availablePacks,
-}: {
-  queueCounts: QueueCounts;
-  failedReviews: number;
-  availablePacks: number;
-}) {
-  if (queueCounts.openInvestigations > 0 || failedReviews > 0) {
-    const investigationCount =
-      queueCounts.openInvestigations > 0
-        ? queueCounts.openInvestigations
-        : failedReviews;
-
-    return {
-      label: "Investigation",
-      title: "Investigation Queue Active",
-      detail: `${investigationCount} investigation item${
-        investigationCount === 1 ? "" : "s"
-      } in the workstation queue.`,
-      href: "/assistant/investigations",
-      buttonLabel: "Open Investigations",
-      badgeClass: "bg-red-100 text-red-700",
-    };
-  }
-
-  if (queueCounts.expiredPacks > 0) {
-    return {
-      label: "Inventory",
-      title: "Inventory Attention Needed",
-      detail: `${queueCounts.expiredPacks} expired pack${
-        queueCounts.expiredPacks === 1 ? "" : "s"
-      } waiting in inventory.`,
-      href: "/assistant/inventory",
-      buttonLabel: "Open Inventory",
-      badgeClass: "bg-red-100 text-red-700",
-    };
-  }
-
-  if (queueCounts.readyCycles > 0) {
-    return {
-      label: "Cycle Queue",
-      title: "Completed Cycles Waiting",
-      detail: `${queueCounts.readyCycles} completed cycle${
-        queueCounts.readyCycles === 1 ? "" : "s"
-      } queued for release workflow.`,
-      href: "/assistant/cycles",
-      buttonLabel: "Open Cycle Center",
-      badgeClass: "bg-yellow-100 text-yellow-800",
-    };
-  }
-
-  if (queueCounts.expiringPacks > 0) {
-    return {
-      label: "Inventory",
-      title: "Packs Expiring Soon",
-      detail: `${queueCounts.expiringPacks} pack${
-        queueCounts.expiringPacks === 1 ? "" : "s"
-      } approaching expiration.`,
-      href: "/assistant/inventory",
-      buttonLabel: "Open Inventory",
-      badgeClass: "bg-yellow-100 text-yellow-800",
-    };
-  }
-
-  return {
-    label: "Normal",
-    title: "No Active Cycles",
-    detail: `${availablePacks} available pack${
-      availablePacks === 1 ? "" : "s"
-    }. Workstation ready for the next sterilization or traceability task.`,
-    href: null,
-    buttonLabel: null,
-    badgeClass: "bg-blue-100 text-blue-700",
-  };
 }
 
 function getActiveCycleStats(activeCycles: RunningCycle[], now: Date) {
