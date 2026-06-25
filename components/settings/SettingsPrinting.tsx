@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Printer, TestTube2, Wifi } from "lucide-react";
 import {
   CERTIFIED_PRINTER_MODELS,
@@ -31,6 +32,8 @@ const certificationGuidance = [
   { tier: "Value", model: "Zywell ZY Series" },
 ];
 
+type ConnectionTestStatus = "idle" | "testing" | "success" | "error";
+
 export default function SettingsPrinting({
   printerForm,
   onPrinterFormChange,
@@ -38,11 +41,77 @@ export default function SettingsPrinting({
   loading,
   canManageSettings,
 }: SettingsPrintingProps) {
+  const [connectionTestStatus, setConnectionTestStatus] =
+    useState<ConnectionTestStatus>("idle");
+  const [connectionTestMessage, setConnectionTestMessage] = useState("");
+
   function updatePrinterForm(updates: Partial<PrinterForm>) {
+    setConnectionTestStatus("idle");
+    setConnectionTestMessage("");
     onPrinterFormChange({
       ...printerForm,
       ...updates,
     });
+  }
+
+  async function testConnection() {
+    if (printerForm.connectionType === "usb") {
+      setConnectionTestStatus("error");
+      setConnectionTestMessage(
+        "USB printer connection testing is not available yet.",
+      );
+      return;
+    }
+
+    const host = printerForm.printerIp.trim();
+    const port = Number(printerForm.printerPort);
+
+    if (!host) {
+      setConnectionTestStatus("error");
+      setConnectionTestMessage("Enter a printer IP address before testing.");
+      return;
+    }
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      setConnectionTestStatus("error");
+      setConnectionTestMessage("Enter a valid printer port from 1 to 65535.");
+      return;
+    }
+
+    setConnectionTestStatus("testing");
+    setConnectionTestMessage("Testing printer connection...");
+
+    try {
+      const response = await fetch("/api/printers/test-connection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          host,
+          port,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !result.ok) {
+        setConnectionTestStatus("error");
+        setConnectionTestMessage(
+          result.error || "Offline / connection failed.",
+        );
+        return;
+      }
+
+      setConnectionTestStatus("success");
+      setConnectionTestMessage("Online / connection successful.");
+    } catch {
+      setConnectionTestStatus("error");
+      setConnectionTestMessage("Offline / connection failed.");
+    }
   }
 
   return (
@@ -150,12 +219,12 @@ export default function SettingsPrinting({
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             type="button"
-            disabled
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-5 py-3 text-sm font-medium text-slate-500 cursor-not-allowed"
-            title="Direct printer connection testing is not enabled yet."
+            onClick={testConnection}
+            disabled={connectionTestStatus === "testing"}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 cursor-pointer transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70"
           >
             <Wifi className="h-4 w-4" />
-            Test Connection
+            {connectionTestStatus === "testing" ? "Testing..." : "Test Connection"}
           </button>
 
           <button
@@ -178,6 +247,27 @@ export default function SettingsPrinting({
             {loading ? "Saving..." : "Save Printing Settings"}
           </button>
         </div>
+
+        {connectionTestStatus !== "idle" && (
+          <div
+            className={`mt-4 rounded-xl border p-4 text-sm ${
+              connectionTestStatus === "success"
+                ? "border-green-200 bg-green-50 text-green-800"
+                : connectionTestStatus === "testing"
+                  ? "border-blue-200 bg-blue-50 text-blue-800"
+                  : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            <p className="font-medium">
+              {connectionTestStatus === "success"
+                ? "Printer online"
+                : connectionTestStatus === "testing"
+                  ? "Testing connection"
+                  : "Printer offline"}
+            </p>
+            <p className="mt-1">{connectionTestMessage}</p>
+          </div>
+        )}
       </Panel>
 
       <Panel
