@@ -17,12 +17,22 @@ const FUTURE_PACK_LABEL_TEMPLATES = [
   "large-text",
   "custom",
 ];
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "Content-Type",
+};
 
 const agentHost = process.env.AGENT_HOST || DEFAULT_HOST;
 const agentPort = parsePort(process.env.AGENT_PORT, DEFAULT_PORT);
 
 const server = http.createServer(async (request, response) => {
   try {
+    if (request.method === "OPTIONS") {
+      sendNoContent(response);
+      return;
+    }
+
     if (request.method === "GET" && request.url === "/health") {
       sendJson(response, 200, {
         ok: true,
@@ -164,11 +174,20 @@ function sendJson(response, statusCode, payload) {
   const body = JSON.stringify(payload);
 
   response.writeHead(statusCode, {
+    ...CORS_HEADERS,
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(body),
     "cache-control": "no-store",
   });
   response.end(body);
+}
+
+function sendNoContent(response) {
+  response.writeHead(204, {
+    ...CORS_HEADERS,
+    "cache-control": "no-store",
+  });
+  response.end();
 }
 
 function readJsonBody(request) {
