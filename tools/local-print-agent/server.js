@@ -6,7 +6,7 @@ const net = require("node:net");
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
 const CONNECTION_TIMEOUT_MS = 2500;
-const MAX_BODY_BYTES = 1024;
+const MAX_BODY_BYTES = 2048;
 
 const agentHost = process.env.AGENT_HOST || DEFAULT_HOST;
 const agentPort = parsePort(process.env.AGENT_PORT, DEFAULT_PORT);
@@ -20,8 +20,49 @@ const server = http.createServer(async (request, response) => {
         service: "sterisphere-local-print-agent",
         version: "0.1.0",
         testLabelPrintingEnabled: true,
-        packLabelPrintingEnabled: false,
+        packLabelPrintingEnabled: true,
       });
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/print-pack-label") {
+      const body = await readJsonBody(request);
+      const targetResult = validatePrinterTarget(body);
+
+      if (!targetResult.ok) {
+        sendJson(response, 400, { ok: false, error: targetResult.error });
+        return;
+      }
+
+      const labelSizeResult = validateLabelSize(body);
+      if (!labelSizeResult.ok) {
+        sendJson(response, 400, { ok: false, error: labelSizeResult.error });
+        return;
+      }
+
+      const packLabelResult = validatePackLabelPayload(body);
+      if (!packLabelResult.ok) {
+        sendJson(response, 400, { ok: false, error: packLabelResult.error });
+        return;
+      }
+
+      try {
+        const command = buildTsplPackLabel({
+          labelWidthMm: labelSizeResult.labelWidthMm,
+          labelHeightMm: labelSizeResult.labelHeightMm,
+          packNumber: packLabelResult.packNumber,
+          cycleNumber: packLabelResult.cycleNumber,
+          expiresAt: packLabelResult.expiresAt,
+          qrValue: packLabelResult.qrValue,
+        });
+        await sendTcpPayload(targetResult.host, targetResult.port, command);
+        sendJson(response, 200, { ok: true });
+      } catch (error) {
+        sendJson(response, 200, {
+          ok: false,
+          error: `Print failed: ${error.message}`,
+        });
+      }
       return;
     }
 
@@ -34,29 +75,16 @@ const server = http.createServer(async (request, response) => {
         return;
       }
 
-      const widthResult = validateLabelDimension(
-        body.labelWidthMm,
-        "Label width",
-      );
-      const heightResult = validateLabelDimension(
-        body.labelHeightMm,
-        "Label height",
-      );
-
-      if (!widthResult.ok) {
-        sendJson(response, 400, { ok: false, error: widthResult.error });
-        return;
-      }
-
-      if (!heightResult.ok) {
-        sendJson(response, 400, { ok: false, error: heightResult.error });
+      const labelSizeResult = validateLabelSize(body);
+      if (!labelSizeResult.ok) {
+        sendJson(response, 400, { ok: false, error: labelSizeResult.error });
         return;
       }
 
       try {
         const command = buildTsplTestLabel(
-          widthResult.dimensionMm,
-          heightResult.dimensionMm,
+          labelSizeResult.labelWidthMm,
+          labelSizeResult.labelHeightMm,
         );
         await sendTcpPayload(targetResult.host, targetResult.port, command);
         sendJson(response, 200, { ok: true });
@@ -215,6 +243,24 @@ function validatePrinterPort(value) {
   return { ok: true, port };
 }
 
+function validateLabelSize(body) {
+  const widthResult = validateLabelDimension(body.labelWidthMm, "Label width");
+  if (!widthResult.ok) {
+    return widthResult;
+  }
+
+  const heightResult = validateLabelDimension(body.labelHeightMm, "Label height");
+  if (!heightResult.ok) {
+    return heightResult;
+  }
+
+  return {
+    ok: true,
+    labelWidthMm: widthResult.dimensionMm,
+    labelHeightMm: heightResult.dimensionMm,
+  };
+}
+
 function validateLabelDimension(value, label) {
   const dimensionMm = typeof value === "number" ? value : Number(value);
 
@@ -227,6 +273,88 @@ function validateLabelDimension(value, label) {
   }
 
   return { ok: true, dimensionMm };
+}
+
+function validatePackLabelPayload(body) {
+  const packNumberResult = validateRequiredLabelText(
+    body.packNumber,
+    "Pack number",
+    32,
+  );
+  if (!packNumberResult.ok) {
+    return packNumberResult;
+  }
+
+  const cycleNumberResult = validateRequiredLabelText(
+    body.cycleNumber,
+    "Cycle number",
+    32,
+  );
+  if (!cycleNumberResult.ok) {
+    return cycleNumberResult;
+  }
+
+  const expiresAtResult = validateExpiryDate(body.expiresAt);
+  if (!expiresAtResult.ok) {
+    return expiresAtResult;
+  }
+
+  const qrValueResult = validateRequiredLabelText(body.qrValue, "QR value", 256);
+  if (!qrValueResult.ok) {
+    return qrValueResult;
+  }
+
+  return {
+    ok: true,
+    packNumber: packNumberResult.value,
+    cycleNumber: cycleNumberResult.value,
+    expiresAt: expiresAtResult.value,
+    qrValue: qrValueResult.value,
+  };
+}
+
+function validateRequiredLabelText(value, label, maxLength) {
+  if (typeof value !== "string") {
+    return { ok: false, error: `${label} is required.` };
+  }
+
+  const sanitized = sanitizeTsplText(value, maxLength);
+
+  if (!sanitized) {
+    return { ok: false, error: `${label} is required.` };
+  }
+
+  return { ok: true, value: sanitized };
+}
+
+function validateExpiryDate(value) {
+  if (typeof value !== "string") {
+    return { ok: false, error: "Expiry date is required." };
+  }
+
+  const trimmed = value.trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return { ok: false, error: "Expiry date must use YYYY-MM-DD format." };
+  }
+
+  const parsed = new Date(`${trimmed}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== trimmed) {
+    return { ok: false, error: "Expiry date must be a valid calendar date." };
+  }
+
+  return { ok: true, value: trimmed };
+}
+
+function sanitizeTsplText(value, maxLength) {
+  return value
+    .trim()
+    .replace(/[\r\n\t]/g, " ")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/["\\]/g, "'")
+    .replace(/\s+/g, " ")
+    .slice(0, maxLength)
+    .trim();
 }
 
 function parsePort(value, fallback) {
@@ -270,6 +398,43 @@ function buildTsplTestLabel(labelWidthMm, labelHeightMm) {
     `TEXT ${left},46,"3",0,1,1,"STERISPHERE"`,
     `TEXT ${left},104,"2",0,1,1,"Printer Test"`,
     `TEXT ${left},150,"2",0,1,1,"Connection OK"`,
+    "PRINT 1,1",
+    "",
+  ].join("\r\n");
+}
+
+function buildTsplPackLabel({
+  labelWidthMm,
+  labelHeightMm,
+  packNumber,
+  cycleNumber,
+  expiresAt,
+  qrValue,
+}) {
+  const widthDots = mmToDots(labelWidthMm);
+  const heightDots = mmToDots(labelHeightMm);
+  const borderInset = 10;
+  const qrX = 18;
+  const qrY = 54;
+  const textX = 156;
+
+  return [
+    `SIZE ${labelWidthMm} mm,${labelHeightMm} mm`,
+    "GAP 2 mm,0 mm",
+    "DIRECTION 1",
+    "REFERENCE 0,0",
+    "OFFSET 0 mm",
+    "SET PEEL OFF",
+    "SET CUTTER OFF",
+    "SET PARTIAL_CUTTER OFF",
+    "CLS",
+    `BOX ${borderInset},${borderInset},${widthDots - borderInset},${heightDots - borderInset},2`,
+    `TEXT ${textX},30,"2",0,1,1,"${packNumber}"`,
+    `TEXT ${textX},82,"1",0,1,1,"CYCLE"`,
+    `TEXT ${textX},106,"1",0,1,1,"${cycleNumber}"`,
+    `TEXT ${textX},146,"1",0,1,1,"EXPIRES"`,
+    `TEXT ${textX},170,"1",0,1,1,"${expiresAt}"`,
+    `QRCODE ${qrX},${qrY},L,4,A,0,"${qrValue}"`,
     "PRINT 1,1",
     "",
   ].join("\r\n");

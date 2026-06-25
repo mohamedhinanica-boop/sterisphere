@@ -10,9 +10,9 @@ Cloud-hosted SteriSphere cannot directly reach private LAN printer addresses
 such as `192.168.2.34`, so this agent will eventually act as the local bridge
 between SteriSphere and the printer.
 
-This phase adds health, TCP connection-test, and Zywell/TSPL test-label
-printing endpoints. It does not print SteriSphere pack labels or change existing
-SteriSphere app printing behavior.
+This phase adds health, TCP connection-test, Zywell/TSPL test-label printing,
+and Zywell/TSPL pack-label printing endpoints. It does not connect to the
+SteriSphere UI or change existing SteriSphere app printing behavior.
 
 ## How to run locally
 
@@ -65,6 +65,12 @@ Print a simple Zywell/TSPL test label:
 curl.exe --% -X POST http://127.0.0.1:8787/print-test-label -H "Content-Type: application/json" -d "{\"host\":\"192.168.2.34\",\"port\":9100,\"labelWidthMm\":50,\"labelHeightMm\":30}"
 ```
 
+Print a SteriSphere pack label:
+
+```powershell
+curl.exe --% -X POST http://127.0.0.1:8787/print-pack-label -H "Content-Type: application/json" -d "{\"host\":\"192.168.2.34\",\"port\":9100,\"labelWidthMm\":50,\"labelHeightMm\":30,\"packNumber\":\"PACK-2026-0001\",\"cycleNumber\":\"STERI-2026-0001\",\"expiresAt\":\"2026-12-25\",\"qrValue\":\"PACK-2026-0001\"}"
+```
+
 Expected success shape:
 
 ```json
@@ -104,11 +110,28 @@ Expected print-test-label failure shape:
 }
 ```
 
+Expected print-pack-label success shape:
+
+```json
+{
+  "ok": true
+}
+```
+
+Expected print-pack-label failure shape:
+
+```json
+{
+  "ok": false,
+  "error": "Print failed: Connection timed out."
+}
+```
+
 ## Printer support
 
-The current print endpoint is focused on Zywell-compatible TSPL over raw TCP
-port `9100`. The generated test label uses simple 203 dpi-compatible TSPL for a
-50 mm x 30 mm label.
+The current print endpoints are focused on Zywell-compatible TSPL over raw TCP
+port `9100`. The generated test and pack labels use simple 203 dpi-compatible
+TSPL for 50 mm x 30 mm labels.
 
 Brother QL, Brother TD, and other printer families are planned for later through
 a small driver layer. They are not implemented in this MVP.
@@ -116,14 +139,14 @@ a small driver layer. They are not implemented in this MVP.
 ## Current limitations
 
 - Local development only.
-- Only a simple Zywell/TSPL test label is implemented.
-- No pack label printing yet.
+- Only simple Zywell/TSPL test and pack labels are implemented.
 - No SteriSphere UI integration yet.
 - No pairing token or authentication yet.
 - No Windows service installer yet.
 - No printer driver abstraction yet.
 - TCP checks open a fresh socket per request and close it immediately.
 - Test-label prints open a fresh socket per request, send TSPL, and close it.
+- Pack-label prints open a fresh socket per request, send TSPL, and close it.
 
 ## Security notes
 
@@ -138,6 +161,8 @@ Future production versions need:
 - No PHI in agent logs.
 - SteriSphere audit trail entries for print events.
 
-## Future endpoints
+## Future work
 
-- `POST /print-pack-label`
+- Brother QL and Brother TD support.
+- Pairing token or authentication.
+- SteriSphere UI integration.
