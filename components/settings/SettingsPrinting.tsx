@@ -33,6 +33,7 @@ type SettingsPrintingProps = {
   onSavePrinterSettings: () => void;
   loading: boolean;
   canManageSettings: boolean;
+  isSuperAdmin: boolean;
 };
 
 const certificationGuidance = [
@@ -52,6 +53,7 @@ export default function SettingsPrinting({
   onSavePrinterSettings,
   loading,
   canManageSettings,
+  isSuperAdmin,
 }: SettingsPrintingProps) {
   const [connectionTestStatus, setConnectionTestStatus] =
     useState<ConnectionTestStatus>("idle");
@@ -344,6 +346,41 @@ export default function SettingsPrinting({
     }
   }
 
+  if (!isSuperAdmin) {
+    return (
+      <section className="space-y-6">
+        <Panel title="Printing">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="font-medium text-slate-950">
+              Printer setup is managed by your SteriSphere administrator.
+            </p>
+          </div>
+
+          {canManageSettings && (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <AutoPrintPreference
+                checked={printerForm.autoPrintLabels}
+                onChange={(checked) =>
+                  updatePrinterForm({ autoPrintLabels: checked })
+                }
+              />
+
+              <button
+                type="button"
+                onClick={onSavePrinterSettings}
+                disabled={loading}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 py-3 text-sm font-medium text-white cursor-pointer transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Printer className="h-4 w-4" />
+                {loading ? "Saving..." : "Save Printing Settings"}
+              </button>
+            </div>
+          )}
+        </Panel>
+      </section>
+    );
+  }
+
   const privateNetworkPrinter =
     printerForm.connectionType !== "usb" &&
     isPrivateLanHost(printerForm.printerIp.trim());
@@ -433,23 +470,10 @@ export default function SettingsPrinting({
 
         </div>
 
-        <label className="mt-4 flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
-          <div>
-            <p className="font-medium text-slate-900">Auto-print labels</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Stores the existing future-ready auto-print preference. Direct
-              automatic printing is not enabled in this sprint.
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            checked={printerForm.autoPrintLabels}
-            onChange={(event) =>
-              updatePrinterForm({ autoPrintLabels: event.target.checked })
-            }
-            className="mt-1 h-5 w-5"
-          />
-        </label>
+        <AutoPrintPreference
+          checked={printerForm.autoPrintLabels}
+          onChange={(checked) => updatePrinterForm({ autoPrintLabels: checked })}
+        />
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -630,6 +654,32 @@ function AgentInfoTile({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-medium uppercase text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
     </div>
+  );
+}
+
+function AutoPrintPreference({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="mt-4 flex flex-1 items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
+      <div>
+        <p className="font-medium text-slate-900">Auto-print labels</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Stores the existing future-ready auto-print preference. Direct
+          automatic printing is not enabled in this sprint.
+        </p>
+      </div>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-5 w-5"
+      />
+    </label>
   );
 }
 

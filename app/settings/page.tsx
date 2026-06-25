@@ -190,6 +190,10 @@ const [editProviderForm, setEditProviderForm] = useState({
     return role === "super_admin" || role === "admin";
   }
 
+  function isSuperAdmin() {
+    return getCurrentRole() === "super_admin";
+  }
+
   async function loadCurrentUser() {
     const {
       data: { user },
@@ -334,6 +338,40 @@ const [editProviderForm, setEditProviderForm] = useState({
 
     if (!canManageSettings()) {
       toast.error("You do not have permission.");
+      return;
+    }
+
+    if (!isSuperAdmin()) {
+      setLoading(true);
+
+      const payload = {
+        auto_print_labels: printerForm.autoPrintLabels,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("clinic_settings")
+        .update(payload)
+        .eq("id", clinicSettings.id);
+
+      if (error) {
+        toast.error(error.message || "Error saving printer settings.");
+        console.error("Printer settings save error:", error);
+        setLoading(false);
+        return;
+      }
+
+      await createAuditLog({
+        action: "printer_settings_updated",
+        entityType: "clinic_settings",
+        entityId: clinicSettings.id,
+        description: "Updated printer auto-print setting",
+        metadata: payload,
+      });
+
+      await fetchClinicSettings();
+      toast.success("Auto-print setting saved.");
+      setLoading(false);
       return;
     }
 
@@ -1235,6 +1273,7 @@ async function updateProvider(providerId: string) {
               onSavePrinterSettings={savePrinterSettings}
               loading={loading}
               canManageSettings={canManageSettings()}
+              isSuperAdmin={isSuperAdmin()}
             />
           )}
 
