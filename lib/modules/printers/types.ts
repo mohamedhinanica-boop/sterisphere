@@ -14,6 +14,17 @@ export type PrinterModelOption = {
   certificationTier?: PrinterCertificationTier;
 };
 
+export type PrintAgentRegistration = {
+  id: string;
+  clinic_id: string;
+  display_name: string;
+  version: string | null;
+  last_seen: string | null;
+  status: "not_registered" | "online" | "offline" | "unknown";
+  local_endpoint: string | null;
+  default_printer: string | null;
+};
+
 export const CERTIFIED_PRINTER_MODELS: PrinterModelOption[] = [
   {
     value: "brother_ql_820nwb",

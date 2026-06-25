@@ -36,6 +36,17 @@ operation.
 SteriSphere Cloud → Local Print Agent → LAN Printer → Label
 ```
 
+## Print Agent Registration Path
+
+The MVP Local Agent URL remains available as a development override. Production
+direct printing should move to a clinic-level registered Print Agent record so
+each SteriSphere client can discover the same clinic agent without manually
+entering a local URL.
+
+The registration model is expected to track the agent `id`, `clinic_id`,
+`display_name`, `version`, `last_seen`, `status`, `local_endpoint`, and
+`default_printer`.
+
 Future Test Connection should ask the Local Print Agent to probe the configured
 printer. Future Print Test Label should also route through the Local Print Agent
 instead of attempting to print directly from Vercel.

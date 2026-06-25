@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Activity, Printer, Server, TestTube2, Wifi } from "lucide-react";
+import {
+  Activity,
+  Printer,
+  RadioTower,
+  Server,
+  Settings2,
+  TestTube2,
+  Wifi,
+} from "lucide-react";
 import {
   CERTIFIED_PRINTER_MODELS,
   PRINTER_CONNECTION_TYPES,
@@ -423,14 +431,6 @@ export default function SettingsPrinting({
             placeholder="30"
           />
 
-          <div className="lg:col-span-2">
-            <InputField
-              label="Local Print Agent URL"
-              value={printerForm.localAgentUrl}
-              onChange={(value) => updatePrinterForm({ localAgentUrl: value })}
-              placeholder="http://localhost:8787"
-            />
-          </div>
         </div>
 
         <label className="mt-4 flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
@@ -451,6 +451,36 @@ export default function SettingsPrinting({
           />
         </label>
 
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <RadioTower className="h-5 w-5 text-slate-600" />
+                <h3 className="font-semibold text-slate-950">Print Agent</h3>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Clinic-level agent registration will replace the MVP manual URL
+                workflow when production pairing is implemented.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-500 cursor-not-allowed"
+            >
+              <RadioTower className="h-4 w-4" />
+              Register Local Print Agent
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <AgentInfoTile label="Status" value="Not Registered" />
+            <AgentInfoTile label="Agent Health" value="Unknown" />
+            <AgentInfoTile label="Printer" value="Unknown" />
+          </div>
+        </div>
+
         {privateNetworkPrinter && (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-medium">Private LAN printer detected</p>
@@ -462,6 +492,28 @@ export default function SettingsPrinting({
             </p>
           </div>
         )}
+
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-2">
+            <Settings2 className="h-5 w-5 text-slate-600" />
+            <h3 className="font-semibold text-slate-950">
+              Advanced Settings
+            </h3>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Development override for the MVP browser-to-local-agent path. The
+            production path will use the registered clinic Print Agent above.
+          </p>
+
+          <div className="mt-4">
+            <InputField
+              label="Development Override"
+              value={printerForm.localAgentUrl}
+              onChange={(value) => updatePrinterForm({ localAgentUrl: value })}
+              placeholder="http://localhost:8787"
+            />
+          </div>
+        </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <DiagnosticCard
@@ -569,6 +621,15 @@ export default function SettingsPrinting({
         </div>
       </Panel>
     </section>
+  );
+}
+
+function AgentInfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-medium uppercase text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
+    </div>
   );
 }
 

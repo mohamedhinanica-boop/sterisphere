@@ -216,3 +216,64 @@ Future enhancement:
 - Steri Assistant now tracks active investigations
 - Investigation count updates in real time as investigations are closed
 - Compliance workload is now visible from the dashboard
+
+Phase 5.15 — Smart Print Agent Architecture
+
+Goal:
+Document and prepare the production-ready print agent architecture so SteriSphere printing works consistently from desktop, laptop, and tablet without users manually changing agent URLs or IPs.
+
+Context:
+The current Local Print Agent MVP works and direct LAN printing has been validated:
+Vercel → browser → Local Print Agent → LAN printer → printed label.
+
+However, the current setup still requires manually setting the Local Agent URL, which is not ideal. In production, users should not need to change the agent URL depending on whether they are using desktop, laptop, or tablet.
+
+Production vision:
+One clinic installs one SteriSphere Print Agent on the local network.
+That agent registers itself as the clinic’s active print gateway.
+All SteriSphere devices use that registered agent automatically.
+
+Example:
+Desktop → SteriSphere → Dentaria Print Agent → Zywell printer
+Tablet → SteriSphere → Dentaria Print Agent → Zywell printer
+Laptop → SteriSphere → Dentaria Print Agent → Zywell printer
+
+Tasks:
+1. Add a new documentation file:
+   docs/hardware/smart-print-agent-architecture.md
+
+2. Document:
+   - Why the current manual Local Agent URL is MVP-only
+   - Why localhost/127.0.0.1 behaves differently on desktop vs tablet
+   - Why a clinic-level registered Print Agent is needed
+   - Production target flow:
+     SteriSphere Cloud
+     → Browser on any device
+     → Registered Local Print Agent on clinic LAN
+     → Certified Printer
+   - Agent registration concept
+   - Agent heartbeat/status
+   - Default clinic print gateway
+   - Future system tray/Windows service behavior
+   - Future Android/tablet-only agent possibility
+   - Security requirements:
+     pairing token
+     clinic-scoped registration
+     no PHI in logs
+     authenticated print jobs
+     LAN-only access
+   - Migration path from MVP manual URL to production registered agent
+
+3. Update existing docs if appropriate:
+   - docs/hardware/local-print-agent-mvp.md
+   - docs/hardware/cloud-printing-architecture.md
+
+4. Do not change application code yet.
+5. Do not change Local Print Agent code yet.
+6. Do not modify printing behavior.
+7. No dependencies.
+
+Validation:
+- npm run build
+- git diff --check
+- Do not commit.
