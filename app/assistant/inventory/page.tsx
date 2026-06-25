@@ -301,18 +301,13 @@ export default function AssistantInventoryPage() {
       });
 
       if (agentPrintResult.status === "printed") {
-        toast.success("Label sent to Local Print Agent.");
+        toast.success("Direct print successful.");
         return;
       }
 
       if (agentPrintResult.status === "fallback") {
-        console.warn("[Local Print Agent] browser fallback path executing", {
-          packNumber: selectedLabelPack.pack_number,
-          reason: agentPrintResult.message || "agent printing not configured",
-        });
-
         if (agentPrintResult.message) {
-          toast("Local Print Agent unavailable. Using browser printing.");
+          toast(agentPrintResult.message);
         }
 
         window.print();
