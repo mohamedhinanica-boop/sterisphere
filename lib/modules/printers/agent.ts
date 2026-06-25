@@ -58,11 +58,17 @@ export async function printPackLabelViaAgent(
 
   try {
     const url = `${configuredSettings.agentUrl}/print-pack-label`;
+    const expiresAtPayload = normalizeExpiryDateForAgent(label.expiresAt);
+    console.info(
+      "[Local Print Agent] expiresAt payload",
+      expiresAtPayload,
+    );
+
     const payload = {
       displayName: label.displayName || label.packNumber,
       packNumber: label.packNumber,
       cycleNumber: label.cycleNumber,
-      expiresAt: label.expiresAt,
+      expiresAt: expiresAtPayload,
       qrValue: label.qrValue,
       labelWidthMm: configuredSettings.labelWidthMm || DEFAULT_LABEL_WIDTH_MM,
       labelHeightMm:
@@ -225,6 +231,33 @@ function getConfiguredAgentSettings(settings: ClinicPrinterSettings | null) {
 
 function normalizeAgentUrl(value?: string | null) {
   return (value || DEFAULT_LOCAL_PRINT_AGENT_URL).trim().replace(/\/+$/, "");
+}
+
+function normalizeExpiryDateForAgent(value: string | null) {
+  if (!value) {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const isoDateTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})T/);
+
+  if (isoDateTimeMatch) {
+    return isoDateTimeMatch[1];
+  }
+
+  const clinicDateMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  if (clinicDateMatch) {
+    const [, day, month, year] = clinicDateMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  return trimmed;
 }
 
 function logAgentDecision(message: string, details?: Record<string, unknown>) {
