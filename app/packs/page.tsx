@@ -235,11 +235,18 @@ export default function PacksPage() {
         return;
       }
 
-      if (agentPrintResult.message) {
-        toast("Local Print Agent unavailable. Using browser printing.");
-      }
+      if (agentPrintResult.status === "fallback") {
+        console.warn("[Local Print Agent] browser fallback path executing", {
+          packNumber: selectedLabelPack.pack_number,
+          reason: agentPrintResult.message || "agent printing not configured",
+        });
 
-      window.print();
+        if (agentPrintResult.message) {
+          toast("Local Print Agent unavailable. Using browser printing.");
+        }
+
+        window.print();
+      }
     } catch (error) {
       toast.error("Label print could not be audited.");
       console.error(error);
