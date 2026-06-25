@@ -33,6 +33,8 @@ const certificationGuidance = [
 ];
 
 type ConnectionTestStatus = "idle" | "testing" | "success" | "error";
+const cloudLanPrinterMessage =
+  "Cloud server cannot reach local clinic printer. A local print agent will be required for production direct printing.";
 
 export default function SettingsPrinting({
   printerForm,
@@ -55,6 +57,10 @@ export default function SettingsPrinting({
   }
 
   async function testConnection() {
+    const host = printerForm.printerIp.trim();
+    const isPrivateNetworkPrinter =
+      printerForm.connectionType !== "usb" && isPrivateLanHost(host);
+
     if (printerForm.connectionType === "usb") {
       setConnectionTestStatus("error");
       setConnectionTestMessage(
@@ -63,7 +69,6 @@ export default function SettingsPrinting({
       return;
     }
 
-    const host = printerForm.printerIp.trim();
     const port = Number(printerForm.printerPort);
 
     if (!host) {
@@ -101,7 +106,9 @@ export default function SettingsPrinting({
       if (!response.ok || !result.ok) {
         setConnectionTestStatus("error");
         setConnectionTestMessage(
-          result.error || "Offline / connection failed.",
+          isPrivateNetworkPrinter
+            ? cloudLanPrinterMessage
+            : result.error || "Offline / connection failed.",
         );
         return;
       }
@@ -110,9 +117,17 @@ export default function SettingsPrinting({
       setConnectionTestMessage("Online / connection successful.");
     } catch {
       setConnectionTestStatus("error");
-      setConnectionTestMessage("Offline / connection failed.");
+      setConnectionTestMessage(
+        isPrivateNetworkPrinter
+          ? cloudLanPrinterMessage
+          : "Offline / connection failed.",
+      );
     }
   }
+
+  const privateNetworkPrinter =
+    printerForm.connectionType !== "usb" &&
+    isPrivateLanHost(printerForm.printerIp.trim());
 
   return (
     <section className="space-y-6">
@@ -216,15 +231,34 @@ export default function SettingsPrinting({
           />
         </label>
 
+        {privateNetworkPrinter && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-medium">Private LAN printer detected</p>
+            <p className="mt-1">
+              Cloud-hosted SteriSphere cannot directly reach local printers
+              from Vercel. Test Connection remains available for
+              local/server-on-LAN mode; production direct printing will require
+              a Local Print Agent.
+            </p>
+          </div>
+        )}
+
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={testConnection}
             disabled={connectionTestStatus === "testing"}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 cursor-pointer transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70"
+            title={
+              privateNetworkPrinter
+                ? "Works only when this server is on the same LAN as the printer."
+                : undefined
+            }
           >
             <Wifi className="h-4 w-4" />
-            {connectionTestStatus === "testing" ? "Testing..." : "Test Connection"}
+            {connectionTestStatus === "testing"
+              ? "Testing..."
+              : "Test Connection"}
           </button>
 
           <button
@@ -271,6 +305,23 @@ export default function SettingsPrinting({
       </Panel>
 
       <Panel
+        title="Direct Printing Architecture"
+        description="Production direct printing will use a Local Print Agent installed on a clinic workstation/tablet network."
+      >
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-medium text-slate-500">Future flow</p>
+          <p className="mt-2 text-lg font-semibold text-slate-950">
+            SteriSphere Cloud &rarr; Local Print Agent &rarr; LAN Printer
+            &rarr; Label
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Browser/manual printing remains the active fallback until the Local
+            Print Agent is implemented.
+          </p>
+        </div>
+      </Panel>
+
+      <Panel
         title="Certification Guidance"
         description="Read-only printer recommendations for SteriSphere label workflows."
       >
@@ -291,5 +342,26 @@ export default function SettingsPrinting({
         </div>
       </Panel>
     </section>
+  );
+}
+
+function isPrivateLanHost(host: string) {
+  const ipv4Parts = host.split(".").map((part) => Number(part));
+
+  if (
+    ipv4Parts.length !== 4 ||
+    ipv4Parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
+    return false;
+  }
+
+  const [first, second] = ipv4Parts;
+
+  return (
+    first === 10 ||
+    first === 127 ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
   );
 }
