@@ -11,6 +11,14 @@ import SettingsAlerts from "@/components/settings/SettingsAlerts";
 import SettingsProviders from "@/components/settings/SettingsProviders";
 import SettingsSterilizers from "@/components/settings/SettingsSterilizers";
 import SettingsUsers from "@/components/settings/SettingsUsers";
+import SettingsPrinting from "@/components/settings/SettingsPrinting";
+import {
+  DEFAULT_LABEL_HEIGHT_MM,
+  DEFAULT_LABEL_WIDTH_MM,
+  DEFAULT_PRINTER_PORT,
+  type CertifiedPrinterModel,
+  type PrinterConnectionType,
+} from "@/lib/modules/printers";
 import {
   getExpirationPreset,
   getProviderTitle,
@@ -59,6 +67,12 @@ type ClinicSettings = {
   clinic_email: string | null;
   pack_expiration_days: number | null;
   auto_print_labels: boolean | null;
+  printer_model?: CertifiedPrinterModel | null;
+  printer_connection_type?: PrinterConnectionType | null;
+  printer_ip?: string | null;
+  printer_port?: number | null;
+  printer_label_width_mm?: number | null;
+  printer_label_height_mm?: number | null;
   sound_alerts_enabled: boolean | null;
   sound_alert_cycle_complete: boolean | null;
   sound_alert_cycle_overdue: boolean | null;
@@ -74,6 +88,7 @@ const baseTabs = [
   { id: "general", label: "General" },
   { id: "policies", label: "Policies" },
   { id: "alerts", label: "Alerts" },
+  { id: "printing", label: "Printing" },
   { id: "users", label: "Users & Roles" },
   { id: "providers", label: "Providers" },
   { id: "sterilizers", label: "Sterilizers" },
@@ -123,6 +138,24 @@ const [editProviderForm, setEditProviderForm] = useState({
   const [policyForm, setPolicyForm] = useState({
     packExpirationPreset: "365",
     packExpirationDays: "365",
+    autoPrintLabels: false,
+  });
+
+  const [printerForm, setPrinterForm] = useState<{
+    printerModel: CertifiedPrinterModel;
+    connectionType: PrinterConnectionType;
+    printerIp: string;
+    printerPort: string;
+    labelWidthMm: string;
+    labelHeightMm: string;
+    autoPrintLabels: boolean;
+  }>({
+    printerModel: "brother_ql_820nwb",
+    connectionType: "wifi",
+    printerIp: "",
+    printerPort: String(DEFAULT_PRINTER_PORT),
+    labelWidthMm: String(DEFAULT_LABEL_WIDTH_MM),
+    labelHeightMm: String(DEFAULT_LABEL_HEIGHT_MM),
     autoPrintLabels: false,
   });
 
@@ -206,6 +239,20 @@ const [editProviderForm, setEditProviderForm] = useState({
       autoPrintLabels: Boolean(data.auto_print_labels),
     });
 
+    setPrinterForm({
+      printerModel: data.printer_model || "brother_ql_820nwb",
+      connectionType: data.printer_connection_type || "wifi",
+      printerIp: data.printer_ip || "",
+      printerPort: String(data.printer_port || DEFAULT_PRINTER_PORT),
+      labelWidthMm: String(
+        data.printer_label_width_mm || DEFAULT_LABEL_WIDTH_MM,
+      ),
+      labelHeightMm: String(
+        data.printer_label_height_mm || DEFAULT_LABEL_HEIGHT_MM,
+      ),
+      autoPrintLabels: Boolean(data.auto_print_labels),
+    });
+
     setSoundAlertsEnabled(Boolean(data.sound_alerts_enabled));
     setSoundAlertCycleComplete(data.sound_alert_cycle_complete ?? true);
     setSoundAlertCycleOverdue(data.sound_alert_cycle_overdue ?? true);
@@ -215,6 +262,17 @@ const [editProviderForm, setEditProviderForm] = useState({
   }
 
   
+  function setAutoPrintLabels(value: boolean) {
+    setPolicyForm((current) => ({
+      ...current,
+      autoPrintLabels: value,
+    }));
+
+    setPrinterForm((current) => ({
+      ...current,
+      autoPrintLabels: value,
+    }));
+  }
 
   async function saveGeneralSettings() {
   if (!clinicSettings) {
@@ -262,6 +320,107 @@ const [editProviderForm, setEditProviderForm] = useState({
   toast.success("General settings saved.");
   setLoading(false);
 }
+
+  async function savePrinterSettings() {
+    if (!clinicSettings) {
+      toast.error("Clinic settings record not found.");
+      return;
+    }
+
+    if (!canManageSettings()) {
+      toast.error("You do not have permission.");
+      return;
+    }
+
+    const printerPort = Number(printerForm.printerPort);
+    const labelWidthMm = Number(printerForm.labelWidthMm);
+    const labelHeightMm = Number(printerForm.labelHeightMm);
+
+    if (
+      !Number.isInteger(printerPort) ||
+      printerPort < 1 ||
+      printerPort > 65535
+    ) {
+      toast.error("Printer port must be a number between 1 and 65535.");
+      return;
+    }
+
+    if (!Number.isInteger(labelWidthMm) || labelWidthMm <= 0) {
+      toast.error("Label width must be a positive number.");
+      return;
+    }
+
+    if (!Number.isInteger(labelHeightMm) || labelHeightMm <= 0) {
+      toast.error("Label height must be a positive number.");
+      return;
+    }
+
+    setLoading(true);
+
+    const payload = {
+      printer_model: printerForm.printerModel,
+      printer_connection_type: printerForm.connectionType,
+      printer_ip: printerForm.printerIp.trim() || null,
+      printer_port: printerPort,
+      printer_label_width_mm: labelWidthMm,
+      printer_label_height_mm: labelHeightMm,
+      auto_print_labels: printerForm.autoPrintLabels,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("clinic_settings")
+      .update(payload)
+      .eq("id", clinicSettings.id);
+
+    if (error) {
+      console.error("Printer settings save error:", error);
+
+      const fallbackPayload = {
+        auto_print_labels: printerForm.autoPrintLabels,
+        updated_at: payload.updated_at,
+      };
+
+      const { error: fallbackError } = await supabase
+        .from("clinic_settings")
+        .update(fallbackPayload)
+        .eq("id", clinicSettings.id);
+
+      if (fallbackError) {
+        toast.error(fallbackError.message || "Error saving printer settings.");
+        console.error("Printer settings fallback save error:", fallbackError);
+        setLoading(false);
+        return;
+      }
+
+      await createAuditLog({
+        action: "printer_settings_updated",
+        entityType: "clinic_settings",
+        entityId: clinicSettings.id,
+        description: "Updated printer auto-print setting",
+        metadata: fallbackPayload,
+      });
+
+      await fetchClinicSettings();
+      toast.success(
+        "Auto-print setting saved. Printer fields need the database patch before they can persist.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    await createAuditLog({
+      action: "printer_settings_updated",
+      entityType: "clinic_settings",
+      entityId: clinicSettings.id,
+      description: "Updated printer settings",
+      metadata: payload,
+    });
+
+    await fetchClinicSettings();
+    toast.success("Printer settings saved.");
+    setLoading(false);
+  }
 
   async function saveSterilizationPolicies() {
     if (!clinicSettings) {
@@ -980,10 +1139,7 @@ async function updateProvider(providerId: string) {
                       type="checkbox"
                       checked={policyForm.autoPrintLabels}
                       onChange={(e) =>
-                        setPolicyForm((current) => ({
-                          ...current,
-                          autoPrintLabels: e.target.checked,
-                        }))
+                        setAutoPrintLabels(e.target.checked)
                       }
                       className="mt-1"
                     />
@@ -1054,6 +1210,22 @@ async function updateProvider(providerId: string) {
               onSoundAlertExpiringPacksChange={setSoundAlertExpiringPacks}
               onSoundAlertExpiredPacksChange={setSoundAlertExpiredPacks}
               onSaveSoundAlertSettings={saveSoundAlertSettings}
+              loading={loading}
+              canManageSettings={canManageSettings()}
+            />
+          )}
+
+          {activeTab === "printing" && (
+            <SettingsPrinting
+              printerForm={printerForm}
+              onPrinterFormChange={(form) => {
+                setPrinterForm(form);
+                setPolicyForm((current) => ({
+                  ...current,
+                  autoPrintLabels: form.autoPrintLabels,
+                }));
+              }}
+              onSavePrinterSettings={savePrinterSettings}
               loading={loading}
               canManageSettings={canManageSettings()}
             />
