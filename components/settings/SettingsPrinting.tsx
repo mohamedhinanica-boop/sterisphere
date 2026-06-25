@@ -15,6 +15,7 @@ type PrinterForm = {
   printerPort: string;
   labelWidthMm: string;
   labelHeightMm: string;
+  localAgentUrl: string;
   autoPrintLabels: boolean;
 };
 
@@ -211,6 +212,15 @@ export default function SettingsPrinting({
             onChange={(value) => updatePrinterForm({ labelHeightMm: value })}
             placeholder="30"
           />
+
+          <div className="lg:col-span-2">
+            <InputField
+              label="Local Print Agent URL"
+              value={printerForm.localAgentUrl}
+              onChange={(value) => updatePrinterForm({ localAgentUrl: value })}
+              placeholder="http://localhost:8787"
+            />
+          </div>
         </div>
 
         <label className="mt-4 flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 cursor-pointer">
@@ -218,7 +228,7 @@ export default function SettingsPrinting({
             <p className="font-medium text-slate-900">Auto-print labels</p>
             <p className="mt-1 text-sm text-slate-500">
               Stores the existing future-ready auto-print preference. Direct
-              printing is not enabled in this sprint.
+              automatic printing is not enabled in this sprint.
             </p>
           </div>
           <input
@@ -236,9 +246,9 @@ export default function SettingsPrinting({
             <p className="font-medium">Private LAN printer detected</p>
             <p className="mt-1">
               Cloud-hosted SteriSphere cannot directly reach local printers
-              from Vercel. Test Connection remains available for
-              local/server-on-LAN mode; production direct printing will require
-              a Local Print Agent.
+              from Vercel. Manual label printing can use the Local Print Agent
+              URL when this workstation can reach it; browser printing remains
+              the fallback.
             </p>
           </div>
         )}
@@ -315,8 +325,8 @@ export default function SettingsPrinting({
             &rarr; Label
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            Browser/manual printing remains the active fallback until the Local
-            Print Agent is implemented.
+            Browser/manual printing remains the active fallback when the Local
+            Print Agent is unavailable or not configured.
           </p>
         </div>
       </Panel>

@@ -7,6 +7,16 @@ const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
 const CONNECTION_TIMEOUT_MS = 2500;
 const MAX_BODY_BYTES = 2048;
+const DEFAULT_PACK_LABEL_TEMPLATE = "sterisphere-standard";
+const SUPPORTED_PACK_LABEL_TEMPLATES = {
+  [DEFAULT_PACK_LABEL_TEMPLATE]: buildSterisphereStandardPackLabel,
+};
+const FUTURE_PACK_LABEL_TEMPLATES = [
+  "compact",
+  "large-qr",
+  "large-text",
+  "custom",
+];
 
 const agentHost = process.env.AGENT_HOST || DEFAULT_HOST;
 const agentPort = parsePort(process.env.AGENT_PORT, DEFAULT_PORT);
@@ -21,6 +31,8 @@ const server = http.createServer(async (request, response) => {
         version: "0.1.0",
         testLabelPrintingEnabled: true,
         packLabelPrintingEnabled: true,
+        defaultPackLabelTemplate: DEFAULT_PACK_LABEL_TEMPLATE,
+        supportedPackLabelTemplates: Object.keys(SUPPORTED_PACK_LABEL_TEMPLATES),
       });
       return;
     }
@@ -40,6 +52,12 @@ const server = http.createServer(async (request, response) => {
         return;
       }
 
+      const templateResult = validatePackLabelTemplate(body.template);
+      if (!templateResult.ok) {
+        sendJson(response, 400, { ok: false, error: templateResult.error });
+        return;
+      }
+
       const packLabelResult = validatePackLabelPayload(body);
       if (!packLabelResult.ok) {
         sendJson(response, 400, { ok: false, error: packLabelResult.error });
@@ -47,9 +65,10 @@ const server = http.createServer(async (request, response) => {
       }
 
       try {
-        const command = buildTsplPackLabel({
+        const command = buildTsplPackLabel(templateResult.template, {
           labelWidthMm: labelSizeResult.labelWidthMm,
           labelHeightMm: labelSizeResult.labelHeightMm,
+          displayName: packLabelResult.displayName,
           packNumber: packLabelResult.packNumber,
           cycleNumber: packLabelResult.cycleNumber,
           expiresAt: packLabelResult.expiresAt,
@@ -275,6 +294,27 @@ function validateLabelDimension(value, label) {
   return { ok: true, dimensionMm };
 }
 
+function validatePackLabelTemplate(value) {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true, template: DEFAULT_PACK_LABEL_TEMPLATE };
+  }
+
+  if (typeof value !== "string") {
+    return { ok: false, error: "Template must be a string." };
+  }
+
+  const template = value.trim();
+
+  if (SUPPORTED_PACK_LABEL_TEMPLATES[template]) {
+    return { ok: true, template };
+  }
+
+  return {
+    ok: false,
+    error: `Unsupported template. Use ${DEFAULT_PACK_LABEL_TEMPLATE}. Future planned templates: ${FUTURE_PACK_LABEL_TEMPLATES.join(", ")}.`,
+  };
+}
+
 function validatePackLabelPayload(body) {
   const packNumberResult = validateRequiredLabelText(
     body.packNumber,
@@ -304,8 +344,18 @@ function validatePackLabelPayload(body) {
     return qrValueResult;
   }
 
+  const displayNameResult = validateOptionalLabelText(
+    body.displayName,
+    "Display name",
+    32,
+  );
+  if (!displayNameResult.ok) {
+    return displayNameResult;
+  }
+
   return {
     ok: true,
+    displayName: displayNameResult.value || packNumberResult.value,
     packNumber: packNumberResult.value,
     cycleNumber: cycleNumberResult.value,
     expiresAt: expiresAtResult.value,
@@ -325,6 +375,18 @@ function validateRequiredLabelText(value, label, maxLength) {
   }
 
   return { ok: true, value: sanitized };
+}
+
+function validateOptionalLabelText(value, label, maxLength) {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true, value: "" };
+  }
+
+  if (typeof value !== "string") {
+    return { ok: false, error: `${label} must be a string.` };
+  }
+
+  return { ok: true, value: sanitizeTsplText(value, maxLength) };
 }
 
 function validateExpiryDate(value) {
@@ -403,20 +465,41 @@ function buildTsplTestLabel(labelWidthMm, labelHeightMm) {
   ].join("\r\n");
 }
 
-function buildTsplPackLabel({
+function buildTsplPackLabel(template, labelData) {
+  const renderer = SUPPORTED_PACK_LABEL_TEMPLATES[template];
+
+  if (!renderer) {
+    throw new Error(`Unsupported template: ${template}`);
+  }
+
+  return renderer(labelData);
+}
+
+function buildSterisphereStandardPackLabel({
   labelWidthMm,
   labelHeightMm,
+  displayName,
   packNumber,
   cycleNumber,
   expiresAt,
   qrValue,
 }) {
-  const widthDots = mmToDots(labelWidthMm);
-  const heightDots = mmToDots(labelHeightMm);
-  const borderInset = 10;
-  const qrX = 18;
-  const qrY = 54;
-  const textX = 156;
+  // Physical-printer calibration values for 50x30 mm Zywell TSPL labels.
+  const leftMargin = 38;
+  const topMargin = 34;
+  const qrModuleSize = 5;
+  const qrX = leftMargin;
+  const qrY = topMargin + 14;
+  const textBlockX = 176;
+  const rowSpacing = 22;
+  const nameY = topMargin;
+  const expiryLabelY = nameY + rowSpacing + 18;
+  const expiryValueY = expiryLabelY + rowSpacing;
+  const packY = expiryValueY + rowSpacing + 26;
+  const cycleY = packY + rowSpacing + 4;
+  const name = fitTsplText(displayName, 18);
+  const pack = fitTsplText(packNumber, 22);
+  const cycle = fitTsplText(cycleNumber, 22);
 
   return [
     `SIZE ${labelWidthMm} mm,${labelHeightMm} mm`,
@@ -428,16 +511,25 @@ function buildTsplPackLabel({
     "SET CUTTER OFF",
     "SET PARTIAL_CUTTER OFF",
     "CLS",
-    `BOX ${borderInset},${borderInset},${widthDots - borderInset},${heightDots - borderInset},2`,
-    `TEXT ${textX},30,"2",0,1,1,"${packNumber}"`,
-    `TEXT ${textX},82,"1",0,1,1,"CYCLE"`,
-    `TEXT ${textX},106,"1",0,1,1,"${cycleNumber}"`,
-    `TEXT ${textX},146,"1",0,1,1,"EXPIRES"`,
-    `TEXT ${textX},170,"1",0,1,1,"${expiresAt}"`,
-    `QRCODE ${qrX},${qrY},L,4,A,0,"${qrValue}"`,
+    `QRCODE ${qrX},${qrY},M,${qrModuleSize},A,0,"${qrValue}"`,
+    `TEXT ${textBlockX},${nameY},"2",0,1,1,"${name}"`,
+    `TEXT ${textBlockX},${expiryLabelY},"1",0,1,1,"EXPIRY"`,
+    `TEXT ${textBlockX},${expiryValueY},"2",0,1,1,"${expiresAt}"`,
+    `TEXT ${textBlockX},${packY},"1",0,1,1,"PACK ${pack}"`,
+    `TEXT ${textBlockX},${cycleY},"1",0,1,1,"CYCLE ${cycle}"`,
     "PRINT 1,1",
     "",
   ].join("\r\n");
+}
+
+function fitTsplText(value, maxLength) {
+  const text = sanitizeTsplText(value, maxLength);
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return text.slice(0, maxLength).trim();
 }
 
 function mmToDots(value) {
@@ -496,6 +588,13 @@ function sendTcpPayload(host, port, payload) {
     socket.setTimeout(CONNECTION_TIMEOUT_MS);
 
     socket.once("connect", () => {
+      if (Buffer.isBuffer(payload)) {
+        socket.write(payload, () => {
+          socket.end();
+        });
+        return;
+      }
+
       socket.write(payload, "ascii", () => {
         socket.end();
       });

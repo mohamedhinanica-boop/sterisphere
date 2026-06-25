@@ -15,6 +15,7 @@ import SettingsPrinting from "@/components/settings/SettingsPrinting";
 import {
   DEFAULT_LABEL_HEIGHT_MM,
   DEFAULT_LABEL_WIDTH_MM,
+  DEFAULT_LOCAL_PRINT_AGENT_URL,
   DEFAULT_PRINTER_PORT,
   type CertifiedPrinterModel,
   type PrinterConnectionType,
@@ -73,6 +74,7 @@ type ClinicSettings = {
   printer_port?: number | null;
   printer_label_width_mm?: number | null;
   printer_label_height_mm?: number | null;
+  local_print_agent_url?: string | null;
   sound_alerts_enabled: boolean | null;
   sound_alert_cycle_complete: boolean | null;
   sound_alert_cycle_overdue: boolean | null;
@@ -148,6 +150,7 @@ const [editProviderForm, setEditProviderForm] = useState({
     printerPort: string;
     labelWidthMm: string;
     labelHeightMm: string;
+    localAgentUrl: string;
     autoPrintLabels: boolean;
   }>({
     printerModel: "brother_ql_820nwb",
@@ -156,6 +159,7 @@ const [editProviderForm, setEditProviderForm] = useState({
     printerPort: String(DEFAULT_PRINTER_PORT),
     labelWidthMm: String(DEFAULT_LABEL_WIDTH_MM),
     labelHeightMm: String(DEFAULT_LABEL_HEIGHT_MM),
+    localAgentUrl: DEFAULT_LOCAL_PRINT_AGENT_URL,
     autoPrintLabels: false,
   });
 
@@ -250,6 +254,7 @@ const [editProviderForm, setEditProviderForm] = useState({
       labelHeightMm: String(
         data.printer_label_height_mm || DEFAULT_LABEL_HEIGHT_MM,
       ),
+      localAgentUrl: data.local_print_agent_url || DEFAULT_LOCAL_PRINT_AGENT_URL,
       autoPrintLabels: Boolean(data.auto_print_labels),
     });
 
@@ -364,6 +369,8 @@ const [editProviderForm, setEditProviderForm] = useState({
       printer_port: printerPort,
       printer_label_width_mm: labelWidthMm,
       printer_label_height_mm: labelHeightMm,
+      local_print_agent_url:
+        printerForm.localAgentUrl.trim() || DEFAULT_LOCAL_PRINT_AGENT_URL,
       auto_print_labels: printerForm.autoPrintLabels,
       updated_at: new Date().toISOString(),
     };

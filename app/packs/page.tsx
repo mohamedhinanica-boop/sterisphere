@@ -10,6 +10,7 @@ import StatusBadge from "@/components/packs/StatusBadge";
 import type { CycleContext } from "@/lib/modules/packs";
 import { generateLabelData } from "@/lib/modules/labels/generateLabelData";
 import type { LabelData } from "@/lib/modules/labels/types";
+import { printPackLabelViaAgent } from "@/lib/modules/printers";
 import {
   formatInitials,
   formatLoadComposition,
@@ -220,6 +221,23 @@ export default function PacksPage() {
           expires_at: selectedLabelPack.expires_at,
         },
       });
+
+      const agentPrintResult = await printPackLabelViaAgent({
+        displayName: selectedLabelPack.pack_type,
+        packNumber: selectedLabelPack.pack_number,
+        cycleNumber: selectedLabelPack.cycle_number,
+        expiresAt: selectedLabelPack.expires_at,
+        qrValue: selectedLabelPack.pack_number,
+      });
+
+      if (agentPrintResult.status === "printed") {
+        toast.success("Label sent to Local Print Agent.");
+        return;
+      }
+
+      if (agentPrintResult.message) {
+        toast("Local Print Agent unavailable. Using browser printing.");
+      }
 
       window.print();
     } catch (error) {

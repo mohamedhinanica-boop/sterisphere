@@ -4,7 +4,8 @@ alter table if exists clinic_settings
   add column if not exists printer_ip text,
   add column if not exists printer_port integer default 9100,
   add column if not exists printer_label_width_mm integer default 50,
-  add column if not exists printer_label_height_mm integer default 30;
+  add column if not exists printer_label_height_mm integer default 30,
+  add column if not exists local_print_agent_url text default 'http://localhost:8787';
 
 do $$
 begin

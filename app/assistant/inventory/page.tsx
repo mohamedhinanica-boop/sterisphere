@@ -21,6 +21,7 @@ import type { ExtendedPack, PatientTrace } from "@/components/packs/types";
 import { generateLabelData } from "@/lib/modules/labels/generateLabelData";
 import type { LabelData } from "@/lib/modules/labels/types";
 import type { CycleContext } from "@/lib/modules/packs";
+import { printPackLabelViaAgent } from "@/lib/modules/printers";
 import {
   formatPackDate,
   formatPackDateTime,
@@ -290,6 +291,23 @@ export default function AssistantInventoryPage() {
           source: "assistant_inventory",
         },
       });
+
+      const agentPrintResult = await printPackLabelViaAgent({
+        displayName: selectedLabelPack.pack_type,
+        packNumber: selectedLabelPack.pack_number,
+        cycleNumber: selectedLabelPack.cycle_number,
+        expiresAt: selectedLabelPack.expires_at,
+        qrValue: selectedLabelPack.pack_number,
+      });
+
+      if (agentPrintResult.status === "printed") {
+        toast.success("Label sent to Local Print Agent.");
+        return;
+      }
+
+      if (agentPrintResult.message) {
+        toast("Local Print Agent unavailable. Using browser printing.");
+      }
 
       window.print();
     } catch (error) {

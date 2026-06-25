@@ -48,3 +48,4 @@ export const PRINTER_CONNECTION_TYPES: Array<{
 export const DEFAULT_PRINTER_PORT = 9100;
 export const DEFAULT_LABEL_WIDTH_MM = 50;
 export const DEFAULT_LABEL_HEIGHT_MM = 30;
+export const DEFAULT_LOCAL_PRINT_AGENT_URL = "http://localhost:8787";

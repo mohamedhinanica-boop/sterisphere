@@ -68,7 +68,7 @@ curl.exe --% -X POST http://127.0.0.1:8787/print-test-label -H "Content-Type: ap
 Print a SteriSphere pack label:
 
 ```powershell
-curl.exe --% -X POST http://127.0.0.1:8787/print-pack-label -H "Content-Type: application/json" -d "{\"host\":\"192.168.2.34\",\"port\":9100,\"labelWidthMm\":50,\"labelHeightMm\":30,\"packNumber\":\"PACK-2026-0001\",\"cycleNumber\":\"STERI-2026-0001\",\"expiresAt\":\"2026-12-25\",\"qrValue\":\"PACK-2026-0001\"}"
+curl.exe --% -X POST http://127.0.0.1:8787/print-pack-label -H "Content-Type: application/json" -d "{\"host\":\"192.168.2.34\",\"port\":9100,\"labelWidthMm\":50,\"labelHeightMm\":30,\"displayName\":\"Exam Kit\",\"packNumber\":\"PACK-2026-0066\",\"cycleNumber\":\"STERI-2026-0001\",\"expiresAt\":\"2027-06-20\",\"qrValue\":\"PACK-2026-0066\",\"template\":\"sterisphere-standard\"}"
 ```
 
 Expected success shape:
@@ -136,10 +136,42 @@ TSPL for 50 mm x 30 mm labels.
 Brother QL, Brother TD, and other printer families are planned for later through
 a small driver layer. They are not implemented in this MVP.
 
+## Pack label templates
+
+`POST /print-pack-label` accepts an optional `template` field. If omitted, the
+agent uses `sterisphere-standard`.
+
+Supported templates:
+
+- `sterisphere-standard`: Official SteriSphere MVP layout with a large QR code
+  on the left, strong margins, and a readable text block on the right. This is
+  the default production template.
+
+The right-side empty space in `sterisphere-standard` is intentional. It acts as
+a safe handling zone for pulling or peeling the label, reducing smudging and
+helping staff avoid touching the QR code or printed text.
+
+Planned future templates:
+
+- `compact`
+- `large-qr`
+- `large-text`
+- `custom`
+- optional branding/logo template
+
+The endpoint also accepts an optional `displayName` field for the top text line,
+such as `Exam Kit`. If `displayName` is missing, the agent falls back to
+`packNumber`.
+
+The `sterisphere-standard` TSPL coordinates include physical-printer calibration
+constants for 50 mm x 30 mm Zywell media. Different printer density, media gaps,
+or feed alignment may require small margin and positioning adjustments.
+
 ## Current limitations
 
 - Local development only.
 - Only simple Zywell/TSPL test and pack labels are implemented.
+- Only `sterisphere-standard` is supported for pack labels.
 - No SteriSphere UI integration yet.
 - No pairing token or authentication yet.
 - No Windows service installer yet.
@@ -163,6 +195,8 @@ Future production versions need:
 
 ## Future work
 
+- Compact, large-QR, large-text, and custom label templates.
+- Optional branding/logo label template.
 - Brother QL and Brother TD support.
 - Pairing token or authentication.
 - SteriSphere UI integration.
