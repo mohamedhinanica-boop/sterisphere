@@ -10,8 +10,9 @@ Cloud-hosted SteriSphere cannot directly reach private LAN printer addresses
 such as `192.168.2.34`, so this agent will eventually act as the local bridge
 between SteriSphere and the printer.
 
-This phase only adds health and TCP connection-test endpoints. It does not send
-print commands or change existing SteriSphere app printing behavior.
+This phase adds health, TCP connection-test, and Zywell/TSPL test-label
+printing endpoints. It does not print SteriSphere pack labels or change existing
+SteriSphere app printing behavior.
 
 ## How to run locally
 
@@ -58,6 +59,12 @@ Test a printer TCP connection:
 curl.exe --% -X POST http://127.0.0.1:8787/test-connection -H "Content-Type: application/json" -d "{\"host\":\"192.168.2.34\",\"port\":9100}"
 ```
 
+Print a simple Zywell/TSPL test label:
+
+```powershell
+curl.exe --% -X POST http://127.0.0.1:8787/print-test-label -H "Content-Type: application/json" -d "{\"host\":\"192.168.2.34\",\"port\":9100,\"labelWidthMm\":50,\"labelHeightMm\":30}"
+```
+
 Expected success shape:
 
 ```json
@@ -80,15 +87,43 @@ Expected offline/failure shape:
 }
 ```
 
+Expected print-test-label success shape:
+
+```json
+{
+  "ok": true
+}
+```
+
+Expected print-test-label failure shape:
+
+```json
+{
+  "ok": false,
+  "error": "Print failed: Connection timed out."
+}
+```
+
+## Printer support
+
+The current print endpoint is focused on Zywell-compatible TSPL over raw TCP
+port `9100`. The generated test label uses simple 203 dpi-compatible TSPL for a
+50 mm x 30 mm label.
+
+Brother QL, Brother TD, and other printer families are planned for later through
+a small driver layer. They are not implemented in this MVP.
+
 ## Current limitations
 
 - Local development only.
-- No real label printing yet.
+- Only a simple Zywell/TSPL test label is implemented.
+- No pack label printing yet.
 - No SteriSphere UI integration yet.
 - No pairing token or authentication yet.
 - No Windows service installer yet.
 - No printer driver abstraction yet.
 - TCP checks open a fresh socket per request and close it immediately.
+- Test-label prints open a fresh socket per request, send TSPL, and close it.
 
 ## Security notes
 
@@ -105,5 +140,4 @@ Future production versions need:
 
 ## Future endpoints
 
-- `POST /print-test-label`
 - `POST /print-pack-label`

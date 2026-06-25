@@ -19,38 +19,77 @@ const server = http.createServer(async (request, response) => {
         status: "running",
         service: "sterisphere-local-print-agent",
         version: "0.1.0",
-        printingEnabled: false,
+        testLabelPrintingEnabled: true,
+        packLabelPrintingEnabled: false,
       });
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/print-test-label") {
+      const body = await readJsonBody(request);
+      const targetResult = validatePrinterTarget(body);
+
+      if (!targetResult.ok) {
+        sendJson(response, 400, { ok: false, error: targetResult.error });
+        return;
+      }
+
+      const widthResult = validateLabelDimension(
+        body.labelWidthMm,
+        "Label width",
+      );
+      const heightResult = validateLabelDimension(
+        body.labelHeightMm,
+        "Label height",
+      );
+
+      if (!widthResult.ok) {
+        sendJson(response, 400, { ok: false, error: widthResult.error });
+        return;
+      }
+
+      if (!heightResult.ok) {
+        sendJson(response, 400, { ok: false, error: heightResult.error });
+        return;
+      }
+
+      try {
+        const command = buildTsplTestLabel(
+          widthResult.dimensionMm,
+          heightResult.dimensionMm,
+        );
+        await sendTcpPayload(targetResult.host, targetResult.port, command);
+        sendJson(response, 200, { ok: true });
+      } catch (error) {
+        sendJson(response, 200, {
+          ok: false,
+          error: `Print failed: ${error.message}`,
+        });
+      }
       return;
     }
 
     if (request.method === "POST" && request.url === "/test-connection") {
       const body = await readJsonBody(request);
-      const hostResult = validateHost(body.host);
-      const portResult = validatePrinterPort(body.port);
+      const targetResult = validatePrinterTarget(body);
 
-      if (!hostResult.ok) {
-        sendJson(response, 400, { ok: false, error: hostResult.error });
-        return;
-      }
-
-      if (!portResult.ok) {
-        sendJson(response, 400, { ok: false, error: portResult.error });
+      if (!targetResult.ok) {
+        sendJson(response, 400, { ok: false, error: targetResult.error });
         return;
       }
 
       try {
-        await checkTcpConnection(hostResult.host, portResult.port);
+        await checkTcpConnection(targetResult.host, targetResult.port);
         sendJson(response, 200, {
           ok: true,
-          host: hostResult.host,
-          port: portResult.port,
+          host: targetResult.host,
+          port: targetResult.port,
         });
       } catch (error) {
         sendJson(response, 200, {
           ok: false,
-          host: hostResult.host,
-          port: portResult.port,
+          host: targetResult.host,
+          port: targetResult.port,
           error: "Offline / connection failed.",
           detail: error.message,
         });
@@ -119,6 +158,20 @@ function readJsonBody(request) {
   });
 }
 
+function validatePrinterTarget(body) {
+  const hostResult = validateHost(body.host);
+  if (!hostResult.ok) {
+    return hostResult;
+  }
+
+  const portResult = validatePrinterPort(body.port);
+  if (!portResult.ok) {
+    return portResult;
+  }
+
+  return { ok: true, host: hostResult.host, port: portResult.port };
+}
+
 function validateHost(value) {
   if (typeof value !== "string") {
     return { ok: false, error: "Printer host is required." };
@@ -162,6 +215,20 @@ function validatePrinterPort(value) {
   return { ok: true, port };
 }
 
+function validateLabelDimension(value, label) {
+  const dimensionMm = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(dimensionMm) || dimensionMm <= 0) {
+    return { ok: false, error: `${label} must be a positive number.` };
+  }
+
+  if (dimensionMm < 10 || dimensionMm > 150) {
+    return { ok: false, error: `${label} must be between 10 and 150 mm.` };
+  }
+
+  return { ok: true, dimensionMm };
+}
+
 function parsePort(value, fallback) {
   if (value === undefined || value === null || value === "") {
     return fallback;
@@ -181,6 +248,35 @@ function isValidHostname(host) {
       /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label)
     );
   });
+}
+
+function buildTsplTestLabel(labelWidthMm, labelHeightMm) {
+  const widthDots = mmToDots(labelWidthMm);
+  const heightDots = mmToDots(labelHeightMm);
+  const borderInset = 12;
+  const left = 34;
+
+  return [
+    `SIZE ${labelWidthMm} mm,${labelHeightMm} mm`,
+    "GAP 2 mm,0 mm",
+    "DIRECTION 1",
+    "REFERENCE 0,0",
+    "OFFSET 0 mm",
+    "SET PEEL OFF",
+    "SET CUTTER OFF",
+    "SET PARTIAL_CUTTER OFF",
+    "CLS",
+    `BOX ${borderInset},${borderInset},${widthDots - borderInset},${heightDots - borderInset},2`,
+    `TEXT ${left},46,"3",0,1,1,"STERISPHERE"`,
+    `TEXT ${left},104,"2",0,1,1,"Printer Test"`,
+    `TEXT ${left},150,"2",0,1,1,"Connection OK"`,
+    "PRINT 1,1",
+    "",
+  ].join("\r\n");
+}
+
+function mmToDots(value) {
+  return Math.round(value * 8);
 }
 
 function checkTcpConnection(host, port) {
@@ -207,6 +303,51 @@ function checkTcpConnection(host, port) {
     socket.once("error", (error) => {
       cleanup();
       reject(error);
+    });
+  });
+}
+
+function sendTcpPayload(host, port, payload) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host, port });
+    let settled = false;
+
+    function settle(error) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      socket.removeAllListeners();
+      socket.destroy();
+
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    }
+
+    socket.setTimeout(CONNECTION_TIMEOUT_MS);
+
+    socket.once("connect", () => {
+      socket.write(payload, "ascii", () => {
+        socket.end();
+      });
+    });
+
+    socket.once("close", (hadError) => {
+      if (!hadError) {
+        settle();
+      }
+    });
+
+    socket.once("timeout", () => {
+      settle(new Error("Connection timed out."));
+    });
+
+    socket.once("error", (error) => {
+      settle(error);
     });
   });
 }
