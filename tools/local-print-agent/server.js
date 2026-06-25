@@ -2,8 +2,9 @@
 
 const http = require("node:http");
 const net = require("node:net");
+const os = require("node:os");
 
-const DEFAULT_HOST = "127.0.0.1";
+const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 8787;
 const CONNECTION_TIMEOUT_MS = 2500;
 const MAX_BODY_BYTES = 2048;
@@ -165,9 +166,7 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(agentPort, agentHost, () => {
-  console.log(
-    `SteriSphere Local Print Agent listening on http://${agentHost}:${agentPort}`,
-  );
+  logStartupUrls(agentHost, agentPort);
 });
 
 function sendJson(response, statusCode, payload) {
@@ -457,6 +456,45 @@ function isValidHostname(host) {
       /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label)
     );
   });
+}
+
+function logStartupUrls(host, port) {
+  const lanUrls = getLanUrls(port);
+  const hostUrl = host === "0.0.0.0" ? null : `http://${host}:${port}`;
+
+  console.log("SteriSphere Print Agent is running. Do not close this window.");
+  console.log(`Listening on host ${host}, port ${port}.`);
+  console.log(`Local URL: http://localhost:${port}`);
+
+  if (hostUrl && hostUrl !== `http://127.0.0.1:${port}`) {
+    console.log(`Configured host URL: ${hostUrl}`);
+  }
+
+  if (lanUrls.length > 0) {
+    console.log("LAN URL(s):");
+    for (const url of lanUrls) {
+      console.log(`  ${url}`);
+    }
+  } else {
+    console.log("LAN URL: not detected. Run ipconfig to find this PC's IPv4 address.");
+  }
+}
+
+function getLanUrls(port) {
+  const interfaces = os.networkInterfaces();
+  const urls = [];
+
+  for (const addresses of Object.values(interfaces)) {
+    for (const address of addresses || []) {
+      if (address.family !== "IPv4" || address.internal) {
+        continue;
+      }
+
+      urls.push(`http://${address.address}:${port}`);
+    }
+  }
+
+  return urls;
 }
 
 function buildTsplTestLabel(labelWidthMm, labelHeightMm) {
