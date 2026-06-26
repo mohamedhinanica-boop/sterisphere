@@ -31,7 +31,7 @@ export type ClinicalWorkstation = {
   id: string;
   clinic_id: string;
   name: string;
-  type: WorkstationType;
+  workstation_type: WorkstationType;
   room_number: string | null;
   location_label: string | null;
   agent_id: string | null;
