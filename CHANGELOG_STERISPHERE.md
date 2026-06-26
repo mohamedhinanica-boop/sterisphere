@@ -1,5 +1,17 @@
 June 2026
 
+Phase 7 officially begins:
+Smart Clinical Workstations.
+
+- Documented the long-term SteriSphere Clinic Agent architecture as the local
+  hardware abstraction layer for clinical rooms and workstations.
+- Added smart workstation vision covering USB scanners, tablets, hybrid
+  workflows, room identity, hardware inventory, health monitoring, diagnostics,
+  and audit improvements.
+
+
+June 2026
+
 Patients Refactor Step 4A
 - Extracted CSV export helper functions into:
   components/patients/exportUtils.ts
