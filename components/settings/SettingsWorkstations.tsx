@@ -10,8 +10,15 @@ import {
   Volume2,
 } from "lucide-react";
 import {
+  WORKSTATION_CAPABILITIES,
   WORKSTATION_STATUSES,
+  WORKSTATION_STATUS_CLASS_NAMES,
   WORKSTATION_TYPES,
+  getWorkstationCapabilityLabel,
+  getWorkstationStatusLabel,
+  getWorkstationTypeLabel,
+  type WorkstationCapability,
+  type WorkstationStatus,
   type WorkstationType,
 } from "@/lib/modules/clinical-workstations";
 import { Panel } from "@/components/settings";
@@ -21,8 +28,8 @@ type WorkstationExample = {
   type: WorkstationType;
   location: string;
   agentUrl: string;
-  status: "Planned" | "Not configured";
-  capabilities: Array<"Printer" | "USB Scanner" | "Camera" | "Sound">;
+  status: WorkstationStatus;
+  capabilities: WorkstationCapability[];
 };
 
 const workstationExamples: WorkstationExample[] = [
@@ -31,32 +38,32 @@ const workstationExamples: WorkstationExample[] = [
     type: "reception",
     location: "Front desk",
     agentUrl: "Not configured",
-    status: "Planned",
-    capabilities: ["Printer", "USB Scanner", "Sound"],
+    status: "planned",
+    capabilities: ["printer", "usb_scanner", "sound"],
   },
   {
     name: "Sterilization Room",
     type: "sterilization",
     location: "Sterilization",
     agentUrl: "Not configured",
-    status: "Planned",
-    capabilities: ["Printer", "USB Scanner", "Camera", "Sound"],
+    status: "planned",
+    capabilities: ["printer", "usb_scanner", "camera", "sound", "sterilizer"],
   },
   {
     name: "Operatory 1",
     type: "operatory",
     location: "Room 1",
     agentUrl: "Not configured",
-    status: "Not configured",
-    capabilities: ["USB Scanner", "Camera", "Sound"],
+    status: "planned",
+    capabilities: ["usb_scanner", "camera", "sound"],
   },
   {
     name: "Operatory 2",
     type: "operatory",
     location: "Room 2",
     agentUrl: "Not configured",
-    status: "Not configured",
-    capabilities: ["USB Scanner", "Camera", "Sound"],
+    status: "planned",
+    capabilities: ["usb_scanner", "camera", "sound"],
   },
 ];
 
@@ -89,15 +96,12 @@ const comingNext = [
 ];
 
 const capabilityIcons = {
-  Printer,
-  "USB Scanner": Usb,
-  Camera,
-  Sound: Volume2,
-};
-
-function getWorkstationTypeLabel(type: WorkstationType) {
-  return WORKSTATION_TYPES.find((item) => item.value === type)?.label || "Other";
-}
+  printer: Printer,
+  usb_scanner: Usb,
+  camera: Camera,
+  sound: Volume2,
+  sterilizer: ShieldCheck,
+} satisfies Record<WorkstationCapability, typeof Printer>;
 
 export default function SettingsWorkstations() {
   return (
@@ -161,12 +165,10 @@ export default function SettingsWorkstations() {
 
               <span
                 className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${
-                  workstation.status === "Planned"
-                    ? "border-blue-200 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-slate-50 text-slate-600"
+                  WORKSTATION_STATUS_CLASS_NAMES[workstation.status]
                 }`}
               >
-                {workstation.status}
+                {getWorkstationStatusLabel(workstation.status)}
               </span>
             </div>
 
@@ -204,7 +206,8 @@ export default function SettingsWorkstations() {
                   Status
                 </p>
                 <p className="mt-1 text-sm font-medium text-slate-900">
-                  {workstation.status}
+                  {getWorkstationStatusLabel(workstation.status)} / Not
+                  configured
                 </p>
               </div>
             </div>
@@ -223,7 +226,7 @@ export default function SettingsWorkstations() {
                       className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-600"
                     >
                       <CapabilityIcon className="h-4 w-4" />
-                      {capability}
+                      {getWorkstationCapabilityLabel(capability)}
                     </span>
                   );
                 })}
@@ -315,10 +318,14 @@ export default function SettingsWorkstations() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SummaryChips
           title="Planned workstation types"
           items={WORKSTATION_TYPES.map((type) => type.label)}
+        />
+        <SummaryChips
+          title="Planned workstation capabilities"
+          items={WORKSTATION_CAPABILITIES.map((capability) => capability.label)}
         />
         <SummaryChips
           title="Planned workstation statuses"
