@@ -12,6 +12,7 @@ import SettingsProviders from "@/components/settings/SettingsProviders";
 import SettingsSterilizers from "@/components/settings/SettingsSterilizers";
 import SettingsUsers from "@/components/settings/SettingsUsers";
 import SettingsPrinting from "@/components/settings/SettingsPrinting";
+import SettingsWorkstations from "@/components/settings/SettingsWorkstations";
 import {
   DEFAULT_LABEL_HEIGHT_MM,
   DEFAULT_LABEL_WIDTH_MM,
@@ -96,7 +97,10 @@ const baseTabs = [
   { id: "sterilizers", label: "Sterilizers" },
 ];
 
-const superAdminTab = { id: "super_admin", label: "Super Admin" };
+const superAdminTabs = [
+  { id: "workstations", label: "Workstations" },
+  { id: "super_admin", label: "Super Admin" },
+];
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -1073,7 +1077,9 @@ async function updateProvider(providerId: string) {
       : "";
 
   const visibleTabs =
-    getCurrentRole() === "super_admin" ? [...baseTabs, superAdminTab] : baseTabs;
+    getCurrentRole() === "super_admin"
+      ? [...baseTabs, ...superAdminTabs]
+      : baseTabs;
 
   return (
     <>
@@ -1325,6 +1331,9 @@ async function updateProvider(providerId: string) {
             />
           )}
 
+          {activeTab === "workstations" && getCurrentRole() === "super_admin" && (
+            <SettingsWorkstations />
+          )}
 
           {activeTab === "super_admin" && getCurrentRole() === "super_admin" && (
             <Panel
