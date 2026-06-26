@@ -49,6 +49,19 @@ Clinic-level hardware can still exist conceptually for shared assets, but the
 clinical workflow should resolve hardware through workstation assignment when a
 device can affect patient care or audit history.
 
+A portable device may retain a default workstation for inventory while using a
+temporary current assignment in another room. This does not weaken workstation
+ownership: it makes the difference between the device's home, scan location,
+and clinical room of use explicit and auditable. See
+`docs/operational-device-assignment.md`.
+
+Configured workstation records should also become the source of truth for room
+selection in future clinical workflows. Patient traceability should eventually
+bind to a `workstation_id` from `clinical_workstations`, with room labels
+rendered from the workstation `name` and optional `location_label`. Manual
+fallback workflows should use the same workstation dropdown as scanner-driven
+workflows so SteriSphere avoids free-text room drift.
+
 ## Planning HardwareDevice Model
 
 Future hardware records should use a stable model:

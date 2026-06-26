@@ -63,11 +63,21 @@ Clinics can use both tablets and workstation scanners. Tablets support mobile
 tasks and flexible areas. USB scanners support fixed operatory workflows where
 speed, ergonomics, and clean handling matter most.
 
+Tablet camera scanning remains a valid primary workflow for a basic clinic and
+a valid fallback for larger clinics. SteriSphere should guide users toward
+known room-bound hardware without requiring every clinic to purchase a scanner
+for every room.
+
 ### Multi-Room Workflow
 
 Each room can have its own workstation identity, attached scanner, and assigned
 printer. SteriSphere can eventually distinguish where each scan or print event
 occurred, such as Reception, Sterilization Room, or Operatory 3.
+
+Shared scanners may move between rooms through temporary assignments while
+retaining a default home. Patient traceability should distinguish the scan
+location from the clinical room of use and require a reason for non-clinical or
+cross-room overrides.
 
 ## Why USB Scanners Improve Workflow
 
@@ -121,6 +131,13 @@ Online Status: Online
 Assigned Printer: Zywell ZY Series
 Assigned Scanner: Scanner S-003
 ```
+
+Configured workstation identity should become the source of truth for clinical
+room selection. During clinic setup, administrators should enumerate the real
+rooms and workstations in that clinic. Future patient traceability should store
+the selected `workstation_id`, display room labels from the workstation name or
+location label, and use the same configured workstation dropdown for manual
+fallback and scanner-driven workflows.
 
 ## Future Workstation Management
 

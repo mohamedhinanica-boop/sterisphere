@@ -126,6 +126,34 @@ The Clinic Agent may include workstation/device context, but it should not be
 the authority for patient assignment. Patient assignment requires cloud/browser
 validation against the active clinical session.
 
+Portable devices may have a default home workstation and a different temporary
+assignment. Future event processing must preserve the scan workstation as a
+separate fact from the clinical workstation where care occurs. The operational
+assignment and confidence rules are defined in
+`docs/operational-device-assignment.md`.
+
+## Clinical Room Selection Rule
+
+Configured workstations should become the source of truth for clinical room
+selection. During clinic setup, SteriSphere should enumerate the clinic's real
+rooms and workstations, such as Operatory 1, Operatory 2, Operatory 3, and
+Sterilization Room. Later patient traceability workflows should select from
+those configured workstation records instead of accepting free-text room names.
+
+Future traceability rules:
+
+- Patient traceability should store `workstation_id`, not only room text.
+- Room labels shown in the UI should come from the configured workstation
+  `name` and, when useful, `location_label`.
+- Scanner events should inherit `workstation_id` automatically from the bound
+  workstation or Clinic Agent session as the scan workstation. Patient
+  traceability should separately retain the clinical workstation when the room
+  of use differs.
+- Manual fallback should use the same configured workstation dropdown as
+  scanner-driven workflows, not a free-text room field.
+- If no workstation is selected or bound, patient traceability should require a
+  clear user action before assigning a scanned pack to a patient.
+
 ## Audit Logging Principles
 
 Every hardware-triggered clinical action must be auditable.
