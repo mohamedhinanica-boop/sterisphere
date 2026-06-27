@@ -15,6 +15,7 @@ import SettingsPrinting from "@/components/settings/SettingsPrinting";
 import SettingsWorkstations from "@/components/settings/SettingsWorkstations";
 import SettingsClinicAgents from "@/components/settings/SettingsClinicAgents";
 import SettingsHardwareDevices from "@/components/settings/SettingsHardwareDevices";
+import SettingsWorkstationSessions from "@/components/settings/SettingsWorkstationSessions";
 import {
   DEFAULT_LABEL_HEIGHT_MM,
   DEFAULT_LABEL_WIDTH_MM,
@@ -103,6 +104,7 @@ const superAdminTabs = [
   { id: "workstations", label: "Workstations" },
   { id: "clinic_agents", label: "Clinic Agents" },
   { id: "hardware_devices", label: "Hardware Devices" },
+  { id: "workstation_sessions", label: "Workstation Sessions" },
   { id: "super_admin", label: "Super Admin" },
 ];
 
@@ -1344,6 +1346,11 @@ async function updateProvider(providerId: string) {
 
           {activeTab === "hardware_devices" &&
             getCurrentRole() === "super_admin" && <SettingsHardwareDevices />}
+
+          {activeTab === "workstation_sessions" &&
+            getCurrentRole() === "super_admin" && (
+              <SettingsWorkstationSessions />
+            )}
 
           {activeTab === "super_admin" && getCurrentRole() === "super_admin" && (
             <Panel
