@@ -180,11 +180,64 @@ Role-based access control.
 
 ---
 
+---
+
 ## Current Known Improvements
 
+* Clinic Agent registration
+* Hardware discovery
+* Device assignment to workstations
+* Clinical workstation sessions
+* USB scanner integration
+* Patient traceability automation
+* Settings navigation reorganization
+* Clinic Setup Wizard implementation
+* Hardware diagnostics dashboard
 * Patient page layout refinement
 * Pack details modal redesign
 * Audit log deep linking
 * Investigation workflow enhancements
-* Label printer integration
-* Cycle capacity enforcement
+
+
+
+
+
+
+
+
+
+# Current Roadmap Snapshot
+
+---
+
+## Current Phase
+
+### Phase 7 — Smart Clinical Workstations
+
+Purpose:
+Transform SteriSphere from a web-based sterilization workflow app into a connected clinical infrastructure platform.
+
+Completed foundation:
+
+* Clinical Workstations architecture
+* Clinical Hardware architecture
+* Clinical Event architecture
+* Operational Device Assignment model
+* Clinic Setup Wizard architecture
+* Engineering Principles documentation
+* Persisted `clinical_workstations` table
+* Read-only Settings Workstations UI
+* Workstation display order foundation
+* Development scanner selected and ordered
+
+Current milestone:
+
+* Phase 7.5 — Clinic Agent Registration
+
+Upcoming milestones:
+
+* Phase 7.6 — Hardware Discovery
+* Phase 7.7 — Device Assignment
+* Phase 7.8 — Clinical Workstation Sessions
+* Phase 7.9 — USB Scanner Integration
+* Phase 7.10 — Patient Traceability Automation
