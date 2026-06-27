@@ -34,38 +34,48 @@ export type HardwareDeviceStatus =
   | "assigned"
   | "active"
   | "maintenance"
-  | "retired";
-
-export type HardwareConnectionHealth =
-  | "online"
+  | "retired"
   | "offline"
-  | "degraded"
-  | "unknown";
+  | "needs_attention";
 
-export type HardwareDeviceHealth = {
-  online: boolean;
-  connection_health: HardwareConnectionHealth;
-  last_heartbeat_at: string | null;
-  last_successful_operation_at: string | null;
-  error_code: string | null;
-  error_message: string | null;
-};
+export type HardwareDeviceHealth =
+  | "unknown"
+  | "healthy"
+  | "warning"
+  | "error"
+  | "offline";
 
 export type HardwareDevice = {
-  device_id: string;
+  id: string;
+  clinic_id: string | null;
+  agent_id: string | null;
+  default_workstation_id: string | null;
+  current_workstation_id: string | null;
   device_name: string;
   device_type: HardwareDeviceType;
+  device_role: string | null;
   manufacturer: string | null;
   model: string | null;
   serial_number: string | null;
   firmware_version: string | null;
-  connection_type: HardwareConnectionType;
-  agent_id: string | null;
-  workstation_id: string | null;
+  connection_type: HardwareConnectionType | null;
+  connection_identifier: string | null;
   status: HardwareDeviceStatus;
-  last_seen: string | null;
   health: HardwareDeviceHealth;
-  capabilities: HardwareDeviceCapability[];
+  last_seen_at: string | null;
+  last_success_at: string | null;
+  last_error_at: string | null;
+  last_error_message: string | null;
+  supports_print_labels: boolean;
+  supports_scan_qr: boolean;
+  supports_scan_barcode: boolean;
+  supports_camera: boolean;
+  supports_audio: boolean;
+  supports_cycle_reading: boolean;
+  supports_temperature: boolean;
+  supports_humidity: boolean;
+  metadata: Record<string, unknown>;
+  notes: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -105,17 +115,100 @@ export const HARDWARE_DEVICE_STATUSES: Array<{
 }> = [
   { value: "discovered", label: "Discovered" },
   { value: "registered", label: "Registered" },
-  { value: "assigned", label: "Assigned to workstation" },
+  { value: "assigned", label: "Assigned" },
   { value: "active", label: "Active" },
   { value: "maintenance", label: "Maintenance" },
   { value: "retired", label: "Retired" },
+  { value: "offline", label: "Offline" },
+  { value: "needs_attention", label: "Needs attention" },
 ];
 
-export const DEFAULT_HARDWARE_DEVICE_HEALTH: HardwareDeviceHealth = {
-  online: false,
-  connection_health: "unknown",
-  last_heartbeat_at: null,
-  last_successful_operation_at: null,
-  error_code: null,
-  error_message: null,
+export const HARDWARE_DEVICE_HEALTHS: Array<{
+  value: HardwareDeviceHealth;
+  label: string;
+}> = [
+  { value: "unknown", label: "Unknown" },
+  { value: "healthy", label: "Healthy" },
+  { value: "warning", label: "Warning" },
+  { value: "error", label: "Error" },
+  { value: "offline", label: "Offline" },
+];
+
+export const HARDWARE_DEVICE_STATUS_CLASS_NAMES: Record<
+  HardwareDeviceStatus,
+  string
+> = {
+  discovered: "border-blue-200 bg-blue-50 text-blue-700",
+  registered: "border-cyan-200 bg-cyan-50 text-cyan-700",
+  assigned: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  active: "border-green-200 bg-green-50 text-green-700",
+  maintenance: "border-amber-200 bg-amber-50 text-amber-800",
+  retired: "border-slate-200 bg-slate-100 text-slate-500",
+  offline: "border-slate-200 bg-slate-50 text-slate-600",
+  needs_attention: "border-amber-200 bg-amber-50 text-amber-800",
 };
+
+export const HARDWARE_DEVICE_HEALTH_CLASS_NAMES: Record<
+  HardwareDeviceHealth,
+  string
+> = {
+  unknown: "border-slate-200 bg-slate-50 text-slate-600",
+  healthy: "border-green-200 bg-green-50 text-green-700",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+  error: "border-red-200 bg-red-50 text-red-700",
+  offline: "border-slate-200 bg-slate-100 text-slate-600",
+};
+
+export function getHardwareDeviceTypeLabel(type: HardwareDeviceType) {
+  return HARDWARE_DEVICE_TYPES.find((item) => item.value === type)?.label || type;
+}
+
+export function getHardwareDeviceStatusLabel(status: HardwareDeviceStatus) {
+  return (
+    HARDWARE_DEVICE_STATUSES.find((item) => item.value === status)?.label ||
+    status
+  );
+}
+
+export function getHardwareDeviceHealthLabel(health: HardwareDeviceHealth) {
+  return (
+    HARDWARE_DEVICE_HEALTHS.find((item) => item.value === health)?.label ||
+    health
+  );
+}
+
+export function getEnabledHardwareDeviceCapabilities(
+  device: Pick<
+    HardwareDevice,
+    | "supports_print_labels"
+    | "supports_scan_qr"
+    | "supports_scan_barcode"
+    | "supports_camera"
+    | "supports_audio"
+    | "supports_cycle_reading"
+    | "supports_temperature"
+    | "supports_humidity"
+  >,
+): HardwareDeviceCapability[] {
+  const capabilities: HardwareDeviceCapability[] = [];
+
+  if (device.supports_print_labels) capabilities.push("print_labels");
+  if (device.supports_scan_qr) capabilities.push("scan_qr");
+  if (device.supports_scan_barcode) capabilities.push("scan_barcode");
+  if (device.supports_camera) capabilities.push("capture_image");
+  if (device.supports_audio) capabilities.push("play_sound");
+  if (device.supports_cycle_reading) capabilities.push("read_cycle");
+  if (device.supports_temperature) capabilities.push("read_temperature");
+  if (device.supports_humidity) capabilities.push("read_humidity");
+
+  return capabilities;
+}
+
+export function getHardwareDeviceCapabilityLabel(
+  capability: HardwareDeviceCapability,
+) {
+  return (
+    HARDWARE_DEVICE_CAPABILITIES.find((item) => item.value === capability)
+      ?.label || capability
+  );
+}
