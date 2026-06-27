@@ -10,6 +10,7 @@ create table if not exists public.clinical_workstations (
   clinic_id uuid,
   name text not null,
   workstation_type text not null default 'other',
+  display_order integer not null default 100,
   location_label text,
   room_number text,
   agent_id text,
@@ -31,6 +32,7 @@ alter table public.clinical_workstations
   add column if not exists clinic_id uuid,
   add column if not exists name text,
   add column if not exists workstation_type text not null default 'other',
+  add column if not exists display_order integer not null default 100,
   add column if not exists location_label text,
   add column if not exists room_number text,
   add column if not exists agent_id text,
@@ -75,6 +77,8 @@ alter table public.clinical_workstations
   alter column name set not null,
   alter column workstation_type set default 'other',
   alter column workstation_type set not null,
+  alter column display_order set default 100,
+  alter column display_order set not null,
   alter column status set default 'planned',
   alter column status set not null,
   alter column supports_printer set default false,
@@ -143,6 +147,9 @@ create index if not exists clinical_workstations_status_idx
 create index if not exists clinical_workstations_workstation_type_idx
   on public.clinical_workstations (workstation_type);
 
+create index if not exists clinical_workstations_display_order_idx
+  on public.clinical_workstations (display_order, name);
+
 create index if not exists clinical_workstations_agent_id_idx
   on public.clinical_workstations (agent_id)
   where agent_id is not null;
@@ -177,6 +184,9 @@ comment on column public.clinical_workstations.clinic_id is
 
 comment on column public.clinical_workstations.workstation_type is
   'Clinical location type: reception, sterilization, operatory, admin, or other.';
+
+comment on column public.clinical_workstations.display_order is
+  'Stable ordering for workstation dropdowns, dashboards, selectors, and future scanner assignment.';
 
 comment on column public.clinical_workstations.agent_url is
   'Future SteriSphere Clinic Agent local URL for this workstation.';
