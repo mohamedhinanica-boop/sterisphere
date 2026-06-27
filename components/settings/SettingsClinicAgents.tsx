@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import {
   Cable,
+  Gauge,
   HardDrive,
+  History,
   Link2,
   RadioTower,
   Server,
@@ -12,6 +14,7 @@ import {
 import { Panel } from "@/components/settings";
 import {
   CLINICAL_AGENT_STATUS_CLASS_NAMES,
+  getClinicalAgentHeartbeatStatus,
   getClinicalAgentStatusLabel,
   type ClinicalAgentStatus,
 } from "@/lib/modules/clinical-workstations";
@@ -24,6 +27,11 @@ type ClinicalAgentRow = {
   name: string;
   agent_url: string | null;
   agent_version: string | null;
+  heartbeat_interval_seconds?: number;
+  heartbeat_timeout_seconds?: number;
+  platform?: string | null;
+  operating_system?: string | null;
+  metadata?: Record<string, unknown>;
   host_name: string | null;
   ip_address: string | null;
   assigned_workstation_id: string | null;
@@ -49,6 +57,11 @@ const planningAgents: DisplayClinicalAgent[] = [
     name: "Main Clinic Agent",
     agent_url: "http://localhost:8787",
     agent_version: null,
+    heartbeat_interval_seconds: 30,
+    heartbeat_timeout_seconds: 90,
+    platform: "Windows",
+    operating_system: "Not reported",
+    metadata: {},
     host_name: "CLINIC-FRONTDESK",
     ip_address: "Not configured",
     assigned_workstation_id: null,
@@ -62,6 +75,11 @@ const planningAgents: DisplayClinicalAgent[] = [
     name: "Sterilization Agent",
     agent_url: "Not configured",
     agent_version: null,
+    heartbeat_interval_seconds: 30,
+    heartbeat_timeout_seconds: 90,
+    platform: "Windows",
+    operating_system: "Not reported",
+    metadata: {},
     host_name: "STERI-STATION",
     ip_address: "Not configured",
     assigned_workstation_id: null,
@@ -84,21 +102,34 @@ export default function SettingsClinicAgents() {
         const { data, error } = await supabase
           .from("clinical_agents")
           .select(
-            "id, name, agent_url, agent_version, host_name, ip_address, assigned_workstation_id, status, last_seen_at, notes, assigned_workstation:clinical_workstations(name)",
+            "id, name, agent_url, agent_version, heartbeat_interval_seconds, heartbeat_timeout_seconds, platform, operating_system, metadata, host_name, ip_address, assigned_workstation_id, status, last_seen_at, notes, assigned_workstation:clinical_workstations(name)",
           )
           .order("name", { ascending: true });
 
-        if (error) {
-          throw error;
+        let rows = data as ClinicalAgentRow[] | null;
+        let queryError = error;
+
+        if (queryError && isMissingHeartbeatColumn(queryError)) {
+          const legacyResult = await supabase
+            .from("clinical_agents")
+            .select(
+              "id, name, agent_url, agent_version, host_name, ip_address, assigned_workstation_id, status, last_seen_at, notes, assigned_workstation:clinical_workstations(name)",
+            )
+            .order("name", { ascending: true });
+
+          rows = legacyResult.data as ClinicalAgentRow[] | null;
+          queryError = legacyResult.error;
+        }
+
+        if (queryError) {
+          throw queryError;
         }
 
         if (!isCurrent) {
           return;
         }
 
-        setAgents(
-          ((data || []) as ClinicalAgentRow[]).map(mapClinicalAgentRow),
-        );
+        setAgents((rows || []).map(mapClinicalAgentRow));
         setDataState("connected");
       } catch (error) {
         console.info(
@@ -208,11 +239,34 @@ export default function SettingsClinicAgents() {
           </p>
         </div>
       ) : null}
+
+      <div className="mt-6 border-l-4 border-cyan-300 bg-cyan-50 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" />
+          <div>
+            <p className="text-sm font-medium text-cyan-900">
+              Heartbeat availability
+            </p>
+            <p className="mt-1 text-sm text-cyan-800">
+              Heartbeat allows SteriSphere to know whether the Clinic Agent is
+              available before routing hardware operations. This phase only
+              evaluates saved timestamps when the page loads; it does not poll
+              or contact an agent.
+            </p>
+          </div>
+        </div>
+      </div>
     </Panel>
   );
 }
 
 function AgentCard({ agent }: { agent: DisplayClinicalAgent }) {
+  const heartbeatStatus = getClinicalAgentHeartbeatStatus({
+    status: agent.status,
+    last_seen_at: agent.last_seen_at,
+    heartbeat_timeout_seconds: agent.heartbeat_timeout_seconds ?? 90,
+  });
+
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -230,10 +284,10 @@ function AgentCard({ agent }: { agent: DisplayClinicalAgent }) {
 
         <span
           className={`w-fit rounded-lg border px-3 py-1 text-xs font-medium ${
-            CLINICAL_AGENT_STATUS_CLASS_NAMES[agent.status]
+            CLINICAL_AGENT_STATUS_CLASS_NAMES[heartbeatStatus]
           }`}
         >
-          {getClinicalAgentStatusLabel(agent.status)}
+          {getClinicalAgentStatusLabel(heartbeatStatus)}
         </span>
       </div>
 
@@ -245,7 +299,16 @@ function AgentCard({ agent }: { agent: DisplayClinicalAgent }) {
         <AgentDetail label="Agent URL" value={agent.agent_url} />
         <AgentDetail label="Host name" value={agent.host_name} />
         <AgentDetail label="IP address" value={agent.ip_address} />
-        <AgentDetail label="Version" value={agent.agent_version} />
+        <AgentDetail
+          label="Heartbeat interval"
+          value={`${agent.heartbeat_interval_seconds ?? 30} seconds`}
+        />
+        <AgentDetail label="Agent version" value={agent.agent_version} />
+        <AgentDetail label="Platform" value={agent.platform || null} />
+        <AgentDetail
+          label="Operating system"
+          value={agent.operating_system || null}
+        />
         <AgentDetail
           label="Last seen"
           value={formatLastSeen(agent.last_seen_at)}
@@ -262,6 +325,8 @@ function AgentCard({ agent }: { agent: DisplayClinicalAgent }) {
         <ComingSoonButton icon={Link2} label="Register Agent" compact />
         <ComingSoonButton icon={Cable} label="Pair Workstation" compact />
         <ComingSoonButton icon={HardDrive} label="View Devices" compact />
+        <ComingSoonButton icon={Gauge} label="Test Connection" compact />
+        <ComingSoonButton icon={History} label="View Heartbeats" compact />
         <span className="text-xs font-medium text-slate-500">
           Coming in next phase
         </span>
@@ -318,6 +383,11 @@ function mapClinicalAgentRow(row: ClinicalAgentRow): DisplayClinicalAgent {
 
   return {
     ...row,
+    heartbeat_interval_seconds: row.heartbeat_interval_seconds ?? 30,
+    heartbeat_timeout_seconds: row.heartbeat_timeout_seconds ?? 90,
+    platform: row.platform || null,
+    operating_system: row.operating_system || null,
+    metadata: row.metadata || {},
     assigned_workstation_name: workstation?.name || null,
   };
 }
@@ -334,4 +404,22 @@ function formatLastSeen(value: string | null) {
   }
 
   return timestamp.toLocaleString();
+}
+
+function isMissingHeartbeatColumn(error: {
+  code?: string;
+  message?: string;
+}) {
+  const heartbeatColumns = [
+    "heartbeat_interval_seconds",
+    "heartbeat_timeout_seconds",
+    "platform",
+    "operating_system",
+    "metadata",
+  ];
+
+  return (
+    (error.code === "42703" || error.code === "PGRST204") &&
+    heartbeatColumns.some((column) => error.message?.includes(column))
+  );
 }

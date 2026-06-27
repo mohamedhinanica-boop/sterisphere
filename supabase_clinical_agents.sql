@@ -12,6 +12,11 @@ create table if not exists public.clinical_agents (
   agent_key text,
   agent_url text,
   agent_version text,
+  heartbeat_interval_seconds integer not null default 30,
+  heartbeat_timeout_seconds integer not null default 90,
+  platform text,
+  operating_system text,
+  metadata jsonb not null default '{}'::jsonb,
   host_name text,
   ip_address text,
   assigned_workstation_id uuid references public.clinical_workstations(id) on delete set null,
@@ -30,6 +35,11 @@ alter table public.clinical_agents
   add column if not exists agent_key text,
   add column if not exists agent_url text,
   add column if not exists agent_version text,
+  add column if not exists heartbeat_interval_seconds integer not null default 30,
+  add column if not exists heartbeat_timeout_seconds integer not null default 90,
+  add column if not exists platform text,
+  add column if not exists operating_system text,
+  add column if not exists metadata jsonb not null default '{}'::jsonb,
   add column if not exists host_name text,
   add column if not exists ip_address text,
   add column if not exists assigned_workstation_id uuid references public.clinical_workstations(id) on delete set null,
@@ -43,6 +53,12 @@ alter table public.clinical_agents
 
 alter table public.clinical_agents
   alter column name set not null,
+  alter column heartbeat_interval_seconds set default 30,
+  alter column heartbeat_interval_seconds set not null,
+  alter column heartbeat_timeout_seconds set default 90,
+  alter column heartbeat_timeout_seconds set not null,
+  alter column metadata set default '{}'::jsonb,
+  alter column metadata set not null,
   alter column status set default 'planned',
   alter column status set not null,
   alter column created_at set default now(),
@@ -76,6 +92,20 @@ alter table public.clinical_agents
     or agent_url ~* '^https?://'
   );
 
+alter table public.clinical_agents
+  drop constraint if exists clinical_agents_heartbeat_interval_check;
+
+alter table public.clinical_agents
+  add constraint clinical_agents_heartbeat_interval_check
+  check (heartbeat_interval_seconds > 0);
+
+alter table public.clinical_agents
+  drop constraint if exists clinical_agents_heartbeat_timeout_check;
+
+alter table public.clinical_agents
+  add constraint clinical_agents_heartbeat_timeout_check
+  check (heartbeat_timeout_seconds >= heartbeat_interval_seconds);
+
 create index if not exists clinical_agents_clinic_id_idx
   on public.clinical_agents (clinic_id);
 
@@ -101,6 +131,18 @@ comment on column public.clinical_agents.clinic_id is
 
 comment on column public.clinical_agents.agent_key is
   'Globally unique future registration identity. Authentication secrets must be stored separately and securely.';
+
+comment on column public.clinical_agents.agent_version is
+  'Clinic Agent application version; this is the canonical app version field.';
+
+comment on column public.clinical_agents.heartbeat_interval_seconds is
+  'Planned interval between authenticated heartbeat submissions.';
+
+comment on column public.clinical_agents.heartbeat_timeout_seconds is
+  'Elapsed time after last_seen_at before a registered agent is considered offline.';
+
+comment on column public.clinical_agents.metadata is
+  'Non-secret extensible agent metadata. Credentials and clinical payloads must not be stored here.';
 
 comment on column public.clinical_agents.assigned_workstation_id is
   'Optional default workstation assignment. Pairing behavior is not implemented in Phase 7.5A.';
@@ -139,4 +181,3 @@ execute function public.set_clinical_agents_updated_at();
 -- alter table public.clinical_agents enable row level security;
 -- create policy "Super admins can manage clinical agents" ...
 -- create policy "Authorized users can read clinical agent readiness" ...
-
