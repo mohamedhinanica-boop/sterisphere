@@ -13,6 +13,7 @@ import SettingsSterilizers from "@/components/settings/SettingsSterilizers";
 import SettingsUsers from "@/components/settings/SettingsUsers";
 import SettingsPrinting from "@/components/settings/SettingsPrinting";
 import SettingsWorkstations from "@/components/settings/SettingsWorkstations";
+import SettingsClinicAgents from "@/components/settings/SettingsClinicAgents";
 import {
   DEFAULT_LABEL_HEIGHT_MM,
   DEFAULT_LABEL_WIDTH_MM,
@@ -99,6 +100,7 @@ const baseTabs = [
 
 const superAdminTabs = [
   { id: "workstations", label: "Workstations" },
+  { id: "clinic_agents", label: "Clinic Agents" },
   { id: "super_admin", label: "Super Admin" },
 ];
 
@@ -1334,6 +1336,9 @@ async function updateProvider(providerId: string) {
           {activeTab === "workstations" && getCurrentRole() === "super_admin" && (
             <SettingsWorkstations />
           )}
+
+          {activeTab === "clinic_agents" &&
+            getCurrentRole() === "super_admin" && <SettingsClinicAgents />}
 
           {activeTab === "super_admin" && getCurrentRole() === "super_admin" && (
             <Panel
