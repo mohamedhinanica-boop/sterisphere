@@ -323,3 +323,17 @@ No columns in this section are added by Phase 7.5B.
 - No scanner, patient traceability, pack, cycle, or print behavior change.
 - No local Clinic Agent runtime change.
 
+## Temporary Development Heartbeat Bridge
+
+Phase 7.7A later introduced a controlled development heartbeat using a shared
+server-side `CLINIC_AGENT_HEARTBEAT_SECRET` and matching local
+`STERISPHERE_AGENT_HEARTBEAT_SECRET`. This bridge does not change the production
+security decision in this document:
+
+- `agent_key` remains a public identifier, not a secret.
+- The temporary secret must come from environment configuration and must never
+  be committed or exposed to browser code.
+- Heartbeat authentication must migrate to unique permanent agent credentials
+  after one-time registration and credential exchange are implemented.
+- The temporary shared secret should be removed when that migration is
+  complete.

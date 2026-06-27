@@ -52,6 +52,66 @@ npm start
 Use `127.0.0.1` only for same-PC development. Use `0.0.0.0` for clinic gateway
 testing.
 
+## Cloud Heartbeat Configuration
+
+Phase 7.7A adds an optional, non-blocking heartbeat from the local agent to
+SteriSphere Cloud. Heartbeat is disabled unless all required values are
+configured, and heartbeat failures do not stop the LAN health or printing
+endpoints.
+
+Required environment variables:
+
+```text
+STERISPHERE_CLOUD_URL=https://your-sterisphere-deployment.example
+STERISPHERE_AGENT_KEY=the-public-agent-key-from-clinical-agents
+STERISPHERE_AGENT_HEARTBEAT_SECRET=a-temporary-development-secret
+```
+
+Optional values:
+
+```text
+STERISPHERE_AGENT_VERSION=0.1.0
+STERISPHERE_HEARTBEAT_INTERVAL_SECONDS=30
+```
+
+`STERISPHERE_AGENT_HEARTBEAT_SECRET` is a temporary development bridge. It must
+match the server-only `CLINIC_AGENT_HEARTBEAT_SECRET` configured for the
+SteriSphere Cloud deployment. Never hardcode or commit the value. The public
+`agent_key` is only an identifier and is not an authentication secret.
+
+Secure one-time registration and per-agent permanent credentials will replace
+this shared development secret. Do not treat the current heartbeat
+authentication as the final production design.
+
+An example file is available at `.env.example`. Node.js does not load `.env`
+automatically. Set the variables in the process environment, or with Node.js 20
+or newer start development using:
+
+```powershell
+node --env-file=.env server.js
+```
+
+Example PowerShell configuration without an env file:
+
+```powershell
+$env:STERISPHERE_CLOUD_URL = "https://your-sterisphere-deployment.example"
+$env:STERISPHERE_AGENT_KEY = "agent-hp-pavilion"
+$env:STERISPHERE_AGENT_VERSION = "0.1.0"
+$env:STERISPHERE_AGENT_HEARTBEAT_SECRET = "use-a-generated-development-secret"
+$env:STERISPHERE_HEARTBEAT_INTERVAL_SECONDS = "30"
+node server.js
+```
+
+The cloud deployment must separately define:
+
+```text
+CLINIC_AGENT_HEARTBEAT_SECRET=<the same temporary development secret>
+```
+
+The agent sends its host name, first detected LAN IPv4 address, platform,
+operating-system version, Node.js version, and agent version. It does not send
+print jobs, labels, patient data, or credentials in heartbeat metadata.
+
 ## Clinic Gateway Mode
 
 Run the agent on one Windows workstation or laptop that is always on, connected

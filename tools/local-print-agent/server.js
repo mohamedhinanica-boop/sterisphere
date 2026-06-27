@@ -6,6 +6,9 @@ const os = require("node:os");
 
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 8787;
+const DEFAULT_AGENT_VERSION = "0.1.0";
+const DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 30;
+const HEARTBEAT_TIMEOUT_MS = 10000;
 const CONNECTION_TIMEOUT_MS = 2500;
 const MAX_BODY_BYTES = 2048;
 const DEFAULT_PACK_LABEL_TEMPLATE = "sterisphere-standard";
@@ -167,6 +170,7 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(agentPort, agentHost, () => {
   logStartupUrls(agentHost, agentPort);
+  startHeartbeatLoop();
 });
 
 function sendJson(response, statusCode, payload) {
@@ -481,20 +485,198 @@ function logStartupUrls(host, port) {
 }
 
 function getLanUrls(port) {
-  const interfaces = os.networkInterfaces();
-  const urls = [];
+  return getLanIpv4Addresses().map(
+    (address) => `http://${address}:${port}`,
+  );
+}
 
-  for (const addresses of Object.values(interfaces)) {
-    for (const address of addresses || []) {
+function getLanIpv4Addresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+
+  for (const interfaceAddresses of Object.values(interfaces)) {
+    for (const address of interfaceAddresses || []) {
       if (address.family !== "IPv4" || address.internal) {
         continue;
       }
 
-      urls.push(`http://${address.address}:${port}`);
+      addresses.push(address.address);
     }
   }
 
-  return urls;
+  return addresses;
+}
+
+function startHeartbeatLoop() {
+  const configResult = getHeartbeatConfig();
+
+  if (!configResult.ok) {
+    console.log(`[heartbeat] Disabled: ${configResult.reason}`);
+    return;
+  }
+
+  if (typeof fetch !== "function") {
+    console.log("[heartbeat] Disabled: Node.js 18 or newer is required.");
+    return;
+  }
+
+  const config = configResult.config;
+  let heartbeatInFlight = false;
+
+  async function runHeartbeat() {
+    if (heartbeatInFlight) {
+      console.log("[heartbeat] Skipped: previous request is still running.");
+      return;
+    }
+
+    heartbeatInFlight = true;
+    try {
+      await sendHeartbeat(config);
+    } catch (error) {
+      console.error(`[heartbeat] Failed: ${error.message}`);
+    } finally {
+      heartbeatInFlight = false;
+    }
+  }
+
+  console.log(
+    `[heartbeat] Enabled: ${config.endpoint} every ${config.intervalSeconds}s.`,
+  );
+  void runHeartbeat();
+
+  const timer = setInterval(
+    () => void runHeartbeat(),
+    config.intervalSeconds * 1000,
+  );
+  timer.unref();
+}
+
+function getHeartbeatConfig() {
+  const cloudUrl = normalizeCloudUrl(process.env.STERISPHERE_CLOUD_URL);
+  const agentKey = normalizeEnvironmentValue(process.env.STERISPHERE_AGENT_KEY);
+  const heartbeatSecret = normalizeEnvironmentValue(
+    process.env.STERISPHERE_AGENT_HEARTBEAT_SECRET,
+  );
+
+  if (!cloudUrl) {
+    return { ok: false, reason: "STERISPHERE_CLOUD_URL is not configured." };
+  }
+
+  if (!agentKey) {
+    return { ok: false, reason: "STERISPHERE_AGENT_KEY is not configured." };
+  }
+
+  if (!heartbeatSecret) {
+    return {
+      ok: false,
+      reason: "STERISPHERE_AGENT_HEARTBEAT_SECRET is not configured.",
+    };
+  }
+
+  const intervalSeconds = parseHeartbeatInterval(
+    process.env.STERISPHERE_HEARTBEAT_INTERVAL_SECONDS,
+  );
+
+  return {
+    ok: true,
+    config: {
+      endpoint: new URL("/api/clinic-agents/heartbeat", cloudUrl).toString(),
+      agentKey,
+      agentVersion:
+        normalizeEnvironmentValue(process.env.STERISPHERE_AGENT_VERSION) ||
+        DEFAULT_AGENT_VERSION,
+      heartbeatSecret,
+      intervalSeconds,
+    },
+  };
+}
+
+async function sendHeartbeat(config) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HEARTBEAT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(config.endpoint, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.heartbeatSecret}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        agent_key: config.agentKey,
+        agent_version: config.agentVersion,
+        host_name: os.hostname(),
+        ip_address: getLanIpv4Addresses()[0] || null,
+        platform: `${os.platform()}-${os.arch()}`,
+        operating_system: `${os.type()} ${os.release()}`,
+        metadata: {
+          node_version: process.version,
+          service: "sterisphere-local-print-agent",
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    const result = await readHeartbeatResponse(response);
+    if (!response.ok || !result.ok) {
+      throw new Error(
+        `cloud returned ${response.status}${result.error ? `: ${result.error}` : ""}`,
+      );
+    }
+
+    console.log(
+      `[heartbeat] Success: ${result.status || "online"} at ${result.last_seen_at || new Date().toISOString()}.`,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function readHeartbeatResponse(response) {
+  try {
+    const result = await response.json();
+    return {
+      ok: result?.ok === true,
+      status: typeof result?.status === "string" ? result.status : null,
+      last_seen_at:
+        typeof result?.last_seen_at === "string" ? result.last_seen_at : null,
+      error: typeof result?.error === "string" ? result.error : null,
+    };
+  } catch {
+    return { ok: false, status: null, last_seen_at: null, error: null };
+  }
+}
+
+function normalizeCloudUrl(value) {
+  const normalized = normalizeEnvironmentValue(value);
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeEnvironmentValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseHeartbeatInterval(value) {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < 5 || parsed > 3600) {
+    return DEFAULT_HEARTBEAT_INTERVAL_SECONDS;
+  }
+
+  return parsed;
 }
 
 function buildTsplTestLabel(labelWidthMm, labelHeightMm) {
