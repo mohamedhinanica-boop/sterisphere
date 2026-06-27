@@ -1,0 +1,343 @@
+# SteriSphere Clinic Setup Wizard
+
+## Purpose
+
+The SteriSphere Clinic Setup Wizard is the guided onboarding experience used when deploying SteriSphere into a clinic for the first time.
+
+Its objective is to provide a safe, repeatable, and auditable deployment process that ensures every clinic is configured consistently while minimizing implementation time.
+
+The Setup Wizard transforms deployment from a manual technical process into a guided clinical workflow.
+
+---
+
+# Product Philosophy
+
+Every SteriSphere deployment should follow the same logical sequence.
+
+The software should guide the implementation engineer through each required configuration step and validate completion before allowing the clinic to begin normal operation.
+
+The Setup Wizard should encourage best practices while remaining flexible enough to support clinics of different sizes.
+
+Small clinics should complete setup in only a few minutes.
+
+Large clinics should be able to configure dozens of rooms and devices without changing the deployment process.
+
+---
+
+# Access Control
+
+The Clinic Setup Wizard is a deployment tool.
+
+It is **Super Admin only**.
+
+Clinical Staff, Doctors, Auditors and standard Administrators must never have access to deployment-level configuration.
+
+Once deployment has been completed, only operational settings appropriate to each role should remain configurable.
+
+---
+
+# Deployment Flow
+
+Welcome
+
+↓
+
+Clinic Profile
+
+↓
+
+Clinic Users
+
+↓
+
+Providers
+
+↓
+
+Sterilizers
+
+↓
+
+Clinical Workstations
+
+↓
+
+Clinic Agents
+
+↓
+
+Hardware Discovery
+
+↓
+
+Policies
+
+↓
+
+Printing
+
+↓
+
+Review
+
+↓
+
+Launch Clinic
+
+---
+
+# Step 1 — Clinic Profile
+
+Configure:
+
+- Clinic Name
+- Address
+- Phone
+- Email
+- Time Zone
+- Language
+- Clinic Logo
+- Working Days
+- Working Hours
+
+---
+
+# Step 2 — Users
+
+Configure:
+
+- Super Admin
+- Clinic Admins
+- Clinical Staff
+- Doctors
+- Auditors
+
+Role Based Access Control (RBAC) should already be enforced.
+
+---
+
+# Step 3 — Providers
+
+Configure providers working in the clinic.
+
+Future integrations may synchronize providers from external practice management software.
+
+---
+
+# Step 4 — Sterilizers
+
+Register each sterilizer.
+
+Future connected sterilizers may be discovered automatically by the Clinic Agent.
+
+---
+
+# Step 5 — Clinical Workstations
+
+Define every room that participates in clinical workflows.
+
+Examples:
+
+- Reception
+- Sterilization Room
+- Operatory 1
+- Operatory 2
+- Surgery
+- Hygiene
+- Recovery
+
+Workstations become the source of truth for room selection throughout SteriSphere.
+
+---
+
+# Step 6 — Clinic Agents
+
+Register every SteriSphere Clinic Agent.
+
+Examples:
+
+Sterilization Room Agent
+
+Operatory Agent
+
+Mobile Agent
+
+Each Agent becomes the local gateway for hardware.
+
+---
+
+# Step 7 — Hardware Discovery
+
+The Clinic Agent automatically reports discovered hardware.
+
+Examples:
+
+Printers
+
+USB Scanners
+
+Cameras
+
+Speakers
+
+Sterilizers
+
+Future Sensors
+
+The deployment engineer assigns discovered hardware to workstations.
+
+---
+
+# Step 8 — Clinical Policies
+
+Examples:
+
+Pack Expiration
+
+Label Format
+
+Traceability Rules
+
+Alert Preferences
+
+Review Requirements
+
+Audit Policies
+
+---
+
+# Step 9 — Printing
+
+Configure:
+
+Default Label Printer
+
+Backup Printer
+
+Test Print
+
+Label Validation
+
+---
+
+# Step 10 — Review
+
+Display a deployment summary.
+
+Example:
+
+✓ Clinic configured
+
+✓ Users configured
+
+✓ Sterilizers configured
+
+✓ Workstations configured
+
+✓ Agents online
+
+✓ Hardware assigned
+
+✓ Policies configured
+
+---
+
+# Step 11 — Launch Clinic
+
+Deployment finishes.
+
+Clinic becomes operational.
+
+The Setup Wizard is marked complete.
+
+Normal SteriSphere operation begins.
+
+---
+
+# Deployment Checklist
+
+Every deployment should verify:
+
+✓ Clinic Profile
+
+✓ Users
+
+✓ Providers
+
+✓ Sterilizers
+
+✓ Workstations
+
+✓ Agents
+
+✓ Hardware
+
+✓ Printing
+
+✓ Policies
+
+✓ Backup Validation
+
+---
+
+# Product Principles
+
+The Setup Wizard should never expose unnecessary technical complexity.
+
+Deployment should be understandable by implementation staff without requiring database access.
+
+The Setup Wizard should support both manual configuration and future automatic hardware discovery.
+
+---
+
+# RBAC Philosophy
+
+Deployment configuration belongs exclusively to Super Admin.
+
+Operational configuration should be delegated according to user roles.
+
+Examples:
+
+Super Admin
+
+- Clinic deployment
+- Agents
+- Hardware
+- Security
+- Integrations
+
+Clinic Admin
+
+- Providers
+- Sterilizers
+- Policies
+- Workstations (optional, configurable)
+
+Clinical Staff
+
+- Daily operational preferences only
+
+Doctors
+
+- No infrastructure configuration
+
+Auditors
+
+- Read-only access
+
+This separation protects the integrity of the clinical platform while allowing operational flexibility.
+
+---
+
+# Future Vision
+
+Eventually the Setup Wizard should support:
+
+- Existing clinic import
+- Multi-clinic deployment
+- Agent auto-discovery
+- Automatic hardware pairing
+- PMS integrations
+- Cloud deployment validation
+- AI-assisted deployment recommendations
+- Deployment report generation
