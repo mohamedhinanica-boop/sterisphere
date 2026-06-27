@@ -30,6 +30,13 @@ Defines first deployment of a clinic.
 
 → clinic-setup-wizard.md
 
+### Clinic Agent Registration
+
+Defines secure one-time enrollment, permanent credentials, rotation, and
+revocation for Clinic Agents.
+
+-> agent-registration.md
+
 ## Planned
 
 Clinical Sessions
