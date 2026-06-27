@@ -1,8 +1,12 @@
 "use strict";
 
+const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
 const os = require("node:os");
+const path = require("node:path");
+
+loadEnvironmentFile();
 
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 8787;
@@ -172,6 +176,72 @@ server.listen(agentPort, agentHost, () => {
   logStartupUrls(agentHost, agentPort);
   startHeartbeatLoop();
 });
+
+function loadEnvironmentFile() {
+  const envPath = path.join(__dirname, ".env");
+  let contents;
+
+  try {
+    contents = fs.readFileSync(envPath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      console.log("[env] No .env file found; using operating system settings.");
+    } else {
+      console.warn(`[env] Could not read .env; continuing: ${error.message}`);
+    }
+    return;
+  }
+
+  let loadedCount = 0;
+
+  for (const [index, rawLine] of contents.split(/\r?\n/).entries()) {
+    const line = rawLine.replace(/^\uFEFF/, "").trim();
+
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex <= 0) {
+      console.warn(`[env] Ignored malformed .env line ${index + 1}.`);
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const parsedValue = parseEnvironmentValue(
+      line.slice(separatorIndex + 1).trim(),
+    );
+
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || !parsedValue.ok) {
+      console.warn(`[env] Ignored malformed .env line ${index + 1}.`);
+      continue;
+    }
+
+    if (process.env[key] === undefined) {
+      process.env[key] = parsedValue.value;
+      loadedCount += 1;
+    }
+  }
+
+  console.log(`[env] Loaded ${loadedCount} setting(s) from .env.`);
+}
+
+function parseEnvironmentValue(value) {
+  if (!value) {
+    return { ok: true, value: "" };
+  }
+
+  const quote = value[0];
+  if (quote !== '"' && quote !== "'") {
+    return { ok: true, value };
+  }
+
+  if (value.length < 2 || value[value.length - 1] !== quote) {
+    return { ok: false };
+  }
+
+  return { ok: true, value: value.slice(1, -1) };
+}
 
 function sendJson(response, statusCode, payload) {
   const body = JSON.stringify(payload);

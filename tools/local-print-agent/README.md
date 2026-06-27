@@ -83,13 +83,11 @@ Secure one-time registration and per-agent permanent credentials will replace
 this shared development secret. Do not treat the current heartbeat
 authentication as the final production design.
 
-An example file is available at `.env.example`. Node.js does not load `.env`
-automatically. Set the variables in the process environment, or with Node.js 20
-or newer start development using:
-
-```powershell
-node --env-file=.env server.js
-```
+An example file is available at `.env.example`. On startup, the agent
+automatically loads a `.env` file located beside `server.js`. Blank lines and
+lines beginning with `#` are ignored, and values may be quoted or unquoted.
+Operating system environment variables always take precedence over values in
+the file. A missing or partially malformed `.env` does not stop the agent.
 
 Example PowerShell configuration without an env file:
 
