@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
+  createManualPatient as createManualPatientRecord,
   createPatientTrace,
   getPatients,
   getProviders,
@@ -294,42 +295,30 @@ export default function GuidedPatientTraceStartPage() {
   }
 
   async function createManualPatient() {
-    const fullName = manualPatient.fullName.trim();
-
-    if (!fullName) {
-      toast.error("Patient name is required.");
-      return;
-    }
-
     setCreatingPatient(true);
 
     try {
-      const { data, error } = await supabase
-        .from("patients")
-        .insert([
-          {
-            external_id: manualPatient.externalId.trim() || null,
-            full_name: fullName,
-            date_of_birth: manualPatient.dateOfBirth || null,
-            source_system: "Manual",
-          },
-        ])
-        .select("id, external_id, full_name, date_of_birth, source_system")
-        .single<Patient>();
-
-      if (error || !data) {
-        throw error || new Error("Patient could not be created.");
-      }
+      const { patient, possibleDuplicate } = await createManualPatientRecord(
+        supabase,
+        manualPatient,
+      );
 
       setPatients((current) =>
-        [...current, data].sort((a, b) =>
+        [...current, patient].sort((a, b) =>
           a.full_name.localeCompare(b.full_name)
         )
       );
-      setSelectedPatient(data);
-      setPatientSearch(data.full_name);
+      setSelectedPatient(patient);
+      setPatientSearch(patient.full_name);
       setManualPatient({ fullName: "", externalId: "", dateOfBirth: "" });
       toast.success("Patient created.");
+
+      if (possibleDuplicate) {
+        toast(
+          "A patient with the same full name and date of birth already exists.",
+          { icon: "⚠️" },
+        );
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Patient could not be created.";
@@ -668,7 +657,7 @@ export default function GuidedPatientTraceStartPage() {
                     compact
                   />
                   <TouchInput
-                    label="Date of Birth"
+                    label="Date of Birth *"
                     type="date"
                     value={manualPatient.dateOfBirth}
                     onChange={(value) =>
@@ -683,7 +672,11 @@ export default function GuidedPatientTraceStartPage() {
                   <button
                     type="button"
                     onClick={createManualPatient}
-                    disabled={creatingPatient || !manualPatient.fullName.trim()}
+                    disabled={
+                      creatingPatient ||
+                      !manualPatient.fullName.trim() ||
+                      !manualPatient.dateOfBirth
+                    }
                     className="min-h-11 w-full rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
                   >
                     {creatingPatient ? "Creating..." : "Create and Select"}

@@ -3,6 +3,7 @@
 import { createAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
 import {
+  createManualPatient,
   getProviders,
   matchScannedPack,
 } from "@/lib/modules/traceability";
@@ -309,65 +310,30 @@ export default function PatientsPage() {
   }
 
   async function createPatient() {
-    const fullName = newPatientForm.fullName.trim();
-    const externalId = newPatientForm.externalId.trim();
-
-    if (!fullName) {
-      toast.error("Patient name is required.");
-      return;
-    }
-
     setCreatingPatient(true);
 
     try {
-      if (externalId) {
-        const { data: existingPatient, error: duplicateCheckError } =
-          await supabase
-            .from("patients")
-            .select("id")
-            .eq("external_id", externalId)
-            .maybeSingle();
-
-        if (duplicateCheckError) {
-          throw duplicateCheckError;
-        }
-
-        if (existingPatient) {
-          toast.error("A patient with this external ID already exists.");
-          return;
-        }
-      }
-
-      const { data, error } = await supabase
-        .from("patients")
-        .insert([
-          {
-            full_name: fullName,
-            date_of_birth: newPatientForm.dateOfBirth || null,
-            external_id: externalId || null,
-            source_system: "Manual",
-          },
-        ])
-        .select("id, external_id, full_name, date_of_birth, source_system")
-        .single<Patient>();
-
-      if (error || !data) {
-        if (error?.code === "23505") {
-          throw new Error("A patient with this external ID already exists.");
-        }
-
-        throw error || new Error("Patient could not be created.");
-      }
+      const { patient, possibleDuplicate } = await createManualPatient(
+        supabase,
+        newPatientForm,
+      );
 
       setPatients((current) =>
-        [...current, data].sort((a, b) =>
+        [...current, patient].sort((a, b) =>
           a.full_name.localeCompare(b.full_name),
         ),
       );
-      selectPatient(data);
+      selectPatient(patient);
       setShowAddPatient(false);
       setNewPatientForm(emptyNewPatientForm);
       toast.success("Patient created and selected.");
+
+      if (possibleDuplicate) {
+        toast(
+          "A patient with the same full name and date of birth already exists.",
+          { icon: "⚠️" },
+        );
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Patient could not be created.";
