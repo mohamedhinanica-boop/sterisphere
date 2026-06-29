@@ -33,7 +33,8 @@ import AssistantNotificationBanner, {
 const steps = ["Pack", "Patient", "Care", "Review"] as const;
 
 type ManualPatientForm = {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   externalId: string;
   dateOfBirth: string;
 };
@@ -56,7 +57,8 @@ export default function GuidedPatientTraceStartPage() {
   const [patientSearch, setPatientSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [manualPatient, setManualPatient] = useState<ManualPatientForm>({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     externalId: "",
     dateOfBirth: "",
   });
@@ -310,7 +312,12 @@ export default function GuidedPatientTraceStartPage() {
       );
       setSelectedPatient(patient);
       setPatientSearch(patient.full_name);
-      setManualPatient({ fullName: "", externalId: "", dateOfBirth: "" });
+      setManualPatient({
+        firstName: "",
+        lastName: "",
+        externalId: "",
+        dateOfBirth: "",
+      });
       toast.success("Patient created.");
 
       if (possibleDuplicate) {
@@ -633,15 +640,27 @@ export default function GuidedPatientTraceStartPage() {
 
                 <div className="mt-3 space-y-2">
                   <TouchInput
-                    label="Full Name"
-                    value={manualPatient.fullName}
+                    label="First Name *"
+                    value={manualPatient.firstName}
                     onChange={(value) =>
                       setManualPatient((current) => ({
                         ...current,
-                        fullName: value,
+                        firstName: value,
                       }))
                     }
-                    placeholder="Patient full name"
+                    placeholder="First name"
+                    compact
+                  />
+                  <TouchInput
+                    label="Last Name *"
+                    value={manualPatient.lastName}
+                    onChange={(value) =>
+                      setManualPatient((current) => ({
+                        ...current,
+                        lastName: value,
+                      }))
+                    }
+                    placeholder="Last name"
                     compact
                   />
                   <TouchInput
@@ -674,7 +693,8 @@ export default function GuidedPatientTraceStartPage() {
                     onClick={createManualPatient}
                     disabled={
                       creatingPatient ||
-                      !manualPatient.fullName.trim() ||
+                      !manualPatient.firstName.trim() ||
+                      !manualPatient.lastName.trim() ||
                       !manualPatient.dateOfBirth
                     }
                     className="min-h-11 w-full rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white transition-all hover:shadow-md active:scale-[0.98] active:brightness-95 active:shadow-inner disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"

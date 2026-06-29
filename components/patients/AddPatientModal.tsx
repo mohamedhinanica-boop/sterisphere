@@ -1,7 +1,8 @@
 "use client";
 
 export type NewPatientForm = {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   dateOfBirth: string;
   externalId: string;
 };
@@ -56,19 +57,34 @@ export default function AddPatientModal({
             onSave();
           }}
         >
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">
-              Full name <span className="text-red-600">*</span>
-            </span>
-            <input
-              autoFocus
-              value={form.fullName}
-              onChange={(event) => onChange("fullName", event.target.value)}
-              disabled={saving}
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-              placeholder="Patient full name"
-            />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                First name <span className="text-red-600">*</span>
+              </span>
+              <input
+                autoFocus
+                value={form.firstName}
+                onChange={(event) => onChange("firstName", event.target.value)}
+                disabled={saving}
+                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="First name"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                Last name <span className="text-red-600">*</span>
+              </span>
+              <input
+                value={form.lastName}
+                onChange={(event) => onChange("lastName", event.target.value)}
+                disabled={saving}
+                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="Last name"
+              />
+            </label>
+          </div>
 
           <label className="block">
             <span className="text-sm font-medium text-slate-700">
@@ -114,7 +130,10 @@ export default function AddPatientModal({
             <button
               type="submit"
               disabled={
-                saving || !form.fullName.trim() || !form.dateOfBirth.trim()
+                saving ||
+                !form.firstName.trim() ||
+                !form.lastName.trim() ||
+                !form.dateOfBirth.trim()
               }
               className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >

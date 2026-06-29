@@ -2,7 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Patient } from "./types";
 
 export type ManualPatientInput = {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   dateOfBirth: string;
   externalId?: string;
 };
@@ -18,35 +19,37 @@ export function generateManualPatientExternalId(now = new Date()): string {
     String(now.getMonth() + 1).padStart(2, "0"),
     String(now.getDate()).padStart(2, "0"),
   ].join("");
-  const time = [
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-    String(now.getSeconds()).padStart(2, "0"),
-  ].join("");
   const randomSuffix = globalThis.crypto
     .randomUUID()
     .replaceAll("-", "")
-    .slice(0, 8)
+    .slice(0, 6)
     .toUpperCase();
 
-  return `MANUAL-${date}-${time}-${randomSuffix}`;
+  return `SPH-PAT-${date}-${randomSuffix}`;
 }
 
 export async function createManualPatient(
   supabase: SupabaseClient,
   input: ManualPatientInput,
 ): Promise<CreateManualPatientResult> {
-  const fullName = input.fullName.trim();
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
   const dateOfBirth = input.dateOfBirth.trim();
   const suppliedExternalId = input.externalId?.trim() || "";
 
-  if (!fullName) {
-    throw new Error("Patient name is required.");
+  if (!firstName) {
+    throw new Error("Patient first name is required.");
+  }
+
+  if (!lastName) {
+    throw new Error("Patient last name is required.");
   }
 
   if (!dateOfBirth) {
     throw new Error("Date of birth is required.");
   }
+
+  const fullName = `${firstName} ${lastName}`;
 
   if (suppliedExternalId) {
     const { data: existingPatient, error } = await supabase

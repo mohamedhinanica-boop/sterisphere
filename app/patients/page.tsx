@@ -75,7 +75,8 @@ type TraceFilters = {
 
 const itemsPerPage = 5;
 const emptyNewPatientForm: NewPatientForm = {
-  fullName: "",
+  firstName: "",
+  lastName: "",
   dateOfBirth: "",
   externalId: "",
 };
@@ -838,6 +839,38 @@ export default function PatientsPage() {
             <SummaryCard label="Total Traces" value={traces.length} />
             <SummaryCard label="Providers" value={providers.length} />
           </div>
+
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            <h3 className="font-semibold text-slate-900">
+              Selected Patient Details
+            </h3>
+
+            {selectedPatient ? (
+              <dl className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-slate-50 px-4">
+                <PatientDetail
+                  label="Full name"
+                  value={selectedPatient.full_name}
+                />
+                <PatientDetail
+                  label="Date of birth"
+                  value={formatDate(selectedPatient.date_of_birth)}
+                />
+                <PatientDetail
+                  label="File / chart ID"
+                  value={selectedPatient.external_id || "Not provided"}
+                />
+                <PatientDetail
+                  label="Source system"
+                  value={selectedPatient.source_system || "Not provided"}
+                />
+              </dl>
+            ) : (
+              <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                Search for or add a patient to review their identity details
+                here.
+              </p>
+            )}
+          </div>
         </section>
       </div>
 
@@ -907,6 +940,17 @@ export default function PatientsPage() {
       ) : null}
 
     </>
+  );
+}
+
+function PatientDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="py-3">
+      <dt className="text-xs font-medium uppercase text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium text-slate-900">
+        {value}
+      </dd>
+    </div>
   );
 }
 
