@@ -2,7 +2,11 @@
 
 import { createAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
-import { getProviders } from "@/lib/modules/traceability";
+import {
+  getProviders,
+  matchScannedPack,
+} from "@/lib/modules/traceability";
+import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
@@ -98,6 +102,20 @@ export default function PatientsPage() {
     treatmentRoom: "",
     procedure: "",
   });
+
+  function handlePackScan(scannedValue: string) {
+    const result = matchScannedPack(scannedValue, packs);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    updateForm("packNumber", result.pack.pack_number);
+    toast.success(`Pack ${result.pack.pack_number} selected.`);
+  }
+
+  useUsbHidScanner(handlePackScan);
 
   useEffect(() => {
     fetchPatients();
@@ -678,6 +696,9 @@ export default function PatientsPage() {
                 ))}
               </select>
 
+              <p className="mt-2 text-xs text-slate-600">
+                Scan a pack QR code or select a usable pack manually.
+              </p>
               <p className="mt-2 text-xs text-slate-500">
                 Only Available, non-expired packs from Passed cycles are shown.
                 Once linked to a patient, the pack is marked as Used.
