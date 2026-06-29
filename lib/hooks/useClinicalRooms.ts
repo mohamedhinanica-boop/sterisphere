@@ -28,6 +28,7 @@ export function useClinicalRooms() {
         .from("clinical_workstations")
         .select("id, name, location_label, display_order")
         .eq("status", "active")
+        .eq("workstation_type", "operatory")
         .order("display_order", { ascending: true })
         .order("name", { ascending: true });
 
