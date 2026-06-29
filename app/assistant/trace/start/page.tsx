@@ -29,6 +29,7 @@ import { supabase } from "@/lib/supabase";
 import AssistantNotificationBanner, {
   type AssistantNotification,
 } from "@/components/AssistantNotificationBanner";
+import { useClinicalRooms } from "@/lib/hooks/useClinicalRooms";
 
 const steps = ["Pack", "Patient", "Care", "Review"] as const;
 
@@ -41,6 +42,8 @@ type ManualPatientForm = {
 
 export default function GuidedPatientTraceStartPage() {
   const router = useRouter();
+  const { rooms: clinicalRooms, state: clinicalRoomsState } =
+    useClinicalRooms();
   const scannerRef = useRef<any>(null);
   const packInputRef = useRef<HTMLInputElement>(null);
   const scannerElementId = "trace-pack-qr-reader";
@@ -746,12 +749,47 @@ export default function GuidedPatientTraceStartPage() {
                 </select>
               </div>
 
-              <TouchInput
-                label="Treatment Room"
-                value={treatmentRoom}
-                onChange={setTreatmentRoom}
-                placeholder="Example: Room 2"
-              />
+              <div>
+                <label className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                  Clinical Room
+                </label>
+                {clinicalRoomsState === "ready" &&
+                clinicalRooms.length > 0 ? (
+                  <select
+                    value={treatmentRoom}
+                    onChange={(event) => setTreatmentRoom(event.target.value)}
+                    className="mt-3 min-h-14 w-full rounded-xl border-2 border-slate-300 bg-white px-4 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                  >
+                    <option value="">Select clinical room</option>
+                    {clinicalRooms.map((room) => (
+                      <option key={room.id} value={room.label}>
+                        {room.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : clinicalRoomsState === "loading" ? (
+                  <select
+                    disabled
+                    className="mt-3 min-h-14 w-full rounded-xl border-2 border-slate-300 bg-slate-100 px-4 text-xl font-bold text-slate-500"
+                  >
+                    <option>Loading clinical rooms...</option>
+                  </select>
+                ) : (
+                  <>
+                    <input
+                      value={treatmentRoom}
+                      onChange={(event) => setTreatmentRoom(event.target.value)}
+                      placeholder="Enter clinical room"
+                      className="mt-3 min-h-14 w-full rounded-xl border-2 border-amber-300 bg-white px-4 text-xl font-bold focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-100"
+                    />
+                    <p className="mt-2 text-sm font-medium text-amber-700">
+                      {clinicalRoomsState === "fallback"
+                        ? "Configured rooms unavailable. Manual room entry enabled."
+                        : "No active clinical rooms configured. Manual room entry enabled."}
+                    </p>
+                  </>
+                )}
+              </div>
 
               <TouchInput
                 label="Procedure"

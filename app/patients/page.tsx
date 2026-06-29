@@ -8,6 +8,7 @@ import {
   matchScannedPack,
 } from "@/lib/modules/traceability";
 import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
+import { useClinicalRooms } from "@/lib/hooks/useClinicalRooms";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
@@ -85,6 +86,8 @@ export default function PatientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedTraceId = searchParams.get("traceId");
+  const { rooms: clinicalRooms, state: clinicalRoomsState } =
+    useClinicalRooms();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
@@ -794,15 +797,49 @@ export default function PatientsPage() {
 
             <div>
               <label className="block text-sm font-medium mb-2">
-                Treatment Room
+                Clinical Room
               </label>
 
-              <input
-                value={form.treatmentRoom}
-                onChange={(e) => updateForm("treatmentRoom", e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                placeholder="Example: Room 2"
-              />
+              {clinicalRoomsState === "ready" &&
+              clinicalRooms.length > 0 ? (
+                <select
+                  value={form.treatmentRoom}
+                  onChange={(event) =>
+                    updateForm("treatmentRoom", event.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                >
+                  <option value="">Select clinical room</option>
+                  {clinicalRooms.map((room) => (
+                    <option key={room.id} value={room.label}>
+                      {room.label}
+                    </option>
+                  ))}
+                </select>
+              ) : clinicalRoomsState === "loading" ? (
+                <select
+                  disabled
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-500"
+                >
+                  <option>Loading clinical rooms...</option>
+                </select>
+              ) : (
+                <>
+                  <input
+                    value={form.treatmentRoom}
+                    onChange={(event) =>
+                      updateForm("treatmentRoom", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-amber-300 px-4 py-3"
+                    placeholder="Enter clinical room"
+                  />
+                  <p className="mt-2 text-xs text-amber-700">
+                    {clinicalRoomsState === "fallback"
+                      ? "Configured rooms unavailable. Manual room entry enabled."
+                      : "No active clinical rooms configured. Manual room entry enabled."}
+                  </p>
+                </>
+              )}
             </div>
 
             <div>
