@@ -14,6 +14,9 @@ import SummaryCard from '@/components/patients/SummaryCard';
 import PreviewRow from '@/components/patients/PreviewRow';
 import TraceabilityFilters from "@/components/patients/TraceabilityFilters";
 import TraceabilityRecordsList from "@/components/patients/TraceabilityRecordsList";
+import AddPatientModal, {
+  type NewPatientForm,
+} from "@/components/patients/AddPatientModal";
 import { buildExportFileName, escapeCsvValue } from "@/components/patients/exportUtils";
 import {
   formatDate,
@@ -70,6 +73,11 @@ type TraceFilters = {
 };
 
 const itemsPerPage = 5;
+const emptyNewPatientForm: NewPatientForm = {
+  fullName: "",
+  dateOfBirth: "",
+  externalId: "",
+};
 
 export default function PatientsPage() {
   const router = useRouter();
@@ -85,6 +93,11 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAddPatient, setShowAddPatient] = useState(false);
+  const [creatingPatient, setCreatingPatient] = useState(false);
+  const [newPatientForm, setNewPatientForm] = useState<NewPatientForm>(
+    emptyNewPatientForm,
+  );
 
   const [filters, setFilters] = useState<TraceFilters>({
     patientName: "",
@@ -284,6 +297,86 @@ export default function PatientsPage() {
   function selectPatient(patient: Patient) {
     updateForm("patientId", patient.id);
     setPatientSearch(patient.full_name);
+  }
+
+  function closeAddPatient() {
+    if (creatingPatient) {
+      return;
+    }
+
+    setShowAddPatient(false);
+    setNewPatientForm(emptyNewPatientForm);
+  }
+
+  async function createPatient() {
+    const fullName = newPatientForm.fullName.trim();
+    const externalId = newPatientForm.externalId.trim();
+
+    if (!fullName) {
+      toast.error("Patient name is required.");
+      return;
+    }
+
+    setCreatingPatient(true);
+
+    try {
+      if (externalId) {
+        const { data: existingPatient, error: duplicateCheckError } =
+          await supabase
+            .from("patients")
+            .select("id")
+            .eq("external_id", externalId)
+            .maybeSingle();
+
+        if (duplicateCheckError) {
+          throw duplicateCheckError;
+        }
+
+        if (existingPatient) {
+          toast.error("A patient with this external ID already exists.");
+          return;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("patients")
+        .insert([
+          {
+            full_name: fullName,
+            date_of_birth: newPatientForm.dateOfBirth || null,
+            external_id: externalId || null,
+            source_system: "Manual",
+          },
+        ])
+        .select("id, external_id, full_name, date_of_birth, source_system")
+        .single<Patient>();
+
+      if (error || !data) {
+        if (error?.code === "23505") {
+          throw new Error("A patient with this external ID already exists.");
+        }
+
+        throw error || new Error("Patient could not be created.");
+      }
+
+      setPatients((current) =>
+        [...current, data].sort((a, b) =>
+          a.full_name.localeCompare(b.full_name),
+        ),
+      );
+      selectPatient(data);
+      setShowAddPatient(false);
+      setNewPatientForm(emptyNewPatientForm);
+      toast.success("Patient created and selected.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Patient could not be created.";
+
+      toast.error(message);
+      console.error("Desktop patient creation error:", error);
+    } finally {
+      setCreatingPatient(false);
+    }
   }
 
   const selectedPatient = patients.find(
@@ -626,9 +719,18 @@ export default function PatientsPage() {
 
           <form className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Patient
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium text-slate-700">
+                  Patient
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPatient(true)}
+                  className="text-sm font-medium text-slate-700 hover:text-slate-950"
+                >
+                  + Add Patient
+                </button>
+              </div>
 
               <input
                 value={patientSearch}
@@ -822,6 +924,21 @@ export default function PatientsPage() {
         totalPages={totalPages}
         formatDateTime={formatDateTime}
       />
+
+      {showAddPatient ? (
+        <AddPatientModal
+          form={newPatientForm}
+          saving={creatingPatient}
+          onChange={(field, value) =>
+            setNewPatientForm((current) => ({
+              ...current,
+              [field]: value,
+            }))
+          }
+          onClose={closeAddPatient}
+          onSave={createPatient}
+        />
+      ) : null}
 
     </>
   );
