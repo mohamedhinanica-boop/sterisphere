@@ -755,18 +755,23 @@ export default function GuidedPatientTraceStartPage() {
                 </label>
                 {clinicalRoomsState === "ready" &&
                 clinicalRooms.length > 0 ? (
-                  <select
-                    value={treatmentRoom}
-                    onChange={(event) => setTreatmentRoom(event.target.value)}
-                    className="mt-3 min-h-14 w-full rounded-xl border-2 border-slate-300 bg-white px-4 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
-                  >
-                    <option value="">Select clinical room</option>
-                    {clinicalRooms.map((room) => (
-                      <option key={room.id} value={room.label}>
-                        {room.label}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={treatmentRoom}
+                      onChange={(event) => setTreatmentRoom(event.target.value)}
+                      className="mt-3 min-h-14 w-full rounded-xl border-2 border-slate-300 bg-white px-4 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                    >
+                      <option value="">Select clinical room</option>
+                      {clinicalRooms.map((room) => (
+                        <option key={room.id} value={room.label}>
+                          {room.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-sm font-medium text-slate-600">
+                      Treatment rooms (operatories) only.
+                    </p>
+                  </>
                 ) : clinicalRoomsState === "loading" ? (
                   <select
                     disabled

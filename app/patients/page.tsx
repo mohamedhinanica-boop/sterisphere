@@ -802,20 +802,25 @@ export default function PatientsPage() {
 
               {clinicalRoomsState === "ready" &&
               clinicalRooms.length > 0 ? (
-                <select
-                  value={form.treatmentRoom}
-                  onChange={(event) =>
-                    updateForm("treatmentRoom", event.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                >
-                  <option value="">Select clinical room</option>
-                  {clinicalRooms.map((room) => (
-                    <option key={room.id} value={room.label}>
-                      {room.label}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={form.treatmentRoom}
+                    onChange={(event) =>
+                      updateForm("treatmentRoom", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  >
+                    <option value="">Select clinical room</option>
+                    {clinicalRooms.map((room) => (
+                      <option key={room.id} value={room.label}>
+                        {room.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Only active treatment rooms (operatories) are shown.
+                  </p>
+                </>
               ) : clinicalRoomsState === "loading" ? (
                 <select
                   disabled
@@ -881,26 +886,32 @@ export default function PatientsPage() {
             <h3 className="font-semibold text-slate-900">
               Selected Patient Details
             </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Confirm the patient before saving this trace.
+            </p>
 
             {selectedPatient ? (
-              <dl className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-slate-50 px-4">
-                <PatientDetail
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <PreviewRow
                   label="Full name"
                   value={selectedPatient.full_name}
                 />
-                <PatientDetail
+                <PreviewRow
                   label="Date of birth"
                   value={formatDate(selectedPatient.date_of_birth)}
                 />
-                <PatientDetail
+                <PreviewRow
                   label="File / chart ID"
                   value={selectedPatient.external_id || "Not provided"}
                 />
-                <PatientDetail
+                <PreviewRow
                   label="Source system"
                   value={selectedPatient.source_system || "Not provided"}
                 />
-              </dl>
+                <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700 sm:col-span-2 xl:col-span-1 2xl:col-span-2">
+                  This patient is selected for the new trace.
+                </div>
+              </div>
             ) : (
               <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
                 Search for or add a patient to review their identity details
@@ -977,17 +988,6 @@ export default function PatientsPage() {
       ) : null}
 
     </>
-  );
-}
-
-function PatientDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="py-3">
-      <dt className="text-xs font-medium uppercase text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium text-slate-900">
-        {value}
-      </dd>
-    </div>
   );
 }
 
