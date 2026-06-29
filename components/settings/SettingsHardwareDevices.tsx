@@ -5,10 +5,13 @@ import {
   Activity,
   Cpu,
   Link2,
+  ScanBarcode,
   Search,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { Panel } from "@/components/settings";
+import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
 import {
   HARDWARE_DEVICE_HEALTH_CLASS_NAMES,
   HARDWARE_DEVICE_STATUS_CLASS_NAMES,
@@ -26,6 +29,11 @@ import {
 import { supabase } from "@/lib/supabase";
 
 type DeviceDataState = "loading" | "connected" | "planning";
+
+type CapturedScan = {
+  value: string;
+  timestamp: Date;
+};
 
 type RelatedName = { name: string } | Array<{ name: string }> | null;
 
@@ -173,6 +181,13 @@ const planningDevices: DisplayHardwareDevice[] = [
 export default function SettingsHardwareDevices() {
   const [devices, setDevices] = useState<DisplayHardwareDevice[]>([]);
   const [dataState, setDataState] = useState<DeviceDataState>("loading");
+  const [recentScans, setRecentScans] = useState<CapturedScan[]>([]);
+
+  useUsbHidScanner((value) => {
+    setRecentScans((current) =>
+      [{ value, timestamp: new Date() }, ...current].slice(0, 5),
+    );
+  });
 
   useEffect(() => {
     let isCurrent = true;
@@ -268,6 +283,11 @@ export default function SettingsHardwareDevices() {
         </p>
       </div>
 
+      <ScannerCaptureTestPanel
+        recentScans={recentScans}
+        onClear={() => setRecentScans([])}
+      />
+
       {dataState === "loading" ? (
         <div className="mt-6 border-l-4 border-slate-300 bg-slate-50 px-4 py-3">
           <p className="text-sm font-medium text-slate-900">
@@ -311,6 +331,112 @@ export default function SettingsHardwareDevices() {
         </div>
       ) : null}
     </Panel>
+  );
+}
+
+function ScannerCaptureTestPanel({
+  recentScans,
+  onClear,
+}: {
+  recentScans: CapturedScan[];
+  onClear: () => void;
+}) {
+  const lastScan = recentScans[0] ?? null;
+
+  return (
+    <section className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="rounded-lg border border-slate-200 bg-white p-2">
+            <ScanBarcode className="h-5 w-5 text-slate-700" />
+          </span>
+          <div>
+            <h3 className="font-semibold text-slate-900">
+              USB HID scanner capture test
+            </h3>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Diagnostic tool only. Scan a QR code or Code128 barcode while no
+              text field is focused. Captured values stay in this browser
+              session and are not saved or sent to a clinical workflow.
+            </p>
+          </div>
+        </div>
+
+        <span
+          className={`w-fit rounded-lg border px-3 py-2 text-sm font-medium ${
+            lastScan
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-slate-200 bg-white text-slate-600"
+          }`}
+        >
+          {lastScan ? "Scan received" : "Waiting for scan"}
+        </span>
+      </div>
+
+      <dl className="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-3">
+        <div className="bg-white p-3 sm:col-span-3">
+          <dt className="text-xs font-medium uppercase text-slate-500">
+            Last scan value
+          </dt>
+          <dd className="mt-1 min-h-6 break-all font-mono text-sm font-medium text-slate-900">
+            {lastScan?.value || "No scan captured"}
+          </dd>
+        </div>
+        <div className="bg-white p-3">
+          <dt className="text-xs font-medium uppercase text-slate-500">
+            Scan length
+          </dt>
+          <dd className="mt-1 text-sm font-medium text-slate-900">
+            {lastScan ? lastScan.value.length : "—"}
+          </dd>
+        </div>
+        <div className="bg-white p-3 sm:col-span-2">
+          <dt className="text-xs font-medium uppercase text-slate-500">
+            Timestamp
+          </dt>
+          <dd className="mt-1 text-sm font-medium text-slate-900">
+            {lastScan ? lastScan.timestamp.toLocaleString() : "—"}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-slate-900">
+          Recent scan history
+        </h4>
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={recentScans.length === 0}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Trash2 className="h-4 w-4" />
+          Clear
+        </button>
+      </div>
+
+      {recentScans.length > 0 ? (
+        <ol className="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+          {recentScans.map((scan, index) => (
+            <li
+              key={`${scan.timestamp.getTime()}-${index}`}
+              className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[1fr_auto]"
+            >
+              <span className="break-all font-mono text-slate-900">
+                {scan.value}
+              </span>
+              <span className="text-xs text-slate-500 sm:text-sm">
+                {scan.timestamp.toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
+          No scans captured in this session.
+        </p>
+      )}
+    </section>
   );
 }
 
