@@ -7,6 +7,8 @@ import toast from "react-hot-toast";
 import SteriAssistantWidget from "./SteriAssistantWidget";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
+import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
+import { getScanIntent } from "@/lib/modules/scanIntent";
 
 const navItems = [
   {
@@ -74,6 +76,57 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     expiringSoonPacks: 0,
     availablePacks: 0,
   });
+
+  useUsbHidScanner(
+    (scannedValue) => {
+      const intent = getScanIntent(scannedValue);
+
+      if (intent.type !== "pack_trace_candidate") {
+        return;
+      }
+
+      const toastId = `global-pack-scan:${intent.normalizedValue}`;
+
+      toast.custom(
+        (currentToast) => (
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">
+              Pack detected: {intent.normalizedValue}. Open Patient
+              Traceability?
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => toast.dismiss(currentToast.id)}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.dismiss(currentToast.id);
+                  router.push(
+                    `/patients?scan=${encodeURIComponent(intent.normalizedValue)}`,
+                  );
+                }}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              >
+                Open Patient Traceability
+              </button>
+            </div>
+          </div>
+        ),
+        {
+          id: toastId,
+          duration: 10000,
+        },
+      );
+    },
+    {
+      enabled: !isLoginPage && pathname !== "/patients",
+    },
+  );
 
   useEffect(() => {
     async function loadUser() {

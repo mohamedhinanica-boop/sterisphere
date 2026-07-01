@@ -1,3 +1,5 @@
+import { normalizeScannedValue } from "@/lib/modules/scanIntent";
+
 export type ScannablePack = {
   pack_number: string;
 };
@@ -15,7 +17,7 @@ export type PackScanMatchResult<T extends ScannablePack> =
     };
 
 export function normalizeScannedPackValue(value: string): string {
-  return value.trim();
+  return normalizeScannedValue(value);
 }
 
 export function matchScannedPack<T extends ScannablePack>(
@@ -32,11 +34,9 @@ export function matchScannedPack<T extends ScannablePack>(
     };
   }
 
-  const normalizedLookupValue = normalizedValue.toLocaleUpperCase();
   const pack = usablePacks.find(
     (candidate) =>
-      normalizeScannedPackValue(candidate.pack_number).toLocaleUpperCase() ===
-      normalizedLookupValue,
+      normalizeScannedPackValue(candidate.pack_number) === normalizedValue,
   );
 
   if (!pack) {

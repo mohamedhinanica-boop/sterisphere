@@ -9,7 +9,7 @@ import {
 } from "@/lib/modules/traceability";
 import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
 import { useClinicalRooms } from "@/lib/hooks/useClinicalRooms";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import SummaryCard from '@/components/patients/SummaryCard';
@@ -86,11 +86,13 @@ export default function PatientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedTraceId = searchParams.get("traceId");
+  const scannedPackParam = searchParams.get("scan");
   const { rooms: clinicalRooms, state: clinicalRoomsState } =
     useClinicalRooms();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [packs, setPacks] = useState<Pack[]>([]);
+  const [packsLoaded, setPacksLoaded] = useState(false);
   const [traces, setTraces] = useState<PatientTrace[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [patientSearch, setPatientSearch] = useState("");
@@ -103,6 +105,7 @@ export default function PatientsPage() {
   const [newPatientForm, setNewPatientForm] = useState<NewPatientForm>(
     emptyNewPatientForm,
   );
+  const processedScanParamRef = useRef<string | null>(null);
 
   const [filters, setFilters] = useState<TraceFilters>({
     patientName: "",
@@ -141,6 +144,27 @@ export default function PatientsPage() {
     fetchTraces();
     fetchProviders();
   }, []);
+
+  useEffect(() => {
+    if (
+      !packsLoaded ||
+      !scannedPackParam ||
+      processedScanParamRef.current === scannedPackParam
+    ) {
+      return;
+    }
+
+    processedScanParamRef.current = scannedPackParam;
+    handlePackScan(scannedPackParam);
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    nextSearchParams.delete("scan");
+    const nextQuery = nextSearchParams.toString();
+
+    router.replace(nextQuery ? `/patients?${nextQuery}` : "/patients", {
+      scroll: false,
+    });
+  }, [packs, packsLoaded, router, scannedPackParam, searchParams]);
 
  useEffect(() => {
   if (searchParams.get("today") !== "true") return;
@@ -189,11 +213,13 @@ export default function PatientsPage() {
     if (packError) {
       toast.error("Error loading available packs.");
       console.error(packError);
+      setPacksLoaded(true);
       return;
     }
 
     if (!packData || packData.length === 0) {
       setPacks([]);
+      setPacksLoaded(true);
       return;
     }
 
@@ -209,6 +235,7 @@ export default function PatientsPage() {
     if (cycleError) {
       toast.error("Error validating cycle status for packs.");
       console.error(cycleError);
+      setPacksLoaded(true);
       return;
     }
 
@@ -229,6 +256,7 @@ export default function PatientsPage() {
     if (traceError) {
       toast.error("Error validating used packs.");
       console.error(traceError);
+      setPacksLoaded(true);
       return;
     }
 
@@ -243,6 +271,7 @@ export default function PatientsPage() {
     );
 
     setPacks(usablePacks);
+    setPacksLoaded(true);
   }
 
   async function fetchTraces() {
