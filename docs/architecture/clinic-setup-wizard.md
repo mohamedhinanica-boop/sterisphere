@@ -173,6 +173,28 @@ Examples:
 
 Workstations become the source of truth for room selection throughout SteriSphere.
 
+The setup experience automatically generates a local workstation draft from
+room quantities supplied by the deployment technician. Reception desks,
+treatment rooms, sterilization rooms, consultation rooms, X-ray rooms,
+laboratories, and storage rooms each produce predictable workstation names,
+types, and default capability suggestions. Increasing or reducing a quantity
+updates the draft immediately; there is no separate generation action.
+
+The live preview is intentionally reviewable. Deployment staff can see the
+effect of every layout change as it happens and can rename generated
+workstations locally without affecting operational workstation records. This
+phase does not persist data or create Clinical Workstations.
+
+The workstation generator is desktop-first because deployment technicians need
+configuration controls and the resulting draft visible side by side. On
+tablets, the same controls and preview collapse into one responsive column
+without changing the generation behavior.
+
+Future Steri AI recommendations may use the completed Clinic Profile and clinic
+intake information to suggest an initial room mix. Recommendations must remain
+transparent, editable, and subject to technician review; they do not replace
+the live preview or automatically create operational configuration.
+
 ---
 
 # Step 6 — Clinic Agents

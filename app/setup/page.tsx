@@ -9,9 +9,13 @@ import {
   Clock3,
   ImageIcon,
   MapPin,
+  Minus,
+  Monitor,
   Phone,
+  Plus,
   Rocket,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import {
   CLINIC_COUNTRIES,
@@ -61,8 +65,110 @@ const setupJourney = [
   "Go live",
 ] as const;
 
+type WorkstationCategory =
+  | "reception"
+  | "treatment"
+  | "sterilization"
+  | "consultation"
+  | "xray"
+  | "laboratory"
+  | "storage";
+
+type WorkstationQuantities = Record<WorkstationCategory, number>;
+
+interface WorkstationCategoryDefinition {
+  id: WorkstationCategory;
+  title: string;
+  description: string;
+  type: string;
+  singularName: string;
+  capabilities: readonly string[];
+  alwaysNumbered?: boolean;
+}
+
+const workstationCategories: readonly WorkstationCategoryDefinition[] = [
+  {
+    id: "reception",
+    title: "Reception Desks",
+    description: "Front-desk stations for intake and clinic coordination.",
+    type: "Reception",
+    singularName: "Reception",
+    capabilities: ["Computer"],
+  },
+  {
+    id: "treatment",
+    title: "Treatment Rooms",
+    description: "Operatories where patient treatment and traceability occur.",
+    type: "Operatory",
+    singularName: "Operatory",
+    capabilities: ["Computer", "USB Scanner", "Camera"],
+    alwaysNumbered: true,
+  },
+  {
+    id: "sterilization",
+    title: "Sterilization Rooms",
+    description: "Processing areas for sterilization and pack workflows.",
+    type: "Sterilization",
+    singularName: "Sterilization Room",
+    capabilities: [
+      "Computer",
+      "USB Scanner",
+      "Printer",
+      "Camera",
+      "Sterilizer",
+    ],
+  },
+  {
+    id: "consultation",
+    title: "Consultation Rooms",
+    description: "Private spaces for patient discussions and planning.",
+    type: "Consultation",
+    singularName: "Consultation Room",
+    capabilities: ["Computer", "Camera"],
+  },
+  {
+    id: "xray",
+    title: "X-Ray Rooms",
+    description: "Imaging rooms used during diagnostic workflows.",
+    type: "X-Ray",
+    singularName: "X-Ray Room",
+    capabilities: ["Computer", "Camera"],
+  },
+  {
+    id: "laboratory",
+    title: "Laboratories",
+    description: "Clinical lab spaces for scanning and case preparation.",
+    type: "Laboratory",
+    singularName: "Laboratory",
+    capabilities: ["Computer", "USB Scanner"],
+  },
+  {
+    id: "storage",
+    title: "Storage Rooms",
+    description: "Inventory locations for supplies and prepared packs.",
+    type: "Storage",
+    singularName: "Storage Room",
+    capabilities: ["Computer", "USB Scanner"],
+  },
+] as const;
+
+const recommendedWorkstationQuantities: WorkstationQuantities = {
+  reception: 1,
+  treatment: 6,
+  sterilization: 1,
+  consultation: 0,
+  xray: 0,
+  laboratory: 0,
+  storage: 0,
+};
+
 export default function ClinicSetupPage() {
   const [setupState, setSetupState] = useState(createSetupState);
+  const [workstationQuantities, setWorkstationQuantities] =
+    useState<WorkstationQuantities>(recommendedWorkstationQuantities);
+  const [workstationNames, setWorkstationNames] = useState<
+    Record<string, string>
+  >({});
   const [touchedProfileFields, setTouchedProfileFields] = useState<
     Partial<Record<ClinicProfileField, boolean>>
   >({});
@@ -72,6 +178,7 @@ export default function ClinicSetupPage() {
   const isClinicProfile =
     setupState.currentStep === SetupStep.CLINIC_PROFILE;
   const isWorkstations = setupState.currentStep === SetupStep.WORKSTATIONS;
+  const isProviders = setupState.currentStep === SetupStep.PROVIDERS;
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
@@ -104,7 +211,37 @@ export default function ClinicSetupPage() {
   }
 
   function goNext() {
-    setSetupState((current) => advanceFromClinicProfile(current));
+    if (isClinicProfile) {
+      setSetupState((current) => advanceFromClinicProfile(current));
+      return;
+    }
+
+    if (isWorkstations && workstationQuantities.treatment > 0) {
+      setSetupState((current) =>
+        nextStep({
+          ...current,
+          completedSteps: current.completedSteps.includes(
+            SetupStep.WORKSTATIONS,
+          )
+            ? current.completedSteps
+            : [...current.completedSteps, SetupStep.WORKSTATIONS],
+        }),
+      );
+    }
+  }
+
+  function updateWorkstationQuantity(
+    category: WorkstationCategory,
+    adjustment: -1 | 1,
+  ) {
+    setWorkstationQuantities((current) => ({
+      ...current,
+      [category]: Math.max(0, current[category] + adjustment),
+    }));
+  }
+
+  function updateWorkstationName(id: string, name: string) {
+    setWorkstationNames((current) => ({ ...current, [id]: name }));
   }
 
   return (
@@ -170,10 +307,19 @@ export default function ClinicSetupPage() {
           )}
 
           {isWorkstations && (
+            <WorkstationsStep
+              quantities={workstationQuantities}
+              names={workstationNames}
+              onQuantityChange={updateWorkstationQuantity}
+              onNameChange={updateWorkstationName}
+            />
+          )}
+
+          {isProviders && (
             <FutureStepPlaceholder
-              stepNumber={3}
-              title="Workstations"
-              phase="8.4"
+              stepNumber={4}
+              title="Providers"
+              phase="8.5"
             />
           )}
 
@@ -191,7 +337,11 @@ export default function ClinicSetupPage() {
             <button
               type="button"
               onClick={goNext}
-              disabled={!isClinicProfile || !clinicProfileValid}
+              disabled={
+                (isClinicProfile && !clinicProfileValid) ||
+                (isWorkstations && workstationQuantities.treatment === 0) ||
+                (!isClinicProfile && !isWorkstations)
+              }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
               Next
@@ -201,6 +351,254 @@ export default function ClinicSetupPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function WorkstationsStep({
+  quantities,
+  names,
+  onQuantityChange,
+  onNameChange,
+}: {
+  quantities: WorkstationQuantities;
+  names: Record<string, string>;
+  onQuantityChange: (
+    category: WorkstationCategory,
+    adjustment: -1 | 1,
+  ) => void;
+  onNameChange: (id: string, name: string) => void;
+}) {
+  const workstations = workstationCategories.flatMap((category) =>
+    Array.from({ length: quantities[category.id] }, (_, index) => {
+      const id = `${category.id}-${index + 1}`;
+      const defaultName =
+        category.alwaysNumbered || index > 0
+          ? `${category.singularName} ${index + 1}`
+          : category.singularName;
+
+      return {
+        id,
+        name: names[id] ?? defaultName,
+        type: category.type,
+        capabilities: category.capabilities,
+      };
+    }),
+  );
+
+  return (
+    <div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Step 3 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-950">
+          Intelligent Workstation Generator
+        </h2>
+        <p className="mt-2 max-w-3xl text-base text-slate-600">
+          Describe the clinic layout and review the workstation draft as
+          SteriSphere builds it in real time.
+        </p>
+      </div>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(460px,1.2fr)]">
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-slate-950">
+                Clinic layout
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Adjust each room count. The draft updates automatically.
+              </p>
+            </div>
+            <div className="space-y-3">
+              {workstationCategories.map((category) => (
+                <QuantityCard
+                  key={category.id}
+                  category={category}
+                  quantity={quantities[category.id]}
+                  onChange={(adjustment) =>
+                    onQuantityChange(category.id, adjustment)
+                  }
+                />
+              ))}
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="font-bold text-blue-950">
+                  Steri AI Recommendation
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-blue-900">
+                  Based on your clinic profile, SteriSphere recommends:
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-blue-950">
+                  <li>• 1 Reception Desk</li>
+                  <li>• 1 Sterilization Room</li>
+                  <li>• 6 Treatment Rooms</li>
+                </ul>
+                <p className="mt-3 text-xs text-blue-700">
+                  Placeholder guidance for deployment planning.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-950">
+                Live workstation preview
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                {workstations.length}{" "}
+                {workstations.length === 1 ? "workstation" : "workstations"}{" "}
+                in this local draft
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Live
+            </span>
+          </div>
+
+          {workstations.length > 0 ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              {workstations.map((workstation) => (
+                <WorkstationPreviewCard
+                  key={workstation.id}
+                  workstation={workstation}
+                  onNameChange={(name) =>
+                    onNameChange(workstation.id, name)
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <Monitor className="h-8 w-8 text-slate-400" />
+              <p className="mt-3 font-semibold text-slate-700">
+                No workstations in the draft
+              </p>
+              <p className="mt-1 max-w-sm text-sm text-slate-500">
+                Add a room from the clinic layout to start generating the
+                preview.
+              </p>
+            </div>
+          )}
+
+          {quantities.treatment === 0 && (
+            <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+              Add at least one treatment room to continue.
+            </p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function QuantityCard({
+  category,
+  quantity,
+  onChange,
+}: {
+  category: WorkstationCategoryDefinition;
+  quantity: number;
+  onChange: (adjustment: -1 | 1) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="min-w-0">
+        <h4 className="font-semibold text-slate-900">{category.title}</h4>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          {category.description}
+        </p>
+      </div>
+      <div
+        className="flex shrink-0 items-center rounded-xl border border-slate-300 bg-white p-1"
+        aria-label={`${category.title} quantity`}
+      >
+        <button
+          type="button"
+          aria-label={`Remove one ${category.title}`}
+          disabled={quantity === 0}
+          onClick={() => onChange(-1)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <output
+          aria-live="polite"
+          className="min-w-9 text-center text-base font-bold text-slate-950"
+        >
+          {quantity}
+        </output>
+        <button
+          type="button"
+          aria-label={`Add one ${category.title}`}
+          onClick={() => onChange(1)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition hover:bg-blue-50"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WorkstationPreviewCard({
+  workstation,
+  onNameChange,
+}: {
+  workstation: {
+    id: string;
+    name: string;
+    type: string;
+    capabilities: readonly string[];
+  };
+  onNameChange: (name: string) => void;
+}) {
+  return (
+    <article className="rounded-xl border border-slate-200 p-4">
+      <label
+        htmlFor={`workstation-name-${workstation.id}`}
+        className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+      >
+        Workstation name
+      </label>
+      <input
+        id={`workstation-name-${workstation.id}`}
+        value={workstation.name}
+        onChange={(event) => onNameChange(event.target.value)}
+        className="mt-1 w-full rounded-lg border border-transparent bg-slate-50 px-3 py-2 text-base font-bold text-slate-950 outline-none transition hover:border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+      />
+      <p className="mt-2 text-xs font-semibold text-blue-700">
+        {workstation.type}
+      </p>
+      <div className="mt-4 border-t border-slate-100 pt-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+          Default capabilities
+        </p>
+        <ul className="mt-2 grid gap-1.5">
+          {workstation.capabilities.map((capability) => (
+            <li
+              key={capability}
+              className="flex items-center gap-2 text-sm text-slate-700"
+            >
+              <Check className="h-4 w-4 text-emerald-600" />
+              {capability}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
   );
 }
 
