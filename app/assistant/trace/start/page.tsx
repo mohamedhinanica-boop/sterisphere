@@ -37,6 +37,8 @@ import AssistantNotificationBanner, {
 import { useClinicalRooms } from "@/lib/hooks/useClinicalRooms";
 
 const steps = ["Pack", "Patient", "Care", "Review"] as const;
+const MAX_CAMERA_SCAN_LENGTH = 128;
+const UNKNOWN_CAMERA_SCAN_COOLDOWN_MS = 5000;
 
 type ManualPatientForm = {
   firstName: string;
@@ -51,6 +53,10 @@ export default function GuidedPatientTraceStartPage() {
     useClinicalRooms();
   const scannerRef = useRef<any>(null);
   const cameraScanProcessingRef = useRef(false);
+  const lastUnknownCameraScanRef = useRef<{
+    key: string;
+    notifiedAt: number;
+  } | null>(null);
   const packInputRef = useRef<HTMLInputElement>(null);
   const scannerElementId = "trace-pack-qr-reader";
 
@@ -244,6 +250,21 @@ export default function GuidedPatientTraceStartPage() {
     setStepIndex(nextStepIndex);
   }
 
+  function showCameraScanError(key: string, message: string) {
+    const now = Date.now();
+    const previousScan = lastUnknownCameraScanRef.current;
+
+    if (
+      previousScan?.key === key &&
+      now - previousScan.notifiedAt < UNKNOWN_CAMERA_SCAN_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    lastUnknownCameraScanRef.current = { key, notifiedAt: now };
+    toast.error(message, { id: "assistant-camera-scan-error" });
+  }
+
   async function startScanner() {
     setScannerLoading(true);
     cameraScanProcessingRef.current = false;
@@ -262,6 +283,16 @@ export default function GuidedPatientTraceStartPage() {
           }
 
           cameraScanProcessingRef.current = true;
+
+          if (decodedText.length > MAX_CAMERA_SCAN_LENGTH) {
+            await stopScanner();
+            showCameraScanError(
+              `oversized:${decodedText.length}:${decodedText.slice(0, 64)}`,
+              "Scanned code is too long to be a pack number.",
+            );
+            return;
+          }
+
           const scan = resolveScan({
             source: ScanSource.TABLET_CAMERA,
             rawValue: decodedText,
@@ -275,7 +306,10 @@ export default function GuidedPatientTraceStartPage() {
           await stopScanner();
 
           if (scan.intent !== ScanIntent.PACK_TRACE) {
-            toast.error("Scanned code is not recognized as a pack.");
+            showCameraScanError(
+              scan.normalizedValue,
+              "Scanned code is not recognized as a pack.",
+            );
             return;
           }
 
