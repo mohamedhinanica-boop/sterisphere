@@ -8,7 +8,11 @@ import SteriAssistantWidget from "./SteriAssistantWidget";
 import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
-import { getScanIntent } from "@/lib/modules/scanIntent";
+import {
+  resolveScan,
+  ScanIntent,
+  ScanSource,
+} from "@/lib/modules/scan-services";
 
 const navItems = [
   {
@@ -79,19 +83,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useUsbHidScanner(
     (scannedValue) => {
-      const intent = getScanIntent(scannedValue);
+      const scan = resolveScan({
+        source: ScanSource.USB_HID,
+        rawValue: scannedValue,
+      });
 
-      if (intent.type !== "pack_trace_candidate") {
+      if (scan.intent !== ScanIntent.PACK_TRACE) {
         return;
       }
 
-      const toastId = `global-pack-scan:${intent.normalizedValue}`;
+      const toastId = `global-pack-scan:${scan.normalizedValue}`;
 
       toast.custom(
         (currentToast) => (
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">
-              Pack detected: {intent.normalizedValue}. Open Patient
+              Pack detected: {scan.normalizedValue}. Open Patient
               Traceability?
             </p>
             <div className="mt-3 flex justify-end gap-2">
@@ -107,7 +114,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => {
                   toast.dismiss(currentToast.id);
                   router.push(
-                    `/patients?scan=${encodeURIComponent(intent.normalizedValue)}`,
+                    `/patients?scan=${encodeURIComponent(scan.normalizedValue)}`,
                   );
                 }}
                 className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"

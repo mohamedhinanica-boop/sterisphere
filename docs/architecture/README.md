@@ -6,6 +6,13 @@ These documents define the platform independently of implementation details.
 
 ## Current Architecture
 
+### Engineering Principles
+
+Defines the platform integrity, hardware independence, and unified scan
+interpretation principles.
+
+-> engineering-principles.md
+
 ### Clinical Events
 
 Defines the platform event model.

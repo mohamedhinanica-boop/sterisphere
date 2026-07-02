@@ -1,4 +1,4 @@
-import { normalizeScannedValue } from "@/lib/modules/scanIntent";
+import { normalizeScanValue } from "@/lib/modules/scan-services";
 
 export type ScannablePack = {
   pack_number: string;
@@ -17,7 +17,7 @@ export type PackScanMatchResult<T extends ScannablePack> =
     };
 
 export function normalizeScannedPackValue(value: string): string {
-  return normalizeScannedValue(value);
+  return normalizeScanValue(value);
 }
 
 export function matchScannedPack<T extends ScannablePack>(

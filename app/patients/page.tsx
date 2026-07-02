@@ -9,6 +9,11 @@ import {
 } from "@/lib/modules/traceability";
 import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
 import { useClinicalRooms } from "@/lib/hooks/useClinicalRooms";
+import {
+  resolveScan,
+  ScanSource,
+  type ResolvedScan,
+} from "@/lib/modules/scan-services";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
@@ -124,8 +129,8 @@ export default function PatientsPage() {
     procedure: "",
   });
 
-  function handlePackScan(scannedValue: string) {
-    const result = matchScannedPack(scannedValue, packs);
+  function handlePackScan(scan: ResolvedScan) {
+    const result = matchScannedPack(scan.normalizedValue, packs);
 
     if (!result.ok) {
       toast.error(result.error);
@@ -136,7 +141,14 @@ export default function PatientsPage() {
     toast.success(`Pack ${result.pack.pack_number} selected.`);
   }
 
-  useUsbHidScanner(handlePackScan);
+  useUsbHidScanner((scannedValue) => {
+    handlePackScan(
+      resolveScan({
+        source: ScanSource.USB_HID,
+        rawValue: scannedValue,
+      }),
+    );
+  });
 
   useEffect(() => {
     fetchPatients();
@@ -155,7 +167,12 @@ export default function PatientsPage() {
     }
 
     processedScanParamRef.current = scannedPackParam;
-    handlePackScan(scannedPackParam);
+    handlePackScan(
+      resolveScan({
+        source: ScanSource.SYSTEM,
+        rawValue: scannedPackParam,
+      }),
+    );
 
     const nextSearchParams = new URLSearchParams(searchParams.toString());
     nextSearchParams.delete("scan");

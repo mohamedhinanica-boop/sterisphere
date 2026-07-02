@@ -53,6 +53,19 @@ TCP/IP Printing
 
 Web Cameras
 
+Unified Scan Interpretation
+
+Business logic must never depend on hardware.
+
+Hardware produces scan data.
+
+Unified Scan Services produces clinical intent.
+
+Workflows consume clinical meaning.
+
+This boundary applies equally to USB scanners, tablet cameras, future Bluetooth
+scanners, and future AI vision sources.
+
 Workflow First
 
 Never choose hardware because it is famous.

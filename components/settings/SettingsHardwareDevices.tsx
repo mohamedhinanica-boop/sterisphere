@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Panel } from "@/components/settings";
 import { useUsbHidScanner } from "@/lib/hooks/useUsbHidScanner";
+import { resolveScan, ScanSource } from "@/lib/modules/scan-services";
 import {
   HARDWARE_DEVICE_HEALTH_CLASS_NAMES,
   HARDWARE_DEVICE_STATUS_CLASS_NAMES,
@@ -184,8 +185,13 @@ export default function SettingsHardwareDevices() {
   const [recentScans, setRecentScans] = useState<CapturedScan[]>([]);
 
   useUsbHidScanner((value) => {
+    const scan = resolveScan({
+      source: ScanSource.USB_HID,
+      rawValue: value,
+    });
+
     setRecentScans((current) =>
-      [{ value, timestamp: new Date() }, ...current].slice(0, 5),
+      [{ value: scan.rawValue, timestamp: new Date() }, ...current].slice(0, 5),
     );
   });
 
