@@ -78,6 +78,10 @@ Patient traceability belongs to the room where the sterile pack is used.
 
 Not where the scan happened.
 
+Configuration Before Operation
+
+A clinic should complete configuration before entering operational workflows.
+
 Configuration vs Deployment
 
 Deployment

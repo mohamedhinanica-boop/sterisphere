@@ -4,6 +4,16 @@ This folder contains the long-term architectural decisions that guide the SteriS
 
 These documents define the platform independently of implementation details.
 
+## Phase 7 Reference Set
+
+- [Phase 7 Summary](./phase-7-summary.md)
+- [Engineering Principles](./engineering-principles.md)
+- [Clinic Setup Wizard](./clinic-setup-wizard.md)
+- [Clinic Setup Module](../../lib/modules/clinic-setup/README.md)
+- [Clinic Agent Registration](./agent-registration.md)
+- [Unified Scan Services](../../lib/modules/scan-services/README.md)
+- [Unified Print Services](../../lib/modules/print-services/README.md)
+
 ## Current Architecture
 
 ### Engineering Principles
