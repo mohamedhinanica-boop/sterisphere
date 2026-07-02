@@ -21,9 +21,14 @@ import {
   SetupStep,
   advanceFromClinicProfile,
   createSetupState,
+  formatPhoneNumber,
+  formatPostalCode,
   getClinicRegions,
   isClinicProfileValid,
   nextStep,
+  normalizeClinicCode,
+  normalizeClinicProfileField,
+  normalizePhoneNumber,
   previousStep,
   updateClinicProfile,
   validateClinicProfile,
@@ -93,6 +98,11 @@ export default function ClinicSetupPage() {
     setTouchedProfileFields((current) => ({ ...current, [field]: true }));
   }
 
+  function finishProfileField(field: ClinicProfileField) {
+    setSetupState((current) => normalizeClinicProfileField(current, field));
+    touchProfileField(field);
+  }
+
   function goNext() {
     setSetupState((current) => advanceFromClinicProfile(current));
   }
@@ -155,7 +165,7 @@ export default function ClinicSetupPage() {
               errors={clinicProfileErrors}
               touchedFields={touchedProfileFields}
               onChange={updateProfile}
-              onBlur={touchProfileField}
+              onBlur={finishProfileField}
             />
           )}
 
@@ -255,7 +265,11 @@ function ClinicProfileStep({
               label="Clinic Code"
               value={profile.clinicCode}
               placeholder="Optional internal identifier"
-              onChange={(value) => onChange("clinicCode", value)}
+              error={visibleError("clinicCode")}
+              onChange={(value) =>
+                onChange("clinicCode", normalizeClinicCode(value))
+              }
+              onBlur={() => onBlur("clinicCode")}
             />
             <div>
               <FieldLabel htmlFor="clinic-logo">Clinic Logo</FieldLabel>
@@ -330,16 +344,30 @@ function ClinicProfileStep({
             <TextField
               id="clinic-phone"
               label="Phone"
-              value={profile.phone}
+              value={formatPhoneNumber(profile.phone, profile.country)}
               type="tel"
-              onChange={(value) => onChange("phone", value)}
+              placeholder={
+                profile.country === "CA" || profile.country === "US"
+                  ? "(514) 514-2026"
+                  : undefined
+              }
+              error={visibleError("phone")}
+              onChange={(value) =>
+                onChange(
+                  "phone",
+                  normalizePhoneNumber(value, profile.country),
+                )
+              }
+              onBlur={() => onBlur("phone")}
             />
             <TextField
               id="clinic-email"
               label="Email"
               value={profile.email}
               type="email"
+              error={visibleError("email")}
               onChange={(value) => onChange("email", value)}
+              onBlur={() => onBlur("email")}
             />
             <div className="md:col-span-2">
               <TextField
@@ -348,7 +376,9 @@ function ClinicProfileStep({
                 value={profile.website}
                 type="url"
                 placeholder="https://"
+                error={visibleError("website")}
                 onChange={(value) => onChange("website", value)}
+                onBlur={() => onBlur("website")}
               />
             </div>
           </div>
@@ -378,7 +408,15 @@ function ClinicProfileStep({
               id="clinic-postal-code"
               label="Postal Code"
               value={profile.postalCode}
-              onChange={(value) => onChange("postalCode", value)}
+              placeholder={profile.country === "CA" ? "H2T 5T4" : undefined}
+              error={visibleError("postalCode")}
+              onChange={(value) =>
+                onChange(
+                  "postalCode",
+                  formatPostalCode(value, profile.country),
+                )
+              }
+              onBlur={() => onBlur("postalCode")}
             />
           </div>
         </SetupCard>

@@ -113,6 +113,12 @@ Clinic Profile owns the deployment identity and regional context of the clinic.
 The initial implementation captures identity, locale, contact, and address
 details with local validation before the wizard can advance.
 
+Input quality is enforced locally before persistence: North American phone
+numbers use a normalized digit value with a familiar display format, websites
+gain a secure scheme when omitted, Canadian postal codes use the standard
+spacing and pattern, and optional email and clinic-code values are validated
+when supplied.
+
 Deployment begins with clinic identity because later configuration needs a
 stable clinic name, country, region, time zone, and primary language. In future
 phases this profile can drive suggested workstation generation, regional policy
