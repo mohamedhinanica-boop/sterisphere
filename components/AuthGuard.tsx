@@ -22,6 +22,7 @@ const routePermissions: Record<string, string[]> = {
   ],
   "/reports": ["super_admin", "admin", "doctor", "auditor"],
   "/investigation": ["super_admin", "admin", "doctor", "auditor"],
+  "/setup": ["super_admin"],
   "/settings": ["super_admin", "admin"],
   "/audit-logs": ["super_admin", "admin", "auditor"],
 };

@@ -34,6 +34,15 @@ Clinical Staff, Doctors, Auditors and standard Administrators must never have ac
 
 Once deployment has been completed, only operational settings appropriate to each role should remain configurable.
 
+The primary operator is SteriSphere deployment staff or a Super Admin, not
+daily clinic staff. Deployment follows a discovery meeting, clinic intake,
+technician-led platform configuration, hardware validation, staff training,
+and go-live.
+
+A future Clinic Intake Questionnaire may provide structured input to the
+wizard. The questionnaire remains a separate intake surface and does not
+replace Super Admin review or configuration validation.
+
 ---
 
 # Deployment Flow
