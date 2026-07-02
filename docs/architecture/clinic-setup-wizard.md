@@ -354,6 +354,27 @@ This separation protects the integrity of the clinical platform while allowing o
 
 ---
 
+# Steri AI Setup Companion
+
+Steri AI should eventually assist SteriSphere deployment staff and clinics
+using a supported self-service or remote onboarding path.
+
+During setup, Steri AI should:
+
+- Explain the purpose and effect of each setup step.
+- Provide clear examples of expected configuration.
+- Answer deployment and configuration questions.
+- Flag missing, conflicting, or inconsistent information.
+- Explain validation errors and suggest how to resolve them.
+- Offer deployment-readiness guidance before go-live.
+
+Steri AI is a companion, not a configuration authority. It must not override
+Super Admin decisions, silently change configuration, or advance the wizard on
+the user's behalf. Suggestions must remain visible, reviewable, and subject to
+explicit human confirmation.
+
+---
+
 # Future Vision
 
 Eventually the Setup Wizard should support:
