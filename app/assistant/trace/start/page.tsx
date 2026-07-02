@@ -25,6 +25,11 @@ import {
   type Provider,
   type ValidatedPack,
 } from "@/lib/modules/traceability";
+import {
+  resolveScan,
+  ScanIntent,
+  ScanSource,
+} from "@/lib/modules/scan-services";
 import { supabase } from "@/lib/supabase";
 import AssistantNotificationBanner, {
   type AssistantNotification,
@@ -45,6 +50,7 @@ export default function GuidedPatientTraceStartPage() {
   const { rooms: clinicalRooms, state: clinicalRoomsState } =
     useClinicalRooms();
   const scannerRef = useRef<any>(null);
+  const cameraScanProcessingRef = useRef(false);
   const packInputRef = useRef<HTMLInputElement>(null);
   const scannerElementId = "trace-pack-qr-reader";
 
@@ -240,6 +246,7 @@ export default function GuidedPatientTraceStartPage() {
 
   async function startScanner() {
     setScannerLoading(true);
+    cameraScanProcessingRef.current = false;
 
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
@@ -250,11 +257,29 @@ export default function GuidedPatientTraceStartPage() {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 240, height: 240 } },
         async (decodedText: string) => {
-          console.log("[GuidedTrace] QR decoded", {
-            inputPackNumber: decodedText,
+          if (cameraScanProcessingRef.current) {
+            return;
+          }
+
+          cameraScanProcessingRef.current = true;
+          const scan = resolveScan({
+            source: ScanSource.TABLET_CAMERA,
+            rawValue: decodedText,
           });
+
+          console.log("[GuidedTrace] QR decoded", {
+            inputPackNumber: scan.normalizedValue,
+            scanIntent: scan.intent,
+          });
+
           await stopScanner();
-          await validatePackNumber(decodedText);
+
+          if (scan.intent !== ScanIntent.PACK_TRACE) {
+            toast.error("Scanned code is not recognized as a pack.");
+            return;
+          }
+
+          await validatePackNumber(scan.normalizedValue);
         },
         undefined
       );
