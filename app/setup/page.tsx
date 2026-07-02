@@ -4,17 +4,33 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
+  Building2,
   Check,
   Clock3,
+  ImageIcon,
+  MapPin,
+  Phone,
   Rocket,
   ShieldCheck,
 } from "lucide-react";
 import {
+  CLINIC_COUNTRIES,
+  CLINIC_LANGUAGES,
+  CLINIC_TIMEZONES,
   SETUP_STEP_ORDER,
   SetupStep,
+  advanceFromClinicProfile,
   createSetupState,
+  getClinicRegions,
+  isClinicProfileValid,
   nextStep,
   previousStep,
+  updateClinicProfile,
+  validateClinicProfile,
+  type ClinicProfileErrors,
+  type ClinicProfileField,
+  type ClinicProfileOption,
+  type ClinicProfileSetup,
   type SetupStepId,
 } from "@/lib/modules/clinic-setup";
 import { useState } from "react";
@@ -42,11 +58,17 @@ const setupJourney = [
 
 export default function ClinicSetupPage() {
   const [setupState, setSetupState] = useState(createSetupState);
+  const [touchedProfileFields, setTouchedProfileFields] = useState<
+    Partial<Record<ClinicProfileField, boolean>>
+  >({});
 
   const currentStepIndex = SETUP_STEP_ORDER.indexOf(setupState.currentStep);
   const isWelcome = setupState.currentStep === SetupStep.WELCOME;
   const isClinicProfile =
     setupState.currentStep === SetupStep.CLINIC_PROFILE;
+  const isWorkstations = setupState.currentStep === SetupStep.WORKSTATIONS;
+  const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
+  const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
   function startSetup() {
     setSetupState((current) =>
@@ -61,6 +83,18 @@ export default function ClinicSetupPage() {
 
   function goBack() {
     setSetupState((current) => previousStep(current));
+  }
+
+  function updateProfile(field: ClinicProfileField, value: string) {
+    setSetupState((current) => updateClinicProfile(current, field, value));
+  }
+
+  function touchProfileField(field: ClinicProfileField) {
+    setTouchedProfileFields((current) => ({ ...current, [field]: true }));
+  }
+
+  function goNext() {
+    setSetupState((current) => advanceFromClinicProfile(current));
   }
 
   return (
@@ -116,20 +150,21 @@ export default function ClinicSetupPage() {
           {isWelcome && <WelcomeCard onStart={startSetup} />}
 
           {isClinicProfile && (
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
-                Step 2 of {SETUP_STEP_ORDER.length}
-              </p>
-              <h2 className="mt-3 text-3xl font-bold text-slate-950">
-                Clinic Profile
-              </h2>
-              <p className="mt-3 text-base text-slate-600">
-                Implementation begins in Phase 8.3.
-              </p>
-              <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                Clinic profile fields will be introduced in the next phase.
-              </div>
-            </div>
+            <ClinicProfileStep
+              profile={setupState.clinicProfile}
+              errors={clinicProfileErrors}
+              touchedFields={touchedProfileFields}
+              onChange={updateProfile}
+              onBlur={touchProfileField}
+            />
+          )}
+
+          {isWorkstations && (
+            <FutureStepPlaceholder
+              stepNumber={3}
+              title="Workstations"
+              phase="8.4"
+            />
           )}
 
           <div className="mt-5 flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -145,8 +180,9 @@ export default function ClinicSetupPage() {
 
             <button
               type="button"
-              disabled
-              className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-xl bg-slate-200 px-5 py-2 text-sm font-semibold text-slate-500"
+              onClick={goNext}
+              disabled={!isClinicProfile || !clinicProfileValid}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
               Next
               <ArrowRight className="h-4 w-4" />
@@ -155,6 +191,373 @@ export default function ClinicSetupPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function ClinicProfileStep({
+  profile,
+  errors,
+  touchedFields,
+  onChange,
+  onBlur,
+}: {
+  profile: ClinicProfileSetup;
+  errors: ClinicProfileErrors;
+  touchedFields: Partial<Record<ClinicProfileField, boolean>>;
+  onChange: (field: ClinicProfileField, value: string) => void;
+  onBlur: (field: ClinicProfileField) => void;
+}) {
+  const regions = getClinicRegions(profile.country);
+
+  function visibleError(field: ClinicProfileField) {
+    return touchedFields[field] ? errors[field] : undefined;
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Step 2 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-950">
+          Clinic Profile
+        </h2>
+        <p className="mt-2 max-w-3xl text-base text-slate-600">
+          Establish the clinic identity and regional context used throughout
+          deployment.
+        </p>
+      </div>
+
+      <div className="space-y-5">
+        <SetupCard
+          icon={Building2}
+          title="Clinic Identity"
+          description="Core identity, locale, and deployment defaults."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <TextField
+              id="clinic-name"
+              label="Clinic Name"
+              value={profile.clinicName}
+              required
+              error={visibleError("clinicName")}
+              onChange={(value) => onChange("clinicName", value)}
+              onBlur={() => onBlur("clinicName")}
+            />
+            <TextField
+              id="legal-company-name"
+              label="Legal Company Name"
+              value={profile.legalCompanyName}
+              onChange={(value) => onChange("legalCompanyName", value)}
+            />
+            <TextField
+              id="clinic-code"
+              label="Clinic Code"
+              value={profile.clinicCode}
+              placeholder="Optional internal identifier"
+              onChange={(value) => onChange("clinicCode", value)}
+            />
+            <div>
+              <FieldLabel htmlFor="clinic-logo">Clinic Logo</FieldLabel>
+              <button
+                id="clinic-logo"
+                type="button"
+                disabled
+                className="mt-2 flex min-h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 text-left text-sm text-slate-500"
+              >
+                <ImageIcon className="h-5 w-5" />
+                Logo upload will be available in a future phase.
+              </button>
+            </div>
+            <SelectField
+              id="clinic-country"
+              label="Country"
+              value={profile.country}
+              options={CLINIC_COUNTRIES}
+              placeholder="Select country"
+              required
+              error={visibleError("country")}
+              onChange={(value) => onChange("country", value)}
+              onBlur={() => onBlur("country")}
+            />
+            <SelectField
+              id="clinic-region"
+              label="Province / State"
+              value={profile.region}
+              options={regions}
+              placeholder={
+                profile.country
+                  ? "Select province or state"
+                  : "Select country first"
+              }
+              required
+              disabled={!profile.country}
+              error={visibleError("region")}
+              onChange={(value) => onChange("region", value)}
+              onBlur={() => onBlur("region")}
+            />
+            <SelectField
+              id="clinic-timezone"
+              label="Time Zone"
+              value={profile.timezone}
+              options={CLINIC_TIMEZONES}
+              placeholder="Select time zone"
+              required
+              error={visibleError("timezone")}
+              onChange={(value) => onChange("timezone", value)}
+              onBlur={() => onBlur("timezone")}
+            />
+            <SelectField
+              id="clinic-language"
+              label="Primary Language"
+              value={profile.primaryLanguage}
+              options={CLINIC_LANGUAGES}
+              placeholder="Select language"
+              required
+              error={visibleError("primaryLanguage")}
+              onChange={(value) => onChange("primaryLanguage", value)}
+              onBlur={() => onBlur("primaryLanguage")}
+            />
+          </div>
+        </SetupCard>
+
+        <SetupCard
+          icon={Phone}
+          title="Contact"
+          description="Primary public and deployment contact details."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <TextField
+              id="clinic-phone"
+              label="Phone"
+              value={profile.phone}
+              type="tel"
+              onChange={(value) => onChange("phone", value)}
+            />
+            <TextField
+              id="clinic-email"
+              label="Email"
+              value={profile.email}
+              type="email"
+              onChange={(value) => onChange("email", value)}
+            />
+            <div className="md:col-span-2">
+              <TextField
+                id="clinic-website"
+                label="Website"
+                value={profile.website}
+                type="url"
+                placeholder="https://"
+                onChange={(value) => onChange("website", value)}
+              />
+            </div>
+          </div>
+        </SetupCard>
+
+        <SetupCard
+          icon={MapPin}
+          title="Address"
+          description="Physical clinic location used during deployment."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <TextField
+                id="clinic-street"
+                label="Street"
+                value={profile.street}
+                onChange={(value) => onChange("street", value)}
+              />
+            </div>
+            <TextField
+              id="clinic-city"
+              label="City"
+              value={profile.city}
+              onChange={(value) => onChange("city", value)}
+            />
+            <TextField
+              id="clinic-postal-code"
+              label="Postal Code"
+              value={profile.postalCode}
+              onChange={(value) => onChange("postalCode", value)}
+            />
+          </div>
+        </SetupCard>
+      </div>
+    </div>
+  );
+}
+
+function FutureStepPlaceholder({
+  stepNumber,
+  title,
+  phase,
+}: {
+  stepNumber: number;
+  title: string;
+  phase: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+        Step {stepNumber} of {SETUP_STEP_ORDER.length}
+      </p>
+      <h2 className="mt-3 text-3xl font-bold text-slate-950">{title}</h2>
+      <p className="mt-3 text-base text-slate-600">
+        Implementation begins in Phase {phase}.
+      </p>
+    </div>
+  );
+}
+
+function SetupCard({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: typeof Building2;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex items-start gap-3 border-b border-slate-100 pb-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="text-lg font-bold text-slate-950">{title}</h3>
+          <p className="mt-1 text-sm text-slate-600">{description}</p>
+        </div>
+      </div>
+      <div className="pt-5">{children}</div>
+    </section>
+  );
+}
+
+function TextField({
+  id,
+  label,
+  value,
+  type = "text",
+  placeholder,
+  required = false,
+  error,
+  onChange,
+  onBlur,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  type?: "text" | "email" | "tel" | "url";
+  placeholder?: string;
+  required?: boolean;
+  error?: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+}) {
+  return (
+    <div>
+      <FieldLabel htmlFor={id} required={required}>
+        {label}
+      </FieldLabel>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        className={`mt-2 min-h-12 w-full rounded-xl border px-4 text-sm text-slate-950 outline-none transition focus:ring-4 ${
+          error
+            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+            : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+        }`}
+      />
+      {error && (
+        <p id={`${id}-error`} className="mt-2 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  value,
+  options,
+  placeholder,
+  required = false,
+  disabled = false,
+  error,
+  onChange,
+  onBlur,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  options: readonly ClinicProfileOption[];
+  placeholder: string;
+  required?: boolean;
+  disabled?: boolean;
+  error?: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <div>
+      <FieldLabel htmlFor={id} required={required}>
+        {label}
+      </FieldLabel>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        className={`mt-2 min-h-12 w-full rounded-xl border bg-white px-4 text-sm text-slate-950 outline-none transition focus:ring-4 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
+          error
+            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+            : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+        }`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p id={`${id}-error`} className="mt-2 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FieldLabel({
+  htmlFor,
+  required = false,
+  children,
+}: {
+  htmlFor: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700">
+      {children}
+      {required && <span className="ml-1 text-red-600">*</span>}
+    </label>
   );
 }
 

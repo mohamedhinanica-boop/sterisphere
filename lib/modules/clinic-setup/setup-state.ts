@@ -3,6 +3,10 @@ import {
   SetupStep,
   type SetupStepId,
 } from "./setup-steps";
+import {
+  EMPTY_CLINIC_PROFILE,
+  type ClinicProfileSetup,
+} from "./setup-types";
 
 export interface SetupState {
   currentStep: SetupStepId;
@@ -11,6 +15,7 @@ export interface SetupState {
   startedAt: string | null;
   completedAt: string | null;
   version: number;
+  clinicProfile: ClinicProfileSetup;
 }
 
 export function createSetupState({
@@ -27,6 +32,7 @@ export function createSetupState({
     startedAt,
     completedAt: null,
     version,
+    clinicProfile: { ...EMPTY_CLINIC_PROFILE },
   };
 }
 

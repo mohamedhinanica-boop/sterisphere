@@ -109,6 +109,16 @@ Configure:
 - Working Days
 - Working Hours
 
+Clinic Profile owns the deployment identity and regional context of the clinic.
+The initial implementation captures identity, locale, contact, and address
+details with local validation before the wizard can advance.
+
+Deployment begins with clinic identity because later configuration needs a
+stable clinic name, country, region, time zone, and primary language. In future
+phases this profile can drive suggested workstation generation, regional policy
+defaults, language defaults, and repeatable deployment automation. It must not
+change existing clinic data until an explicit persistence phase is introduced.
+
 ---
 
 # Step 2 — Users

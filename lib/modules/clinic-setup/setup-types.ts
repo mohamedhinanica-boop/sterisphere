@@ -10,16 +10,37 @@ export type SetupCompletionStatus =
 
 export interface ClinicProfileSetup {
   clinicName: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  region: string;
-  postalCode: string;
+  legalCompanyName: string;
+  clinicCode: string;
+  logoUrl: string | null;
   country: string;
-  phone?: string;
-  email?: string;
+  region: string;
   timezone: string;
+  primaryLanguage: string;
+  phone: string;
+  email: string;
+  website: string;
+  street: string;
+  city: string;
+  postalCode: string;
 }
+
+export const EMPTY_CLINIC_PROFILE: ClinicProfileSetup = {
+  clinicName: "",
+  legalCompanyName: "",
+  clinicCode: "",
+  logoUrl: null,
+  country: "",
+  region: "",
+  timezone: "",
+  primaryLanguage: "",
+  phone: "",
+  email: "",
+  website: "",
+  street: "",
+  city: "",
+  postalCode: "",
+};
 
 export interface ClinicalWorkstationSetup {
   setupId: string;
