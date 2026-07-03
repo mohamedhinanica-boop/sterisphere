@@ -292,70 +292,32 @@ function generateWorkstationDraft(
   );
 }
 
-interface DeploymentRecommendation {
+interface ProviderRecommendation {
   title: string;
-  value?: string;
   explanation: string;
 }
 
-interface DeploymentGuidance {
-  readiness: "Recommended" | "Action required";
-  capacity: "Low–Medium" | "Medium–High" | "High";
-  throughput: "20–40 packs" | "40–60 packs" | "60–90 packs";
-  recommendations: DeploymentRecommendation[];
+interface ProviderGuidance {
+  recommendations: ProviderRecommendation[];
 }
 
-function getDeploymentGuidance(
-  clinicType: string,
-  rooms: WorkstationQuantities,
-): DeploymentGuidance {
-  const highInstrumentDemand =
-    clinicType === "Oral Surgery" || clinicType === "Multi-specialty";
-  const demandScore =
-    rooms.treatment + rooms.laboratory + (highInstrumentDemand ? 2 : 0);
-  const capacity =
-    demandScore > 8
-      ? "High"
-      : demandScore > 3
-        ? "Medium–High"
-        : "Low–Medium";
-  const throughput =
-    demandScore > 8
-      ? "60–90 packs"
-      : demandScore > 3
-        ? "40–60 packs"
-        : "20–40 packs";
-  const sterilizationRoomCount = Math.max(1, rooms.sterilization);
-
+function getProviderGuidance(): ProviderGuidance {
   return {
-    readiness:
-      rooms.sterilization > 0 ? "Recommended" : "Action required",
-    capacity,
-    throughput,
     recommendations: [
       {
-        title: `${sterilizationRoomCount} Dedicated Sterilization ${
-          sterilizationRoomCount === 1 ? "Room" : "Rooms"
-        }`,
+        title: "Traceability Attribution",
         explanation:
-          "Improves workflow separation, processing control, and compliance.",
+          "Provider identity connects clinical activity to the correct traceability context.",
       },
       {
-        title: "Dedicated Pack Preparation Area",
+        title: "Reporting and Audit Context",
         explanation:
-          "Keeps inspection, assembly, and packaging workflows clearly separated.",
+          "Provider assignments improve the clarity of reports and audit review.",
       },
       {
-        title: "Recommended Pack Expiration Policy",
-        value: "365 Days",
+        title: "Optional Preferred Workstation",
         explanation:
-          "Provides a clear local placeholder for deployment policy review.",
-      },
-      {
-        title: "Sterilization Capacity Planning",
-        value: capacity,
-        explanation:
-          "Supports a deployment review of expected instrument-processing demand.",
+          "A preferred workstation can simplify setup without restricting providers who rotate between rooms.",
       },
     ],
   };
@@ -659,10 +621,7 @@ function ProvidersStep({
       };
     }),
   );
-  const deploymentGuidance = getDeploymentGuidance(
-    clinicType,
-    workstationQuantities,
-  );
+  const providerGuidance = getProviderGuidance();
 
   return (
     <div>
@@ -744,53 +703,18 @@ function ProvidersStep({
                   Steri AI Recommendation
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-blue-900">
-                  Local placeholder guidance based on the current clinic and
-                  room draft. It does not change your configuration.
+                  Local placeholder guidance for provider setup. It does not
+                  change your configuration.
                 </p>
               </div>
             </div>
-
-            <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-white/70 p-3">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Clinic Profile
-                </dt>
-                <dd className="mt-1 font-bold text-blue-950">
-                  {clinicType || "Not selected"}
-                </dd>
-              </div>
-              <div className="rounded-xl bg-white/70 p-3">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Treatment Rooms
-                </dt>
-                <dd className="mt-1 font-bold text-blue-950">
-                  {workstationQuantities.treatment}
-                </dd>
-              </div>
-              <div className="rounded-xl bg-white/70 p-3">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Deployment Readiness
-                </dt>
-                <dd className="mt-1 font-bold text-blue-950">
-                  {deploymentGuidance.readiness}
-                </dd>
-              </div>
-              <div className="rounded-xl bg-white/70 p-3">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Estimated Daily Capacity
-                </dt>
-                <dd className="mt-1 font-bold text-blue-950">
-                  {deploymentGuidance.capacity}
-                </dd>
-              </div>
-            </dl>
 
             {workstationQuantities.sterilization === 0 && (
               <div
                 role="alert"
                 className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
               >
-                <p className="text-sm font-bold">Warning</p>
+                <p className="text-sm font-bold">General readiness note</p>
                 <p className="mt-1 text-sm leading-6">
                   No Sterilization Room has been configured. SteriSphere
                   strongly recommends a dedicated sterilization area before
@@ -800,7 +724,7 @@ function ProvidersStep({
             )}
 
             <ul className="mt-5 space-y-3">
-              {deploymentGuidance.recommendations.map((recommendation) => (
+              {providerGuidance.recommendations.map((recommendation) => (
                 <li
                   key={recommendation.title}
                   className="flex gap-3 rounded-xl bg-white/70 p-3"
@@ -809,11 +733,6 @@ function ProvidersStep({
                   <div>
                     <p className="text-sm font-bold text-blue-950">
                       {recommendation.title}
-                      {recommendation.value && (
-                        <span className="ml-2 font-semibold text-blue-700">
-                          {recommendation.value}
-                        </span>
-                      )}
                     </p>
                     <p className="mt-1 text-xs leading-5 text-blue-800">
                       {recommendation.explanation}
@@ -821,21 +740,6 @@ function ProvidersStep({
                   </div>
                 </li>
               ))}
-              <li className="flex gap-3 rounded-xl bg-white/70 p-3">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                <div>
-                  <p className="text-sm font-bold text-blue-950">
-                    Estimated Daily Pack Throughput{" "}
-                    <span className="ml-2 font-semibold text-blue-700">
-                      {deploymentGuidance.throughput}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-blue-800">
-                    Helps size sterilizer and pack-processing capacity for the
-                    current room draft.
-                  </p>
-                </div>
-              </li>
             </ul>
 
             <p className="mt-4 text-xs leading-5 text-blue-700">
@@ -843,7 +747,7 @@ function ProvidersStep({
               backend, database, or persistence is used.
             </p>
             <p className="mt-2 text-xs font-semibold leading-5 text-blue-900">
-              Hardware planning is completed in a later setup step.
+              Policies and hardware are configured in later setup steps.
             </p>
           </aside>
         </div>

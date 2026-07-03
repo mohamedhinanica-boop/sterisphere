@@ -162,14 +162,14 @@ The planning experience is desktop-first so configuration and the live provider
 preview can remain visible together. Tablet layouts preserve the same workflow
 in a single responsive column.
 
-Setup recommendations are intentionally limited to SteriSphere's deployment
-scope. In Provider Planning, recommendations cover only high-level
-sterilization readiness, workflow separation, policy review, expected pack
-throughput, and capacity planning. Hardware recommendations, device quantities,
-and workstation coverage belong to the later Hardware step and deployment
-meeting, not Provider Planning. Current guidance is transparent local
-placeholder logic based on the clinic type and room draft. It does not use AI,
-a backend, a database, or persistence, and it never changes the draft.
+Setup recommendations are intentionally limited to the active step. Provider
+Planning guidance explains how provider identity supports traceability
+attribution, reporting, audit context, and optional preferred workstation
+assignments. The Provider step does not own policy, hardware, device quantity,
+pack throughput, or sterilization-capacity guidance; those decisions belong to
+their later setup steps and the deployment meeting. Current guidance is
+transparent local placeholder logic. It does not use AI, a backend, a database,
+or persistence, and it never changes the draft.
 
 Staffing levels, provider mix, reception coverage, and clinic-management advice
 are intentionally excluded from SteriSphere recommendations. Those broader
