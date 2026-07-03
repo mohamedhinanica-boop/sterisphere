@@ -277,6 +277,15 @@ const clinicTypes = [
   "Multi-specialty",
 ] as const;
 
+const providerRoleOptions = [
+  "Dentist",
+  "Dental Hygienist",
+  "Dental Assistant",
+  "Receptionist",
+  "Treatment Coordinator",
+  "Sterilization Technician",
+  "Office Manager",
+] as const;
 const providerCategories: readonly ProviderCategoryDefinition[] = [
   {
     id: "dentists",
@@ -814,26 +823,6 @@ function SterilizersStep({
           </section>
 
 
-        </div>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-950">
-                Live sterilizer preview
-              </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                {sterilizers.length}{" "}
-                {sterilizers.length === 1 ? "sterilizer" : "sterilizers"} in
-                this local draft
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Live
-            </span>
-          </div>
-
           <aside className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
@@ -879,6 +868,25 @@ function SterilizersStep({
               No AI, backend, database, or persistence is used.
             </p>
           </aside>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-950">
+                Live sterilizer preview
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                {sterilizers.length}{" "}
+                {sterilizers.length === 1 ? "sterilizer" : "sterilizers"} in
+                this local draft
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Live
+            </span>
+          </div>
 
           {sterilizers.length > 0 ? (
             <div className="mt-4 grid gap-4">
@@ -1434,12 +1442,18 @@ function ProviderPreviewCard({
           >
             Role
           </label>
-          <input
+          <select
             id={`provider-role-${provider.id}`}
             value={provider.role}
             onChange={(event) => onChange("role", event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-          />
+            className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {providerRoleOptions.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 2xl:grid-cols-2">
           <div>
