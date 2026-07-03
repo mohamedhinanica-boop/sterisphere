@@ -196,6 +196,76 @@ interface WorkstationDraft {
   capabilities: readonly string[];
 }
 
+type SterilizerCategory = "steam" | "cassette" | "dryHeat" | "other";
+type SterilizerStatus = "active" | "planned" | "inactive";
+type SterilizerQuantities = Record<SterilizerCategory, number>;
+
+interface SterilizerCategoryDefinition {
+  id: SterilizerCategory;
+  title: string;
+  singularName: string;
+  type: string;
+  description: string;
+}
+
+interface SterilizerEdit {
+  displayName?: string;
+  type?: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  assignedWorkstationId?: string;
+  status?: SterilizerStatus;
+}
+
+interface SterilizerDraft {
+  id: string;
+  displayName: string;
+  type: string;
+  brand: string;
+  model: string;
+  serialNumber: string;
+  assignedWorkstationId: string;
+  status: SterilizerStatus;
+}
+
+const sterilizerCategories: readonly SterilizerCategoryDefinition[] = [
+  {
+    id: "steam",
+    title: "Steam Autoclaves",
+    singularName: "Steam Autoclave",
+    type: "Steam Autoclave",
+    description: "General-purpose pressurized steam sterilization.",
+  },
+  {
+    id: "cassette",
+    title: "Cassette Sterilizers",
+    singularName: "Cassette Sterilizer",
+    type: "Cassette Sterilizer",
+    description: "Fast-turnover processing for compatible instruments.",
+  },
+  {
+    id: "dryHeat",
+    title: "Dry Heat Sterilizers",
+    singularName: "Dry Heat Sterilizer",
+    type: "Dry Heat Sterilizer",
+    description: "Dry heat processing for compatible instruments.",
+  },
+  {
+    id: "other",
+    title: "Other Sterilizers",
+    singularName: "Other Sterilizer",
+    type: "Other Sterilizer",
+    description: "Additional equipment requiring deployment review.",
+  },
+] as const;
+
+const initialSterilizerQuantities: SterilizerQuantities = {
+  steam: 1,
+  cassette: 0,
+  dryHeat: 0,
+  other: 0,
+};
 const clinicTypes = [
   "General Dentistry",
   "Orthodontics",
@@ -292,6 +362,35 @@ function generateWorkstationDraft(
   );
 }
 
+function generateSterilizerDraft(
+  quantities: SterilizerQuantities,
+  edits: Record<string, SterilizerEdit>,
+  workstations: WorkstationDraft[],
+): SterilizerDraft[] {
+  const preferredWorkstationId =
+    workstations.find((workstation) => workstation.type === "Sterilization")
+      ?.id ?? "";
+
+  return sterilizerCategories.flatMap((category) =>
+    Array.from({ length: quantities[category.id] }, (_, index) => {
+      const id = `${category.id}-${index + 1}`;
+      const edit = edits[id];
+
+      return {
+        id,
+        displayName:
+          edit?.displayName ?? `${category.singularName} ${index + 1}`,
+        type: edit?.type ?? category.type,
+        brand: edit?.brand ?? "",
+        model: edit?.model ?? "",
+        serialNumber: edit?.serialNumber ?? "",
+        assignedWorkstationId:
+          edit?.assignedWorkstationId ?? preferredWorkstationId,
+        status: edit?.status ?? "planned",
+      };
+    }),
+  );
+}
 interface ProviderRecommendation {
   title: string;
   explanation: string;
@@ -335,6 +434,11 @@ export default function ClinicSetupPage() {
   const [providerEdits, setProviderEdits] = useState<
     Record<string, ProviderEdit>
   >({});
+  const [sterilizerQuantities, setSterilizerQuantities] =
+    useState<SterilizerQuantities>(initialSterilizerQuantities);
+  const [sterilizerEdits, setSterilizerEdits] = useState<
+    Record<string, SterilizerEdit>
+  >({});
   const [touchedProfileFields, setTouchedProfileFields] = useState<
     Partial<Record<ClinicProfileField, boolean>>
   >({});
@@ -346,9 +450,19 @@ export default function ClinicSetupPage() {
   const isWorkstations = setupState.currentStep === SetupStep.WORKSTATIONS;
   const isProviders = setupState.currentStep === SetupStep.PROVIDERS;
   const isSterilizers = setupState.currentStep === SetupStep.STERILIZERS;
+  const isPolicies = setupState.currentStep === SetupStep.POLICIES;
   const workstationDraft = generateWorkstationDraft(
     workstationQuantities,
     workstationNames,
+  );
+  const sterilizerDraft = generateSterilizerDraft(
+    sterilizerQuantities,
+    sterilizerEdits,
+    workstationDraft,
+  );
+  const hasPlannedSterilizer = sterilizerDraft.some(
+    (sterilizer) =>
+      sterilizer.status === "active" || sterilizer.status === "planned",
   );
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
@@ -414,6 +528,20 @@ export default function ClinicSetupPage() {
             : [...current.completedSteps, SetupStep.PROVIDERS],
         }),
       );
+      return;
+    }
+
+    if (isSterilizers && hasPlannedSterilizer) {
+      setSetupState((current) =>
+        nextStep({
+          ...current,
+          completedSteps: current.completedSteps.includes(
+            SetupStep.STERILIZERS,
+          )
+            ? current.completedSteps
+            : [...current.completedSteps, SetupStep.STERILIZERS],
+        }),
+      );
     }
   }
 
@@ -452,6 +580,26 @@ export default function ClinicSetupPage() {
     }));
   }
 
+  function updateSterilizerQuantity(
+    category: SterilizerCategory,
+    adjustment: -1 | 1,
+  ) {
+    setSterilizerQuantities((current) => ({
+      ...current,
+      [category]: Math.max(0, current[category] + adjustment),
+    }));
+  }
+
+  function updateSterilizer(
+    id: string,
+    field: keyof SterilizerEdit,
+    value: string,
+  ) {
+    setSterilizerEdits((current) => ({
+      ...current,
+      [id]: { ...current[id], [field]: value },
+    }));
+  }
   return (
     <div className="mx-auto w-full max-w-7xl">
       <header className="mb-6">
@@ -537,10 +685,22 @@ export default function ClinicSetupPage() {
           )}
 
           {isSterilizers && (
+            <SterilizersStep
+              quantities={sterilizerQuantities}
+              edits={sterilizerEdits}
+              workstations={workstationDraft}
+              treatmentRooms={workstationQuantities.treatment}
+              sterilizationRooms={workstationQuantities.sterilization}
+              onQuantityChange={updateSterilizerQuantity}
+              onSterilizerChange={updateSterilizer}
+            />
+          )}
+
+          {isPolicies && (
             <FutureStepPlaceholder
-              stepNumber={5}
-              title="Sterilizers"
-              phase="8.6"
+              stepNumber={6}
+              title="Policies"
+              phase="8.7"
             />
           )}
 
@@ -563,7 +723,11 @@ export default function ClinicSetupPage() {
                 (isWorkstations && workstationQuantities.treatment === 0) ||
                 (isProviders &&
                   (!clinicType || providerQuantities.dentists === 0)) ||
-                (!isClinicProfile && !isWorkstations && !isProviders)
+                (isSterilizers && !hasPlannedSterilizer) ||
+                (!isClinicProfile &&
+                  !isWorkstations &&
+                  !isProviders &&
+                  !isSterilizers)
               }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
@@ -577,6 +741,380 @@ export default function ClinicSetupPage() {
   );
 }
 
+function SterilizersStep({
+  quantities,
+  edits,
+  workstations,
+  treatmentRooms,
+  sterilizationRooms,
+  onQuantityChange,
+  onSterilizerChange,
+}: {
+  quantities: SterilizerQuantities;
+  edits: Record<string, SterilizerEdit>;
+  workstations: WorkstationDraft[];
+  treatmentRooms: number;
+  sterilizationRooms: number;
+  onQuantityChange: (
+    category: SterilizerCategory,
+    adjustment: -1 | 1,
+  ) => void;
+  onSterilizerChange: (
+    id: string,
+    field: keyof SterilizerEdit,
+    value: string,
+  ) => void;
+}) {
+  const sterilizers = generateSterilizerDraft(
+    quantities,
+    edits,
+    workstations,
+  );
+  const hasPlannedSterilizer = sterilizers.some(
+    (sterilizer) =>
+      sterilizer.status === "active" || sterilizer.status === "planned",
+  );
+
+  return (
+    <div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Step 5 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-950">
+          Sterilizer Planning
+        </h2>
+        <p className="mt-2 max-w-3xl text-base text-slate-600">
+          Model the clinic&apos;s sterilization equipment before defining
+          policies and hardware connections.
+        </p>
+      </div>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(460px,1.2fr)]">
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-950">
+              Sterilizer quantities
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Adjust equipment counts to update the local draft instantly.
+            </p>
+            <div className="mt-4 space-y-3">
+              {sterilizerCategories.map((category) => (
+                <SterilizerQuantityCard
+                  key={category.id}
+                  category={category}
+                  quantity={quantities[category.id]}
+                  onChange={(adjustment) =>
+                    onQuantityChange(category.id, adjustment)
+                  }
+                />
+              ))}
+            </div>
+          </section>
+
+
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-950">
+                Live sterilizer preview
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                {sterilizers.length}{" "}
+                {sterilizers.length === 1 ? "sterilizer" : "sterilizers"} in
+                this local draft
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Live
+            </span>
+          </div>
+
+          <aside className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="font-bold text-blue-950">
+                  Steri AI Recommendation
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-blue-900">
+                  Local equipment-planning guidance only. It does not change
+                  the sterilizer draft.
+                </p>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-3 text-sm text-blue-950">
+              <li className="rounded-xl bg-white/70 p-3">
+                <strong>Dedicated sterilization room.</strong>{" "}
+                Recommended for controlled equipment workflows.
+              </li>
+              {treatmentRooms > 6 && (
+                <li className="rounded-xl bg-white/70 p-3">
+                  <strong>Review sterilizer capacity.</strong> Clinics with
+                  many treatment rooms may require additional capacity.
+                </li>
+              )}
+              <li className="rounded-xl bg-white/70 p-3">
+                <strong>Cassette sterilizers.</strong> Useful for compatible
+                instruments that need fast turnover.
+              </li>
+              <li className="rounded-xl bg-white/70 p-3">
+                <strong>Serial numbers are optional now.</strong> They can be
+                added later for compliance and maintenance records.
+              </li>
+            </ul>
+            {sterilizationRooms === 0 && (
+              <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-950">
+                No sterilization room is in the workstation draft. A dedicated
+                sterilization room is recommended before deployment.
+              </p>
+            )}
+            <p className="mt-4 text-xs leading-5 text-blue-700">
+              No AI, backend, database, or persistence is used.
+            </p>
+          </aside>
+
+          {sterilizers.length > 0 ? (
+            <div className="mt-4 grid gap-4">
+              {sterilizers.map((sterilizer) => (
+                <SterilizerPreviewCard
+                  key={sterilizer.id}
+                  sterilizer={sterilizer}
+                  workstations={workstations}
+                  onChange={(field, value) =>
+                    onSterilizerChange(sterilizer.id, field, value)
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <Monitor className="h-8 w-8 text-slate-400" />
+              <p className="mt-3 font-semibold text-slate-700">
+                No sterilizers in the draft
+              </p>
+              <p className="mt-1 max-w-sm text-sm text-slate-500">
+                Add at least one sterilizer to begin equipment planning.
+              </p>
+            </div>
+          )}
+
+          {!hasPlannedSterilizer && (
+            <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+              Add an Active or Planned sterilizer to continue.
+            </p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function SterilizerQuantityCard({
+  category,
+  quantity,
+  onChange,
+}: {
+  category: SterilizerCategoryDefinition;
+  quantity: number;
+  onChange: (adjustment: -1 | 1) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="min-w-0">
+        <h4 className="font-semibold text-slate-900">{category.title}</h4>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          {category.description}
+        </p>
+      </div>
+      <div
+        className="flex shrink-0 items-center rounded-xl border border-slate-300 bg-white p-1"
+        aria-label={`${category.title} quantity`}
+      >
+        <button
+          type="button"
+          aria-label={`Remove one ${category.title}`}
+          disabled={quantity === 0}
+          onClick={() => onChange(-1)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <output
+          aria-live="polite"
+          className="min-w-9 text-center text-base font-bold text-slate-950"
+        >
+          {quantity}
+        </output>
+        <button
+          type="button"
+          aria-label={`Add one ${category.title}`}
+          onClick={() => onChange(1)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-blue-700 transition hover:bg-blue-50"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SterilizerPreviewCard({
+  sterilizer,
+  workstations,
+  onChange,
+}: {
+  sterilizer: SterilizerDraft;
+  workstations: WorkstationDraft[];
+  onChange: (field: keyof SterilizerEdit, value: string) => void;
+}) {
+  const orderedWorkstations = [...workstations].sort((left, right) => {
+    const leftPreferred = left.type === "Sterilization" ? 0 : 1;
+    const rightPreferred = right.type === "Sterilization" ? 0 : 1;
+    return leftPreferred - rightPreferred;
+  });
+
+  return (
+    <article className="rounded-xl border border-slate-200 p-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SterilizerTextField
+          id={`sterilizer-name-${sterilizer.id}`}
+          label="Display Name"
+          value={sterilizer.displayName}
+          emphasized
+          onChange={(value) => onChange("displayName", value)}
+        />
+        <div>
+          <label
+            htmlFor={`sterilizer-type-${sterilizer.id}`}
+            className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+          >
+            Sterilizer Type
+          </label>
+          <select
+            id={`sterilizer-type-${sterilizer.id}`}
+            value={sterilizer.type}
+            onChange={(event) => onChange("type", event.target.value)}
+            className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {sterilizerCategories.map((category) => (
+              <option key={category.id} value={category.type}>
+                {category.type}
+              </option>
+            ))}
+          </select>
+        </div>
+        <SterilizerTextField
+          id={`sterilizer-brand-${sterilizer.id}`}
+          label="Brand / Manufacturer"
+          value={sterilizer.brand}
+          placeholder="Optional"
+          onChange={(value) => onChange("brand", value)}
+        />
+        <SterilizerTextField
+          id={`sterilizer-model-${sterilizer.id}`}
+          label="Model"
+          value={sterilizer.model}
+          placeholder="Optional"
+          onChange={(value) => onChange("model", value)}
+        />
+        <SterilizerTextField
+          id={`sterilizer-serial-${sterilizer.id}`}
+          label="Serial Number"
+          value={sterilizer.serialNumber}
+          placeholder="Optional"
+          onChange={(value) => onChange("serialNumber", value)}
+        />
+        <div>
+          <label
+            htmlFor={`sterilizer-status-${sterilizer.id}`}
+            className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+          >
+            Status
+          </label>
+          <select
+            id={`sterilizer-status-${sterilizer.id}`}
+            value={sterilizer.status}
+            onChange={(event) => onChange("status", event.target.value)}
+            className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            <option value="active">Active</option>
+            <option value="planned">Planned</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label
+            htmlFor={`sterilizer-workstation-${sterilizer.id}`}
+            className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+          >
+            Assigned Workstation
+          </label>
+          <select
+            id={`sterilizer-workstation-${sterilizer.id}`}
+            value={sterilizer.assignedWorkstationId}
+            onChange={(event) =>
+              onChange("assignedWorkstationId", event.target.value)
+            }
+            className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            <option value="">Not assigned</option>
+            {orderedWorkstations.map((workstation) => (
+              <option key={workstation.id} value={workstation.id}>
+                {workstation.name}
+                {workstation.type === "Sterilization"
+                  ? " — Sterilization"
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SterilizerTextField({
+  id,
+  label,
+  value,
+  placeholder,
+  emphasized = false,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder?: string;
+  emphasized?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className={`mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 ${
+          emphasized ? "bg-slate-50 font-bold text-slate-950" : "bg-white"
+        }`}
+      />
+    </div>
+  );
+}
 function ProvidersStep({
   clinicType,
   quantities,

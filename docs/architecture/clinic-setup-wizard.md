@@ -185,9 +185,25 @@ silently replacing technician decisions or existing provider records.
 
 # Step 4 — Sterilizers
 
-Register each sterilizer.
+Sterilizer Planning models the clinic's expected sterilization equipment before
+policies and hardware are configured. Deployment staff set local quantities for
+steam autoclaves, cassette sterilizers, dry heat sterilizers, and other
+sterilizers. The wizard generates an editable draft containing display name,
+type, optional manufacturer, model and serial number, workstation assignment,
+and Active, Planned, or Inactive status.
 
-Future connected sterilizers may be discovered automatically by the Clinic Agent.
+Sterilization workstations are preferred when assigning equipment, while all
+workstations remain available for deployment review. At least one Active or
+Planned sterilizer is required to advance. This draft is local planning context
+only: it does not create operational sterilizers, update Settings, or persist
+data.
+
+Sterilizers are modeled before policies because equipment type and expected
+capacity provide the context needed to review cycle, traceability, monitoring,
+and compliance requirements. Future phases may connect the reviewed draft to
+maintenance logs, operational cycle workflows, hardware agents, and compliance
+records. Those integrations must remain explicit and must not silently convert
+the planning draft into operational configuration.
 
 ---
 
