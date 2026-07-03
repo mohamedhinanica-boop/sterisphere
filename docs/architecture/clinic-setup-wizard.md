@@ -145,7 +145,29 @@ Role Based Access Control (RBAC) should already be enforced.
 
 Configure providers working in the clinic.
 
-Future integrations may synchronize providers from external practice management software.
+Provider planning is a deployment-first workflow. The technician selects the
+clinic type and describes the expected staffing mix with role quantities.
+SteriSphere immediately generates a local provider draft with editable display
+names, roles, statuses, and optional preferred workstation assignments. The
+draft is planning context only and does not create or change operational
+provider records.
+
+Preferred workstation assignment connects the provider plan to the workstation
+draft created earlier in the wizard. It communicates the expected working
+location without creating a persisted relationship. Assignments remain
+optional because providers may rotate between rooms, cover multiple locations,
+or receive their final workstation during deployment validation.
+
+The planning experience is desktop-first so configuration and the live provider
+preview can remain visible together. Tablet layouts preserve the same workflow
+in a single responsive column. Recommendations use clinic type and treatment
+room count as transparent placeholder inputs; technicians remain responsible
+for the final staffing draft.
+
+Future integrations may synchronize providers from external practice management
+software. Synchronization should be an explicit import and review process that
+reconciles external provider identities with the deployment draft rather than
+silently replacing technician decisions or existing provider records.
 
 ---
 
