@@ -160,9 +160,18 @@ or receive their final workstation during deployment validation.
 
 The planning experience is desktop-first so configuration and the live provider
 preview can remain visible together. Tablet layouts preserve the same workflow
-in a single responsive column. Recommendations use clinic type and treatment
-room count as transparent placeholder inputs; technicians remain responsible
-for the final staffing draft.
+in a single responsive column.
+
+Setup recommendations are intentionally limited to SteriSphere's deployment
+scope: sterilization readiness, traceability, hardware coverage, compliance
+policies, and deployment capacity. Current guidance is transparent local
+placeholder logic based on the clinic type and room draft. It does not use AI,
+a backend, a database, or persistence, and it never changes the draft.
+
+Staffing levels, provider mix, reception coverage, and clinic-management advice
+are intentionally excluded from SteriSphere recommendations. Those broader
+Practice Management recommendations belong to the future ClinicOS platform,
+not the SteriSphere Setup Wizard.
 
 Future integrations may synchronize providers from external practice management
 software. Synchronization should be an explicit import and review process that

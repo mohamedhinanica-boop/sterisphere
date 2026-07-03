@@ -270,25 +270,6 @@ const initialProviderQuantities: ProviderQuantities = {
   officeManagers: 1,
 };
 
-const providerRecommendationLabels: Record<
-  ProviderCategory,
-  readonly [string, string]
-> = {
-  dentists: ["Dentist", "Dentists"],
-  hygienists: ["Hygienist", "Hygienists"],
-  assistants: ["Assistant", "Assistants"],
-  receptionists: ["Receptionist", "Receptionists"],
-  treatmentCoordinators: [
-    "Treatment Coordinator",
-    "Treatment Coordinators",
-  ],
-  sterilizationTechnicians: [
-    "Sterilization Technician",
-    "Sterilization Technicians",
-  ],
-  officeManagers: ["Office Manager", "Office Managers"],
-};
-
 function generateWorkstationDraft(
   quantities: WorkstationQuantities,
   names: Record<string, string>,
@@ -311,55 +292,110 @@ function generateWorkstationDraft(
   );
 }
 
-function getProviderRecommendations(
-  clinicType: string,
-  treatmentRooms: number,
-): ProviderQuantities {
-  const rooms = Math.max(1, treatmentRooms);
-  const recommendations: ProviderQuantities = {
-    dentists: rooms,
-    hygienists: Math.ceil((rooms * 2) / 3),
-    assistants: Math.ceil((rooms * 4) / 3),
-    receptionists: Math.max(1, Math.ceil(rooms / 3)),
-    treatmentCoordinators: 0,
-    sterilizationTechnicians: 1,
-    officeManagers: 1,
-  };
-
-  if (clinicType === "Orthodontics") {
-    recommendations.hygienists = Math.ceil(rooms * 0.33);
-    recommendations.assistants = Math.ceil(rooms * 1.5);
-    recommendations.treatmentCoordinators = Math.max(
-      1,
-      Math.ceil(rooms / 4),
-    );
-  } else if (clinicType === "Pediatric Dentistry") {
-    recommendations.hygienists = Math.ceil(rooms * 0.5);
-    recommendations.assistants = Math.ceil(rooms * 1.5);
-  } else if (clinicType === "Oral Surgery") {
-    recommendations.hygienists = 0;
-    recommendations.assistants = Math.ceil(rooms * 1.5);
-    recommendations.treatmentCoordinators = 1;
-  } else if (
-    clinicType === "Periodontics" ||
-    clinicType === "Prosthodontics"
-  ) {
-    recommendations.hygienists = Math.ceil(rooms * 0.5);
-    recommendations.assistants = Math.ceil(rooms * 1.2);
-    recommendations.treatmentCoordinators =
-      clinicType === "Prosthodontics" ? 1 : 0;
-  } else if (clinicType === "Endodontics") {
-    recommendations.hygienists = 0;
-    recommendations.assistants = rooms;
-  } else if (clinicType === "Multi-specialty") {
-    recommendations.hygienists = Math.ceil(rooms * 0.75);
-    recommendations.assistants = Math.ceil(rooms * 1.5);
-    recommendations.treatmentCoordinators = 1;
-  }
-
-  return recommendations;
+interface DeploymentRecommendation {
+  title: string;
+  value?: string;
+  explanation: string;
 }
 
+interface DeploymentGuidance {
+  readiness: "Recommended" | "Action required";
+  capacity: "Low–Medium" | "Medium–High" | "High";
+  throughput: "20–40 packs" | "40–60 packs" | "60–90 packs";
+  recommendations: DeploymentRecommendation[];
+  scalingGuidance: string[];
+}
+
+function getDeploymentGuidance(
+  clinicType: string,
+  rooms: WorkstationQuantities,
+): DeploymentGuidance {
+  const clinicalRooms =
+    rooms.treatment + rooms.consultation + rooms.xray + rooms.laboratory;
+  const traceabilityRooms =
+    rooms.treatment + rooms.laboratory + rooms.storage;
+  const highInstrumentDemand =
+    clinicType === "Oral Surgery" || clinicType === "Multi-specialty";
+  const demandScore =
+    rooms.treatment + rooms.laboratory + (highInstrumentDemand ? 2 : 0);
+  const capacity =
+    demandScore > 8
+      ? "High"
+      : demandScore > 3
+        ? "Medium–High"
+        : "Low–Medium";
+  const throughput =
+    demandScore > 8
+      ? "60–90 packs"
+      : demandScore > 3
+        ? "40–60 packs"
+        : "20–40 packs";
+  const sterilizationRoomCount = Math.max(1, rooms.sterilization);
+
+  return {
+    readiness:
+      rooms.sterilization > 0 ? "Recommended" : "Action required",
+    capacity,
+    throughput,
+    recommendations: [
+      {
+        title: `${sterilizationRoomCount} Dedicated Sterilization ${
+          sterilizationRoomCount === 1 ? "Room" : "Rooms"
+        }`,
+        explanation:
+          "Improves workflow separation, processing control, and compliance.",
+      },
+      {
+        title: `${sterilizationRoomCount} SteriSphere Clinic ${
+          sterilizationRoomCount === 1 ? "Agent" : "Agents"
+        }`,
+        explanation:
+          "Required for secure local communication with deployment hardware.",
+      },
+      {
+        title:
+          rooms.treatment > 6
+            ? "2 Network Label Printing Locations"
+            : "1 Network Label Printer",
+        explanation:
+          "Allows immediate pack identification near sterilization workflows.",
+      },
+      {
+        title: `USB Scanner Coverage for ${traceabilityRooms} ${
+          traceabilityRooms === 1 ? "Room" : "Rooms"
+        }`,
+        explanation:
+          "Accelerates pack traceability in treatment, laboratory, and storage areas.",
+      },
+      {
+        title: `Camera Coverage for ${clinicalRooms} Clinical ${
+          clinicalRooms === 1 ? "Workstation" : "Workstations"
+        }`,
+        explanation:
+          "Supports visual evidence capture wherever clinical workflows occur.",
+      },
+      {
+        title: "Dedicated Pack Preparation Area",
+        explanation:
+          "Keeps inspection, assembly, and packaging workflows clearly separated.",
+      },
+      {
+        title: "Recommended Pack Expiration Policy",
+        value: "365 Days",
+        explanation:
+          "Provides a clear local placeholder for deployment policy review.",
+      },
+    ],
+    scalingGuidance:
+      rooms.treatment > 6
+        ? [
+            "Additional scanner coverage",
+            "Secondary label printing location",
+            "Larger sterilizer capacity",
+          ]
+        : [],
+  };
+}
 export default function ClinicSetupPage() {
   const [setupState, setSetupState] = useState(createSetupState);
   const [workstationQuantities, setWorkstationQuantities] =
@@ -567,7 +603,7 @@ export default function ClinicSetupPage() {
               quantities={providerQuantities}
               edits={providerEdits}
               workstations={workstationDraft}
-              treatmentRooms={workstationQuantities.treatment}
+              workstationQuantities={workstationQuantities}
               onClinicTypeChange={setClinicType}
               onQuantityChange={updateProviderQuantity}
               onProviderChange={updateProvider}
@@ -620,7 +656,7 @@ function ProvidersStep({
   quantities,
   edits,
   workstations,
-  treatmentRooms,
+  workstationQuantities,
   onClinicTypeChange,
   onQuantityChange,
   onProviderChange,
@@ -629,7 +665,7 @@ function ProvidersStep({
   quantities: ProviderQuantities;
   edits: Record<string, ProviderEdit>;
   workstations: WorkstationDraft[];
-  treatmentRooms: number;
+  workstationQuantities: WorkstationQuantities;
   onClinicTypeChange: (clinicType: string) => void;
   onQuantityChange: (
     category: ProviderCategory,
@@ -659,9 +695,9 @@ function ProvidersStep({
       };
     }),
   );
-  const recommendations = getProviderRecommendations(
+  const deploymentGuidance = getDeploymentGuidance(
     clinicType,
-    treatmentRooms,
+    workstationQuantities,
   );
 
   return (
@@ -690,7 +726,7 @@ function ProvidersStep({
                 Clinic Type <span className="text-red-600">*</span>
               </label>
               <p className="mt-1 text-xs leading-5 text-slate-600">
-                Used only to shape local staffing recommendations.
+                Used only to shape local sterilization deployment guidance.
               </p>
               <select
                 id="provider-clinic-type"
@@ -744,29 +780,118 @@ function ProvidersStep({
                   Steri AI Recommendation
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-blue-900">
-                  Based on {treatmentRooms} treatment{" "}
-                  {treatmentRooms === 1 ? "room" : "rooms"} and{" "}
-                  {clinicType || "the selected clinic type"}:
-                </p>
-                <ul className="mt-2 space-y-1 text-sm text-blue-950">
-                  {providerCategories.map((category) => {
-                    const count = recommendations[category.id];
-                    const labels =
-                      providerRecommendationLabels[category.id];
-
-                    return count > 0 ? (
-                      <li key={category.id}>
-                        • {count} {labels[count === 1 ? 0 : 1]}
-                      </li>
-                    ) : null;
-                  })}
-                </ul>
-                <p className="mt-3 text-xs text-blue-700">
-                  Placeholder planning guidance only. Your draft remains
-                  unchanged when clinic type changes.
+                  Local placeholder guidance based on the current clinic and
+                  room draft. It does not change your configuration.
                 </p>
               </div>
             </div>
+
+            <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-white/70 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Clinic Profile
+                </dt>
+                <dd className="mt-1 font-bold text-blue-950">
+                  {clinicType || "Not selected"}
+                </dd>
+              </div>
+              <div className="rounded-xl bg-white/70 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Treatment Rooms
+                </dt>
+                <dd className="mt-1 font-bold text-blue-950">
+                  {workstationQuantities.treatment}
+                </dd>
+              </div>
+              <div className="rounded-xl bg-white/70 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Deployment Readiness
+                </dt>
+                <dd className="mt-1 font-bold text-blue-950">
+                  {deploymentGuidance.readiness}
+                </dd>
+              </div>
+              <div className="rounded-xl bg-white/70 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Estimated Daily Capacity
+                </dt>
+                <dd className="mt-1 font-bold text-blue-950">
+                  {deploymentGuidance.capacity}
+                </dd>
+              </div>
+            </dl>
+
+            {workstationQuantities.sterilization === 0 && (
+              <div
+                role="alert"
+                className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+              >
+                <p className="text-sm font-bold">Warning</p>
+                <p className="mt-1 text-sm leading-6">
+                  No Sterilization Room has been configured. SteriSphere
+                  strongly recommends a dedicated sterilization area before
+                  deployment.
+                </p>
+              </div>
+            )}
+
+            <ul className="mt-5 space-y-3">
+              {deploymentGuidance.recommendations.map((recommendation) => (
+                <li
+                  key={recommendation.title}
+                  className="flex gap-3 rounded-xl bg-white/70 p-3"
+                >
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <div>
+                    <p className="text-sm font-bold text-blue-950">
+                      {recommendation.title}
+                      {recommendation.value && (
+                        <span className="ml-2 font-semibold text-blue-700">
+                          {recommendation.value}
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-blue-800">
+                      {recommendation.explanation}
+                    </p>
+                  </div>
+                </li>
+              ))}
+              <li className="flex gap-3 rounded-xl bg-white/70 p-3">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <div>
+                  <p className="text-sm font-bold text-blue-950">
+                    Estimated Daily Pack Throughput{" "}
+                    <span className="ml-2 font-semibold text-blue-700">
+                      {deploymentGuidance.throughput}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-blue-800">
+                    Helps size sterilizer and pack-processing capacity for the
+                    current room draft.
+                  </p>
+                </div>
+              </li>
+            </ul>
+
+            {deploymentGuidance.scalingGuidance.length > 0 && (
+              <div className="mt-4 rounded-xl border border-blue-200 bg-white/70 p-4">
+                <p className="text-sm font-bold text-blue-950">
+                  {workstationQuantities.treatment} treatment rooms may
+                  require:
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-blue-900">
+                  {deploymentGuidance.scalingGuidance.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <p className="mt-4 text-xs leading-5 text-blue-700">
+              Recommendations are local deployment placeholders only. No AI,
+              backend, database, or persistence is used.
+            </p>
           </aside>
         </div>
 
