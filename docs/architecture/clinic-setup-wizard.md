@@ -163,8 +163,11 @@ preview can remain visible together. Tablet layouts preserve the same workflow
 in a single responsive column.
 
 Setup recommendations are intentionally limited to SteriSphere's deployment
-scope: sterilization readiness, traceability, hardware coverage, compliance
-policies, and deployment capacity. Current guidance is transparent local
+scope. In Provider Planning, recommendations cover only high-level
+sterilization readiness, workflow separation, policy review, expected pack
+throughput, and capacity planning. Hardware recommendations, device quantities,
+and workstation coverage belong to the later Hardware step and deployment
+meeting, not Provider Planning. Current guidance is transparent local
 placeholder logic based on the clinic type and room draft. It does not use AI,
 a backend, a database, or persistence, and it never changes the draft.
 

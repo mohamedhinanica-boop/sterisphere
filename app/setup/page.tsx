@@ -303,17 +303,12 @@ interface DeploymentGuidance {
   capacity: "Low–Medium" | "Medium–High" | "High";
   throughput: "20–40 packs" | "40–60 packs" | "60–90 packs";
   recommendations: DeploymentRecommendation[];
-  scalingGuidance: string[];
 }
 
 function getDeploymentGuidance(
   clinicType: string,
   rooms: WorkstationQuantities,
 ): DeploymentGuidance {
-  const clinicalRooms =
-    rooms.treatment + rooms.consultation + rooms.xray + rooms.laboratory;
-  const traceabilityRooms =
-    rooms.treatment + rooms.laboratory + rooms.storage;
   const highInstrumentDemand =
     clinicType === "Oral Surgery" || clinicType === "Multi-specialty";
   const demandScore =
@@ -346,35 +341,6 @@ function getDeploymentGuidance(
           "Improves workflow separation, processing control, and compliance.",
       },
       {
-        title: `${sterilizationRoomCount} SteriSphere Clinic ${
-          sterilizationRoomCount === 1 ? "Agent" : "Agents"
-        }`,
-        explanation:
-          "Required for secure local communication with deployment hardware.",
-      },
-      {
-        title:
-          rooms.treatment > 6
-            ? "2 Network Label Printing Locations"
-            : "1 Network Label Printer",
-        explanation:
-          "Allows immediate pack identification near sterilization workflows.",
-      },
-      {
-        title: `USB Scanner Coverage for ${traceabilityRooms} ${
-          traceabilityRooms === 1 ? "Room" : "Rooms"
-        }`,
-        explanation:
-          "Accelerates pack traceability in treatment, laboratory, and storage areas.",
-      },
-      {
-        title: `Camera Coverage for ${clinicalRooms} Clinical ${
-          clinicalRooms === 1 ? "Workstation" : "Workstations"
-        }`,
-        explanation:
-          "Supports visual evidence capture wherever clinical workflows occur.",
-      },
-      {
         title: "Dedicated Pack Preparation Area",
         explanation:
           "Keeps inspection, assembly, and packaging workflows clearly separated.",
@@ -385,15 +351,13 @@ function getDeploymentGuidance(
         explanation:
           "Provides a clear local placeholder for deployment policy review.",
       },
+      {
+        title: "Sterilization Capacity Planning",
+        value: capacity,
+        explanation:
+          "Supports a deployment review of expected instrument-processing demand.",
+      },
     ],
-    scalingGuidance:
-      rooms.treatment > 6
-        ? [
-            "Additional scanner coverage",
-            "Secondary label printing location",
-            "Larger sterilizer capacity",
-          ]
-        : [],
   };
 }
 export default function ClinicSetupPage() {
@@ -874,23 +838,12 @@ function ProvidersStep({
               </li>
             </ul>
 
-            {deploymentGuidance.scalingGuidance.length > 0 && (
-              <div className="mt-4 rounded-xl border border-blue-200 bg-white/70 p-4">
-                <p className="text-sm font-bold text-blue-950">
-                  {workstationQuantities.treatment} treatment rooms may
-                  require:
-                </p>
-                <ul className="mt-2 space-y-1 text-sm text-blue-900">
-                  {deploymentGuidance.scalingGuidance.map((item) => (
-                    <li key={item}>• {item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <p className="mt-4 text-xs leading-5 text-blue-700">
               Recommendations are local deployment placeholders only. No AI,
               backend, database, or persistence is used.
+            </p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-blue-900">
+              Hardware planning is completed in a later setup step.
             </p>
           </aside>
         </div>
