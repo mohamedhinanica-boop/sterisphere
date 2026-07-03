@@ -143,43 +143,26 @@ Role Based Access Control (RBAC) should already be enforced.
 
 # Step 3 — Providers
 
-Configure providers working in the clinic.
+Provider Planning is deliberately lightweight. The Deployment Wizard captures
+only clinic type and planned quantities for dentists, dental hygienists, dental
+assistants, receptionists, treatment coordinators, sterilization technicians,
+and office managers. These values define deployment structure and do not create
+or update operational provider records.
 
-Provider planning is a deployment-first workflow. The technician selects the
-clinic type and describes the expected staffing mix with role quantities.
-SteriSphere immediately generates a local provider draft with editable display
-names, roles, statuses, and optional preferred workstation assignments. The
-draft is planning context only and does not create or change operational
-provider records.
+The wizard presents a deployment summary instead of editable cards for each
+person. It does not request names, roles, status, credentials, contact details,
+or preferred workstation assignments. This minimizes data entry and keeps
+first-time deployment fast and focused.
 
-Preferred workstation assignment connects the provider plan to the workstation
-draft created earlier in the wizard. It communicates the expected working
-location without creating a persisted relationship. Assignments remain
-optional because providers may rotate between rooms, cover multiple locations,
-or receive their final workstation during deployment validation.
+Operational provider data belongs to **Settings → Providers** after deployment.
+Future provider records will support separate first and last names,
+professional licenses, contact information, additional metadata, and future
+integrations. Rich provider management can therefore evolve independently from
+the deployment workflow.
 
-The planning experience is desktop-first so configuration and the live provider
-preview can remain visible together. Tablet layouts preserve the same workflow
-in a single responsive column.
-
-Setup recommendations are intentionally limited to the active step. Provider
-Planning guidance explains how provider identity supports traceability
-attribution, reporting, audit context, and optional preferred workstation
-assignments. The Provider step does not own policy, hardware, device quantity,
-pack throughput, or sterilization-capacity guidance; those decisions belong to
-their later setup steps and the deployment meeting. Current guidance is
-transparent local placeholder logic. It does not use AI, a backend, a database,
-or persistence, and it never changes the draft.
-
-Staffing levels, provider mix, reception coverage, and clinic-management advice
-are intentionally excluded from SteriSphere recommendations. Those broader
-Practice Management recommendations belong to the future ClinicOS platform,
-not the SteriSphere Setup Wizard.
-
-Future integrations may synchronize providers from external practice management
-software. Synchronization should be an explicit import and review process that
-reconciles external provider identities with the deployment draft rather than
-silently replacing technician decisions or existing provider records.
+Provider-step recommendations remain limited to explaining this deployment
+structure and the post-deployment handoff. They do not persist data or use AI,
+a backend, or a database.
 
 ---
 

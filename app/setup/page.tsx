@@ -177,16 +177,6 @@ interface ProviderCategoryDefinition {
   id: ProviderCategory;
   title: string;
   description: string;
-  singularName: string;
-  defaultRole: string;
-  receptionNaming?: boolean;
-}
-
-interface ProviderEdit {
-  displayName?: string;
-  role?: string;
-  status?: "active" | "inactive";
-  preferredWorkstationId?: string;
 }
 
 interface WorkstationDraft {
@@ -277,65 +267,41 @@ const clinicTypes = [
   "Multi-specialty",
 ] as const;
 
-const providerRoleOptions = [
-  "Dentist",
-  "Dental Hygienist",
-  "Dental Assistant",
-  "Receptionist",
-  "Treatment Coordinator",
-  "Sterilization Technician",
-  "Office Manager",
-] as const;
 const providerCategories: readonly ProviderCategoryDefinition[] = [
   {
     id: "dentists",
     title: "Dentists",
     description: "Primary clinical providers delivering patient treatment.",
-    singularName: "Dentist",
-    defaultRole: "Dentist",
   },
   {
     id: "hygienists",
     title: "Hygienists",
     description: "Preventive-care providers supporting recurring appointments.",
-    singularName: "Hygienist",
-    defaultRole: "Dental Hygienist",
   },
   {
     id: "assistants",
     title: "Assistants",
     description: "Clinical assistants supporting treatment-room workflows.",
-    singularName: "Assistant",
-    defaultRole: "Dental Assistant",
   },
   {
     id: "receptionists",
     title: "Receptionists",
     description: "Front-office staff coordinating intake and scheduling.",
-    singularName: "Reception",
-    defaultRole: "Receptionist",
-    receptionNaming: true,
   },
   {
     id: "treatmentCoordinators",
     title: "Treatment Coordinators",
     description: "Staff coordinating treatment plans and patient follow-up.",
-    singularName: "Treatment Coordinator",
-    defaultRole: "Treatment Coordinator",
   },
   {
     id: "sterilizationTechnicians",
     title: "Sterilization Technicians",
     description: "Dedicated staff supporting instrument processing.",
-    singularName: "Sterilization Technician",
-    defaultRole: "Sterilization Technician",
   },
   {
     id: "officeManagers",
     title: "Office Managers",
     description: "Operational leaders responsible for clinic coordination.",
-    singularName: "Office Manager",
-    defaultRole: "Office Manager",
   },
 ] as const;
 
@@ -413,19 +379,19 @@ function getProviderGuidance(): ProviderGuidance {
   return {
     recommendations: [
       {
-        title: "Traceability Attribution",
+        title: "Deployment Structure Only",
         explanation:
-          "Provider identity connects clinical activity to the correct traceability context.",
+          "Provider counts establish the clinic structure without creating personnel records.",
       },
       {
-        title: "Reporting and Audit Context",
+        title: "Detailed Records After Deployment",
         explanation:
-          "Provider assignments improve the clarity of reports and audit review.",
+          "Names, credentials, contact details, and assignments belong in Provider Settings.",
       },
       {
-        title: "Optional Preferred Workstation",
+        title: "Fast, Focused Setup",
         explanation:
-          "A preferred workstation can simplify setup without restricting providers who rotate between rooms.",
+          "Deferring operational details keeps the initial deployment quick and focused.",
       },
     ],
   };
@@ -440,9 +406,6 @@ export default function ClinicSetupPage() {
   const [clinicType, setClinicType] = useState("General Dentistry");
   const [providerQuantities, setProviderQuantities] =
     useState<ProviderQuantities>(initialProviderQuantities);
-  const [providerEdits, setProviderEdits] = useState<
-    Record<string, ProviderEdit>
-  >({});
   const [sterilizerQuantities, setSterilizerQuantities] =
     useState<SterilizerQuantities>(initialSterilizerQuantities);
   const [sterilizerEdits, setSterilizerEdits] = useState<
@@ -578,17 +541,6 @@ export default function ClinicSetupPage() {
     }));
   }
 
-  function updateProvider(
-    id: string,
-    field: keyof ProviderEdit,
-    value: string,
-  ) {
-    setProviderEdits((current) => ({
-      ...current,
-      [id]: { ...current[id], [field]: value },
-    }));
-  }
-
   function updateSterilizerQuantity(
     category: SterilizerCategory,
     adjustment: -1 | 1,
@@ -684,12 +636,9 @@ export default function ClinicSetupPage() {
             <ProvidersStep
               clinicType={clinicType}
               quantities={providerQuantities}
-              edits={providerEdits}
-              workstations={workstationDraft}
               workstationQuantities={workstationQuantities}
               onClinicTypeChange={setClinicType}
               onQuantityChange={updateProviderQuantity}
-              onProviderChange={updateProvider}
             />
           )}
 
@@ -1126,48 +1075,35 @@ function SterilizerTextField({
 function ProvidersStep({
   clinicType,
   quantities,
-  edits,
-  workstations,
   workstationQuantities,
   onClinicTypeChange,
   onQuantityChange,
-  onProviderChange,
 }: {
   clinicType: string;
   quantities: ProviderQuantities;
-  edits: Record<string, ProviderEdit>;
-  workstations: WorkstationDraft[];
   workstationQuantities: WorkstationQuantities;
   onClinicTypeChange: (clinicType: string) => void;
   onQuantityChange: (
     category: ProviderCategory,
     adjustment: -1 | 1,
   ) => void;
-  onProviderChange: (
-    id: string,
-    field: keyof ProviderEdit,
-    value: string,
-  ) => void;
 }) {
-  const providers = providerCategories.flatMap((category) =>
-    Array.from({ length: quantities[category.id] }, (_, index) => {
-      const id = `${category.id}-${index + 1}`;
-      const defaultName =
-        category.receptionNaming && index === 0
-          ? category.singularName
-          : `${category.singularName} ${index + 1}`;
-
-      return {
-        id,
-        displayName: edits[id]?.displayName ?? defaultName,
-        role: edits[id]?.role ?? category.defaultRole,
-        status: edits[id]?.status ?? "active",
-        preferredWorkstationId:
-          edits[id]?.preferredWorkstationId ?? "",
-      };
-    }),
-  );
   const providerGuidance = getProviderGuidance();
+  const providerSummary = [
+    { label: "Dentists", count: quantities.dentists },
+    { label: "Dental Hygienists", count: quantities.hygienists },
+    { label: "Dental Assistants", count: quantities.assistants },
+    { label: "Receptionists", count: quantities.receptionists },
+    {
+      label: "Treatment Coordinators",
+      count: quantities.treatmentCoordinators,
+    },
+    {
+      label: "Sterilization Technicians",
+      count: quantities.sterilizationTechnicians,
+    },
+    { label: "Office Managers", count: quantities.officeManagers },
+  ];
 
   return (
     <div>
@@ -1176,11 +1112,11 @@ function ProvidersStep({
           Step 4 of {SETUP_STEP_ORDER.length}
         </p>
         <h2 className="mt-2 text-3xl font-bold text-slate-950">
-          Intelligent Provider Planning
+          Provider Planning
         </h2>
         <p className="mt-2 max-w-3xl text-base text-slate-600">
-          Describe the clinical team and review the deployment draft as
-          SteriSphere plans provider coverage.
+          Define the clinic&apos;s provider structure without configuring
+          individual personnel records.
         </p>
       </div>
 
@@ -1195,7 +1131,7 @@ function ProvidersStep({
                 Clinic Type <span className="text-red-600">*</span>
               </label>
               <p className="mt-1 text-xs leading-5 text-slate-600">
-                Used only to shape local sterilization deployment guidance.
+                Provides deployment context for the planned clinic structure.
               </p>
               <select
                 id="provider-clinic-type"
@@ -1222,7 +1158,7 @@ function ProvidersStep({
                 Provider quantities
               </h3>
               <p className="mt-1 text-sm text-slate-600">
-                Adjust staffing counts to update the draft instantly.
+                Adjust planned counts to update the deployment summary.
               </p>
               <div className="mt-4 space-y-3">
                 {providerCategories.map((category) => (
@@ -1249,8 +1185,8 @@ function ProvidersStep({
                   Steri AI Recommendation
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-blue-900">
-                  Local placeholder guidance for provider setup. It does not
-                  change your configuration.
+                  Provider planning creates the deployment structure only.
+                  Detailed provider records are completed after deployment.
                 </p>
               </div>
             </div>
@@ -1289,11 +1225,8 @@ function ProvidersStep({
             </ul>
 
             <p className="mt-4 text-xs leading-5 text-blue-700">
-              Recommendations are local deployment placeholders only. No AI,
-              backend, database, or persistence is used.
-            </p>
-            <p className="mt-2 text-xs font-semibold leading-5 text-blue-900">
-              Policies and hardware are configured in later setup steps.
+              Local placeholder guidance only. No AI, backend, database, or
+              persistence is used.
             </p>
           </aside>
         </div>
@@ -1302,44 +1235,59 @@ function ProvidersStep({
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="text-lg font-bold text-slate-950">
-                Live provider preview
+                Provider Deployment Summary
               </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                {providers.length}{" "}
-                {providers.length === 1 ? "provider" : "providers"} in this
-                local draft
+              <p className="mt-1 text-sm font-semibold text-slate-700">
+                {clinicType || "Clinic type not selected"}
               </p>
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Live
+            <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+              Planned
             </span>
           </div>
 
-          {providers.length > 0 ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-              {providers.map((provider) => (
-                <ProviderPreviewCard
-                  key={provider.id}
-                  provider={provider}
-                  workstations={workstations}
-                  onChange={(field, value) =>
-                    onProviderChange(provider.id, field, value)
-                  }
-                />
+          <ul className="mt-4 space-y-2">
+            {providerSummary
+              .filter((item) => item.count > 0)
+              .map((item) => (
+                <li
+                  key={item.label}
+                  className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800"
+                >
+                  <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                  {item.count} {item.label}
+                </li>
               ))}
-            </div>
-          ) : (
-            <div className="mt-4 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-              <Monitor className="h-8 w-8 text-slate-400" />
-              <p className="mt-3 font-semibold text-slate-700">
-                No providers in the draft
-              </p>
-              <p className="mt-1 max-w-sm text-sm text-slate-500">
-                Add a provider role to begin planning the deployment team.
-              </p>
-            </div>
-          )}
+          </ul>
+
+          <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <h4 className="font-bold text-blue-950">Deployment note</h4>
+            <p className="mt-2 text-sm leading-6 text-blue-900">
+              Provider profiles are intentionally kept simple during
+              deployment. After deployment, complete provider information from
+              <strong> Settings → Providers</strong>.
+            </p>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">
+              Provider Settings stores
+            </p>
+            <ul className="mt-2 grid gap-2 text-sm text-blue-950 sm:grid-cols-2">
+              {[
+                "First name",
+                "Last name",
+                "License / Permit Number",
+                "Contact Information",
+                "Future specialties",
+                "Status",
+                "Preferred workstation",
+                "Additional permissions",
+              ].map((field) => (
+                <li key={field} className="flex gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                  {field}
+                </li>
+              ))}
+            </ul>
+          </div>
 
           {quantities.dentists === 0 && (
             <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
@@ -1398,107 +1346,6 @@ function ProviderQuantityCard({
         </button>
       </div>
     </div>
-  );
-}
-
-function ProviderPreviewCard({
-  provider,
-  workstations,
-  onChange,
-}: {
-  provider: {
-    id: string;
-    displayName: string;
-    role: string;
-    status: "active" | "inactive";
-    preferredWorkstationId: string;
-  };
-  workstations: WorkstationDraft[];
-  onChange: (field: keyof ProviderEdit, value: string) => void;
-}) {
-  return (
-    <article className="rounded-xl border border-slate-200 p-4">
-      <div className="space-y-3">
-        <div>
-          <label
-            htmlFor={`provider-name-${provider.id}`}
-            className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-          >
-            Display Name
-          </label>
-          <input
-            id={`provider-name-${provider.id}`}
-            value={provider.displayName}
-            onChange={(event) =>
-              onChange("displayName", event.target.value)
-            }
-            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor={`provider-role-${provider.id}`}
-            className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-          >
-            Role
-          </label>
-          <select
-            id={`provider-role-${provider.id}`}
-            value={provider.role}
-            onChange={(event) => onChange("role", event.target.value)}
-            className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-          >
-            {providerRoleOptions.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 2xl:grid-cols-2">
-          <div>
-            <label
-              htmlFor={`provider-status-${provider.id}`}
-              className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-            >
-              Status
-            </label>
-            <select
-              id={`provider-status-${provider.id}`}
-              value={provider.status}
-              onChange={(event) => onChange("status", event.target.value)}
-              className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor={`provider-workstation-${provider.id}`}
-              className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-            >
-              Preferred Workstation
-            </label>
-            <select
-              id={`provider-workstation-${provider.id}`}
-              value={provider.preferredWorkstationId}
-              onChange={(event) =>
-                onChange("preferredWorkstationId", event.target.value)
-              }
-              className="mt-1 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            >
-              <option value="">Not assigned</option>
-              {workstations.map((workstation) => (
-                <option key={workstation.id} value={workstation.id}>
-                  {workstation.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-    </article>
   );
 }
 
