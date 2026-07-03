@@ -270,19 +270,22 @@ The deployment engineer assigns discovered hardware to workstations.
 
 # Step 8 — Clinical Policies
 
-Examples:
+Policy & Compliance Planning establishes the minimum operational defaults needed
+for initial sterilization workflows. Deployment captures only pack expiration,
+cycle review requirements, failed-cycle handling, pack-label printing behavior,
+and default traceability requirements. Every selection is required before the
+wizard can advance.
 
-Pack Expiration
+The live compliance summary makes the selected baseline visible without
+exposing advanced policy management. Sound alerts, printer configuration, audit
+retention, notification timing, scanner behavior, hardware configuration, and
+other advanced options are intentionally excluded from deployment.
 
-Label Format
-
-Traceability Rules
-
-Alert Preferences
-
-Review Requirements
-
-Audit Policies
+Advanced policy management belongs to **Settings → Sterilization Policies**
+after deployment. Keeping the wizard to the minimum required policies reduces
+first-time configuration while preserving richer operational controls for later
+review. The policy draft remains local and does not create or update persisted
+Settings data.
 
 ---
 

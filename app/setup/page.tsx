@@ -256,6 +256,131 @@ const initialSterilizerQuantities: SterilizerQuantities = {
   dryHeat: 0,
   other: 0,
 };
+interface PolicyDraft {
+  packExpiration: string;
+  cycleReview: string;
+  failedCycleHandling: string;
+  labelPrinting: string;
+  traceability: string;
+}
+
+interface PolicyOption {
+  value: string;
+  label: string;
+  summary: string;
+}
+
+interface PolicyDefinition {
+  id: keyof PolicyDraft;
+  label: string;
+  description: string;
+  summaryLabel: string;
+  options: readonly PolicyOption[];
+}
+
+const policyDefinitions: readonly PolicyDefinition[] = [
+  {
+    id: "packExpiration",
+    label: "Pack Expiration Policy",
+    description: "Sets the baseline shelf-life rule for prepared packs.",
+    summaryLabel: "Pack Expiration",
+    options: [
+      { value: "180-days", label: "180 Days", summary: "180 Days" },
+      { value: "365-days", label: "365 Days", summary: "365 Days" },
+      {
+        value: "clinic-defined",
+        label: "Clinic Defined",
+        summary: "Clinic Defined",
+      },
+    ],
+  },
+  {
+    id: "cycleReview",
+    label: "Cycle Review Requirement",
+    description: "Defines whether review is required before pack release.",
+    summaryLabel: "Cycle Review",
+    options: [
+      {
+        value: "required",
+        label: "Required before pack release",
+        summary: "Required",
+      },
+      { value: "optional", label: "Optional", summary: "Optional" },
+    ],
+  },
+  {
+    id: "failedCycleHandling",
+    label: "Failed Cycle Handling",
+    description: "Sets the default response when a cycle fails.",
+    summaryLabel: "Failed Cycles",
+    options: [
+      {
+        value: "investigation",
+        label: "Always require investigation",
+        summary: "Investigation Required",
+      },
+      {
+        value: "supervisor-review",
+        label: "Supervisor review",
+        summary: "Supervisor Review",
+      },
+      {
+        value: "clinic-defined",
+        label: "Clinic defined",
+        summary: "Clinic Defined",
+      },
+    ],
+  },
+  {
+    id: "labelPrinting",
+    label: "Pack Label Printing",
+    description: "Sets the default label-printing action after approval.",
+    summaryLabel: "Label Printing",
+    options: [
+      {
+        value: "automatic",
+        label: "Automatic after approval",
+        summary: "Automatic",
+      },
+      {
+        value: "manual",
+        label: "Manual printing",
+        summary: "Manual",
+      },
+    ],
+  },
+  {
+    id: "traceability",
+    label: "Default Traceability Requirement",
+    description: "Defines which procedures require baseline traceability.",
+    summaryLabel: "Traceability",
+    options: [
+      {
+        value: "all-procedures",
+        label: "All procedures",
+        summary: "All Procedures",
+      },
+      {
+        value: "clinical-only",
+        label: "Clinical procedures only",
+        summary: "Clinical Procedures Only",
+      },
+      {
+        value: "clinic-defined",
+        label: "Clinic defined",
+        summary: "Clinic Defined",
+      },
+    ],
+  },
+] as const;
+
+const initialPolicyDraft: PolicyDraft = {
+  packExpiration: "365-days",
+  cycleReview: "required",
+  failedCycleHandling: "investigation",
+  labelPrinting: "automatic",
+  traceability: "all-procedures",
+};
 const clinicTypes = [
   "General Dentistry",
   "Orthodontics",
@@ -411,6 +536,8 @@ export default function ClinicSetupPage() {
   const [sterilizerEdits, setSterilizerEdits] = useState<
     Record<string, SterilizerEdit>
   >({});
+  const [policyDraft, setPolicyDraft] =
+    useState<PolicyDraft>(initialPolicyDraft);
   const [touchedProfileFields, setTouchedProfileFields] = useState<
     Partial<Record<ClinicProfileField, boolean>>
   >({});
@@ -423,6 +550,7 @@ export default function ClinicSetupPage() {
   const isProviders = setupState.currentStep === SetupStep.PROVIDERS;
   const isSterilizers = setupState.currentStep === SetupStep.STERILIZERS;
   const isPolicies = setupState.currentStep === SetupStep.POLICIES;
+  const isHardware = setupState.currentStep === SetupStep.HARDWARE;
   const workstationDraft = generateWorkstationDraft(
     workstationQuantities,
     workstationNames,
@@ -436,6 +564,7 @@ export default function ClinicSetupPage() {
     (sterilizer) =>
       sterilizer.status === "active" || sterilizer.status === "planned",
   );
+  const isPolicyDraftComplete = Object.values(policyDraft).every(Boolean);
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
@@ -514,6 +643,18 @@ export default function ClinicSetupPage() {
             : [...current.completedSteps, SetupStep.STERILIZERS],
         }),
       );
+      return;
+    }
+
+    if (isPolicies && isPolicyDraftComplete) {
+      setSetupState((current) =>
+        nextStep({
+          ...current,
+          completedSteps: current.completedSteps.includes(SetupStep.POLICIES)
+            ? current.completedSteps
+            : [...current.completedSteps, SetupStep.POLICIES],
+        }),
+      );
     }
   }
 
@@ -551,6 +692,9 @@ export default function ClinicSetupPage() {
     }));
   }
 
+  function updatePolicy(field: keyof PolicyDraft, value: string) {
+    setPolicyDraft((current) => ({ ...current, [field]: value }));
+  }
   function updateSterilizer(
     id: string,
     field: keyof SterilizerEdit,
@@ -655,10 +799,17 @@ export default function ClinicSetupPage() {
           )}
 
           {isPolicies && (
+            <PoliciesStep
+              policies={policyDraft}
+              onPolicyChange={updatePolicy}
+            />
+          )}
+
+          {isHardware && (
             <FutureStepPlaceholder
-              stepNumber={6}
-              title="Policies"
-              phase="8.7"
+              stepNumber={7}
+              title="Hardware"
+              phase="8.8"
             />
           )}
 
@@ -682,10 +833,12 @@ export default function ClinicSetupPage() {
                 (isProviders &&
                   (!clinicType || providerQuantities.dentists === 0)) ||
                 (isSterilizers && !hasPlannedSterilizer) ||
+                (isPolicies && !isPolicyDraftComplete) ||
                 (!isClinicProfile &&
                   !isWorkstations &&
                   !isProviders &&
-                  !isSterilizers)
+                  !isSterilizers &&
+                  !isPolicies)
               }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
@@ -699,6 +852,149 @@ export default function ClinicSetupPage() {
   );
 }
 
+function PoliciesStep({
+  policies,
+  onPolicyChange,
+}: {
+  policies: PolicyDraft;
+  onPolicyChange: (field: keyof PolicyDraft, value: string) => void;
+}) {
+  const complianceSummary = policyDefinitions.map((policy) => ({
+    label: policy.summaryLabel,
+    value:
+      policy.options.find((option) => option.value === policies[policy.id])
+        ?.summary ?? "Not selected",
+  }));
+
+  return (
+    <div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Step 6 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-950">
+          Policy &amp; Compliance Planning
+        </h2>
+        <p className="mt-2 max-w-3xl text-base text-slate-600">
+          Establish the minimum sterilization defaults required for initial
+          clinic operation.
+        </p>
+      </div>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,0.8fr)_minmax(460px,1.2fr)]">
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-950">
+              Policy configuration
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Select the clinic&apos;s required operational defaults.
+            </p>
+            <div className="mt-5 space-y-4">
+              {policyDefinitions.map((policy) => (
+                <div key={policy.id}>
+                  <label
+                    htmlFor={`policy-${policy.id}`}
+                    className="text-sm font-semibold text-slate-800"
+                  >
+                    {policy.label} <span className="text-red-600">*</span>
+                  </label>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    {policy.description}
+                  </p>
+                  <select
+                    id={`policy-${policy.id}`}
+                    required
+                    value={policies[policy.id]}
+                    onChange={(event) =>
+                      onPolicyChange(policy.id, event.target.value)
+                    }
+                    className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  >
+                    <option value="" disabled>
+                      Select a policy
+                    </option>
+                    {policy.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="font-bold text-blue-950">
+                  Steri AI Recommendation
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-blue-900">
+                  These policies establish your clinic&apos;s operational
+                  defaults. Additional compliance options remain available
+                  after deployment, and most clinics review these settings
+                  annually.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl bg-white/70 p-4 text-sm leading-6 text-blue-950">
+              <p className="font-bold">Deployment note</p>
+              <p className="mt-1">
+                Advanced compliance settings become available after deployment
+                in <strong>Settings → Sterilization Policies</strong>.
+              </p>
+            </div>
+            <p className="mt-4 text-xs leading-5 text-blue-700">
+              Local placeholder guidance only. No AI, backend, database, or
+              persistence is used.
+            </p>
+          </aside>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-950">
+                Compliance Summary
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Live operational defaults for this local deployment draft.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Live
+            </span>
+          </div>
+
+          <dl className="mt-4 space-y-3">
+            {complianceSummary.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {item.label}
+                  </dt>
+                  <dd className="mt-1 text-sm font-bold text-slate-900">
+                    {item.value}
+                  </dd>
+                </div>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
+    </div>
+  );
+}
 function SterilizersStep({
   quantities,
   edits,
