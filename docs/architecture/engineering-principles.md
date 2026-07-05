@@ -39,6 +39,20 @@ Devices
 
 clinical_hardware_devices
 
+Platform-Wide Data Quality
+
+Input formatting and validation should be shared across the platform.
+
+Phone numbers, emails, websites, postal codes, IDs, patient identity,
+providers, rooms, and hardware identifiers should be normalized consistently.
+
+Pages should not invent their own validation rules when shared helpers exist.
+
+User-facing formatting may differ from stored normalized values.
+
+Consistent data quality supports reliable search, imports, duplicate
+prevention, reporting, and audit records.
+
 Hardware Independence
 
 Support generic standards first.

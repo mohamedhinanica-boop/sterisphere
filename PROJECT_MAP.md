@@ -10,6 +10,33 @@
 
 ---
 
+## Current Platform Architecture
+
+```text
+Clinic
+  |
+  v
+Workstations
+  |
+  v
+Agents
+  |
+  v
+Hardware
+  |
+  v
+Clinical Services
+  |
+  v
+Workflows
+```
+
+Phase 7 completion reference:
+
+* docs/architecture/phase-7-summary.md
+
+---
+
 ## Routes
 
 ### Dashboard
@@ -212,7 +239,7 @@ Role-based access control.
 
 ## Current Phase
 
-### Phase 7 — Smart Clinical Workstations
+### Phase 7 — Smart Clinical Workstations — Complete
 
 Purpose:
 Transform SteriSphere from a web-based sterilization workflow app into a connected clinical infrastructure platform.
@@ -230,14 +257,11 @@ Completed foundation:
 * Workstation display order foundation
 * Development scanner selected and ordered
 
-Current milestone:
+Completion reference:
 
-* Phase 7.5 — Clinic Agent Registration
+* docs/architecture/phase-7-summary.md
 
-Upcoming milestones:
+Next phase:
 
-* Phase 7.6 — Hardware Discovery
-* Phase 7.7 — Device Assignment
-* Phase 7.8 — Clinical Workstation Sessions
-* Phase 7.9 — USB Scanner Integration
-* Phase 7.10 — Patient Traceability Automation
+* Phase 8 — Setup, automation, workstation awareness, print-service execution,
+  AI-assisted workflows, security review, and operational refinement
