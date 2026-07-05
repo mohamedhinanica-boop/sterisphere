@@ -67,6 +67,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
   const isAssistantPage = pathname?.startsWith("/assistant");
+  const isSetupPage = pathname === "/setup";
+  const isFocusedWorkspace = isAssistantPage || isSetupPage;
 
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -131,7 +133,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       );
     },
     {
-      enabled: !isLoginPage && pathname !== "/patients",
+      enabled: !isLoginPage && !isSetupPage && pathname !== "/patients",
     },
   );
 
@@ -156,13 +158,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (!isLoginPage && !isAssistantPage) {
+    if (!isLoginPage && !isFocusedWorkspace) {
       loadUser();
     }
-  }, [isLoginPage, isAssistantPage]);
+  }, [isLoginPage, isFocusedWorkspace]);
 
   useEffect(() => {
-    if (isLoginPage || isAssistantPage) return;
+    if (isLoginPage || isFocusedWorkspace) return;
 
     fetchAssistantData();
 
@@ -171,7 +173,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [isLoginPage, isAssistantPage]);
+  }, [isLoginPage, isFocusedWorkspace]);
 
   async function fetchAssistantData() {
     const now = new Date();
@@ -238,6 +240,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <AuthGuard>
         <div className="h-[100dvh] min-h-0 overflow-hidden bg-slate-100 text-slate-950">
+          {children}
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  if (isSetupPage) {
+    return (
+      <AuthGuard>
+        <div className="min-h-[100dvh] bg-slate-100 text-slate-950">
           {children}
         </div>
       </AuthGuard>

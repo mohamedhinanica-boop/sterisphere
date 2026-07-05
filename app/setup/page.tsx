@@ -56,6 +56,18 @@ const stepLabels: Record<SetupStepId, string> = {
   COMPLETE: "Complete",
 };
 
+const deploymentProgressByStep: Record<SetupStepId, number> = {
+  WELCOME: 0,
+  CLINIC_PROFILE: 13,
+  WORKSTATIONS: 25,
+  PROVIDERS: 38,
+  STERILIZERS: 50,
+  POLICIES: 63,
+  HARDWARE: 75,
+  REVIEW: 88,
+  COMPLETE: 100,
+};
+
 const setupJourney = [
   "Discovery meeting",
   "Clinic intake questionnaire",
@@ -515,9 +527,8 @@ export default function ClinicSetupPage() {
   const isPolicyDraftComplete = Boolean(policyDraft.packExpiration);
   const isHardwarePlanComplete =
     hardwarePlan.labelPrinter > 0 && hardwarePlan.usbScanner > 0;
-  const deploymentProgress = Math.round(
-    ((currentStepIndex + 1) / SETUP_STEP_ORDER.length) * 100,
-  );
+  const deploymentProgress =
+    deploymentProgressByStep[setupState.currentStep];
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
@@ -694,7 +705,7 @@ export default function ClinicSetupPage() {
     }));
   }
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="mx-auto min-h-[100dvh] w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <header className="mb-6">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white">

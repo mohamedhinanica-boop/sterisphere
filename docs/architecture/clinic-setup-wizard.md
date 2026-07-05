@@ -45,6 +45,20 @@ replace Super Admin review or configuration validation.
 
 ---
 
+# Focused Deployment Workspace
+
+The Setup Wizard uses a focused full-screen deployment workspace and does not
+expose the normal SteriSphere application navigation. SteriSphere branding and
+the wizard's own setup progress navigation remain visible, while the Welcome
+screen alone provides a deliberate Return to Dashboard action.
+
+Deployment progress measures completed movement toward deployment rather than
+the current step index. Welcome begins at 0% before Start Setup is selected,
+intermediate milestones reflect completed transitions, and Complete is the only
+step shown as 100%.
+
+---
+
 # Deployment Flow
 
 Welcome
