@@ -14,6 +14,10 @@ These documents define the platform independently of implementation details.
 - [Unified Scan Services](../../lib/modules/scan-services/README.md)
 - [Unified Print Services](../../lib/modules/print-services/README.md)
 
+## Phase 9 Reference Set
+
+- [SteriSphere v1.0 Deployment Validation Plan](./v1-deployment-validation-plan.md)
+
 ## Current Architecture
 
 ### Engineering Principles
