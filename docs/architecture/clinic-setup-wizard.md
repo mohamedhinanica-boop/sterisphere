@@ -249,14 +249,15 @@ Each Agent becomes the local gateway for hardware.
 # Step 7 — Hardware Planning
 
 Hardware Planning is a lightweight readiness step. The deployment wizard records
-whether the clinic expects a SteriSphere Clinic Agent, label printer, USB
-scanners, tablet cameras, workstation computers, and optional sound alerts, plus
-the planned quantity for each category.
+only the estimated quantities of label printers and USB QR/barcode scanners
+needed for deployment.
 
-The wizard plans hardware; it does not discover, pair, configure, or use devices.
-Technical pairing belongs later in **Settings → Hardware Devices** and Clinic
-Agent validation. Hardware choices remain a local deployment draft with no
-Settings integration or persistence.
+The wizard estimates required physical equipment; it does not discover, register,
+pair, configure, or use devices. Device registration, printer configuration,
+scanner pairing, network configuration, and Agent installation belong
+exclusively to post-deployment **Hardware Settings** and validation. Hardware
+quantities remain a local deployment draft with no Settings integration or
+persistence.
 
 ---
 

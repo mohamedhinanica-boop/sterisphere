@@ -296,22 +296,9 @@ const initialPolicyDraft: PolicyDraft = {
   packExpiration: "365-days",
 };
 
-type HardwareCategory =
-  | "clinicAgent"
-  | "labelPrinter"
-  | "usbScanner"
-  | "tabletCamera"
-  | "workstationComputer"
-  | "soundAlerts";
+type HardwareCategory = "labelPrinter" | "usbScanner";
 
-type HardwareStatus = "planned" | "available" | "not-needed";
-
-interface HardwarePlanItem {
-  status: HardwareStatus;
-  quantity: number;
-}
-
-type HardwarePlan = Record<HardwareCategory, HardwarePlanItem>;
+type HardwarePlan = Record<HardwareCategory, number>;
 
 interface HardwareDefinition {
   id: HardwareCategory;
@@ -321,54 +308,23 @@ interface HardwareDefinition {
 
 const hardwareDefinitions: readonly HardwareDefinition[] = [
   {
-    id: "clinicAgent",
-    title: "SteriSphere Clinic Agent",
-    description:
-      "Provides the clinic's local connection to supported hardware.",
-  },
-  {
     id: "labelPrinter",
-    title: "Label Printer",
-    description: "Prints pack labels after deployment configuration.",
+    title: "Label Printers",
+    description: "Estimate printers needed for sterilization pack labels.",
   },
   {
     id: "usbScanner",
-    title: "USB Scanner",
-    description: "Supports fast pack scanning in treatment rooms.",
-  },
-  {
-    id: "tabletCamera",
-    title: "Tablet Camera",
-    description: "Provides a camera-based scanning option where appropriate.",
-  },
-  {
-    id: "workstationComputer",
-    title: "Workstation Computer",
-    description: "Runs SteriSphere at the clinic's treatment workstations.",
-  },
-  {
-    id: "soundAlerts",
-    title: "Optional Sound Alerts",
-    description: "Adds audible cues for supported workstation activities.",
+    title: "USB QR / Barcode Scanners",
+    description: "Estimate scanners needed in treatment rooms.",
   },
 ] as const;
 
 function createInitialHardwarePlan(treatmentRooms: number): HardwarePlan {
   return {
-    clinicAgent: { status: "planned", quantity: 1 },
-    labelPrinter: { status: "planned", quantity: 1 },
-    usbScanner: { status: "planned", quantity: treatmentRooms },
-    tabletCamera: { status: "available", quantity: 1 },
-    workstationComputer: { status: "planned", quantity: treatmentRooms },
-    soundAlerts: { status: "not-needed", quantity: 0 },
+    labelPrinter: 1,
+    usbScanner: treatmentRooms,
   };
 }
-
-const hardwareStatusLabels: Record<HardwareStatus, string> = {
-  planned: "Planned",
-  available: "Available",
-  "not-needed": "Not needed",
-};
 const clinicTypes = [
   "General Dentistry",
   "Orthodontics",
@@ -558,12 +514,10 @@ export default function ClinicSetupPage() {
   );
   const isPolicyDraftComplete = Boolean(policyDraft.packExpiration);
   const isHardwarePlanComplete =
-    hardwarePlan.clinicAgent.status !== "not-needed" &&
-    hardwarePlan.labelPrinter.status !== "not-needed" &&
-    ((hardwarePlan.usbScanner.status !== "not-needed" &&
-      hardwarePlan.usbScanner.quantity > 0) ||
-      (hardwarePlan.tabletCamera.status !== "not-needed" &&
-        hardwarePlan.tabletCamera.quantity > 0));
+    hardwarePlan.labelPrinter > 0 && hardwarePlan.usbScanner > 0;
+  const deploymentProgress = Math.round(
+    ((currentStepIndex + 1) / SETUP_STEP_ORDER.length) * 100,
+  );
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
@@ -684,20 +638,10 @@ export default function ClinicSetupPage() {
     if (category === "treatment") {
       setHardwarePlan((current) => ({
         ...current,
-        usbScanner: {
-          ...current.usbScanner,
-          quantity:
-            current.usbScanner.quantity === currentQuantity
-              ? nextQuantity
-              : current.usbScanner.quantity,
-        },
-        workstationComputer: {
-          ...current.workstationComputer,
-          quantity:
-            current.workstationComputer.quantity === currentQuantity
-              ? nextQuantity
-              : current.workstationComputer.quantity,
-        },
+        usbScanner:
+          current.usbScanner === currentQuantity
+            ? nextQuantity
+            : current.usbScanner,
       }));
     }
   }
@@ -730,47 +674,14 @@ export default function ClinicSetupPage() {
     setPolicyDraft((current) => ({ ...current, [field]: value }));
   }
 
-  function updateHardwareStatus(
-    category: HardwareCategory,
-    status: HardwareStatus,
-  ) {
-    setHardwarePlan((current) => ({
-      ...current,
-      [category]: {
-        status,
-        quantity:
-          status === "not-needed"
-            ? 0
-            : Math.max(
-                1,
-                current[category].quantity ||
-                  (category === "usbScanner" ||
-                  category === "workstationComputer"
-                    ? workstationQuantities.treatment
-                    : 1),
-              ),
-      },
-    }));
-  }
-
   function updateHardwareQuantity(
     category: HardwareCategory,
     adjustment: -1 | 1,
   ) {
-    setHardwarePlan((current) => {
-      const item = current[category];
-      if (item.status === "not-needed") {
-        return current;
-      }
-
-      return {
-        ...current,
-        [category]: {
-          ...item,
-          quantity: Math.max(1, item.quantity + adjustment),
-        },
-      };
-    });
+    setHardwarePlan((current) => ({
+      ...current,
+      [category]: Math.max(0, current[category] + adjustment),
+    }));
   }
   function updateSterilizer(
     id: string,
@@ -832,6 +743,8 @@ export default function ClinicSetupPage() {
         </aside>
 
         <section className="min-w-0">
+          <DeploymentProgress value={deploymentProgress} />
+
           {isWelcome && <WelcomeCard onStart={startSetup} />}
 
           {isClinicProfile && (
@@ -885,8 +798,6 @@ export default function ClinicSetupPage() {
           {isHardware && (
             <HardwareStep
               plan={hardwarePlan}
-              treatmentRooms={workstationQuantities.treatment}
-              onStatusChange={updateHardwareStatus}
               onQuantityChange={updateHardwareQuantity}
             />
           )}
@@ -940,18 +851,39 @@ export default function ClinicSetupPage() {
   );
 }
 
+function DeploymentProgress({ value }: { value: number }) {
+  return (
+    <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm font-bold text-slate-950">
+          Deployment Progress
+        </p>
+        <p className="text-sm font-semibold text-blue-700">
+          {value}% Complete
+        </p>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Deployment progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={value}
+        className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-200"
+      >
+        <div
+          className="h-full rounded-full bg-blue-700 transition-[width]"
+          style={{ width: `${value}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function HardwareStep({
   plan,
-  treatmentRooms,
-  onStatusChange,
   onQuantityChange,
 }: {
   plan: HardwarePlan;
-  treatmentRooms: number;
-  onStatusChange: (
-    category: HardwareCategory,
-    status: HardwareStatus,
-  ) => void;
   onQuantityChange: (
     category: HardwareCategory,
     adjustment: -1 | 1,
@@ -959,44 +891,12 @@ function HardwareStep({
 }) {
   const readinessSummary = [
     {
-      label: "Clinic Agent",
-      value: hardwareStatusLabels[plan.clinicAgent.status],
+      label: "Label Printers",
+      value: plan.labelPrinter,
     },
     {
-      label: "Label Printer",
-      value: hardwareStatusLabels[plan.labelPrinter.status],
-    },
-    {
-      label: "Scanner Coverage",
-      value:
-        plan.usbScanner.status === "not-needed"
-          ? "Not needed"
-          : `${plan.usbScanner.quantity} for ${treatmentRooms} treatment room${
-              treatmentRooms === 1 ? "" : "s"
-            } · ${hardwareStatusLabels[plan.usbScanner.status]}`,
-    },
-    {
-      label: "Tablet Camera",
-      value:
-        plan.tabletCamera.status === "not-needed"
-          ? "Not needed"
-          : `${hardwareStatusLabels[plan.tabletCamera.status]} · ${plan.tabletCamera.quantity}`,
-    },
-    {
-      label: "Workstation Computer Coverage",
-      value:
-        plan.workstationComputer.status === "not-needed"
-          ? "Not needed"
-          : `${plan.workstationComputer.quantity} for ${treatmentRooms} treatment room${
-              treatmentRooms === 1 ? "" : "s"
-            } · ${hardwareStatusLabels[plan.workstationComputer.status]}`,
-    },
-    {
-      label: "Optional Sound Alerts",
-      value:
-        plan.soundAlerts.status === "not-needed"
-          ? "Not needed"
-          : `${hardwareStatusLabels[plan.soundAlerts.status]} · ${plan.soundAlerts.quantity}`,
+      label: "USB Scanners",
+      value: plan.usbScanner,
     },
   ];
 
@@ -1022,12 +922,12 @@ function HardwareStep({
               Hardware planning checklist
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Confirm the expected status and quantity for each category.
+              Estimate the physical equipment required for deployment.
             </p>
 
             <div className="mt-5 space-y-4">
               {hardwareDefinitions.map((hardware) => {
-                const item = plan[hardware.id];
+                const quantity = plan[hardware.id];
 
                 return (
                   <div
@@ -1043,32 +943,8 @@ function HardwareStep({
                       </p>
                     </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                      <div>
-                        <label
-                          htmlFor={`hardware-${hardware.id}-status`}
-                          className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
-                        >
-                          Status
-                        </label>
-                        <select
-                          id={`hardware-${hardware.id}-status`}
-                          value={item.status}
-                          onChange={(event) =>
-                            onStatusChange(
-                              hardware.id,
-                              event.target.value as HardwareStatus,
-                            )
-                          }
-                          className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        >
-                          <option value="planned">Planned</option>
-                          <option value="available">Available</option>
-                          <option value="not-needed">Not needed</option>
-                        </select>
-                      </div>
-
-                      <div>
+                    <div className="mt-4">
+                      <div className="max-w-40">
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                           Quantity
                         </p>
@@ -1078,24 +954,20 @@ function HardwareStep({
                             onClick={() =>
                               onQuantityChange(hardware.id, -1)
                             }
-                            disabled={
-                              item.status === "not-needed" ||
-                              item.quantity <= 1
-                            }
+                            disabled={quantity === 0}
                             aria-label={`Decrease ${hardware.title} quantity`}
                             className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
                           <span className="min-w-10 text-center text-sm font-bold text-slate-950">
-                            {item.quantity}
+                            {quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() =>
                               onQuantityChange(hardware.id, 1)
                             }
-                            disabled={item.status === "not-needed"}
                             aria-label={`Increase ${hardware.title} quantity`}
                             className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
                           >
@@ -1120,18 +992,18 @@ function HardwareStep({
                   Steri AI Guidance
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-blue-900">
-                  Hardware can be finalized during deployment validation. The
-                  Clinic Agent enables local hardware communication, and no
-                  device is used until it has been validated.
+                  One label printer is generally recommended per sterilization
+                  room. One USB scanner is generally recommended per treatment
+                  room requiring traceability.
                 </p>
               </div>
             </div>
             <div className="mt-4 rounded-xl bg-white/70 p-4 text-sm leading-6 text-blue-950">
-              Devices are configured later in{" "}
-              <strong>Settings → Hardware Devices</strong>.
+              Hardware configuration and pairing are completed after deployment
+              from <strong>Hardware Settings</strong>.
             </div>
             <p className="mt-4 text-xs leading-5 text-blue-700">
-              Local planning guidance only. No discovery, pairing, backend, or
+              Local equipment estimate only. No device configuration or
               persistence is used.
             </p>
           </aside>
@@ -1140,10 +1012,10 @@ function HardwareStep({
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
           <div className="border-b border-slate-100 pb-4">
             <h3 className="text-lg font-bold text-slate-950">
-              Hardware Readiness Summary
+              Deployment Hardware Summary
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Live deployment coverage from this local planning draft.
+              This is a planning summary only.
             </p>
           </div>
 
@@ -1155,12 +1027,9 @@ function HardwareStep({
               >
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                    {item.label}
+                  <dt className="text-sm font-bold text-slate-900">
+                    {item.label}: {item.value}
                   </dt>
-                  <dd className="mt-1 text-sm font-bold text-slate-900">
-                    {item.value}
-                  </dd>
                 </div>
               </div>
             ))}
