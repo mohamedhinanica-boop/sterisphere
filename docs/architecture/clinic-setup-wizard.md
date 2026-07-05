@@ -312,23 +312,17 @@ Label Validation
 
 # Step 10 — Review
 
-Display a deployment summary.
+Deployment Review validates and summarizes the complete local deployment draft,
+including clinic identity, workstations, providers, sterilizers, policies, and
+planned hardware quantities. A local readiness score checks required section
+completion and essential room, sterilizer, printer, and scanner quantities.
+Non-blocking review notes highlight weak planning choices without replacing the
+validation enforced by earlier steps.
 
-Example:
-
-✓ Clinic configured
-
-✓ Users configured
-
-✓ Sterilizers configured
-
-✓ Workstations configured
-
-✓ Agents online
-
-✓ Hardware assigned
-
-✓ Policies configured
+Review remains non-persistent in this phase. Confirming the review advances only
+to a local Complete placeholder and does not deploy, save, or configure the
+clinic. A future phase will convert the reviewed draft into persisted clinic
+configuration.
 
 ---
 

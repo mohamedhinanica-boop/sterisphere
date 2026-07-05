@@ -511,6 +511,7 @@ export default function ClinicSetupPage() {
   const isPolicies = setupState.currentStep === SetupStep.POLICIES;
   const isHardware = setupState.currentStep === SetupStep.HARDWARE;
   const isReview = setupState.currentStep === SetupStep.REVIEW;
+  const isComplete = setupState.currentStep === SetupStep.COMPLETE;
   const workstationDraft = generateWorkstationDraft(
     workstationQuantities,
     workstationNames,
@@ -527,10 +528,18 @@ export default function ClinicSetupPage() {
   const isPolicyDraftComplete = Boolean(policyDraft.packExpiration);
   const isHardwarePlanComplete =
     hardwarePlan.labelPrinter > 0 && hardwarePlan.usbScanner > 0;
-  const deploymentProgress =
-    deploymentProgressByStep[setupState.currentStep];
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
+  const areRequiredSectionsComplete =
+    clinicProfileValid &&
+    workstationQuantities.treatment > 0 &&
+    Boolean(clinicType) &&
+    providerQuantities.dentists > 0 &&
+    hasPlannedSterilizer &&
+    isPolicyDraftComplete &&
+    isHardwarePlanComplete;
+  const deploymentProgress =
+    deploymentProgressByStep[setupState.currentStep];
 
   function startSetup() {
     setSetupState((current) =>
@@ -629,6 +638,18 @@ export default function ClinicSetupPage() {
           completedSteps: current.completedSteps.includes(SetupStep.HARDWARE)
             ? current.completedSteps
             : [...current.completedSteps, SetupStep.HARDWARE],
+        }),
+      );
+      return;
+    }
+
+    if (isReview) {
+      setSetupState((current) =>
+        nextStep({
+          ...current,
+          completedSteps: current.completedSteps.includes(SetupStep.REVIEW)
+            ? current.completedSteps
+            : [...current.completedSteps, SetupStep.REVIEW],
         }),
       );
     }
@@ -814,10 +835,24 @@ export default function ClinicSetupPage() {
           )}
 
           {isReview && (
+            <ReviewStep
+              profile={setupState.clinicProfile}
+              workstationQuantities={workstationQuantities}
+              workstations={workstationDraft}
+              clinicType={clinicType}
+              providerQuantities={providerQuantities}
+              sterilizers={sterilizerDraft}
+              policy={policyDraft}
+              hardware={hardwarePlan}
+              requiredSectionsComplete={areRequiredSectionsComplete}
+            />
+          )}
+
+          {isComplete && (
             <FutureStepPlaceholder
-              stepNumber={8}
-              title="Review"
-              phase="8.9"
+              stepNumber={9}
+              title="Complete"
+              phase="Future"
             />
           )}
 
@@ -848,16 +883,268 @@ export default function ClinicSetupPage() {
                   !isProviders &&
                   !isSterilizers &&
                   !isPolicies &&
-                  !isHardware)
+                  !isHardware &&
+                  !isReview)
               }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
-              Next
+              {isReview ? "Confirm Review" : "Next"}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function ReviewStep({
+  profile,
+  workstationQuantities,
+  workstations,
+  clinicType,
+  providerQuantities,
+  sterilizers,
+  policy,
+  hardware,
+  requiredSectionsComplete,
+}: {
+  profile: ClinicProfileSetup;
+  workstationQuantities: WorkstationQuantities;
+  workstations: WorkstationDraft[];
+  clinicType: string;
+  providerQuantities: ProviderQuantities;
+  sterilizers: SterilizerDraft[];
+  policy: PolicyDraft;
+  hardware: HardwarePlan;
+  requiredSectionsComplete: boolean;
+}) {
+  const getOptionLabel = (
+    options: readonly ClinicProfileOption[],
+    value: string,
+  ) => options.find((option) => option.value === value)?.label ?? value;
+  const country = getOptionLabel(CLINIC_COUNTRIES, profile.country);
+  const region = getOptionLabel(
+    getClinicRegions(profile.country),
+    profile.region,
+  );
+  const timezone = getOptionLabel(CLINIC_TIMEZONES, profile.timezone);
+  const language = getOptionLabel(
+    CLINIC_LANGUAGES,
+    profile.primaryLanguage,
+  );
+  const otherRooms =
+    workstationQuantities.consultation +
+    workstationQuantities.xray +
+    workstationQuantities.laboratory +
+    workstationQuantities.storage;
+  const sterilizerTypes = Array.from(
+    new Set(sterilizers.map((sterilizer) => sterilizer.type)),
+  ).join(", ");
+  const sterilizerAssignments = sterilizers
+    .filter((sterilizer) => sterilizer.assignedWorkstationId)
+    .map((sterilizer) => {
+      const workstation = workstations.find(
+        (item) => item.id === sterilizer.assignedWorkstationId,
+      );
+      return `${sterilizer.displayName}: ${
+        workstation?.name ?? sterilizer.assignedWorkstationId
+      }`;
+    });
+  const expirationPolicy =
+    policyDefinitions[0].options.find(
+      (option) => option.value === policy.packExpiration,
+    )?.label ?? "Not selected";
+  const readinessChecks = [
+    requiredSectionsComplete,
+    workstationQuantities.treatment > 0,
+    sterilizers.length > 0,
+    hardware.labelPrinter > 0,
+    hardware.usbScanner > 0,
+  ];
+  const readinessScore = Math.round(
+    (readinessChecks.filter(Boolean).length / readinessChecks.length) * 100,
+  );
+  const warnings = [
+    workstationQuantities.reception === 0
+      ? "No reception desk configured."
+      : null,
+    workstationQuantities.sterilization === 0
+      ? "No sterilization room configured."
+      : null,
+    hardware.usbScanner < workstationQuantities.treatment
+      ? "Scanner count is lower than the treatment room count."
+      : null,
+    !profile.clinicCode ? "No clinic code entered." : null,
+  ].filter((warning): warning is string => Boolean(warning));
+
+  return (
+    <div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Step 8 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-950">
+          Deployment Review
+        </h2>
+        <p className="mt-2 max-w-3xl text-base text-slate-600">
+          Review the complete local deployment draft before confirming it.
+        </p>
+      </div>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-emerald-700">
+          Deployment Readiness
+        </p>
+        <p className="mt-2 text-4xl font-bold text-emerald-950">
+          {readinessScore}%
+        </p>
+        <p className="mt-2 text-sm text-emerald-800">
+          Based on required sections and essential deployment quantities.
+        </p>
+      </section>
+
+      {warnings.length > 0 && (
+        <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <h3 className="font-bold text-amber-950">Review notes</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {warnings.map((warning) => (
+              <div
+                key={warning}
+                className="rounded-xl border border-amber-200 bg-white/70 p-3 text-sm font-semibold text-amber-900"
+              >
+                {warning}
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-amber-800">
+            These notes are informational and do not block confirmation.
+          </p>
+        </section>
+      )}
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <ReviewSection title="Clinic Profile">
+          <ReviewRow label="Clinic name" value={profile.clinicName} />
+          <ReviewRow label="Country / Province" value={`${country} / ${region}`} />
+          <ReviewRow label="Time zone" value={timezone} />
+          <ReviewRow label="Language" value={language} />
+        </ReviewSection>
+
+        <ReviewSection title="Workstations">
+          <ReviewRow label="Total workstations" value={workstations.length} />
+          <ReviewRow
+            label="Treatment rooms"
+            value={workstationQuantities.treatment}
+          />
+          <ReviewRow
+            label="Sterilization rooms"
+            value={workstationQuantities.sterilization}
+          />
+          <ReviewRow
+            label="Reception desks"
+            value={workstationQuantities.reception}
+          />
+          <ReviewRow label="Other rooms" value={otherRooms} />
+        </ReviewSection>
+
+        <ReviewSection title="Providers">
+          <ReviewRow label="Clinic type" value={clinicType} />
+          {providerCategories.map((category) => (
+            <ReviewRow
+              key={category.id}
+              label={category.title}
+              value={providerQuantities[category.id]}
+            />
+          ))}
+        </ReviewSection>
+
+        <ReviewSection title="Sterilizers">
+          <ReviewRow label="Total sterilizers" value={sterilizers.length} />
+          <ReviewRow label="Types" value={sterilizerTypes || "None"} />
+          <ReviewRow
+            label="Assigned workstation"
+            value={
+              sterilizerAssignments.length > 0
+                ? sterilizerAssignments.join("; ")
+                : "Not assigned"
+            }
+          />
+        </ReviewSection>
+
+        <ReviewSection title="Policies">
+          <ReviewRow
+            label="Pack expiration policy"
+            value={expirationPolicy}
+          />
+          {[
+            "Cycle Review Required",
+            "Failed Cycles Require Investigation",
+            "Traceability Required",
+          ].map((safeguard) => (
+            <div key={safeguard} className="flex items-center gap-2 py-2">
+              <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+              <p className="text-sm font-semibold text-slate-900">
+                {safeguard}
+              </p>
+            </div>
+          ))}
+        </ReviewSection>
+
+        <ReviewSection title="Hardware">
+          <ReviewRow label="Label printers" value={hardware.labelPrinter} />
+          <ReviewRow label="USB scanners" value={hardware.usbScanner} />
+        </ReviewSection>
+      </div>
+
+      <aside className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="font-bold text-blue-950">
+              Steri AI Guidance
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-blue-900">
+              This review summarizes the local deployment draft. No clinic data
+              is saved until deployment is confirmed in a future phase.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function ReviewSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="border-b border-slate-100 pb-3 text-lg font-bold text-slate-950">
+        {title}
+      </h3>
+      <dl className="mt-3 divide-y divide-slate-100">{children}</dl>
+    </section>
+  );
+}
+
+function ReviewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5">
+      <dt className="text-sm text-slate-600">{label}</dt>
+      <dd className="text-right text-sm font-bold text-slate-900">{value}</dd>
     </div>
   );
 }
