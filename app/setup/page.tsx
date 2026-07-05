@@ -258,10 +258,6 @@ const initialSterilizerQuantities: SterilizerQuantities = {
 };
 interface PolicyDraft {
   packExpiration: string;
-  cycleReview: string;
-  failedCycleHandling: string;
-  labelPrinting: string;
-  traceability: string;
 }
 
 interface PolicyOption {
@@ -294,92 +290,10 @@ const policyDefinitions: readonly PolicyDefinition[] = [
       },
     ],
   },
-  {
-    id: "cycleReview",
-    label: "Cycle Review Requirement",
-    description: "Defines whether review is required before pack release.",
-    summaryLabel: "Cycle Review",
-    options: [
-      {
-        value: "required",
-        label: "Required before pack release",
-        summary: "Required",
-      },
-      { value: "optional", label: "Optional", summary: "Optional" },
-    ],
-  },
-  {
-    id: "failedCycleHandling",
-    label: "Failed Cycle Handling",
-    description: "Sets the default response when a cycle fails.",
-    summaryLabel: "Failed Cycles",
-    options: [
-      {
-        value: "investigation",
-        label: "Always require investigation",
-        summary: "Investigation Required",
-      },
-      {
-        value: "supervisor-review",
-        label: "Supervisor review",
-        summary: "Supervisor Review",
-      },
-      {
-        value: "clinic-defined",
-        label: "Clinic defined",
-        summary: "Clinic Defined",
-      },
-    ],
-  },
-  {
-    id: "labelPrinting",
-    label: "Pack Label Printing",
-    description: "Sets the default label-printing action after approval.",
-    summaryLabel: "Label Printing",
-    options: [
-      {
-        value: "automatic",
-        label: "Automatic after approval",
-        summary: "Automatic",
-      },
-      {
-        value: "manual",
-        label: "Manual printing",
-        summary: "Manual",
-      },
-    ],
-  },
-  {
-    id: "traceability",
-    label: "Default Traceability Requirement",
-    description: "Defines which procedures require baseline traceability.",
-    summaryLabel: "Traceability",
-    options: [
-      {
-        value: "all-procedures",
-        label: "All procedures",
-        summary: "All Procedures",
-      },
-      {
-        value: "clinical-only",
-        label: "Clinical procedures only",
-        summary: "Clinical Procedures Only",
-      },
-      {
-        value: "clinic-defined",
-        label: "Clinic defined",
-        summary: "Clinic Defined",
-      },
-    ],
-  },
 ] as const;
 
 const initialPolicyDraft: PolicyDraft = {
   packExpiration: "365-days",
-  cycleReview: "required",
-  failedCycleHandling: "investigation",
-  labelPrinting: "automatic",
-  traceability: "all-procedures",
 };
 const clinicTypes = [
   "General Dentistry",
@@ -564,7 +478,7 @@ export default function ClinicSetupPage() {
     (sterilizer) =>
       sterilizer.status === "active" || sterilizer.status === "planned",
   );
-  const isPolicyDraftComplete = Object.values(policyDraft).every(Boolean);
+  const isPolicyDraftComplete = Boolean(policyDraft.packExpiration);
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
@@ -888,7 +802,7 @@ function PoliciesStep({
               Policy configuration
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Select the clinic&apos;s required operational defaults.
+              Select the clinic&apos;s baseline pack expiration policy.
             </p>
             <div className="mt-5 space-y-4">
               {policyDefinitions.map((policy) => (
@@ -920,6 +834,12 @@ function PoliciesStep({
                       </option>
                     ))}
                   </select>
+                  {policies.packExpiration === "clinic-defined" && (
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      Custom expiration rules are configured after deployment
+                      in Settings → Sterilization Policies.
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -932,21 +852,19 @@ function PoliciesStep({
               </span>
               <div>
                 <h3 className="font-bold text-blue-950">
-                  Steri AI Recommendation
+                  Steri AI Guidance
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-blue-900">
-                  These policies establish your clinic&apos;s operational
-                  defaults. Additional compliance options remain available
-                  after deployment, and most clinics review these settings
-                  annually.
+                  Deployment only defines the baseline pack expiration policy.
+                  Core safeguards remain active by default.
                 </p>
               </div>
             </div>
             <div className="mt-4 rounded-xl bg-white/70 p-4 text-sm leading-6 text-blue-950">
               <p className="font-bold">Deployment note</p>
               <p className="mt-1">
-                Advanced compliance settings become available after deployment
-                in <strong>Settings → Sterilization Policies</strong>.
+                Advanced policy settings are managed after deployment in{" "}
+                <strong>Settings → Sterilization Policies</strong>.
               </p>
             </div>
             <p className="mt-4 text-xs leading-5 text-blue-700">
@@ -985,6 +903,26 @@ function PoliciesStep({
                   </dt>
                   <dd className="mt-1 text-sm font-bold text-slate-900">
                     {item.value}
+                  </dd>
+                </div>
+              </div>
+            ))}
+            {[
+              "Cycle Review Required",
+              "Failed Cycles Require Investigation",
+              "Traceability Required",
+            ].map((safeguard) => (
+              <div
+                key={safeguard}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Core safeguard
+                  </dt>
+                  <dd className="mt-1 text-sm font-bold text-slate-900">
+                    {safeguard}
                   </dd>
                 </div>
               </div>
