@@ -49,8 +49,8 @@ replace Super Admin review or configuration validation.
 
 The Setup Wizard uses a focused full-screen deployment workspace and does not
 expose the normal SteriSphere application navigation. SteriSphere branding and
-the wizard's own setup progress navigation remain visible, while the Welcome
-screen alone provides a deliberate Return to Dashboard action.
+the wizard's own setup progress navigation remain visible. Dashboard access
+should not appear before a deployed clinic environment exists.
 
 Deployment progress measures completed movement toward deployment rather than
 the current step index. Welcome and Clinic Profile both show 0% because entering
@@ -320,21 +320,23 @@ Non-blocking review notes highlight weak planning choices without replacing the
 validation enforced by earlier steps.
 
 Review remains non-persistent in this phase. Confirming the review advances only
-to a local Complete placeholder and does not deploy, save, or configure the
-clinic. A future phase will convert the reviewed draft into persisted clinic
+to the local Complete step and does not deploy, save, or configure the clinic.
+A future phase will convert the reviewed draft into persisted clinic
 configuration.
 
 ---
 
-# Step 11 — Launch Clinic
+# Step 11 — Complete
 
-Deployment finishes.
+The Complete step currently finalizes only the local deployment draft. It
+confirms that the clinic profile, workstations, provider structure, sterilizers,
+baseline policies, hardware quantities, and review have been prepared without
+creating a clinic or opening the dashboard.
 
-Clinic becomes operational.
-
-The Setup Wizard is marked complete.
-
-Normal SteriSphere operation begins.
+Persistence and live workspace access belong to a future phase. Future
+real-life deployment simulation will begin from a clean clinic environment so
+the reviewed draft can be converted into a real configuration without relying
+on pre-existing dashboard data.
 
 ---
 

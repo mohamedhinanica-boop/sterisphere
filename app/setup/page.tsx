@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -849,11 +848,7 @@ export default function ClinicSetupPage() {
           )}
 
           {isComplete && (
-            <FutureStepPlaceholder
-              stepNumber={9}
-              title="Complete"
-              phase="Future"
-            />
+            <CompleteStep />
           )}
 
           <div className="mt-5 flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -864,13 +859,14 @@ export default function ClinicSetupPage() {
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              {isComplete ? "Back to Review" : "Back"}
             </button>
 
             <button
               type="button"
               onClick={goNext}
               disabled={
+                isComplete ||
                 (isClinicProfile && !clinicProfileValid) ||
                 (isWorkstations && workstationQuantities.treatment === 0) ||
                 (isProviders &&
@@ -884,15 +880,77 @@ export default function ClinicSetupPage() {
                   !isSterilizers &&
                   !isPolicies &&
                   !isHardware &&
-                  !isReview)
+                  !isReview &&
+                  !isComplete)
               }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
-              {isReview ? "Confirm Review" : "Next"}
-              <ArrowRight className="h-4 w-4" />
+              {isComplete
+                ? "Deployment Persistence Coming Soon"
+                : isReview
+                  ? "Confirm Review"
+                  : "Next"}
+              {!isComplete && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function CompleteStep() {
+  const completedDraftSections = [
+    "Clinic profile configured",
+    "Workstations planned",
+    "Provider structure planned",
+    "Sterilizers planned",
+    "Baseline policies selected",
+    "Hardware quantities planned",
+    "Review completed",
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
+      <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950 p-6 text-white sm:p-9">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+          <Check className="h-6 w-6" />
+        </div>
+        <p className="mt-6 text-sm font-semibold uppercase tracking-[0.16em] text-emerald-200">
+          Step 9 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold sm:text-4xl">
+          Deployment Draft Complete
+        </h2>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-emerald-100 sm:text-lg">
+          Your SteriSphere deployment draft has been prepared.
+        </p>
+      </div>
+
+      <div className="p-6 sm:p-9">
+        <h3 className="text-lg font-bold text-slate-950">
+          Draft summary
+        </h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {completedDraftSections.map((section) => (
+            <div
+              key={section}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <Check className="h-4 w-4" />
+              </span>
+              <p className="text-sm font-semibold text-slate-900">
+                {section}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-950">
+          In a future phase, confirming deployment will create the clinic
+          configuration and open the live SteriSphere workspace.
+        </div>
       </div>
     </div>
   );
@@ -2609,28 +2667,6 @@ function ClinicProfileStep({
   );
 }
 
-function FutureStepPlaceholder({
-  stepNumber,
-  title,
-  phase,
-}: {
-  stepNumber: number;
-  title: string;
-  phase: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
-        Step {stepNumber} of {SETUP_STEP_ORDER.length}
-      </p>
-      <h2 className="mt-3 text-3xl font-bold text-slate-950">{title}</h2>
-      <p className="mt-3 text-base text-slate-600">
-        Implementation begins in Phase {phase}.
-      </p>
-    </div>
-  );
-}
-
 function SetupCard({
   icon: Icon,
   title,
@@ -2834,7 +2870,7 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
           </ol>
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-8">
           <button
             type="button"
             onClick={onStart}
@@ -2843,12 +2879,9 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
             Start Setup
             <ArrowRight className="h-4 w-4" />
           </button>
-          <Link
-            href="/"
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-          >
-            Return to Dashboard
-          </Link>
+          <p className="mt-3 text-sm text-slate-500">
+            Dashboard access becomes available after deployment is completed.
+          </p>
         </div>
       </div>
     </div>
