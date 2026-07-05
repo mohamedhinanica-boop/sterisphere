@@ -246,25 +246,17 @@ Each Agent becomes the local gateway for hardware.
 
 ---
 
-# Step 7 — Hardware Discovery
+# Step 7 — Hardware Planning
 
-The Clinic Agent automatically reports discovered hardware.
+Hardware Planning is a lightweight readiness step. The deployment wizard records
+whether the clinic expects a SteriSphere Clinic Agent, label printer, USB
+scanners, tablet cameras, workstation computers, and optional sound alerts, plus
+the planned quantity for each category.
 
-Examples:
-
-Printers
-
-USB Scanners
-
-Cameras
-
-Speakers
-
-Sterilizers
-
-Future Sensors
-
-The deployment engineer assigns discovered hardware to workstations.
+The wizard plans hardware; it does not discover, pair, configure, or use devices.
+Technical pairing belongs later in **Settings → Hardware Devices** and Clinic
+Agent validation. Hardware choices remain a local deployment draft with no
+Settings integration or persistence.
 
 ---
 

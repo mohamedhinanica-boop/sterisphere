@@ -295,6 +295,80 @@ const policyDefinitions: readonly PolicyDefinition[] = [
 const initialPolicyDraft: PolicyDraft = {
   packExpiration: "365-days",
 };
+
+type HardwareCategory =
+  | "clinicAgent"
+  | "labelPrinter"
+  | "usbScanner"
+  | "tabletCamera"
+  | "workstationComputer"
+  | "soundAlerts";
+
+type HardwareStatus = "planned" | "available" | "not-needed";
+
+interface HardwarePlanItem {
+  status: HardwareStatus;
+  quantity: number;
+}
+
+type HardwarePlan = Record<HardwareCategory, HardwarePlanItem>;
+
+interface HardwareDefinition {
+  id: HardwareCategory;
+  title: string;
+  description: string;
+}
+
+const hardwareDefinitions: readonly HardwareDefinition[] = [
+  {
+    id: "clinicAgent",
+    title: "SteriSphere Clinic Agent",
+    description:
+      "Provides the clinic's local connection to supported hardware.",
+  },
+  {
+    id: "labelPrinter",
+    title: "Label Printer",
+    description: "Prints pack labels after deployment configuration.",
+  },
+  {
+    id: "usbScanner",
+    title: "USB Scanner",
+    description: "Supports fast pack scanning in treatment rooms.",
+  },
+  {
+    id: "tabletCamera",
+    title: "Tablet Camera",
+    description: "Provides a camera-based scanning option where appropriate.",
+  },
+  {
+    id: "workstationComputer",
+    title: "Workstation Computer",
+    description: "Runs SteriSphere at the clinic's treatment workstations.",
+  },
+  {
+    id: "soundAlerts",
+    title: "Optional Sound Alerts",
+    description: "Adds audible cues for supported workstation activities.",
+  },
+] as const;
+
+function createInitialHardwarePlan(treatmentRooms: number): HardwarePlan {
+  return {
+    clinicAgent: { status: "planned", quantity: 1 },
+    labelPrinter: { status: "planned", quantity: 1 },
+    usbScanner: { status: "planned", quantity: treatmentRooms },
+    tabletCamera: { status: "available", quantity: 1 },
+    workstationComputer: { status: "planned", quantity: treatmentRooms },
+    soundAlerts: { status: "not-needed", quantity: 0 },
+  };
+}
+
+const hardwareStatusLabels: Record<HardwareStatus, string> = {
+  planned: "Planned",
+  available: "Available",
+  "not-needed": "Not needed",
+};
 const clinicTypes = [
   "General Dentistry",
   "Orthodontics",
@@ -452,6 +526,9 @@ export default function ClinicSetupPage() {
   >({});
   const [policyDraft, setPolicyDraft] =
     useState<PolicyDraft>(initialPolicyDraft);
+  const [hardwarePlan, setHardwarePlan] = useState<HardwarePlan>(() =>
+    createInitialHardwarePlan(recommendedWorkstationQuantities.treatment),
+  );
   const [touchedProfileFields, setTouchedProfileFields] = useState<
     Partial<Record<ClinicProfileField, boolean>>
   >({});
@@ -465,6 +542,7 @@ export default function ClinicSetupPage() {
   const isSterilizers = setupState.currentStep === SetupStep.STERILIZERS;
   const isPolicies = setupState.currentStep === SetupStep.POLICIES;
   const isHardware = setupState.currentStep === SetupStep.HARDWARE;
+  const isReview = setupState.currentStep === SetupStep.REVIEW;
   const workstationDraft = generateWorkstationDraft(
     workstationQuantities,
     workstationNames,
@@ -479,6 +557,13 @@ export default function ClinicSetupPage() {
       sterilizer.status === "active" || sterilizer.status === "planned",
   );
   const isPolicyDraftComplete = Boolean(policyDraft.packExpiration);
+  const isHardwarePlanComplete =
+    hardwarePlan.clinicAgent.status !== "not-needed" &&
+    hardwarePlan.labelPrinter.status !== "not-needed" &&
+    ((hardwarePlan.usbScanner.status !== "not-needed" &&
+      hardwarePlan.usbScanner.quantity > 0) ||
+      (hardwarePlan.tabletCamera.status !== "not-needed" &&
+        hardwarePlan.tabletCamera.quantity > 0));
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
 
@@ -569,6 +654,18 @@ export default function ClinicSetupPage() {
             : [...current.completedSteps, SetupStep.POLICIES],
         }),
       );
+      return;
+    }
+
+    if (isHardware && isHardwarePlanComplete) {
+      setSetupState((current) =>
+        nextStep({
+          ...current,
+          completedSteps: current.completedSteps.includes(SetupStep.HARDWARE)
+            ? current.completedSteps
+            : [...current.completedSteps, SetupStep.HARDWARE],
+        }),
+      );
     }
   }
 
@@ -576,10 +673,33 @@ export default function ClinicSetupPage() {
     category: WorkstationCategory,
     adjustment: -1 | 1,
   ) {
+    const currentQuantity = workstationQuantities[category];
+    const nextQuantity = Math.max(0, currentQuantity + adjustment);
+
     setWorkstationQuantities((current) => ({
       ...current,
-      [category]: Math.max(0, current[category] + adjustment),
+      [category]: nextQuantity,
     }));
+
+    if (category === "treatment") {
+      setHardwarePlan((current) => ({
+        ...current,
+        usbScanner: {
+          ...current.usbScanner,
+          quantity:
+            current.usbScanner.quantity === currentQuantity
+              ? nextQuantity
+              : current.usbScanner.quantity,
+        },
+        workstationComputer: {
+          ...current.workstationComputer,
+          quantity:
+            current.workstationComputer.quantity === currentQuantity
+              ? nextQuantity
+              : current.workstationComputer.quantity,
+        },
+      }));
+    }
   }
 
   function updateWorkstationName(id: string, name: string) {
@@ -608,6 +728,49 @@ export default function ClinicSetupPage() {
 
   function updatePolicy(field: keyof PolicyDraft, value: string) {
     setPolicyDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateHardwareStatus(
+    category: HardwareCategory,
+    status: HardwareStatus,
+  ) {
+    setHardwarePlan((current) => ({
+      ...current,
+      [category]: {
+        status,
+        quantity:
+          status === "not-needed"
+            ? 0
+            : Math.max(
+                1,
+                current[category].quantity ||
+                  (category === "usbScanner" ||
+                  category === "workstationComputer"
+                    ? workstationQuantities.treatment
+                    : 1),
+              ),
+      },
+    }));
+  }
+
+  function updateHardwareQuantity(
+    category: HardwareCategory,
+    adjustment: -1 | 1,
+  ) {
+    setHardwarePlan((current) => {
+      const item = current[category];
+      if (item.status === "not-needed") {
+        return current;
+      }
+
+      return {
+        ...current,
+        [category]: {
+          ...item,
+          quantity: Math.max(1, item.quantity + adjustment),
+        },
+      };
+    });
   }
   function updateSterilizer(
     id: string,
@@ -720,10 +883,19 @@ export default function ClinicSetupPage() {
           )}
 
           {isHardware && (
+            <HardwareStep
+              plan={hardwarePlan}
+              treatmentRooms={workstationQuantities.treatment}
+              onStatusChange={updateHardwareStatus}
+              onQuantityChange={updateHardwareQuantity}
+            />
+          )}
+
+          {isReview && (
             <FutureStepPlaceholder
-              stepNumber={7}
-              title="Hardware"
-              phase="8.8"
+              stepNumber={8}
+              title="Review"
+              phase="8.9"
             />
           )}
 
@@ -748,11 +920,13 @@ export default function ClinicSetupPage() {
                   (!clinicType || providerQuantities.dentists === 0)) ||
                 (isSterilizers && !hasPlannedSterilizer) ||
                 (isPolicies && !isPolicyDraftComplete) ||
+                (isHardware && !isHardwarePlanComplete) ||
                 (!isClinicProfile &&
                   !isWorkstations &&
                   !isProviders &&
                   !isSterilizers &&
-                  !isPolicies)
+                  !isPolicies &&
+                  !isHardware)
               }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
@@ -760,6 +934,237 @@ export default function ClinicSetupPage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function HardwareStep({
+  plan,
+  treatmentRooms,
+  onStatusChange,
+  onQuantityChange,
+}: {
+  plan: HardwarePlan;
+  treatmentRooms: number;
+  onStatusChange: (
+    category: HardwareCategory,
+    status: HardwareStatus,
+  ) => void;
+  onQuantityChange: (
+    category: HardwareCategory,
+    adjustment: -1 | 1,
+  ) => void;
+}) {
+  const readinessSummary = [
+    {
+      label: "Clinic Agent",
+      value: hardwareStatusLabels[plan.clinicAgent.status],
+    },
+    {
+      label: "Label Printer",
+      value: hardwareStatusLabels[plan.labelPrinter.status],
+    },
+    {
+      label: "Scanner Coverage",
+      value:
+        plan.usbScanner.status === "not-needed"
+          ? "Not needed"
+          : `${plan.usbScanner.quantity} for ${treatmentRooms} treatment room${
+              treatmentRooms === 1 ? "" : "s"
+            } · ${hardwareStatusLabels[plan.usbScanner.status]}`,
+    },
+    {
+      label: "Tablet Camera",
+      value:
+        plan.tabletCamera.status === "not-needed"
+          ? "Not needed"
+          : `${hardwareStatusLabels[plan.tabletCamera.status]} · ${plan.tabletCamera.quantity}`,
+    },
+    {
+      label: "Workstation Computer Coverage",
+      value:
+        plan.workstationComputer.status === "not-needed"
+          ? "Not needed"
+          : `${plan.workstationComputer.quantity} for ${treatmentRooms} treatment room${
+              treatmentRooms === 1 ? "" : "s"
+            } · ${hardwareStatusLabels[plan.workstationComputer.status]}`,
+    },
+    {
+      label: "Optional Sound Alerts",
+      value:
+        plan.soundAlerts.status === "not-needed"
+          ? "Not needed"
+          : `${hardwareStatusLabels[plan.soundAlerts.status]} · ${plan.soundAlerts.quantity}`,
+    },
+  ];
+
+  return (
+    <div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Step 7 of {SETUP_STEP_ORDER.length}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-950">
+          Hardware Planning
+        </h2>
+        <p className="mt-2 max-w-3xl text-base text-slate-600">
+          Plan the devices needed for deployment without configuring or pairing
+          hardware yet.
+        </p>
+      </div>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(420px,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-950">
+              Hardware planning checklist
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Confirm the expected status and quantity for each category.
+            </p>
+
+            <div className="mt-5 space-y-4">
+              {hardwareDefinitions.map((hardware) => {
+                const item = plan[hardware.id];
+
+                return (
+                  <div
+                    key={hardware.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div>
+                      <h4 className="font-bold text-slate-950">
+                        {hardware.title}
+                      </h4>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        {hardware.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                      <div>
+                        <label
+                          htmlFor={`hardware-${hardware.id}-status`}
+                          className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"
+                        >
+                          Status
+                        </label>
+                        <select
+                          id={`hardware-${hardware.id}-status`}
+                          value={item.status}
+                          onChange={(event) =>
+                            onStatusChange(
+                              hardware.id,
+                              event.target.value as HardwareStatus,
+                            )
+                          }
+                          className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="available">Available</option>
+                          <option value="not-needed">Not needed</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                          Quantity
+                        </p>
+                        <div className="mt-2 flex min-h-11 items-center rounded-xl border border-slate-300 bg-white p-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onQuantityChange(hardware.id, -1)
+                            }
+                            disabled={
+                              item.status === "not-needed" ||
+                              item.quantity <= 1
+                            }
+                            aria-label={`Decrease ${hardware.title} quantity`}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="min-w-10 text-center text-sm font-bold text-slate-950">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onQuantityChange(hardware.id, 1)
+                            }
+                            disabled={item.status === "not-needed"}
+                            aria-label={`Increase ${hardware.title} quantity`}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="font-bold text-blue-950">
+                  Steri AI Guidance
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-blue-900">
+                  Hardware can be finalized during deployment validation. The
+                  Clinic Agent enables local hardware communication, and no
+                  device is used until it has been validated.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl bg-white/70 p-4 text-sm leading-6 text-blue-950">
+              Devices are configured later in{" "}
+              <strong>Settings → Hardware Devices</strong>.
+            </div>
+            <p className="mt-4 text-xs leading-5 text-blue-700">
+              Local planning guidance only. No discovery, pairing, backend, or
+              persistence is used.
+            </p>
+          </aside>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-lg font-bold text-slate-950">
+              Hardware Readiness Summary
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Live deployment coverage from this local planning draft.
+            </p>
+          </div>
+
+          <dl className="mt-4 space-y-3">
+            {readinessSummary.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {item.label}
+                  </dt>
+                  <dd className="mt-1 text-sm font-bold text-slate-900">
+                    {item.value}
+                  </dd>
+                </div>
+              </div>
+            ))}
+          </dl>
         </section>
       </div>
     </div>
