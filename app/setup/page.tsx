@@ -58,13 +58,13 @@ const stepLabels: Record<SetupStepId, string> = {
 
 const deploymentProgressByStep: Record<SetupStepId, number> = {
   WELCOME: 0,
-  CLINIC_PROFILE: 13,
-  WORKSTATIONS: 25,
-  PROVIDERS: 38,
-  STERILIZERS: 50,
-  POLICIES: 63,
-  HARDWARE: 75,
-  REVIEW: 88,
+  CLINIC_PROFILE: 0,
+  WORKSTATIONS: 14,
+  PROVIDERS: 29,
+  STERILIZERS: 43,
+  POLICIES: 57,
+  HARDWARE: 71,
+  REVIEW: 86,
   COMPLETE: 100,
 };
 
