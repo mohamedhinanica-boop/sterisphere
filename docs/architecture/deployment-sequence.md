@@ -443,3 +443,9 @@ an inert simulated rollback. The deterministic stage messages demonstrate the
 business orchestration only. Real persistence handlers will replace the
 simulated handlers in a later phase without changing the documented order or
 failure semantics.
+
+The Setup Wizard Review step may locally preview this simulation after the
+canonical draft passes validation. The preview shows aggregate status and the
+outcome of every stage, but validates orchestration only. It does not invoke
+persistence, enable deployment, save clinic data, or change Confirm Review
+from its existing local transition to the Complete placeholder.
