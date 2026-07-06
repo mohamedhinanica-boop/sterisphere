@@ -449,3 +449,9 @@ canonical draft passes validation. The preview shows aggregate status and the
 outcome of every stage, but validates orchestration only. It does not invoke
 persistence, enable deployment, save clinic data, or change Confirm Review
 from its existing local transition to the Complete placeholder.
+
+Relevant simulated stages also generate their future repository payloads in
+memory. This dry run exercises the same pure mapping that persistence handlers
+will consume later, while stage reports retain only safe payload metadata.
+Repository methods are not called, full payloads are not displayed, and the
+sequence remains write-free.

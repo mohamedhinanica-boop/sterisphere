@@ -386,3 +386,16 @@ deployment version, and schema version. Builders never generate random IDs,
 read the clock, access Supabase, or perform side effects. When an optional
 value is not supplied, the builder preserves an omitted or nullable
 schema-compatible value instead of inventing persistence metadata.
+
+### Repository Payload Dry Run
+
+The simulation layer now calls the pure payload builders at each corresponding
+stage. Deterministic simulated clinic and deployment-run identifiers,
+idempotency, timestamp, deployment version, and schema version are supplied
+through `DeploymentRepositoryBuildContext`.
+
+This dry run validates that one canonical `DeploymentDraft` can produce the
+repository inputs needed by future persistence without invoking repository
+methods. Stage results expose only payload type, generation status, and a safe
+count or label summary for diagnostics. Full payload values remain internal to
+the simulation and are not exposed in the Setup Wizard.

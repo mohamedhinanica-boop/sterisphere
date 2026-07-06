@@ -2,6 +2,7 @@ export * from "./deployment-context";
 export * from "./deployment-draft-adapter";
 export * from "./deployment-draft";
 export * from "./deployment-draft-validation";
+export * from "./deployment-dry-run";
 export * from "./deployment-engine";
 export * from "./deployment-execution";
 export * from "./deployment-result";

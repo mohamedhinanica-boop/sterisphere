@@ -1,4 +1,6 @@
 import type { DeploymentDraft } from "./deployment-draft";
+import type { DeploymentDryRunPayloadMetadata } from "./deployment-dry-run";
+import type { DeploymentRepositoryBuildContext } from "./repositories";
 import type {
   DeploymentStage,
   DeploymentSummary,
@@ -18,6 +20,7 @@ export interface DeploymentStageResult {
   durationMs: number;
   messages: readonly string[];
   warnings: readonly string[];
+  dryRunPayload?: DeploymentDryRunPayloadMetadata;
 }
 
 export interface DeploymentExecutionResult {
@@ -31,6 +34,7 @@ export interface DeploymentExecutionResult {
   warnings: readonly string[];
   messages: readonly string[];
   rollbackRequired: boolean;
+  rollbackDryRunPayload?: DeploymentDryRunPayloadMetadata;
   summary: DeploymentSummary;
 }
 
@@ -39,6 +43,7 @@ export interface DeploymentSimulationContext {
   payloadHash: string;
   preparedAt: string;
   summary: DeploymentSummary;
+  repositoryBuildContext: DeploymentRepositoryBuildContext;
 }
 
 export interface DeploymentStageSimulationOutcome {
@@ -64,4 +69,5 @@ export interface DeploymentRollbackResult {
   rollbackPerformed: false;
   messages: readonly string[];
   warnings: readonly string[];
+  dryRunPayload?: DeploymentDryRunPayloadMetadata;
 }

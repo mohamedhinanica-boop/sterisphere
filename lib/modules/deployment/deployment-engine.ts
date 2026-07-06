@@ -4,6 +4,11 @@ import {
   type DeploymentDraft,
 } from "./deployment-draft";
 import { validateDeploymentDraft } from "./deployment-draft-validation";
+import {
+  buildRollbackDryRunPayload,
+  buildStageDryRunPayload,
+  createEmptyDryRunPayloadMetadata,
+} from "./deployment-dry-run";
 import type {
   DeploymentExecutionResult,
   DeploymentRollbackResult,
@@ -18,12 +23,14 @@ import {
 import { DeploymentStage } from "./deployment-types";
 import {
   createDeploymentRepository,
+  type DeploymentRepositoryBuildContext,
   type DeploymentRepository,
 } from "./repositories";
 
 export interface DeploymentEngineOptions
   extends DeploymentSimulationOptions {
   repository?: DeploymentRepository;
+  repositoryContext?: Partial<DeploymentRepositoryBuildContext>;
 }
 
 /**
@@ -39,6 +46,7 @@ export class DeploymentEngine {
     DeploymentSimulationOptions["stageHandlers"]
   >;
   private readonly repository: DeploymentRepository;
+  private readonly repositoryContext: Partial<DeploymentRepositoryBuildContext>;
 
   constructor(
     private readonly draft: DeploymentDraft,
@@ -48,6 +56,7 @@ export class DeploymentEngine {
     this.stageHandlers = options.stageHandlers ?? {};
     this.repository =
       options.repository ?? createDeploymentRepository();
+    this.repositoryContext = options.repositoryContext ?? {};
   }
 
   validate() {
@@ -55,11 +64,37 @@ export class DeploymentEngine {
   }
 
   prepare(): DeploymentSimulationContext {
+    const payloadHash = hashDeploymentDraftInput(this.draft);
+    const timestamp =
+      this.repositoryContext.timestamp ?? this.timestamp();
+    const identifierSuffix = payloadHash.replace(/^draft-/, "");
+
     return {
       draft: this.draft,
-      payloadHash: hashDeploymentDraftInput(this.draft),
-      preparedAt: this.timestamp(),
+      payloadHash,
+      preparedAt: timestamp,
       summary: summarizeDeploymentDraft(this.draft),
+      repositoryBuildContext: {
+        clinicId:
+          this.repositoryContext.clinicId ??
+          `simulated-clinic-${identifierSuffix}`,
+        deploymentRunId:
+          this.repositoryContext.deploymentRunId ??
+          `simulated-run-${identifierSuffix}`,
+        ...(this.repositoryContext.startedBy
+          ? { startedBy: this.repositoryContext.startedBy }
+          : {}),
+        idempotencyKey:
+          this.repositoryContext.idempotencyKey ??
+          `simulation-${payloadHash}`,
+        timestamp,
+        deploymentVersion:
+          this.repositoryContext.deploymentVersion ??
+          `draft-${this.draft.draftVersion}`,
+        schemaVersion:
+          this.repositoryContext.schemaVersion ??
+          "simulation-schema-v1",
+      },
     };
   }
 
@@ -135,6 +170,14 @@ export class DeploymentEngine {
           (stage) => stage.stageId !== DeploymentStage.VALIDATION,
         ),
     );
+    const rollbackDryRunPayload =
+      rollbackRequired && failedStage
+        ? buildRollbackDryRunPayload(
+            context,
+            failedStage.stageId,
+            completedStages.map((stage) => stage.stageId),
+          )
+        : undefined;
 
     return {
       status: failedStage ? "failed" : "succeeded",
@@ -147,6 +190,7 @@ export class DeploymentEngine {
       warnings,
       messages,
       rollbackRequired,
+      ...(rollbackDryRunPayload ? { rollbackDryRunPayload } : {}),
       summary: context.summary,
     };
   }
@@ -173,8 +217,10 @@ export class DeploymentEngine {
   ): DeploymentStageResult {
     const startedAt = this.timestamp();
     const startedAtMs = Date.parse(startedAt);
+    let dryRunPayload = createEmptyDryRunPayloadMetadata();
 
     try {
+      dryRunPayload = buildStageDryRunPayload(stage.id, context);
       const outcome = this.stageHandlers[stage.id]?.(context);
       const completedAt = this.timestamp();
       const status = outcome?.status ?? "succeeded";
@@ -192,6 +238,7 @@ export class DeploymentEngine {
             ? [stage.simulationMessage]
             : [`${stage.displayName} simulation failed.`]),
         warnings: outcome?.warnings ?? [],
+        dryRunPayload,
       };
     } catch (error) {
       const completedAt = this.timestamp();
@@ -209,6 +256,7 @@ export class DeploymentEngine {
             : `${stage.displayName} simulation threw an unexpected error.`,
         ],
         warnings: [],
+        dryRunPayload,
       };
     }
   }
@@ -227,6 +275,9 @@ export class DeploymentEngine {
       durationMs: 0,
       messages: [message],
       warnings: [],
+      dryRunPayload: createEmptyDryRunPayloadMetadata(
+        "No repository payload was generated because this stage was skipped.",
+      ),
     };
   }
 
