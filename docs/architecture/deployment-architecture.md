@@ -294,3 +294,21 @@ runtime behavior. RLS remains deliberately deferred until clinic memberships,
 bootstrap authorization, and support access are designed together. A later
 migration phase must review the planning file against the target Supabase
 environment before applying it.
+
+## Canonical Deployment Draft
+
+The Deployment Engine consumes one canonical, versioned `DeploymentDraft`.
+This reviewed payload contains clinic identity, workstations, provider planning
+counts, sterilizers, baseline policies, hardware planning counts, and review
+metadata. It is the contract between deployment planning and execution.
+
+The Setup Wizard may continue to organize local state for its UI, but that
+state must eventually be transformed and validated into `DeploymentDraft`
+before execution. Persistence must never infer deployment data directly from
+scattered component state, form controls, or the currently visible wizard
+step.
+
+The local foundation includes a deterministic non-cryptographic draft-input
+hash for development and contract testing. A future persistence phase must
+produce or verify a cryptographic payload hash at the trusted server boundary
+before treating it as durable audit or idempotency evidence.

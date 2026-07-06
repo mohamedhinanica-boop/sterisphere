@@ -414,3 +414,17 @@ currently return deterministic results only. They do not execute these stages,
 persist data, call Supabase, unlock the dashboard, or change the Deployment
 Workspace. Execution remains disabled until a later persistence phase
 implements the documented rollback and audit guarantees.
+
+## Deployment Draft Boundary
+
+The input to `DeploymentEngine` is a canonical, versioned
+`DeploymentDraft`, not live component state. Before Stage 1 begins, the
+Deployment Workspace must transform its local clinic profile, workstation,
+provider-plan, sterilizer, policy, hardware-plan, and review state into this
+single contract.
+
+Stage 1 validates the resulting payload as a whole. Later persistence stages
+must consume that reviewed snapshot without reaching back into wizard state or
+reconstructing configuration from separate UI stores. Reviewer metadata may be
+absent while the contract is local-only, but execution will eventually require
+an explicitly reviewed snapshot.

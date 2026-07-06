@@ -1,4 +1,6 @@
 export * from "./deployment-context";
+export * from "./deployment-draft";
+export * from "./deployment-draft-validation";
 export * from "./deployment-engine";
 export * from "./deployment-result";
 export * from "./deployment-stages";
