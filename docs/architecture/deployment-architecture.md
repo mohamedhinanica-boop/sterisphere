@@ -268,13 +268,13 @@ backup or restore validation where appropriate, and clear rollout evidence.
 
 The implementation foundation lives in `lib/modules/deployment`. It defines the
 shared deployment contracts, ordered stage registry, legal status transitions,
-pure precondition helpers, and an inert `DeploymentEngine` interface.
+pure precondition helpers, and the `DeploymentEngine` interface.
 
-During the foundation phase, the engine performs no SQL, Supabase access,
-network calls, authentication changes, or persistence. Its `execute()` method
-returns a deterministic disabled result and cannot move a clinic out of draft
-state. Future persistence work must implement the workflow described by this
-document and the deployment sequence without weakening these boundaries.
+The engine performs no SQL, Supabase access, network calls, authentication
+changes, or persistence. Its current `execute()` method runs only the in-memory
+simulation and cannot move a clinic out of draft state. Future persistence work
+must implement the workflow described by this document and the deployment
+sequence without weakening these boundaries.
 
 The state machine permits `draft -> deploying`, followed by either
 `deploying -> deployed` or `deploying -> failed`. A failed deployment may retry
@@ -334,3 +334,16 @@ draft version, local payload hash, summary counts, and validation issues before
 confirmation. This preview is visibility-only local validation. It does not
 persist the draft, invoke the Deployment Engine, enable the Deploy action, or
 unlock the clinic workspace.
+
+## Simulated Deployment Execution
+
+The Deployment Engine now supports a complete in-memory simulation of the
+ordered stage registry. Each stage produces timestamps, duration, status,
+messages, and warnings, while the overall result records completed, failed,
+and skipped stages plus rollback intent and the deployment summary.
+
+Simulation proves orchestration, validation stops, failure handling, and report
+shape without writing data. `execute()` intentionally delegates to
+`simulate()` until persistence is implemented. Future real stage handlers will
+replace simulated handlers behind the same ordered contracts; simulation does
+not enable the Setup Wizard Deploy action or change runtime clinic state.

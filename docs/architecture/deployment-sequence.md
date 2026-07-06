@@ -409,11 +409,11 @@ this sequence. Its stage registry is the implementation source of truth for the
 14 stages above, while its state machine and pure validators represent legal
 status changes and deployment preconditions.
 
-The foundation methods `validate()`, `prepare()`, `execute()`, and `rollback()`
-currently return deterministic results only. They do not execute these stages,
-persist data, call Supabase, unlock the dashboard, or change the Deployment
-Workspace. Execution remains disabled until a later persistence phase
-implements the documented rollback and audit guarantees.
+The methods `validate()`, `prepare()`, `simulate()`, `execute()`, and
+`rollback()` currently operate in memory only. They do not persist data, call
+Supabase, unlock the dashboard, or change the Deployment Workspace. Real
+execution remains disabled until a later persistence phase implements the
+documented rollback and audit guarantees.
 
 ## Deployment Draft Boundary
 
@@ -428,3 +428,18 @@ must consume that reviewed snapshot without reaching back into wizard state or
 reconstructing configuration from separate UI stores. Reviewer metadata may be
 absent while the contract is local-only, but execution will eventually require
 an explicitly reviewed snapshot.
+
+## In-Memory Sequence Simulation
+
+`DeploymentEngine.simulate()` runs the complete stage registry in order and
+returns a structured execution report without persistence. A draft-validation
+failure skips every stage before execution begins. A simulated stage failure or
+exception stops the sequence, identifies the failed stage, marks remaining
+stages skipped, and indicates whether completed execution work would require
+rollback.
+
+For this phase, `execute()` delegates to `simulate()` and `rollback()` reports
+an inert simulated rollback. The deterministic stage messages demonstrate the
+business orchestration only. Real persistence handlers will replace the
+simulated handlers in a later phase without changing the documented order or
+failure semantics.
