@@ -41,6 +41,12 @@ import {
   type ClinicProfileSetup,
   type SetupStepId,
 } from "@/lib/modules/clinic-setup";
+import {
+  createDeploymentDraftFromSetupState,
+  hashDeploymentDraftInput,
+  summarizeDeploymentDraft,
+  type DeploymentDraftAdapterResult,
+} from "@/lib/modules/deployment";
 import { useState } from "react";
 
 const stepLabels: Record<SetupStepId, string> = {
@@ -527,6 +533,26 @@ export default function ClinicSetupPage() {
   const isPolicyDraftComplete = Boolean(policyDraft.packExpiration);
   const isHardwarePlanComplete =
     hardwarePlan.labelPrinter > 0 && hardwarePlan.usbScanner > 0;
+  const deploymentDraftPreview = isReview
+    ? createDeploymentDraftFromSetupState(setupState, {
+        workstations: workstationDraft,
+        providerPlan: {
+          clinicType,
+          ...providerQuantities,
+        },
+        sterilizers: sterilizerDraft,
+        policies: policyDraft,
+        hardwarePlan,
+        reviewMetadata: {
+          requiredSections: SETUP_STEP_ORDER.filter(
+            (step) =>
+              step !== SetupStep.WELCOME &&
+              step !== SetupStep.COMPLETE,
+          ),
+          completedSections: setupState.completedSteps,
+        },
+      })
+    : null;
   const clinicProfileErrors = validateClinicProfile(setupState.clinicProfile);
   const clinicProfileValid = isClinicProfileValid(setupState.clinicProfile);
   const areRequiredSectionsComplete =
@@ -833,7 +859,7 @@ export default function ClinicSetupPage() {
             />
           )}
 
-          {isReview && (
+          {isReview && deploymentDraftPreview && (
             <ReviewStep
               profile={setupState.clinicProfile}
               workstationQuantities={workstationQuantities}
@@ -844,6 +870,7 @@ export default function ClinicSetupPage() {
               policy={policyDraft}
               hardware={hardwarePlan}
               requiredSectionsComplete={areRequiredSectionsComplete}
+              deploymentDraftPreview={deploymentDraftPreview}
             />
           )}
 
@@ -966,6 +993,7 @@ function ReviewStep({
   policy,
   hardware,
   requiredSectionsComplete,
+  deploymentDraftPreview,
 }: {
   profile: ClinicProfileSetup;
   workstationQuantities: WorkstationQuantities;
@@ -976,6 +1004,7 @@ function ReviewStep({
   policy: PolicyDraft;
   hardware: HardwarePlan;
   requiredSectionsComplete: boolean;
+  deploymentDraftPreview: DeploymentDraftAdapterResult;
 }) {
   const getOptionLabel = (
     options: readonly ClinicProfileOption[],
@@ -1023,6 +1052,13 @@ function ReviewStep({
   const readinessScore = Math.round(
     (readinessChecks.filter(Boolean).length / readinessChecks.length) * 100,
   );
+  const deploymentDraftSummary = summarizeDeploymentDraft(
+    deploymentDraftPreview.draft,
+  );
+  const deploymentDraftHash = hashDeploymentDraftInput(
+    deploymentDraftPreview.draft,
+  );
+  const deploymentDraftIssues = deploymentDraftPreview.validation.errors;
   const warnings = [
     workstationQuantities.reception === 0
       ? "No reception desk configured."
@@ -1060,6 +1096,80 @@ function ReviewStep({
         <p className="mt-2 text-sm text-emerald-800">
           Based on required sections and essential deployment quantities.
         </p>
+      </section>
+
+      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Deployment Draft
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-slate-950">
+              Canonical payload preview
+            </h3>
+          </div>
+          <span
+            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${
+              deploymentDraftPreview.validation.valid
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-amber-100 text-amber-900"
+            }`}
+          >
+            {deploymentDraftPreview.validation.valid
+              ? "Ready"
+              : "Needs attention"}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <DraftPreviewMetric
+            label="Draft version"
+            value={deploymentDraftPreview.draft.draftVersion}
+          />
+          <DraftPreviewMetric
+            label="Payload hash"
+            value={deploymentDraftHash}
+          />
+          <DraftPreviewMetric
+            label="Validation issues"
+            value={deploymentDraftIssues.length}
+          />
+          <DraftPreviewMetric
+            label="Workstations"
+            value={deploymentDraftSummary.workstationCount}
+          />
+          <DraftPreviewMetric
+            label="Sterilizers"
+            value={deploymentDraftSummary.sterilizerCount}
+          />
+          <DraftPreviewMetric
+            label="Label printers"
+            value={deploymentDraftSummary.plannedPrinterCount}
+          />
+          <DraftPreviewMetric
+            label="USB scanners"
+            value={deploymentDraftSummary.plannedScannerCount}
+          />
+        </div>
+
+        {deploymentDraftIssues.length > 0 && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h4 className="text-sm font-bold text-amber-950">
+              Canonical draft warnings
+            </h4>
+            <ul className="mt-2 space-y-2 text-sm text-amber-900">
+              {deploymentDraftIssues.map((issue) => (
+                <li key={`${issue.code}-${issue.path}`}>
+                  {issue.message}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-amber-800">
+              These local validation warnings do not block Confirm Review and
+              cannot trigger deployment.
+            </p>
+          </div>
+        )}
       </section>
 
       {warnings.length > 0 && (
@@ -1171,6 +1281,25 @@ function ReviewStep({
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function DraftPreviewMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 break-all text-sm font-bold text-slate-950">
+        {value}
+      </p>
     </div>
   );
 }

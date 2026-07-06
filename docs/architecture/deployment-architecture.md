@@ -328,3 +328,9 @@ alongside the generated payload.
 The Deployment Engine never reads React state, page components, form controls,
 or Setup Wizard stores directly. The adapter is pure and contains no UI,
 Supabase, persistence, route, authentication, or deployment-execution behavior.
+
+The Setup Wizard Review step may use this adapter to preview the canonical
+draft version, local payload hash, summary counts, and validation issues before
+confirmation. This preview is visibility-only local validation. It does not
+persist the draft, invoke the Deployment Engine, enable the Deploy action, or
+unlock the clinic workspace.
