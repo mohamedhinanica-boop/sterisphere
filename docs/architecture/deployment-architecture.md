@@ -347,3 +347,28 @@ shape without writing data. `execute()` intentionally delegates to
 `simulate()` until persistence is implemented. Future real stage handlers will
 replace simulated handlers behind the same ordered contracts; simulation does
 not enable the Setup Wizard Deploy action or change runtime clinic state.
+
+## Persistence Repository Layer
+
+The deployment architecture now separates three implementation layers:
+
+`Deployment Engine -> Simulation Layer | Persistence Layer -> DeploymentRepository`
+
+The engine owns validation, stage ordering, stop conditions, rollback intent,
+and result reporting. The simulation layer proves that orchestration entirely
+in memory. The future persistence layer will implement real stage handlers by
+calling the typed `DeploymentRepository` contract rather than issuing database
+writes directly from the engine.
+
+The repository contract provides explicit operations for clinic creation,
+deployment runs, clinic settings, workstations, sterilizers, provider and
+hardware plans, audit entries, completion, and rollback. The current
+`SupabaseDeploymentRepository` is intentionally inert: every operation throws
+`Deployment persistence has not been implemented.` and contains no Supabase
+client or mutation code.
+
+`DeploymentEngine` accepts a repository through dependency injection and uses
+the inert repository by default. It does not call that dependency during
+simulation. Future phases can replace individual simulated stage handlers with
+repository-backed handlers while preserving the stage registry, execution
+report, and failure semantics.

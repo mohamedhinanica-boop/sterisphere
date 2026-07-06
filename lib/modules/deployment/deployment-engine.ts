@@ -16,6 +16,15 @@ import {
   type DeploymentStageDefinition,
 } from "./deployment-stages";
 import { DeploymentStage } from "./deployment-types";
+import {
+  createDeploymentRepository,
+  type DeploymentRepository,
+} from "./repositories";
+
+export interface DeploymentEngineOptions
+  extends DeploymentSimulationOptions {
+  repository?: DeploymentRepository;
+}
 
 /**
  * In-memory implementation of the documented Deployment Engine sequence.
@@ -29,13 +38,16 @@ export class DeploymentEngine {
   private readonly stageHandlers: NonNullable<
     DeploymentSimulationOptions["stageHandlers"]
   >;
+  private readonly repository: DeploymentRepository;
 
   constructor(
     private readonly draft: DeploymentDraft,
-    options: DeploymentSimulationOptions = {},
+    options: DeploymentEngineOptions = {},
   ) {
     this.now = options.now ?? (() => new Date());
     this.stageHandlers = options.stageHandlers ?? {};
+    this.repository =
+      options.repository ?? createDeploymentRepository();
   }
 
   validate() {
@@ -225,14 +237,14 @@ export class DeploymentEngine {
 
 export function createSimulatedDeploymentEngine(
   draft: DeploymentDraft,
-  options: DeploymentSimulationOptions = {},
+  options: DeploymentEngineOptions = {},
 ): DeploymentEngine {
   return new DeploymentEngine(draft, options);
 }
 
 export function simulateDeployment(
   draft: DeploymentDraft,
-  options: DeploymentSimulationOptions = {},
+  options: DeploymentEngineOptions = {},
 ): DeploymentExecutionResult {
   return createSimulatedDeploymentEngine(draft, options).simulate();
 }
