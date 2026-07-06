@@ -263,3 +263,20 @@ backup or restore validation where appropriate, and clear rollout evidence.
 - Prefer atomic deployment with auditable failed attempts and recoverable
   drafts.
 - Preserve SteriSphere Lab as the permanent staging and test ground.
+
+## Deployment Engine Module
+
+The implementation foundation lives in `lib/modules/deployment`. It defines the
+shared deployment contracts, ordered stage registry, legal status transitions,
+pure precondition helpers, and an inert `DeploymentEngine` interface.
+
+During the foundation phase, the engine performs no SQL, Supabase access,
+network calls, authentication changes, or persistence. Its `execute()` method
+returns a deterministic disabled result and cannot move a clinic out of draft
+state. Future persistence work must implement the workflow described by this
+document and the deployment sequence without weakening these boundaries.
+
+The state machine permits `draft -> deploying`, followed by either
+`deploying -> deployed` or `deploying -> failed`. A failed deployment may retry
+through `failed -> deploying`. Draft, failed, or deployed clinics may be
+archived; `archived` is terminal. Every other transition is illegal.
