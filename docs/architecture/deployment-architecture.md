@@ -312,3 +312,19 @@ The local foundation includes a deterministic non-cryptographic draft-input
 hash for development and contract testing. A future persistence phase must
 produce or verify a cryptographic payload hash at the trusted server boundary
 before treating it as durable audit or idempotency evidence.
+
+## Deployment Draft Adapter
+
+The planning-to-execution boundary is:
+
+`Setup Wizard local state -> Deployment Draft Adapter -> DeploymentDraft -> Deployment Engine`
+
+The adapter maps the wizard's clinic profile and its separate workstation,
+provider, sterilizer, policy, hardware, and review planning state into one
+fully populated canonical draft. It applies canonical empty defaults where
+optional local values are absent and returns local draft-validation results
+alongside the generated payload.
+
+The Deployment Engine never reads React state, page components, form controls,
+or Setup Wizard stores directly. The adapter is pure and contains no UI,
+Supabase, persistence, route, authentication, or deployment-execution behavior.

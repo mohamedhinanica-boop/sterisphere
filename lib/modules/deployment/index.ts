@@ -1,4 +1,5 @@
 export * from "./deployment-context";
+export * from "./deployment-draft-adapter";
 export * from "./deployment-draft";
 export * from "./deployment-draft-validation";
 export * from "./deployment-engine";
