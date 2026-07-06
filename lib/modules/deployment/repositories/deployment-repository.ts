@@ -1,113 +1,115 @@
 import type {
-  CreateAuditEntryInput,
-  CreateClinicInput,
-  CreateClinicSettingsInput,
-  CreateDeploymentRunInput,
   CreatedClinic,
   CreatedDeploymentRun,
-  CreateHardwarePlansInput,
-  CreateProviderPlansInput,
-  CreateSterilizersInput,
-  CreateWorkstationsInput,
   DeploymentRepositoryBatchResult,
   DeploymentRepositoryRecordResult,
-  MarkDeploymentCompletedInput,
   MarkDeploymentCompletedResult,
-  RollbackDeploymentInput,
   RollbackDeploymentResult,
 } from "./deployment-repository-types";
+import type {
+  CreateAuditEntryPayload,
+  CreateClinicPayload,
+  CreateClinicSettingsPayload,
+  CreateDeploymentRunPayload,
+  CreateHardwarePlanPayload,
+  CreateProviderPlanPayload,
+  CreateSterilizersPayload,
+  CreateWorkstationsPayload,
+  MarkDeploymentCompletedPayload,
+  RollbackDeploymentPayload,
+} from "./deployment-repository-payloads";
 
 const PERSISTENCE_NOT_IMPLEMENTED =
   "Deployment persistence has not been implemented.";
 
 export interface DeploymentRepository {
-  createClinic(input: CreateClinicInput): Promise<CreatedClinic>;
+  createClinic(input: CreateClinicPayload): Promise<CreatedClinic>;
   createDeploymentRun(
-    input: CreateDeploymentRunInput,
+    input: CreateDeploymentRunPayload,
   ): Promise<CreatedDeploymentRun>;
   createClinicSettings(
-    input: CreateClinicSettingsInput,
+    input: CreateClinicSettingsPayload,
   ): Promise<DeploymentRepositoryRecordResult>;
   createWorkstations(
-    input: CreateWorkstationsInput,
+    input: CreateWorkstationsPayload,
   ): Promise<DeploymentRepositoryBatchResult>;
   createSterilizers(
-    input: CreateSterilizersInput,
+    input: CreateSterilizersPayload,
   ): Promise<DeploymentRepositoryBatchResult>;
   createProviderPlans(
-    input: CreateProviderPlansInput,
+    input: CreateProviderPlanPayload,
   ): Promise<DeploymentRepositoryRecordResult>;
   createHardwarePlans(
-    input: CreateHardwarePlansInput,
+    input: CreateHardwarePlanPayload,
   ): Promise<DeploymentRepositoryRecordResult>;
   createAuditEntry(
-    input: CreateAuditEntryInput,
+    input: CreateAuditEntryPayload,
   ): Promise<DeploymentRepositoryRecordResult>;
   markDeploymentCompleted(
-    input: MarkDeploymentCompletedInput,
+    input: MarkDeploymentCompletedPayload,
   ): Promise<MarkDeploymentCompletedResult>;
   rollbackDeployment(
-    input: RollbackDeploymentInput,
+    input: RollbackDeploymentPayload,
   ): Promise<RollbackDeploymentResult>;
 }
 
 export class SupabaseDeploymentRepository
   implements DeploymentRepository
 {
-  async createClinic(_input: CreateClinicInput): Promise<CreatedClinic> {
+  async createClinic(_input: CreateClinicPayload): Promise<CreatedClinic> {
     return notImplemented();
   }
 
   async createDeploymentRun(
-    _input: CreateDeploymentRunInput,
+    _input: CreateDeploymentRunPayload,
   ): Promise<CreatedDeploymentRun> {
     return notImplemented();
   }
 
   async createClinicSettings(
-    _input: CreateClinicSettingsInput,
+    _input: CreateClinicSettingsPayload,
   ): Promise<DeploymentRepositoryRecordResult> {
     return notImplemented();
   }
 
   async createWorkstations(
-    _input: CreateWorkstationsInput,
+    _input: CreateWorkstationsPayload,
   ): Promise<DeploymentRepositoryBatchResult> {
     return notImplemented();
   }
 
   async createSterilizers(
-    _input: CreateSterilizersInput,
+    _input: CreateSterilizersPayload,
   ): Promise<DeploymentRepositoryBatchResult> {
     return notImplemented();
   }
 
   async createProviderPlans(
-    _input: CreateProviderPlansInput,
+    _input: CreateProviderPlanPayload,
   ): Promise<DeploymentRepositoryRecordResult> {
     return notImplemented();
   }
 
   async createHardwarePlans(
-    _input: CreateHardwarePlansInput,
+    _input: CreateHardwarePlanPayload,
   ): Promise<DeploymentRepositoryRecordResult> {
     return notImplemented();
   }
 
   async createAuditEntry(
-    _input: CreateAuditEntryInput,
+    _input: CreateAuditEntryPayload,
   ): Promise<DeploymentRepositoryRecordResult> {
     return notImplemented();
   }
 
   async markDeploymentCompleted(
-    _input: MarkDeploymentCompletedInput,
+    _input: MarkDeploymentCompletedPayload,
   ): Promise<MarkDeploymentCompletedResult> {
     return notImplemented();
   }
 
   async rollbackDeployment(
-    _input: RollbackDeploymentInput,
+    _input: RollbackDeploymentPayload,
   ): Promise<RollbackDeploymentResult> {
     return notImplemented();
   }

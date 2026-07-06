@@ -372,3 +372,17 @@ the inert repository by default. It does not call that dependency during
 simulation. Future phases can replace individual simulated stage handlers with
 repository-backed handlers while preserving the stage registry, execution
 report, and failure semantics.
+
+### Repository Payload Builders
+
+Pure repository payload builders transform the canonical `DeploymentDraft`
+into the typed input for each repository operation. Persistence stages must
+consume these payloads rather than reading Setup Wizard state or interpreting
+draft fields independently in multiple handlers.
+
+`DeploymentRepositoryBuildContext` supplies externally generated clinic and
+deployment-run identifiers, the initiating user, idempotency key, timestamp,
+deployment version, and schema version. Builders never generate random IDs,
+read the clock, access Supabase, or perform side effects. When an optional
+value is not supplied, the builder preserves an omitted or nullable
+schema-compatible value instead of inventing persistence metadata.
