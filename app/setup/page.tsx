@@ -48,6 +48,8 @@ import {
   simulateDeployment,
   summarizeDeploymentDraft,
   type DeploymentDraftAdapterResult,
+  type DeploymentExecutionResult,
+  type DeploymentStageExecutionStatus,
 } from "@/lib/modules/deployment";
 import { useState } from "react";
 
@@ -1082,11 +1084,6 @@ function ReviewStep({
       status: result?.status ?? "skipped",
     };
   });
-  const simulationStatus = !deploymentSimulation
-    ? "Not run"
-    : deploymentSimulation.status === "succeeded"
-      ? "Ready"
-      : "Failed";
   const warnings = [
     workstationQuantities.reception === 0
       ? "No reception desk configured."
@@ -1125,6 +1122,11 @@ function ReviewStep({
           Based on required sections and essential deployment quantities.
         </p>
       </section>
+
+      <DeploymentSimulationPanel
+        simulation={deploymentSimulation}
+        stages={simulationStageResults}
+      />
 
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1197,109 +1199,6 @@ function ReviewStep({
               cannot trigger deployment.
             </p>
           </div>
-        )}
-      </section>
-
-      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Deployment Simulation
-            </p>
-            <h3 className="mt-1 text-lg font-bold text-slate-950">
-              In-memory sequence preview
-            </h3>
-          </div>
-          <span
-            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${
-              simulationStatus === "Ready"
-                ? "bg-emerald-100 text-emerald-800"
-                : simulationStatus === "Failed"
-                  ? "bg-rose-100 text-rose-800"
-                  : "bg-slate-100 text-slate-700"
-            }`}
-          >
-            {simulationStatus}
-          </span>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <DraftPreviewMetric
-            label="Stages completed"
-            value={deploymentSimulation?.completedStages.length ?? 0}
-          />
-          <DraftPreviewMetric
-            label="Total duration"
-            value={`${deploymentSimulation?.durationMs ?? 0} ms`}
-          />
-          <DraftPreviewMetric
-            label="Rollback required"
-            value={deploymentSimulation?.rollbackRequired ? "Yes" : "No"}
-          />
-          <DraftPreviewMetric
-            label="Warnings"
-            value={deploymentSimulation?.warnings.length ?? 0}
-          />
-          <DraftPreviewMetric
-            label="Stages total"
-            value={DEPLOYMENT_STAGES.length}
-          />
-        </div>
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {simulationStageResults.map((stage) => (
-            <div
-              key={stage.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
-            >
-              <span className="text-xs font-semibold text-slate-800">
-                {stage.displayName}
-              </span>
-              <span
-                className={`shrink-0 text-[11px] font-bold uppercase tracking-wide ${
-                  stage.status === "succeeded"
-                    ? "text-emerald-700"
-                    : stage.status === "failed"
-                      ? "text-rose-700"
-                      : "text-slate-500"
-                }`}
-              >
-                {stage.status}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {deploymentSimulation?.status === "succeeded" && (
-          <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
-            Deployment sequence simulation completed successfully. No data was
-            saved.
-          </p>
-        )}
-
-        {deploymentSimulation?.status === "failed" && (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-            <p className="font-bold">
-              Failed stage:{" "}
-              {deploymentSimulation.failedStage?.stageDisplayName ??
-                "Draft validation"}
-            </p>
-            <p className="mt-1">
-              {deploymentSimulation.failedStage?.messages[0] ??
-                deploymentSimulation.messages[0] ??
-                "The local deployment simulation could not complete."}
-            </p>
-            <p className="mt-2 text-xs font-semibold">
-              No deployment was performed and no data was saved.
-            </p>
-          </div>
-        )}
-
-        {!deploymentSimulation && (
-          <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-            Simulation was not run because the canonical draft needs attention.
-            No deployment was performed.
-          </p>
         )}
       </section>
 
@@ -1414,6 +1313,136 @@ function ReviewStep({
       </aside>
     </div>
   );
+}
+
+interface SimulationStagePreview {
+  id: string;
+  displayName: string;
+  status: DeploymentStageExecutionStatus;
+}
+
+function DeploymentSimulationPanel({
+  simulation,
+  stages,
+}: {
+  simulation: DeploymentExecutionResult | null;
+  stages: readonly SimulationStagePreview[];
+}) {
+  const status =
+    simulation?.status === "succeeded"
+      ? "Ready"
+      : simulation?.status === "failed"
+        ? "Failed"
+        : "Not run";
+
+  return (
+    <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Deployment Simulation
+          </p>
+          <h3 className="mt-1 text-lg font-bold text-slate-950">
+            In-memory sequence preview
+          </h3>
+        </div>
+        <span
+          className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${
+            status === "Ready"
+              ? "bg-emerald-100 text-emerald-800"
+              : status === "Failed"
+                ? "bg-rose-100 text-rose-800"
+                : "bg-slate-100 text-slate-700"
+          }`}
+        >
+          {status}
+        </span>
+      </div>
+
+      {!simulation ? (
+        <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          Simulation unavailable until deployment draft passes validation.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <DraftPreviewMetric label="Simulation status" value={status} />
+            <DraftPreviewMetric
+              label="Completed stages"
+              value={`${simulation.completedStages.length} / ${DEPLOYMENT_STAGES.length}`}
+            />
+            <DraftPreviewMetric
+              label="Total duration"
+              value={`${simulation.durationMs} ms`}
+            />
+            <DraftPreviewMetric
+              label="Rollback required"
+              value={simulation.rollbackRequired ? "Yes" : "No"}
+            />
+            <DraftPreviewMetric
+              label="Warning count"
+              value={simulation.warnings.length}
+            />
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {stages.map((stage) => (
+              <div
+                key={stage.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+              >
+                <span className="text-xs font-semibold text-slate-800">
+                  {stage.displayName}
+                </span>
+                <span
+                  className={`shrink-0 text-[11px] font-bold ${
+                    stage.status === "succeeded"
+                      ? "text-emerald-700"
+                      : stage.status === "failed"
+                        ? "text-rose-700"
+                        : "text-slate-500"
+                  }`}
+                >
+                  {formatSimulationStageStatus(stage.status)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {simulation.status === "succeeded" && (
+            <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
+              Deployment sequence simulation completed successfully. No data
+              was saved.
+            </p>
+          )}
+
+          {simulation.status === "failed" && (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+              <p className="font-bold">
+                Failed stage:{" "}
+                {simulation.failedStage?.stageDisplayName ??
+                  "Draft validation"}
+              </p>
+              <p className="mt-1">
+                {simulation.failedStage?.messages[0] ??
+                  simulation.messages[0] ??
+                  "The local deployment simulation could not complete."}
+              </p>
+              <p className="mt-2 text-xs font-semibold">
+                No deployment was performed and no data was saved.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function formatSimulationStageStatus(
+  status: DeploymentStageExecutionStatus,
+) {
+  return `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
 }
 
 function DraftPreviewMetric({
