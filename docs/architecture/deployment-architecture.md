@@ -280,3 +280,17 @@ The state machine permits `draft -> deploying`, followed by either
 `deploying -> deployed` or `deploying -> failed`. A failed deployment may retry
 through `failed -> deploying`. Draft, failed, or deployed clinics may be
 archived; `archived` is terminal. Every other transition is illegal.
+
+## Deployment Core Planning SQL
+
+`supabase_deployment_core.sql` is the migration-ready planning artifact for the
+initial Deployment Engine schema. It defines the proposed `clinics`,
+`deployment_runs`, `clinic_provider_plans`, and `clinic_hardware_plans` tables,
+including lifecycle checks, planning-count checks, idempotency, indexes, and
+`updated_at` maintenance.
+
+The SQL is not applied automatically and is not connected to application
+runtime behavior. RLS remains deliberately deferred until clinic memberships,
+bootstrap authorization, and support access are designed together. A later
+migration phase must review the planning file against the target Supabase
+environment before applying it.

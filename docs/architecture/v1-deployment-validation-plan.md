@@ -113,6 +113,17 @@ This list describes the expected configuration domains. The exact schema,
 relationships, constraints, and transaction boundaries can be finalized during
 Deployment Architecture and Persistence Engine design.
 
+### Deployment Schema Planning Status
+
+`supabase_deployment_core.sql` now provides migration-ready planning SQL for the
+clinic root, deployment runs, provider planning counts, and hardware planning
+counts. It is a reviewed schema input for future clean-environment migration
+work, not an automatically applied migration.
+
+Phase 9.3 does not create Lab or clinic database objects, enable RLS, or connect
+the Deployment Engine to Supabase. Applying and validating the schema in an
+appropriate isolated environment remains an explicit later step.
+
 ## Rollback Strategy
 
 Deployment should eventually be all-or-nothing wherever the infrastructure
