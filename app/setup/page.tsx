@@ -1082,6 +1082,12 @@ function ReviewStep({
       id: stage.id,
       displayName: stage.displayName,
       status: result?.status ?? "skipped",
+      payloadGenerated:
+        result?.dryRunPayload?.payloadGenerated ?? false,
+      payloadType: result?.dryRunPayload?.payloadType ?? null,
+      payloadSummary:
+        result?.dryRunPayload?.payloadSummary ??
+        "No persistence payload",
     };
   });
   const warnings = [
@@ -1319,6 +1325,9 @@ interface SimulationStagePreview {
   id: string;
   displayName: string;
   status: DeploymentStageExecutionStatus;
+  payloadGenerated: boolean;
+  payloadType: string | null;
+  payloadSummary: string;
 }
 
 function DeploymentSimulationPanel({
@@ -1389,11 +1398,32 @@ function DeploymentSimulationPanel({
             {stages.map((stage) => (
               <div
                 key={stage.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"
               >
-                <span className="text-xs font-semibold text-slate-800">
-                  {stage.displayName}
-                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-800">
+                    {stage.displayName}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        stage.payloadGenerated
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      Generated: {stage.payloadGenerated ? "Yes" : "No"}
+                    </span>
+                    <span className="truncate text-[11px] font-semibold text-slate-600">
+                      {stage.payloadType ?? "No persistence payload"}
+                    </span>
+                  </div>
+                  {stage.payloadGenerated && (
+                    <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                      {stage.payloadSummary}
+                    </p>
+                  )}
+                </div>
                 <span
                   className={`shrink-0 text-[11px] font-bold ${
                     stage.status === "succeeded"
@@ -1408,6 +1438,11 @@ function DeploymentSimulationPanel({
               </div>
             ))}
           </div>
+
+          <p className="mt-4 text-xs leading-5 text-slate-500">
+            Dry-run diagnostics validate what the Deployment Engine would
+            prepare. No data is saved.
+          </p>
 
           {simulation.status === "succeeded" && (
             <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">

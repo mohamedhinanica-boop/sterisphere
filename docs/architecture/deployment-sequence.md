@@ -455,3 +455,9 @@ memory. This dry run exercises the same pure mapping that persistence handlers
 will consume later, while stage reports retain only safe payload metadata.
 Repository methods are not called, full payloads are not displayed, and the
 sequence remains write-free.
+
+The Review simulation panel may display these safe diagnostics per stage:
+whether a payload was generated, its contract type, and a short count or label
+summary. This helps implementation staff validate future persistence coverage
+before repository execution is enabled. Full reviewed payloads and payload JSON
+remain internal to the engine.
