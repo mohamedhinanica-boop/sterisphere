@@ -17,6 +17,7 @@ These documents define the platform independently of implementation details.
 ## Phase 9 Reference Set
 
 - [SteriSphere v1.0 Deployment Validation Plan](./v1-deployment-validation-plan.md)
+- [SteriSphere v1 Deployment Architecture](./deployment-architecture.md)
 
 ## Current Architecture
 
