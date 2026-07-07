@@ -1,5 +1,10 @@
 import type { DeploymentDraft } from "./deployment-draft";
 import type { DeploymentDryRunPayloadMetadata } from "./deployment-dry-run";
+import type {
+  DeploymentLock,
+  DeploymentLockRequest,
+  DeploymentStageLockMetadata,
+} from "./deployment-lock-types";
 import type { DeploymentRepositoryBuildContext } from "./repositories";
 import type {
   DeploymentStageTransactionMetadata,
@@ -25,6 +30,7 @@ export interface DeploymentStageResult {
   messages: readonly string[];
   warnings: readonly string[];
   dryRunPayload?: DeploymentDryRunPayloadMetadata;
+  lock?: DeploymentStageLockMetadata;
   transaction?: DeploymentStageTransactionMetadata;
 }
 
@@ -50,6 +56,7 @@ export interface DeploymentSimulationContext {
   preparedAt: string;
   summary: DeploymentSummary;
   repositoryBuildContext: DeploymentRepositoryBuildContext;
+  lockRequest: DeploymentLockRequest;
 }
 
 export interface DeploymentStageSimulationOutcome {
@@ -67,6 +74,10 @@ export interface DeploymentSimulationOptions {
   stageHandlers?: Partial<
     Record<DeploymentStage, DeploymentStageSimulationHandler>
   >;
+  requestedBy?: string | null;
+  lockExpiresAt?: string | null;
+  lockTtlSeconds?: number;
+  simulatedExistingLock?: DeploymentLock | null;
 }
 
 export interface DeploymentRollbackResult {

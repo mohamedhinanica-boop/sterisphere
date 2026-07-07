@@ -5,6 +5,8 @@ export * from "./deployment-draft-validation";
 export * from "./deployment-dry-run";
 export * from "./deployment-engine";
 export * from "./deployment-execution";
+export * from "./deployment-lock";
+export * from "./deployment-lock-types";
 export * from "./deployment-result";
 export * from "./deployment-stages";
 export * from "./deployment-state-machine";

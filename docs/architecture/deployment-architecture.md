@@ -420,3 +420,28 @@ Stage results may include transaction metadata for diagnostics: transaction
 identity, checkpoint identity, current transaction status, and rollback
 checkpoint count. The metadata is intentionally structural and contains no full
 repository payloads or persisted data.
+
+### Deployment Lock Foundation
+
+Durable deployment locking is a required v1.0 safeguard before real
+persistence can be enabled. The local foundation now defines typed deployment
+lock contracts for lock status, lock requests, lock results, failure reasons,
+and auditable lock metadata. The simulation can attach safe lock metadata to
+the `Lock Deployment` stage without writing data.
+
+The current lock layer is deterministic and in memory only. It models the
+expected rules:
+
+- If no active lock exists, the deployment run may acquire the lock.
+- If the same idempotency key reaches an active lock, the existing deployment
+  run should be reused.
+- If a different idempotency key reaches an active lock for the same clinic,
+  the duplicate deployment request should be rejected.
+- If a lock is expired, the clinic should enter careful recovery review before
+  retry rather than automatically proceeding.
+
+Real v1.0 locking must be server-side and database-enforced. Disabling a
+button in the Setup Wizard is not a concurrency control. Future persistence
+must atomically connect the lock to clinic identity, deployment-run identity,
+idempotency key, requester, acquired/released timestamps, failure reason, and
+audit evidence before any clinic configuration writes can occur.

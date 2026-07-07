@@ -473,3 +473,27 @@ This is not a Supabase transaction and it performs no writes. It is a foundation
 for the eventual persistence implementation to map onto real atomic operations
 or safe compensating rollback while preserving the documented sequence and
 failure semantics.
+
+## Deployment Locking Foundation
+
+The in-memory simulation now models lock metadata during Stage 3, `Lock
+Deployment`. This metadata includes the clinic, deployment run, idempotency key,
+requester, acquisition/expiry/release timestamps, status, failure reason, and a
+safe message. The lock model is local-only and does not call Supabase, create a
+database lock, or mutate deployment state.
+
+The required v1.0 persistence behavior remains stricter than the simulation:
+
+- Lock acquisition must be server-side and database-enforced.
+- UI disabling alone must never be treated as duplicate-deployment prevention.
+- A repeated request with the same idempotency key should reuse the existing
+  deployment run.
+- A request with a different idempotency key while an active lock exists should
+  be rejected.
+- Expired locks should require recovery review before retry, because the system
+  must first determine whether work started, failed, committed, or rolled back.
+- Lock metadata must remain auditable through deployment-run evidence and
+  sanitized failure diagnostics.
+
+This lock foundation is intended to guide the future repository-backed lock
+operation without enabling real deployment execution.

@@ -9,6 +9,11 @@ import {
   buildStageDryRunPayload,
   createEmptyDryRunPayloadMetadata,
 } from "./deployment-dry-run";
+import {
+  createSimulatedDeploymentLock,
+  toDeploymentStageLockMetadata,
+} from "./deployment-lock";
+import type { DeploymentLock } from "./deployment-lock-types";
 import type {
   DeploymentExecutionResult,
   DeploymentRollbackResult,
@@ -55,6 +60,10 @@ export class DeploymentEngine {
   >;
   private readonly repository: DeploymentRepository;
   private readonly repositoryContext: Partial<DeploymentRepositoryBuildContext>;
+  private readonly requestedBy: string | null;
+  private readonly lockExpiresAt: string | null | undefined;
+  private readonly lockTtlSeconds: number | undefined;
+  private readonly simulatedExistingLock: DeploymentLock | null;
 
   constructor(
     private readonly draft: DeploymentDraft,
@@ -65,6 +74,11 @@ export class DeploymentEngine {
     this.repository =
       options.repository ?? createDeploymentRepository();
     this.repositoryContext = options.repositoryContext ?? {};
+    this.requestedBy =
+      options.requestedBy ?? this.repositoryContext.startedBy ?? null;
+    this.lockExpiresAt = options.lockExpiresAt;
+    this.lockTtlSeconds = options.lockTtlSeconds;
+    this.simulatedExistingLock = options.simulatedExistingLock ?? null;
   }
 
   validate() {
@@ -76,6 +90,15 @@ export class DeploymentEngine {
     const timestamp =
       this.repositoryContext.timestamp ?? this.timestamp();
     const identifierSuffix = payloadHash.replace(/^draft-/, "");
+    const clinicId =
+      this.repositoryContext.clinicId ??
+      `simulated-clinic-${identifierSuffix}`;
+    const deploymentRunId =
+      this.repositoryContext.deploymentRunId ??
+      `simulated-run-${identifierSuffix}`;
+    const idempotencyKey =
+      this.repositoryContext.idempotencyKey ??
+      `simulation-${payloadHash}`;
 
     return {
       draft: this.draft,
@@ -83,18 +106,12 @@ export class DeploymentEngine {
       preparedAt: timestamp,
       summary: summarizeDeploymentDraft(this.draft),
       repositoryBuildContext: {
-        clinicId:
-          this.repositoryContext.clinicId ??
-          `simulated-clinic-${identifierSuffix}`,
-        deploymentRunId:
-          this.repositoryContext.deploymentRunId ??
-          `simulated-run-${identifierSuffix}`,
+        clinicId,
+        deploymentRunId,
         ...(this.repositoryContext.startedBy
           ? { startedBy: this.repositoryContext.startedBy }
           : {}),
-        idempotencyKey:
-          this.repositoryContext.idempotencyKey ??
-          `simulation-${payloadHash}`,
+        idempotencyKey,
         timestamp,
         deploymentVersion:
           this.repositoryContext.deploymentVersion ??
@@ -102,6 +119,20 @@ export class DeploymentEngine {
         schemaVersion:
           this.repositoryContext.schemaVersion ??
           "simulation-schema-v1",
+      },
+      lockRequest: {
+        clinicId,
+        deploymentRunId,
+        idempotencyKey,
+        requestedBy: this.requestedBy,
+        requestedAt: timestamp,
+        ...(this.lockExpiresAt !== undefined
+          ? { expiresAt: this.lockExpiresAt }
+          : {}),
+        ...(this.lockTtlSeconds !== undefined
+          ? { lockTtlSeconds: this.lockTtlSeconds }
+          : {}),
+        existingLock: this.simulatedExistingLock,
       },
     };
   }
@@ -293,9 +324,20 @@ export class DeploymentEngine {
 
     try {
       dryRunPayload = buildStageDryRunPayload(stage.id, context);
+      const lockResult =
+        stage.id === DeploymentStage.LOCK
+          ? createSimulatedDeploymentLock({
+              ...context.lockRequest,
+              requestedAt: startedAt,
+            })
+          : null;
       const outcome = this.stageHandlers[stage.id]?.(context);
       const completedAt = this.timestamp();
-      const status = outcome?.status ?? "succeeded";
+      const status =
+        lockResult?.status === "failed" ||
+        lockResult?.status === "expired"
+          ? "failed"
+          : (outcome?.status ?? "succeeded");
 
       return {
         stageId: stage.id,
@@ -306,11 +348,16 @@ export class DeploymentEngine {
         durationMs: elapsedMilliseconds(startedAtMs, completedAt),
         messages:
           outcome?.messages ??
-          (status === "succeeded"
-            ? [stage.simulationMessage]
-            : [`${stage.displayName} simulation failed.`]),
+          (lockResult
+            ? [lockResult.message]
+            : status === "succeeded"
+              ? [stage.simulationMessage]
+              : [`${stage.displayName} simulation failed.`]),
         warnings: outcome?.warnings ?? [],
         dryRunPayload,
+        ...(lockResult
+          ? { lock: toDeploymentStageLockMetadata(lockResult) }
+          : {}),
       };
     } catch (error) {
       const completedAt = this.timestamp();

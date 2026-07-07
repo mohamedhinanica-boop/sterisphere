@@ -16,6 +16,7 @@ The current system is intentionally not a real deployment executor. It has:
 - Dry-run repository payload builders.
 - An inert repository abstraction.
 - An in-memory transaction model.
+- A typed, in-memory deployment lock foundation.
 - Review-step diagnostics that expose only safe summaries.
 
 It does not currently write to Supabase, execute SQL, call API routes, mutate
@@ -33,8 +34,8 @@ auth, enable the Deploy button, or unlock a clinic.
 
 | Topic | Current implementation | Strengths | Risks | Recommendation | Priority |
 | --- | --- | --- | --- | --- | --- |
-| Concurrent deployments | The engine models legal deployment states and simulates a lock stage, but there is no durable lock yet. The planning SQL has `deployment_runs` and status fields, but it is not applied or wired. | The sequence already treats "no deployment is already running" as a precondition. The stage registry has an explicit lock stage and a transaction boundary around persistence-relevant stages. | Two browser tabs, two admins, or a retry worker could start competing persistence attempts unless the real repository atomically acquires a lock. UI-only disabled states will not be enough. | Implement a durable lock before any real writes. Use a database-enforced transition such as `draft` or retryable `failed` to `deploying`, scoped by clinic or deployment target, and reject or resolve competing requests through the existing run. | **Improve before v1.0** |
-| Deployment locking | `Lock Deployment` exists as Stage 3 and produces simulated output only. No persisted lock owner, lock timestamp, expiry, or recovery state exists at runtime. | Locking is named in the sequence and isolated as a first-class stage, which makes it easy to replace the simulation with a repository-backed operation. | If persistence starts before real locking, partial duplicate configuration could be created. A stuck `deploying` status could also block recovery if owner and timeout semantics are not designed. | Add lock owner fields through `deployment_runs`, clinic status, or a dedicated lock record. Store the active run ID, lock acquisition time, and failure transition behavior. Avoid time-based auto-unlock unless paired with support verification. | **Improve before v1.0** |
+| Concurrent deployments | The engine models legal deployment states and now has typed simulated lock metadata for Stage 3. There is still no durable database lock. | The sequence treats "no deployment is already running" as a precondition. The lock foundation models same-key reuse, different-key rejection, and expired-lock recovery. | Two browser tabs, two admins, or a retry worker could still compete once real persistence is enabled unless the repository atomically acquires a server-side lock. UI-only disabled states will not be enough. | Implement durable lock acquisition before any real writes. Use a database-enforced transition such as `draft` or retryable `failed` to `deploying`, scoped by clinic or deployment target, and reject or resolve competing requests through the existing run. | **Improve before v1.0** |
+| Deployment locking | `Lock Deployment` exists as Stage 3 and now produces safe simulated lock metadata. No persisted lock owner, lock timestamp, expiry, or recovery state exists at runtime. | Locking is named in the sequence, isolated as a first-class stage, and represented by typed contracts for status, request, result, failure reason, and audit metadata. | If persistence starts before real locking, partial duplicate configuration could be created. A stuck or expired lock could also block recovery if owner and timeout semantics are not designed. | Add durable lock owner fields through `deployment_runs`, clinic status, or a dedicated lock record. Store active run ID, idempotency key, requester, acquisition time, expiry/recovery state, release time, and failure transition behavior. Avoid time-based auto-unlock unless paired with support verification. | **Improve before v1.0** |
 | Browser interruption | The current engine can simulate complete execution locally, but real deployment is not yet server-owned. The Review and Complete screens remain local-only. | The docs already state that a redirect or success toast cannot declare deployment success. The planned `deployment_runs` model can support server-side resume/status display. | If real deployment is driven from a browser request without durable run state, tab close, refresh, or navigation could leave ambiguous execution status. | Make persistence execution server-owned and durable. The browser should submit one idempotent request, then poll or reload deployment-run status. The server-side run status must be the source of truth after interruption. | **Improve before v1.0** |
 | Network interruption | No network path exists yet. The inert repository throws intentionally and simulation performs no network calls. | The current absence of network writes avoids hidden partial behavior. Idempotency and deployment-run concepts are already present in the architecture. | Once an API route or server action exists, the client may not know whether a request failed before starting, during commit, or after success response generation. | Require idempotency keys and durable run lookup for every deployment request. Retrying the same request must return the existing pending, running, succeeded, or failed run rather than start a second deployment. | **Improve before v1.0** |
 | Duplicate deployment requests | The architecture specifies idempotency and unique deployment-run identity. The payload builders create deterministic dry-run context, but no real duplicate handling is active. | The planned `clinic_id + idempotency_key` uniqueness and payload hash give the right primitive for duplicate suppression. | Without server enforcement, duplicate clicks or retried requests could create duplicate rows for workstations, sterilizers, planning records, or audit entries. | Enforce uniqueness in the database and repository. Treat duplicate idempotency keys with the same payload as safe replay. Treat the same key with a different payload hash as a conflict requiring manual review. | **Improve before v1.0** |
@@ -64,7 +65,8 @@ evidence.
 
 The following items block real v1.0 deployment persistence:
 
-1. Durable deployment lock and active-run ownership.
+1. Durable deployment lock and active-run ownership. The type foundation exists,
+   but the real blocker remains until server-side database enforcement exists.
 2. Server-side idempotency enforcement with payload-hash conflict handling.
 3. Real transaction strategy for clinic configuration writes.
 4. Durable `deployment_runs` lifecycle updates for pending, running,
@@ -118,3 +120,20 @@ No reviewed topic should be moved to v1.1 if it protects against duplicate
 deployment, partial deployment, lost audit evidence, or unsafe retry. A richer
 manual recovery UI can move to v1.1, but the v1.0 operator playbook and durable
 run evidence should exist before persistence is enabled.
+
+## RC1 Fix 1 Update: Durable Locking Design
+
+RC1 Fix 1 addresses the first blocker at the design and type-foundation level.
+It adds local lock contracts and simulated Stage 3 lock metadata so future
+persistence work has a clear target for duplicate deployment prevention.
+
+This reduces design ambiguity but does not remove the production blocker. The
+remaining v1.0 requirement is a repository-backed, server-side,
+database-enforced lock that:
+
+- Reuses an existing deployment run for the same idempotency key.
+- Rejects a different idempotency key while an active lock exists.
+- Treats expired locks as recovery cases rather than automatic retry
+  permission.
+- Records lock metadata as auditable deployment-run evidence.
+- Prevents dashboard unlock until deployment finalization is safely committed.
