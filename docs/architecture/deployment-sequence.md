@@ -497,3 +497,29 @@ The required v1.0 persistence behavior remains stricter than the simulation:
 
 This lock foundation is intended to guide the future repository-backed lock
 operation without enabling real deployment execution.
+
+## Server-Side Idempotency Foundation
+
+The in-memory simulation now models idempotency metadata during Stage 2,
+`Create Deployment Run`. This metadata includes the idempotency key, optional
+clinic and deployment-run identifiers, payload hash, requester, request time,
+expiry, existing run status, existing payload hash, result status, conflict
+reason, and a safe message. The model is local-only and does not call Supabase,
+create a database row, or mutate deployment state.
+
+The required v1.0 persistence behavior remains stricter than the simulation:
+
+- Idempotency must be enforced server-side and database-backed before any real
+  clinic configuration writes occur.
+- UI disabling alone must never be treated as duplicate-request prevention.
+- Duplicate clicks and network retries with the same key and same payload hash
+  must return or reuse the original deployment run.
+- The same key with a different payload hash must be rejected as a conflict.
+- Expired keys require a new key or manual recovery review.
+- Idempotency decisions must be auditable through deployment-run evidence and
+  sanitized diagnostics.
+
+Idempotency answers whether a request should create, replay, or reject a
+deployment run. Deployment locking answers whether that run may currently
+execute for the clinic. Both safeguards are required before real persistence is
+enabled.

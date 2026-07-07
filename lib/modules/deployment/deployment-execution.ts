@@ -1,6 +1,11 @@
 import type { DeploymentDraft } from "./deployment-draft";
 import type { DeploymentDryRunPayloadMetadata } from "./deployment-dry-run";
 import type {
+  DeploymentIdempotencyRecord,
+  DeploymentIdempotencyRequest,
+  DeploymentStageIdempotencyMetadata,
+} from "./deployment-idempotency-types";
+import type {
   DeploymentLock,
   DeploymentLockRequest,
   DeploymentStageLockMetadata,
@@ -30,6 +35,7 @@ export interface DeploymentStageResult {
   messages: readonly string[];
   warnings: readonly string[];
   dryRunPayload?: DeploymentDryRunPayloadMetadata;
+  idempotency?: DeploymentStageIdempotencyMetadata;
   lock?: DeploymentStageLockMetadata;
   transaction?: DeploymentStageTransactionMetadata;
 }
@@ -56,6 +62,7 @@ export interface DeploymentSimulationContext {
   preparedAt: string;
   summary: DeploymentSummary;
   repositoryBuildContext: DeploymentRepositoryBuildContext;
+  idempotencyRequest: DeploymentIdempotencyRequest;
   lockRequest: DeploymentLockRequest;
 }
 
@@ -78,6 +85,9 @@ export interface DeploymentSimulationOptions {
   lockExpiresAt?: string | null;
   lockTtlSeconds?: number;
   simulatedExistingLock?: DeploymentLock | null;
+  idempotencyExpiresAt?: string | null;
+  simulatedExistingIdempotency?: DeploymentIdempotencyRecord | null;
+  hasActiveDeploymentConflict?: boolean;
 }
 
 export interface DeploymentRollbackResult {

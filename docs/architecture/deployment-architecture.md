@@ -445,3 +445,30 @@ button in the Setup Wizard is not a concurrency control. Future persistence
 must atomically connect the lock to clinic identity, deployment-run identity,
 idempotency key, requester, acquired/released timestamps, failure reason, and
 audit evidence before any clinic configuration writes can occur.
+
+### Server-Side Idempotency Foundation
+
+Server-side idempotency is a required v1.0 safeguard before real persistence
+can be enabled. The local foundation now defines typed idempotency contracts
+for idempotency status, request metadata, result metadata, conflict reasons,
+and safe stage diagnostics. The simulation can attach idempotency metadata to
+the `Create Deployment Run` stage without creating a run in storage.
+
+The current idempotency layer is deterministic and in memory only. It models
+the expected rules:
+
+- A missing or invalid idempotency key is rejected.
+- The same idempotency key with the same payload hash replays the existing
+  deployment run.
+- The same idempotency key with a different payload hash is a conflict.
+- An expired idempotency key requires a new key or manual recovery review.
+- A new key may create a new deployment run only when no active deployment
+  conflict exists.
+
+Idempotency complements deployment locking; it does not replace it. Real v1.0
+idempotency must be enforced by the server and backed by durable database
+constraints or equivalent atomic operations. Duplicate Deploy clicks, browser
+retries, and network retries must return or reuse the original deployment run
+instead of creating duplicate clinic configuration. Idempotency results,
+payload hash comparisons, requester identity, expiry, and conflict decisions
+must remain auditable through deployment-run evidence.

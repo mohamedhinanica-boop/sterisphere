@@ -10,6 +10,11 @@ import {
   createEmptyDryRunPayloadMetadata,
 } from "./deployment-dry-run";
 import {
+  createSimulatedIdempotencyResult,
+  toDeploymentStageIdempotencyMetadata,
+} from "./deployment-idempotency";
+import type { DeploymentIdempotencyRecord } from "./deployment-idempotency-types";
+import {
   createSimulatedDeploymentLock,
   toDeploymentStageLockMetadata,
 } from "./deployment-lock";
@@ -64,6 +69,9 @@ export class DeploymentEngine {
   private readonly lockExpiresAt: string | null | undefined;
   private readonly lockTtlSeconds: number | undefined;
   private readonly simulatedExistingLock: DeploymentLock | null;
+  private readonly idempotencyExpiresAt: string | null | undefined;
+  private readonly simulatedExistingIdempotency: DeploymentIdempotencyRecord | null;
+  private readonly hasActiveDeploymentConflict: boolean;
 
   constructor(
     private readonly draft: DeploymentDraft,
@@ -79,6 +87,11 @@ export class DeploymentEngine {
     this.lockExpiresAt = options.lockExpiresAt;
     this.lockTtlSeconds = options.lockTtlSeconds;
     this.simulatedExistingLock = options.simulatedExistingLock ?? null;
+    this.idempotencyExpiresAt = options.idempotencyExpiresAt;
+    this.simulatedExistingIdempotency =
+      options.simulatedExistingIdempotency ?? null;
+    this.hasActiveDeploymentConflict =
+      options.hasActiveDeploymentConflict ?? false;
   }
 
   validate() {
@@ -119,6 +132,20 @@ export class DeploymentEngine {
         schemaVersion:
           this.repositoryContext.schemaVersion ??
           "simulation-schema-v1",
+      },
+      idempotencyRequest: {
+        idempotencyKey,
+        clinicId,
+        deploymentRunId,
+        payloadHash,
+        requestedBy: this.requestedBy,
+        requestedAt: timestamp,
+        ...(this.idempotencyExpiresAt !== undefined
+          ? { expiresAt: this.idempotencyExpiresAt }
+          : {}),
+        simulatedExistingIdempotency:
+          this.simulatedExistingIdempotency,
+        hasActiveDeploymentConflict: this.hasActiveDeploymentConflict,
       },
       lockRequest: {
         clinicId,
@@ -324,6 +351,13 @@ export class DeploymentEngine {
 
     try {
       dryRunPayload = buildStageDryRunPayload(stage.id, context);
+      const idempotencyResult =
+        stage.id === DeploymentStage.CREATE_RUN
+          ? createSimulatedIdempotencyResult({
+              ...context.idempotencyRequest,
+              requestedAt: startedAt,
+            })
+          : null;
       const lockResult =
         stage.id === DeploymentStage.LOCK
           ? createSimulatedDeploymentLock({
@@ -334,6 +368,7 @@ export class DeploymentEngine {
       const outcome = this.stageHandlers[stage.id]?.(context);
       const completedAt = this.timestamp();
       const status =
+        idempotencyResult?.shouldRejectRequest ||
         lockResult?.status === "failed" ||
         lockResult?.status === "expired"
           ? "failed"
@@ -348,13 +383,21 @@ export class DeploymentEngine {
         durationMs: elapsedMilliseconds(startedAtMs, completedAt),
         messages:
           outcome?.messages ??
-          (lockResult
-            ? [lockResult.message]
-            : status === "succeeded"
-              ? [stage.simulationMessage]
+          (idempotencyResult
+            ? [idempotencyResult.message]
+            : lockResult
+              ? [lockResult.message]
+              : status === "succeeded"
+                ? [stage.simulationMessage]
               : [`${stage.displayName} simulation failed.`]),
         warnings: outcome?.warnings ?? [],
         dryRunPayload,
+        ...(idempotencyResult
+          ? {
+              idempotency:
+                toDeploymentStageIdempotencyMetadata(idempotencyResult),
+            }
+          : {}),
         ...(lockResult
           ? { lock: toDeploymentStageLockMetadata(lockResult) }
           : {}),
