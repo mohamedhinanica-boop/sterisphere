@@ -74,8 +74,12 @@ The following items block real v1.0 deployment persistence:
 3. Real transaction strategy for clinic configuration writes.
 4. Durable `deployment_runs` lifecycle updates for pending, running,
    succeeded, failed, and recovery states.
-5. Rollback verification and recovery-state handling.
-6. Deployment audit evidence that survives rollback.
+5. Rollback verification and recovery-state handling. The type foundation
+   exists, but the real blocker remains until durable verification evidence and
+   recovery-state persistence exist.
+6. Deployment audit evidence that survives rollback. The type foundation
+   exists, but the real blocker remains until this envelope or an equivalent is
+   durably persisted.
 7. Post-deployment wizard lock and deployed-state dashboard gating.
 
 ## Recommended Implementation Order Before Persistence
@@ -158,3 +162,64 @@ database-enforced idempotency implementation that:
 - Treats expired keys as requiring a new key or manual recovery.
 - Records idempotency decisions as auditable deployment-run evidence.
 - Works with deployment locking rather than replacing it.
+
+## RC1 Fix 3 Update: Rollback Verification and Recovery Design
+
+RC1 Fix 3 addresses the rollback verification blocker at the design and
+type-foundation level. It adds local rollback verification contracts, recovery
+plan contracts, and simulated rollback verification metadata when the
+Deployment Engine simulation rolls back an in-memory transaction.
+
+This reduces design ambiguity but does not remove the production blocker. The
+remaining v1.0 requirement is a repository-backed, auditable recovery model
+that:
+
+- Verifies rollback completion before allowing deployment retry.
+- Treats partial rollback as requiring manual cleanup.
+- Treats rollback failure as deployment-blocking until administrator or
+  engineering intervention completes.
+- Preserves rollback evidence in deployment-run records.
+- Keeps failed deployment evidence and reviewed payload identity auditable.
+- Prefers manual recovery over silent inconsistency or automatic dashboard
+  unlock.
+
+## RC1 Fix 4 Update: Deployment Audit Evidence Envelope
+
+RC1 Fix 4 addresses the audit-evidence blocker at the design and
+type-foundation level. It adds a local deployment audit evidence envelope that
+can describe the reviewed draft, dry-run diagnostics, transaction metadata,
+lock decisions, idempotency decisions, rollback verification, recovery plan,
+stage summary, and final outcome.
+
+This reduces design ambiguity but does not remove the production blocker. The
+remaining v1.0 requirement is a repository-backed durable audit implementation
+that:
+
+- Stores the evidence envelope or a durable equivalent.
+- Preserves failed, partial, blocked, and successful deployment outcomes.
+- Preserves rollback and recovery evidence even when configuration is rolled
+  back.
+- Makes retry decisions explainable from evidence.
+- Treats silent deployment inconsistency as unacceptable.
+- Keeps audit evidence descriptive and immutable in concept rather than using
+  evidence generation to trigger side effects.
+
+## RC1 Fix 5 Update: Deployment State Machine Foundation
+
+RC1 Fix 5 adds the canonical deployment lifecycle state machine at the design
+and type-foundation level. It defines lifecycle states, transition rules,
+transition results, state snapshots, lifecycle summaries, and a simulation
+helper that can summarize deployment progress without changing orchestration
+behavior.
+
+This reduces design ambiguity but does not remove the production persistence
+work. The remaining v1.0 requirement is a repository-backed durable lifecycle
+implementation that:
+
+- Stores trusted lifecycle transitions for deployment runs.
+- Rejects illegal state transitions server-side.
+- Requires rollback verification before retry.
+- Treats blocked as requiring administrator intervention.
+- Uses manual_recovery as an evidence-backed state before returning to ready.
+- Allows audit evidence to explain retry safety from lifecycle state rather
+  than UI assumptions.

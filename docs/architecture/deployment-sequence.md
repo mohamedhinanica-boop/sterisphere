@@ -523,3 +523,71 @@ Idempotency answers whether a request should create, replay, or reject a
 deployment run. Deployment locking answers whether that run may currently
 execute for the clinic. Both safeguards are required before real persistence is
 enabled.
+
+## Rollback Verification and Recovery Foundation
+
+The in-memory simulation now models rollback verification when a simulated
+deployment transaction rolls back. Verification metadata includes the
+transaction, deployment run, clinic, failed stage, rollback start/completion
+timestamps, verification timestamp, rollback status, manual-recovery flag,
+checkpoint evidence, step evidence, and safe messages.
+
+The required v1.0 persistence behavior remains stricter than the simulation:
+
+- Rollback verification is mandatory before deployment retry.
+- A completed and verified rollback may proceed to retry through the normal
+  deployment gates.
+- A partial rollback requires manual cleanup before retry.
+- A rollback failure blocks deployment until administrator or engineering
+  intervention completes.
+- Manual recovery is preferable to silent inconsistency or automatic unlock.
+- Rollback evidence must remain auditable through deployment-run records and
+  sanitized diagnostics.
+
+Recovery plans classify follow-up as automatic retry, manual verification,
+manual cleanup, or engineering support. The current implementation only models
+that evidence in memory; it does not call repositories, persist recovery
+records, or alter deployment execution semantics.
+
+## Deployment Audit Evidence Envelope
+
+The in-memory simulation now produces a deployment audit evidence envelope as
+descriptive metadata. The envelope captures the reviewed draft snapshot,
+stage execution summary, dry-run diagnostics, transaction metadata, lock
+metadata, idempotency metadata, rollback verification, recovery plan, and final
+deployment outcome.
+
+The required v1.0 persistence behavior remains stricter than the simulation:
+
+- Real audit persistence should store the evidence envelope or a durable
+  equivalent after the trusted deployment boundary evaluates the request.
+- Evidence must be immutable in concept and describe what happened rather than
+  causing side effects.
+- Failed, partial, blocked, and successful attempts must all leave evidence.
+- Rollback and recovery evidence must survive rollback.
+- Retry safety must be explainable from evidence.
+- Silent deployment inconsistency is unacceptable.
+
+The audit evidence envelope complements deployment runs. A deployment run owns
+durable attempt identity and status; the envelope provides the structured
+explanation of decisions, safeguards, rollback verification, and retry safety.
+
+## Deployment Lifecycle State Machine
+
+The deployment lifecycle state machine is the canonical sequence model for
+deployment execution and recovery. The in-memory simulation may attach a
+lifecycle summary to the execution result without changing orchestration
+semantics.
+
+Lifecycle states include draft, validating, ready, locked, executing,
+rolling_back, rollback_verification, completed, failed, blocked,
+manual_recovery, and cancelled. Only explicit transitions are valid. For
+example, a draft enters validating, validation can become ready or failed,
+ready can lock, locked can execute, execution can complete or roll back, and
+rollback verification decides whether the deployment is completed-for-retry,
+requires manual recovery, or is blocked.
+
+Persistence will later store lifecycle transitions as durable deployment-run
+evidence. Audit evidence references lifecycle summaries so support can explain
+why retry is allowed, blocked, or waiting for manual recovery. Rollback
+verification must pass before retry; silent inconsistency is not a valid state.

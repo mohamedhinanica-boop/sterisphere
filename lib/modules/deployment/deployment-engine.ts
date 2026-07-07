@@ -3,6 +3,7 @@ import {
   summarizeDeploymentDraft,
   type DeploymentDraft,
 } from "./deployment-draft";
+import { simulateDeploymentAuditEvidence } from "./deployment-audit-evidence";
 import { validateDeploymentDraft } from "./deployment-draft-validation";
 import {
   buildRollbackDryRunPayload,
@@ -19,6 +20,9 @@ import {
   toDeploymentStageLockMetadata,
 } from "./deployment-lock";
 import type { DeploymentLock } from "./deployment-lock-types";
+import { simulateRollbackVerification } from "./deployment-rollback";
+import type { DeploymentRollbackStatus } from "./deployment-rollback-types";
+import { simulateDeploymentLifecycle } from "./deployment-state-machine";
 import type {
   DeploymentExecutionResult,
   DeploymentRollbackResult,
@@ -72,6 +76,7 @@ export class DeploymentEngine {
   private readonly idempotencyExpiresAt: string | null | undefined;
   private readonly simulatedExistingIdempotency: DeploymentIdempotencyRecord | null;
   private readonly hasActiveDeploymentConflict: boolean;
+  private readonly simulatedRollbackStatus: DeploymentRollbackStatus | undefined;
 
   constructor(
     private readonly draft: DeploymentDraft,
@@ -92,6 +97,7 @@ export class DeploymentEngine {
       options.simulatedExistingIdempotency ?? null;
     this.hasActiveDeploymentConflict =
       options.hasActiveDeploymentConflict ?? false;
+    this.simulatedRollbackStatus = options.simulatedRollbackStatus;
   }
 
   validate() {
@@ -179,8 +185,7 @@ export class DeploymentEngine {
         ),
       );
       const completedAt = this.timestamp();
-
-      return {
+      const result: DeploymentExecutionResult = {
         status: "failed",
         startedAt,
         completedAt,
@@ -193,6 +198,28 @@ export class DeploymentEngine {
         ],
         rollbackRequired: false,
         summary,
+      };
+
+      const lifecycleSummary = simulateDeploymentLifecycle({
+        startedAt: result.startedAt,
+        completedAt: result.completedAt,
+        status: result.status,
+        rollbackRequired: result.rollbackRequired,
+        clinicId: null,
+        deploymentRunId: null,
+      });
+      const resultWithLifecycle: DeploymentExecutionResult = {
+        ...result,
+        lifecycleSummary,
+      };
+
+      return {
+        ...resultWithLifecycle,
+        auditEvidence: simulateDeploymentAuditEvidence(
+          this.draft,
+          resultWithLifecycle,
+          completedAt,
+        ),
       };
     }
 
@@ -307,8 +334,27 @@ export class DeploymentEngine {
             completedStages.map((stage) => stage.stageId),
           )
         : undefined;
+    const rollbackRecovery =
+      failedStage && transactionResult?.status === "rolled_back"
+        ? simulateRollbackVerification({
+            transaction: transactionResult,
+            deploymentRunId:
+              context.repositoryBuildContext.deploymentRunId ??
+              "simulated-run-unavailable",
+            clinicId:
+              context.repositoryBuildContext.clinicId ??
+              "simulated-clinic-unavailable",
+            failedStage: failedStage.stageId,
+            rollbackStartedAt: failedStage.completedAt,
+            rollbackCompletedAt: transactionResult.completedAt,
+            verifiedAt: this.timestamp(),
+            ...(this.simulatedRollbackStatus
+              ? { rollbackStatus: this.simulatedRollbackStatus }
+              : {}),
+          })
+        : undefined;
 
-    return {
+    const result: DeploymentExecutionResult = {
       status: failedStage ? "failed" : "succeeded",
       startedAt,
       completedAt,
@@ -320,8 +366,36 @@ export class DeploymentEngine {
       messages,
       rollbackRequired,
       ...(rollbackDryRunPayload ? { rollbackDryRunPayload } : {}),
+      ...(rollbackRecovery ? { rollbackRecovery } : {}),
       ...(transactionResult ? { transaction: transactionResult } : {}),
       summary: context.summary,
+    };
+
+    const lifecycleSummary = simulateDeploymentLifecycle({
+      startedAt: result.startedAt,
+      completedAt: result.completedAt,
+      status: result.status,
+      rollbackRequired: result.rollbackRequired,
+      rollbackVerified: result.rollbackRecovery?.safeToRetry,
+      manualRecoveryRequired:
+        result.rollbackRecovery?.verification.manualRecoveryRequired,
+      ...(failedStage ? { failedStage: failedStage.stageId } : {}),
+      clinicId: context.repositoryBuildContext.clinicId ?? null,
+      deploymentRunId:
+        context.repositoryBuildContext.deploymentRunId ?? null,
+    });
+    const resultWithLifecycle: DeploymentExecutionResult = {
+      ...result,
+      lifecycleSummary,
+    };
+
+    return {
+      ...resultWithLifecycle,
+      auditEvidence: simulateDeploymentAuditEvidence(
+        this.draft,
+        resultWithLifecycle,
+        completedAt,
+      ),
     };
   }
 

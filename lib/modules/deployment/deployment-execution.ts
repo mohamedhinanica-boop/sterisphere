@@ -1,3 +1,4 @@
+import type { DeploymentAuditEvidenceEnvelope } from "./deployment-audit-evidence-types";
 import type { DeploymentDraft } from "./deployment-draft";
 import type { DeploymentDryRunPayloadMetadata } from "./deployment-dry-run";
 import type {
@@ -10,6 +11,11 @@ import type {
   DeploymentLockRequest,
   DeploymentStageLockMetadata,
 } from "./deployment-lock-types";
+import type {
+  DeploymentRecoveryResult,
+  DeploymentRollbackStatus,
+} from "./deployment-rollback-types";
+import type { DeploymentLifecycleSummary } from "./deployment-state-machine-types";
 import type { DeploymentRepositoryBuildContext } from "./repositories";
 import type {
   DeploymentStageTransactionMetadata,
@@ -52,6 +58,9 @@ export interface DeploymentExecutionResult {
   messages: readonly string[];
   rollbackRequired: boolean;
   rollbackDryRunPayload?: DeploymentDryRunPayloadMetadata;
+  rollbackRecovery?: DeploymentRecoveryResult;
+  auditEvidence?: DeploymentAuditEvidenceEnvelope;
+  lifecycleSummary?: DeploymentLifecycleSummary;
   transaction?: DeploymentTransactionResult;
   summary: DeploymentSummary;
 }
@@ -88,6 +97,7 @@ export interface DeploymentSimulationOptions {
   idempotencyExpiresAt?: string | null;
   simulatedExistingIdempotency?: DeploymentIdempotencyRecord | null;
   hasActiveDeploymentConflict?: boolean;
+  simulatedRollbackStatus?: DeploymentRollbackStatus;
 }
 
 export interface DeploymentRollbackResult {
@@ -97,4 +107,5 @@ export interface DeploymentRollbackResult {
   messages: readonly string[];
   warnings: readonly string[];
   dryRunPayload?: DeploymentDryRunPayloadMetadata;
+  rollbackRecovery?: DeploymentRecoveryResult;
 }

@@ -472,3 +472,75 @@ retries, and network retries must return or reuse the original deployment run
 instead of creating duplicate clinic configuration. Idempotency results,
 payload hash comparisons, requester identity, expiry, and conflict decisions
 must remain auditable through deployment-run evidence.
+
+### Rollback Verification and Recovery Foundation
+
+Rollback verification is mandatory before a failed deployment may be retried.
+The local foundation now defines typed rollback verification and recovery
+contracts for rollback status, rollback steps, rollback checkpoints,
+verification evidence, recovery plans, and recovery results. When the
+simulation rolls back an in-memory transaction, the result can include safe
+rollback verification metadata without calling repositories or writing data.
+
+The current rollback layer is deterministic and in memory only. It models the
+expected rules:
+
+- A completed rollback with verified checkpoints is safe to retry.
+- A partial rollback requires manual cleanup before retry.
+- A rollback failure blocks deployment until administrator or engineering
+  intervention completes.
+- Manual recovery is preferable to silently accepting inconsistent deployment
+  state.
+
+Recovery plans classify the next action as automatic retry, manual
+verification, manual cleanup, or engineering support. Real v1.0 persistence
+must keep rollback evidence auditable through deployment-run records and
+sanitized recovery notes. Rollback verification must not erase the failed
+attempt, the reviewed payload identity, or the reason support intervention was
+required.
+
+### Deployment Audit Evidence Envelope
+
+The Deployment Audit Evidence Envelope is the canonical future persistence
+boundary for deployment evidence. The local foundation now defines typed
+contracts for the evidence envelope, events, subject, actor, snapshot,
+integrity metadata, and summary. The envelope describes what happened during a
+deployment attempt; it does not cause side effects, write audit records, unlock
+routes, or change deployment behavior.
+
+The envelope is immutable in concept. Future real audit persistence should
+store the generated envelope or a durable equivalent so support can explain:
+
+- Which deployment draft snapshot was reviewed.
+- Which dry-run repository payload diagnostics were prepared.
+- Which idempotency and lock decisions occurred.
+- Which transaction checkpoints were recorded.
+- Whether rollback was required and verified.
+- Which recovery plan was selected.
+- Which stages completed, failed, or were skipped.
+- Whether retry is safe, blocked, or requires manual recovery.
+
+Silent deployment inconsistency is unacceptable. Failed, partial, blocked, and
+successful outcomes must all leave auditable evidence. Retry decisions must be
+explainable from the evidence envelope rather than inferred from UI state,
+console output, or scattered operational records.
+
+### Deployment Lifecycle State Machine
+
+The deployment lifecycle state machine is the canonical model for deployment
+progress and recovery decisions. It is separate from the older coarse
+`clinics.deployment_status` values and describes the internal deployment
+attempt lifecycle from draft review through validation, locking, execution,
+rollback, verification, recovery, and completion.
+
+The local foundation now defines typed lifecycle states, transition rules,
+transition results, state snapshots, and lifecycle summaries. Only legal
+transitions are allowed by the pure helper layer. Persistence will later store
+or derive durable lifecycle transitions from trusted server-side execution,
+but the current implementation remains in-memory and descriptive only.
+
+Rollback verification must pass before retry can be considered safe. A blocked
+lifecycle state requires administrator intervention. A manual recovery state
+requires evidence-backed recovery before returning to ready. Audit evidence may
+reference lifecycle summaries so retry decisions are explainable from recorded
+deployment evidence rather than inferred from UI state.
