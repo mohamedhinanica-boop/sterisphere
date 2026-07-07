@@ -18,6 +18,7 @@ These documents define the platform independently of implementation details.
 
 - [SteriSphere v1.0 Deployment Validation Plan](./v1-deployment-validation-plan.md)
 - [SteriSphere v1 Deployment Architecture](./deployment-architecture.md)
+- [SteriSphere v1 Deployment Sequence](./deployment-sequence.md)
 
 ## Current Architecture
 
