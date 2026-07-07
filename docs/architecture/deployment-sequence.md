@@ -461,3 +461,15 @@ whether a payload was generated, its contract type, and a short count or label
 summary. This helps implementation staff validate future persistence coverage
 before repository execution is enabled. Full reviewed payloads and payload JSON
 remain internal to the engine.
+
+The simulation also creates an in-memory `DeploymentTransaction` for the
+persistence-relevant portion of the sequence, from deployment-run creation
+through finalization. The transaction begins before the first such stage,
+records a checkpoint after each successful persistence-relevant stage, commits
+when the full simulation succeeds, and aborts plus rolls back checkpoints when
+a simulated stage fails.
+
+This is not a Supabase transaction and it performs no writes. It is a foundation
+for the eventual persistence implementation to map onto real atomic operations
+or safe compensating rollback while preserving the documented sequence and
+failure semantics.

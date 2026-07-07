@@ -2,6 +2,10 @@ import type { DeploymentDraft } from "./deployment-draft";
 import type { DeploymentDryRunPayloadMetadata } from "./deployment-dry-run";
 import type { DeploymentRepositoryBuildContext } from "./repositories";
 import type {
+  DeploymentStageTransactionMetadata,
+  DeploymentTransactionResult,
+} from "./deployment-transaction-types";
+import type {
   DeploymentStage,
   DeploymentSummary,
 } from "./deployment-types";
@@ -21,6 +25,7 @@ export interface DeploymentStageResult {
   messages: readonly string[];
   warnings: readonly string[];
   dryRunPayload?: DeploymentDryRunPayloadMetadata;
+  transaction?: DeploymentStageTransactionMetadata;
 }
 
 export interface DeploymentExecutionResult {
@@ -35,6 +40,7 @@ export interface DeploymentExecutionResult {
   messages: readonly string[];
   rollbackRequired: boolean;
   rollbackDryRunPayload?: DeploymentDryRunPayloadMetadata;
+  transaction?: DeploymentTransactionResult;
   summary: DeploymentSummary;
 }
 

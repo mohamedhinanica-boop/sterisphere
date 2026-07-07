@@ -8,6 +8,8 @@ export * from "./deployment-execution";
 export * from "./deployment-result";
 export * from "./deployment-stages";
 export * from "./deployment-state-machine";
+export * from "./deployment-transaction";
+export * from "./deployment-transaction-types";
 export * from "./deployment-types";
 export * from "./deployment-validation";
 export * from "./repositories";

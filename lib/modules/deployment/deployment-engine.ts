@@ -20,6 +20,14 @@ import {
   DEPLOYMENT_STAGES,
   type DeploymentStageDefinition,
 } from "./deployment-stages";
+import {
+  DeploymentTransaction,
+  isDeploymentTransactionStage,
+} from "./deployment-transaction";
+import type {
+  DeploymentStageTransactionMetadata,
+  DeploymentTransactionResult,
+} from "./deployment-transaction-types";
 import { DeploymentStage } from "./deployment-types";
 import {
   createDeploymentRepository,
@@ -131,16 +139,51 @@ export class DeploymentEngine {
     }
 
     const context = this.prepare();
-    const completedStages: DeploymentStageResult[] = [];
+    let completedStages: DeploymentStageResult[] = [];
     const skippedStages: DeploymentStageResult[] = [];
     const warnings: string[] = [];
     const messages: string[] = [];
     let failedStage: DeploymentStageResult | undefined;
+    const transaction = new DeploymentTransaction({
+      transactionId: `simulated-transaction-${context.payloadHash}`,
+      startedAt: context.preparedAt,
+    });
+    let transactionResult: DeploymentTransactionResult | undefined;
 
     for (const [index, stage] of DEPLOYMENT_STAGES.entries()) {
-      const result = this.simulateStage(stage, context);
+      const participatesInTransaction =
+        isDeploymentTransactionStage(stage.id);
+
+      if (participatesInTransaction && !transactionResult) {
+        transactionResult = transaction.begin(this.timestamp());
+      }
+
+      let result = this.simulateStage(stage, context);
 
       if (result.status === "failed") {
+        if (transactionResult) {
+          transactionResult = transaction.abort(
+            result.completedAt,
+            `${stage.displayName} failed; simulated deployment transaction aborted.`,
+          );
+          transactionResult = transaction.rollback(
+            this.timestamp(),
+            `${stage.displayName} failed; simulated deployment transaction rolled back.`,
+          );
+          result = this.withTransactionMetadata(
+            result,
+            transactionResult,
+          );
+          completedStages = completedStages.map((completedStage) =>
+            completedStage.transaction
+              ? this.withTransactionMetadata(
+                  completedStage,
+                  transactionResult as DeploymentTransactionResult,
+                )
+              : completedStage,
+          );
+        }
+
         failedStage = result;
         warnings.push(...result.warnings);
         messages.push(...result.messages);
@@ -158,12 +201,40 @@ export class DeploymentEngine {
         break;
       }
 
+      if (participatesInTransaction && transactionResult) {
+        const checkpoint = transaction.recordCheckpoint({
+          stageId: stage.id,
+          stageDisplayName: stage.displayName,
+          recordedAt: result.completedAt,
+          message: `${stage.displayName} checkpoint recorded in simulated transaction.`,
+        });
+        transactionResult = transaction.result();
+        result = this.withTransactionMetadata(
+          result,
+          transactionResult,
+          checkpoint.id,
+        );
+      }
+
       completedStages.push(result);
       warnings.push(...result.warnings);
       messages.push(...result.messages);
     }
 
     const completedAt = this.timestamp();
+    if (!failedStage && transactionResult) {
+      transactionResult = transaction.commit(completedAt);
+      completedStages = completedStages.map((completedStage) =>
+        completedStage.transaction
+          ? this.withTransactionMetadata(
+              completedStage,
+              transactionResult as DeploymentTransactionResult,
+              completedStage.transaction.checkpointId,
+            )
+          : completedStage,
+      );
+    }
+
     const rollbackRequired = Boolean(
       failedStage &&
         completedStages.some(
@@ -191,6 +262,7 @@ export class DeploymentEngine {
       messages,
       rollbackRequired,
       ...(rollbackDryRunPayload ? { rollbackDryRunPayload } : {}),
+      ...(transactionResult ? { transaction: transactionResult } : {}),
       summary: context.summary,
     };
   }
@@ -283,6 +355,24 @@ export class DeploymentEngine {
 
   private timestamp(): string {
     return this.now().toISOString();
+  }
+
+  private withTransactionMetadata(
+    result: DeploymentStageResult,
+    transaction: DeploymentTransactionResult,
+    checkpointId = result.transaction?.checkpointId,
+  ): DeploymentStageResult {
+    const metadata: DeploymentStageTransactionMetadata = {
+      transactionId: transaction.transactionId,
+      ...(checkpointId ? { checkpointId } : {}),
+      transactionStatus: transaction.status,
+      rollbackCheckpointCount: transaction.rollbackCheckpointCount,
+    };
+
+    return {
+      ...result,
+      transaction: metadata,
+    };
   }
 }
 

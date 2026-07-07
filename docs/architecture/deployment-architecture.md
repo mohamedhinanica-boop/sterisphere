@@ -399,3 +399,24 @@ repository inputs needed by future persistence without invoking repository
 methods. Stage results expose only payload type, generation status, and a safe
 count or label summary for diagnostics. Full payload values remain internal to
 the simulation and are not exposed in the Setup Wizard.
+
+### Simulated Deployment Transactions
+
+The Deployment Engine now models the all-or-nothing deployment boundary with an
+in-memory `DeploymentTransaction`. The simulated transaction begins before the
+first persistence-relevant stage, records checkpoints after each successful
+persistence-relevant stage, commits when the full deployment simulation
+succeeds, and aborts plus rolls back its recorded checkpoints when a simulated
+stage fails.
+
+This transaction layer does not create a database transaction, call Supabase,
+write SQL, or invoke repository methods. It exists to prove the orchestration
+contract that real persistence must later honor: create a durable run, apply
+clinic configuration as one atomic unit where possible, and use safe
+compensating rollback where a future persistence provider cannot guarantee a
+single atomic database operation across every side effect.
+
+Stage results may include transaction metadata for diagnostics: transaction
+identity, checkpoint identity, current transaction status, and rollback
+checkpoint count. The metadata is intentionally structural and contains no full
+repository payloads or persisted data.
