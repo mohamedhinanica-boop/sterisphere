@@ -591,3 +591,53 @@ Persistence will later store lifecycle transitions as durable deployment-run
 evidence. Audit evidence references lifecycle summaries so support can explain
 why retry is allowed, blocked, or waiting for manual recovery. Rollback
 verification must pass before retry; silent inconsistency is not a valid state.
+
+## RC2 Slice 1: Durable Deployment Run Boundary
+
+The first persistence-ready slice is limited to `deployment_runs`. It prepares
+the durable record that a future server-side deployment request will create or
+read before any downstream deployment stage can persist data.
+
+The future persistent sequence begins with:
+
+1. Normalize and validate the server-side idempotency key.
+2. Compare the reviewed deployment draft payload hash.
+3. Read an existing deployment run when the same idempotency key and payload
+   hash are already recorded.
+4. Reject the request when the same idempotency key points to a different
+   payload hash.
+5. Create an evidence-first deployment run only when no conflict exists.
+
+No clinic creation, tenant setup, settings persistence, user creation, or
+stage-specific persistence is introduced by this slice. The current engine
+still simulates every deployment stage. A later RC2 implementation may replace
+only the `Create Deployment Run` simulated stage with the deployment-run
+repository while keeping all downstream stages simulated until explicitly
+approved.
+
+`supabase_deployment_runs.sql` now contains the SQL migration draft for this
+first durable boundary. The file is reviewable and migration-ready, but the
+application does not call it, does not wire Supabase runtime persistence, and
+does not execute idempotency conflict handling yet. The sequence remains
+simulation-first until a later repository-wiring slice is approved.
+
+RC2 Slice 3 adds the concrete but unused Supabase repository implementation for
+`deployment_runs`. A future repository-wiring slice can replace only the
+deployment-run evidence step with this implementation. Until that explicit
+wiring happens, the sequence still runs through simulation and no runtime code
+creates, updates, completes, fails, or blocks deployment runs in Supabase.
+
+RC2 Slice 4 adds the server-only `DeploymentRunService` design. The service
+models the future server sequence for creating, reusing, or resuming a durable
+deployment run, but it is not exposed through a public API route and is not
+called by the Setup Wizard. The decision model rejects missing or invalid
+idempotency before repository writes, reuses a run when the same key and
+payload hash are found, and reports a conflict when the same key maps to a
+different payload hash. It never calls `DeploymentEngine.execute()` and never
+persists downstream deployment stages.
+
+RC2 Slice 5 adds an in-memory harness that validates the service decision flow
+before any runtime wiring. The harness proves the deployment-run branch can
+create, reuse, reject, conflict, and resume using only the repository contract.
+It also records that no clinic, tenant, settings, user, stage, or engine
+boundary is touched by the service tests.

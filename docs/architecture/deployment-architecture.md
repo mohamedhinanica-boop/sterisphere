@@ -544,3 +544,56 @@ lifecycle state requires administrator intervention. A manual recovery state
 requires evidence-backed recovery before returning to ready. Audit evidence may
 reference lifecycle summaries so retry decisions are explainable from recorded
 deployment evidence rather than inferred from UI state.
+
+### RC2 deployment_runs Persistence Boundary
+
+RC2 persistence readiness starts with `deployment_runs` only. The deployment
+run is the durable evidence boundary for a deployment attempt: it owns
+idempotency identity, payload hash, lifecycle state, coarse deployment status,
+the canonical reviewed draft snapshot, the audit evidence envelope,
+rollback/recovery evidence, lifecycle summary, and safe metadata.
+
+This boundary is intentionally evidence-first rather than clinic-creation-first.
+`clinic_id` remains nullable because a deployment attempt may be reviewed,
+blocked, failed, or deduplicated before any clinic tenancy root exists. Future
+clinic creation, tenant setup, settings persistence, user creation, and
+downstream stage persistence remain out of scope until their own RC2 slices.
+
+The deployment module now defines deployment-run-only types, payload builders,
+and an inert `DeploymentRunRepository` contract. Same idempotency key plus the
+same payload hash should read the existing run. Same idempotency key plus a
+different payload hash must be rejected as a conflict. The repository contract
+does not write data yet, and the Deployment Engine continues to run as a
+simulation-first orchestrator.
+
+`supabase_deployment_runs.sql` is the RC2 Slice 2 migration draft for this
+boundary. It creates the `deployment_runs` table only, with unique run and
+idempotency identifiers, lifecycle/status checks, evidence JSON columns, retry
+lineage, and lookup indexes. The SQL is not wired at runtime and does not
+create operational clinic records. Idempotency conflict handling remains a
+server-side repository design until a later slice explicitly connects runtime
+Supabase persistence.
+
+RC2 Slice 3 adds an unused `SupabaseDeploymentRunRepository` implementation for
+the same boundary. The implementation may call Supabase internally when a
+future server-side deployment path explicitly instantiates it, but no current
+runtime path does so. Its write surface is limited to `deployment_runs`
+evidence/status fields: lifecycle state, deployment status, audit evidence,
+rollback recovery, lifecycle summary, terminal timestamps, retry lineage, and
+metadata. It does not create clinics, tenants, settings, users, or downstream
+deployment-stage records.
+
+RC2 Slice 4 defines the server-owned `DeploymentRunService` boundary for
+deployment-run orchestration. The service receives a repository through
+dependency injection, evaluates idempotency decisions, builds deployment-run
+payloads, and can resume an existing deployment run from evidence. It is not
+called by UI, routes, or the Deployment Engine. The deployment module exports
+the service command/result types for review, while the service implementation
+must be imported explicitly by a future trusted server-side wiring slice.
+
+RC2 Slice 5 adds an in-memory test harness for that service boundary. The fake
+repository implements only `DeploymentRunRepository`, records call counts, and
+keeps explicit forbidden-boundary counters at zero for clinic, tenant,
+settings, user, stage, and engine activity. The harness is compile-checked but
+does not introduce a runtime test runner, Supabase calls, UI wiring, API
+routes, or deployment execution.
