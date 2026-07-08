@@ -611,3 +611,9 @@ The helper may create or reuse only a `deployment_runs` evidence record. It must
 `deployment-run-smoke-harness.ts` is a private server-only verification helper for the deployment-run wiring. It uses `createOrReuseServerDeploymentRun()` to prove create, reuse, and conflict behavior against `deployment_runs` without exposing a route, changing UI, or importing the Deployment Engine.
 
 The harness assumes a trusted server Supabase client with permission to select and insert `deployment_runs`. In an RLS-enabled environment, manual execution should use a service-role server client and the smoke row should be removed with the cleanup query documented in the deployment persistence plan.
+
+### RC2.5 First Runtime Deployment Run Persistence
+
+The Deployment Workspace Complete step now has a guarded real persistence action for `deployment_runs`. It calls a server action, which uses the server-only deployment-run helper to create or reuse one evidence row for the reviewed canonical draft.
+
+This is not real clinic deployment. The Deployment Engine stage sequence remains simulated, `execute()` is unchanged, and no downstream repository or operational table is wired. The UI must continue to tell users that the deployment run was persisted while clinic creation remains simulated and not activated.

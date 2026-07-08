@@ -653,3 +653,9 @@ This does not change the documented deployment sequence or enable real deploymen
 The RC2.5 smoke harness verifies only the private Stage 2 deployment-run persistence boundary. It can create or reuse one `deployment_runs` evidence row and confirm an idempotency conflict, but it does not advance the Deployment Engine sequence or execute any downstream stage.
 
 Clinic creation, tenant setup, settings, users, providers, sterilizers, packs, cycles, traces, audit logs, dashboard unlock, and redirect behavior remain outside this smoke harness.
+
+## RC2.5 First Runtime Persistence Note
+
+The first real runtime persistence path is limited to Stage 2 evidence: the Complete step can persist or reuse a `deployment_runs` row after Review freezes the canonical draft snapshot. The server action still builds evidence from the simulated sequence and stores only deployment-run evidence.
+
+The ordered Deployment Engine sequence is not advanced into real execution. Validation, clinic creation, locking, settings, workstations, sterilizers, planning records, policies, defaults, audit entries, dashboard unlock, and redirect behavior remain simulated or unwired until their own approved slices.

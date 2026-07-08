@@ -325,3 +325,33 @@ where idempotency_key = 'deployment-run-smoke-rc25-slice2-YYYYMMDD-HHMM'
   and deployment_run_id = 'deployment-run-smoke-rc25-slice2-YYYYMMDD-HHMM'
   and metadata->>'smokeHarness' = 'deployment_runs_only';
 ```
+
+## RC2.5 Slice 3 First Runtime Deployment Run Persistence
+
+The Setup Wizard Complete step now performs the first real runtime persistence operation: it calls a server action that creates or reuses exactly one `deployment_runs` record for the reviewed `DeploymentDraft`. The action uses the existing server-only `DeploymentRunService` wiring and `SupabaseDeploymentRunRepository`.
+
+Runtime behavior remains deployment-run-only:
+
+- the Review step freezes the canonical reviewed `DeploymentDraft` snapshot;
+- the Complete step calls the server action with that reviewed draft;
+- the server computes the payload hash and deterministic idempotency key;
+- the server builds simulated audit evidence and lifecycle summary;
+- the server creates or reuses a `deployment_runs` row;
+- the UI reports whether the run was persisted, reused, rejected, or conflicted;
+- clinic creation and operational setup remain simulated and inactive.
+
+The deterministic idempotency key is scoped to the reviewed deployment target. Retrying the same reviewed draft reuses the existing deployment run. Reusing the same deployment target with a different payload hash returns a safe conflict and does not create operational clinic data.
+
+Security and RLS assumptions remain server-only. The server action creates its Supabase client from `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` plus `SUPABASE_SERVICE_ROLE_KEY`. The service-role key must never be exposed to browser code. This slice does not add a public API route.
+
+Manual verification SQL for the expected deployment run:
+
+```sql
+select deployment_run_id, idempotency_key, payload_hash, clinic_id, metadata
+from deployment_runs
+where idempotency_key = 'setup-deployment:YOUR-CLINIC-CODE';
+```
+
+Expected result: one row. `clinic_id` must be null, and metadata should include `boundary = 'deployment_runs_only'` and `clinicCreationSimulated = true`.
+
+Manual boundary checks should confirm that no clinic, tenant, settings, user, provider, sterilizer, workstation, pack, cycle, trace, audit-log, or downstream deployment-stage records were created by the Complete-step action.

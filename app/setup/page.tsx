@@ -47,10 +47,15 @@ import {
   hashDeploymentDraftInput,
   simulateDeployment,
   summarizeDeploymentDraft,
+  type DeploymentDraft,
   type DeploymentDraftAdapterResult,
   type DeploymentExecutionResult,
   type DeploymentStageExecutionStatus,
 } from "@/lib/modules/deployment";
+import {
+  persistDeploymentRunAction,
+  type PersistDeploymentRunActionResult,
+} from "./actions";
 import { useState } from "react";
 
 const stepLabels: Record<SetupStepId, string> = {
@@ -509,6 +514,12 @@ export default function ClinicSetupPage() {
   const [touchedProfileFields, setTouchedProfileFields] = useState<
     Partial<Record<ClinicProfileField, boolean>>
   >({});
+  const [reviewedDeploymentDraft, setReviewedDeploymentDraft] =
+    useState<DeploymentDraft | null>(null);
+  const [deploymentRunResult, setDeploymentRunResult] =
+    useState<PersistDeploymentRunActionResult | null>(null);
+  const [isPersistingDeploymentRun, setIsPersistingDeploymentRun] =
+    useState(false);
 
   const currentStepIndex = SETUP_STEP_ORDER.indexOf(setupState.currentStep);
   const isWelcome = setupState.currentStep === SetupStep.WELCOME;
@@ -672,7 +683,9 @@ export default function ClinicSetupPage() {
       return;
     }
 
-    if (isReview) {
+    if (isReview && deploymentDraftPreview) {
+      setReviewedDeploymentDraft(deploymentDraftPreview.draft);
+      setDeploymentRunResult(null);
       setSetupState((current) =>
         nextStep({
           ...current,
@@ -684,6 +697,40 @@ export default function ClinicSetupPage() {
     }
   }
 
+  async function persistDeploymentRun() {
+    if (!reviewedDeploymentDraft) {
+      setDeploymentRunResult({
+        ok: false,
+        status: "rejected",
+        deploymentRunId: null,
+        idempotencyKey: null,
+        payloadHash: null,
+        message:
+          "Review must be confirmed before a deployment run can be persisted.",
+      });
+      return;
+    }
+
+    setIsPersistingDeploymentRun(true);
+    setDeploymentRunResult(null);
+
+    try {
+      const result = await persistDeploymentRunAction(reviewedDeploymentDraft);
+      setDeploymentRunResult(result);
+    } catch {
+      setDeploymentRunResult({
+        ok: false,
+        status: "error",
+        deploymentRunId: null,
+        idempotencyKey: null,
+        payloadHash: null,
+        message:
+          "Deployment run persistence failed safely. No clinic data was created.",
+      });
+    } finally {
+      setIsPersistingDeploymentRun(false);
+    }
+  }
   function updateWorkstationQuantity(
     category: WorkstationCategory,
     adjustment: -1 | 1,
@@ -879,7 +926,11 @@ export default function ClinicSetupPage() {
           )}
 
           {isComplete && (
-            <CompleteStep />
+            <CompleteStep
+              deploymentRunResult={deploymentRunResult}
+              reviewedDraft={reviewedDeploymentDraft}
+              isPersisting={isPersistingDeploymentRun}
+            />
           )}
 
           <div className="mt-5 flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -895,9 +946,10 @@ export default function ClinicSetupPage() {
 
             <button
               type="button"
-              onClick={goNext}
+              onClick={isComplete ? persistDeploymentRun : goNext}
               disabled={
-                isComplete ||
+                (isComplete &&
+                  (isPersistingDeploymentRun || !reviewedDeploymentDraft)) ||
                 (isClinicProfile && !clinicProfileValid) ||
                 (isWorkstations && workstationQuantities.treatment === 0) ||
                 (isProviders &&
@@ -917,11 +969,19 @@ export default function ClinicSetupPage() {
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
               {isComplete
-                ? "Deployment Persistence Coming Soon"
+                ? isPersistingDeploymentRun
+                  ? "Persisting Deployment Run"
+                  : deploymentRunResult?.ok
+                    ? "Verify / Reuse Deployment Run"
+                    : "Persist Deployment Run"
                 : isReview
                   ? "Confirm Review"
                   : "Next"}
-              {!isComplete && <ArrowRight className="h-4 w-4" />}
+              {isComplete ? (
+                <Rocket className="h-4 w-4" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )}
             </button>
           </div>
         </section>
@@ -930,7 +990,15 @@ export default function ClinicSetupPage() {
   );
 }
 
-function CompleteStep() {
+function CompleteStep({
+  deploymentRunResult,
+  reviewedDraft,
+  isPersisting,
+}: {
+  deploymentRunResult: PersistDeploymentRunActionResult | null;
+  reviewedDraft: DeploymentDraft | null;
+  isPersisting: boolean;
+}) {
   const completedDraftSections = [
     "Clinic profile configured",
     "Workstations planned",
@@ -940,6 +1008,23 @@ function CompleteStep() {
     "Hardware quantities planned",
     "Review completed",
   ];
+  const payloadHash = reviewedDraft
+    ? hashDeploymentDraftInput(reviewedDraft)
+    : null;
+  const statusTone = deploymentRunResult?.ok
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    : deploymentRunResult
+      ? "border-amber-200 bg-amber-50 text-amber-950"
+      : "border-blue-200 bg-blue-50 text-blue-950";
+  const statusTitle = deploymentRunResult?.ok
+    ? deploymentRunResult.status === "reused"
+      ? "Deployment run reused"
+      : "Deployment run persisted"
+    : deploymentRunResult
+      ? "Deployment run not persisted"
+      : isPersisting
+        ? "Persisting deployment run"
+        : "Ready to persist deployment run";
 
   return (
     <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
@@ -978,9 +1063,48 @@ function CompleteStep() {
           ))}
         </div>
 
-        <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-950">
-          In a future phase, confirming deployment will create the clinic
-          configuration and open the live SteriSphere workspace.
+        <div className={`mt-6 rounded-2xl border p-5 text-sm leading-6 ${statusTone}`}>
+          <p className="font-bold">{statusTitle}</p>
+          <p className="mt-2">
+            {deploymentRunResult?.message ??
+              "Confirm deployment to persist a deployment_runs evidence record."}
+          </p>
+
+          <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Run ID
+              </dt>
+              <dd className="mt-1 break-all font-mono text-xs">
+                {deploymentRunResult?.deploymentRunId ?? "Not persisted"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Payload Hash
+              </dt>
+              <dd className="mt-1 break-all font-mono text-xs">
+                {deploymentRunResult?.payloadHash ?? payloadHash ?? "Pending"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Persistence
+              </dt>
+              <dd className="mt-1 font-semibold">
+                {deploymentRunResult?.status ?? "ready"}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="mt-4 font-semibold">
+            Clinic creation is still simulated and is not activated.
+          </p>
+          <p className="mt-1">
+            No clinic, tenant, settings, users, providers, sterilizers,
+            workstations, packs, cycles, traces, audit logs, or downstream
+            deployment-stage records are created by this step.
+          </p>
         </div>
       </div>
     </div>
