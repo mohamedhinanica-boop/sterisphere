@@ -25,6 +25,7 @@ export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
   deploymentRunId: string | null;
+  deploymentSessionId: string | null;
   idempotencyKey: string | null;
   payloadHash: string | null;
   message: string;
@@ -32,22 +33,40 @@ export interface PersistDeploymentRunActionResult {
 
 const DEPLOYMENT_VERSION = "rc2.5-runtime-wiring";
 const SCHEMA_VERSION = "deployment-runs-only";
-const EVIDENCE_VERSION = "deployment-audit-evidence-rc2.5-slice3";
+const EVIDENCE_VERSION = "deployment-audit-evidence-rc2.5-slice4";
 
 export async function persistDeploymentRunAction(
   draft: DeploymentDraft,
+  deploymentSessionId: string,
 ): Promise<PersistDeploymentRunActionResult> {
   const validation = validateDeploymentDraft(draft);
+  const normalizedDeploymentSessionId = normalizeDeploymentSessionId(
+    deploymentSessionId,
+  );
 
   if (!validation.valid) {
     return {
       ok: false,
       status: "rejected",
       deploymentRunId: null,
+      deploymentSessionId: normalizedDeploymentSessionId,
       idempotencyKey: null,
       payloadHash: null,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
+    };
+  }
+
+  if (!normalizedDeploymentSessionId) {
+    return {
+      ok: false,
+      status: "rejected",
+      deploymentRunId: null,
+      deploymentSessionId: null,
+      idempotencyKey: null,
+      payloadHash: null,
+      message:
+        "Deployment run was not persisted because the setup session identity is missing.",
     };
   }
 
@@ -60,6 +79,7 @@ export async function persistDeploymentRunAction(
       ok: false,
       status: "error",
       deploymentRunId: null,
+      deploymentSessionId: normalizedDeploymentSessionId,
       idempotencyKey: null,
       payloadHash: null,
       message:
@@ -69,8 +89,8 @@ export async function persistDeploymentRunAction(
 
   const persistedAt = new Date().toISOString();
   const payloadHash = hashDeploymentDraftInput(draft);
-  const deploymentKey = buildDeploymentTargetKey(draft);
-  const idempotencyKey = `setup-deployment:${deploymentKey}`;
+  const deploymentKey = normalizedDeploymentSessionId;
+  const idempotencyKey = `setup-deployment-session:${deploymentKey}`;
   const deploymentRunId = `deployment-run-${deploymentKey}`;
   const simulation = simulateDeployment(draft, {
     repositoryContext: {
@@ -115,9 +135,11 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc2.5-slice3",
+        runtimeSlice: "rc2.5-slice4",
         boundary: "deployment_runs_only",
         clinicCreationSimulated: true,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        clinicCode: draft.clinicProfile.clinicCode || null,
       },
     });
 
@@ -126,10 +148,11 @@ export async function persistDeploymentRunAction(
         ok: false,
         status: "conflict",
         deploymentRunId: result.deploymentRun?.deploymentRunId ?? null,
+        deploymentSessionId: normalizedDeploymentSessionId,
         idempotencyKey,
         payloadHash,
         message:
-          "This deployment target already has a run for a different reviewed draft. No clinic data was created.",
+          "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
     }
 
@@ -137,6 +160,7 @@ export async function persistDeploymentRunAction(
       ok: result.ok,
       status: result.status,
       deploymentRunId: result.deploymentRun?.deploymentRunId ?? null,
+      deploymentSessionId: normalizedDeploymentSessionId,
       idempotencyKey,
       payloadHash,
       message: result.ok
@@ -148,6 +172,7 @@ export async function persistDeploymentRunAction(
       ok: false,
       status: "error",
       deploymentRunId,
+      deploymentSessionId: normalizedDeploymentSessionId,
       idempotencyKey,
       payloadHash,
       message:
@@ -156,14 +181,14 @@ export async function persistDeploymentRunAction(
   }
 }
 
-function buildDeploymentTargetKey(draft: DeploymentDraft): string {
-  const clinicCode = draft.clinicProfile.clinicCode
+function normalizeDeploymentSessionId(
+  deploymentSessionId: string | null | undefined,
+): string {
+  return (deploymentSessionId ?? "")
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^a-z0-9._:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-
-  return clinicCode || hashDeploymentDraftInput(draft).replace(/^draft-/, "");
 }
 
 function normalizeAuditEvidence(

@@ -9,6 +9,7 @@ import {
 } from "./setup-types";
 
 export interface SetupState {
+  setupSessionId: string;
   currentStep: SetupStepId;
   completedSteps: readonly SetupStepId[];
   isCompleted: boolean;
@@ -19,13 +20,16 @@ export interface SetupState {
 }
 
 export function createSetupState({
+  setupSessionId = createSetupSessionId(),
   startedAt = null,
   version = 1,
 }: {
+  setupSessionId?: string;
   startedAt?: string | null;
   version?: number;
 } = {}): SetupState {
   return {
+    setupSessionId,
     currentStep: SetupStep.WELCOME,
     completedSteps: [],
     isCompleted: false,
@@ -34,6 +38,18 @@ export function createSetupState({
     version,
     clinicProfile: { ...EMPTY_CLINIC_PROFILE },
   };
+}
+
+export function createSetupSessionId(): string {
+  const randomId = globalThis.crypto?.randomUUID?.();
+
+  if (randomId) {
+    return `setup-session-${randomId}`;
+  }
+
+  return `setup-session-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
 }
 
 export function nextStep(state: SetupState): SetupState {

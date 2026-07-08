@@ -355,3 +355,21 @@ where idempotency_key = 'setup-deployment:YOUR-CLINIC-CODE';
 Expected result: one row. `clinic_id` must be null, and metadata should include `boundary = 'deployment_runs_only'` and `clinicCreationSimulated = true`.
 
 Manual boundary checks should confirm that no clinic, tenant, settings, user, provider, sterilizer, workstation, pack, cycle, trace, audit-log, or downstream deployment-stage records were created by the Complete-step action.
+
+## RC2.5 Slice 4 Deployment Session Identity and Completion UX
+
+Deployment identity is now separated from editable clinic profile data. The Setup Wizard owns an immutable `setupSessionId` for the local deployment session, and the server action derives `deployment_runs.idempotency_key` from that session identity rather than from `clinicProfile.clinicCode`.
+
+Session identity model:
+
+- `setupSessionId` is created when `SetupState` is created.
+- `clinicCode` remains editable clinic profile data only.
+- The runtime idempotency key is `setup-deployment-session:{setupSessionId}`.
+- The deployment run identifier is `deployment-run-{setupSessionId}`.
+- The deployment run metadata stores both `deploymentSessionId` and the current clinic code for support context, but clinic code is not the idempotency boundary.
+
+After a deployment run is persisted or reused, the Complete step locks previous wizard navigation by disabling Back to Review. The explicit Start Over fallback creates a fresh setup state and a new session identity.
+
+Completion UX is designed for later clinic activation without enabling it now. The Complete step includes a disabled Access SteriSphere Platform button for future automatic redirect/workspace access, a Start Over fallback, and a Contact Support link. Contact Support pre-fills deployment/session context: deployment session id, deployment run id, idempotency key, payload hash, status, and server message.
+
+The persistence boundary remains `deployment_runs` only. No clinic, tenant, settings, user, provider, sterilizer, workstation, pack, cycle, trace, audit-log, or downstream deployment-stage record is created by this slice.

@@ -659,3 +659,9 @@ Clinic creation, tenant setup, settings, users, providers, sterilizers, packs, c
 The first real runtime persistence path is limited to Stage 2 evidence: the Complete step can persist or reuse a `deployment_runs` row after Review freezes the canonical draft snapshot. The server action still builds evidence from the simulated sequence and stores only deployment-run evidence.
 
 The ordered Deployment Engine sequence is not advanced into real execution. Validation, clinic creation, locking, settings, workstations, sterilizers, planning records, policies, defaults, audit entries, dashboard unlock, and redirect behavior remain simulated or unwired until their own approved slices.
+
+## RC2.5 Session Identity Note
+
+Stage 2 runtime persistence now uses a setup-session idempotency boundary. The reviewed draft and editable clinic code are evidence in the deployment run, but the session id owns retry/reuse/conflict behavior for the deployment attempt.
+
+Completion remains pre-clinic-creation. Persisting or reusing the deployment run locks previous setup steps, presents future access and fallback actions, and keeps every downstream deployment stage simulated or unwired.

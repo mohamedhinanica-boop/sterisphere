@@ -593,7 +593,18 @@ export default function ClinicSetupPage() {
   }
 
   function goBack() {
+    if (isComplete && deploymentRunResult?.ok) {
+      return;
+    }
+
     setSetupState((current) => previousStep(current));
+  }
+
+  function startOver() {
+    setSetupState(createSetupState());
+    setReviewedDeploymentDraft(null);
+    setDeploymentRunResult(null);
+    setIsPersistingDeploymentRun(false);
   }
 
   function updateProfile(field: ClinicProfileField, value: string) {
@@ -703,6 +714,7 @@ export default function ClinicSetupPage() {
         ok: false,
         status: "rejected",
         deploymentRunId: null,
+        deploymentSessionId: setupState.setupSessionId,
         idempotencyKey: null,
         payloadHash: null,
         message:
@@ -715,13 +727,17 @@ export default function ClinicSetupPage() {
     setDeploymentRunResult(null);
 
     try {
-      const result = await persistDeploymentRunAction(reviewedDeploymentDraft);
+      const result = await persistDeploymentRunAction(
+        reviewedDeploymentDraft,
+        setupState.setupSessionId,
+      );
       setDeploymentRunResult(result);
     } catch {
       setDeploymentRunResult({
         ok: false,
         status: "error",
         deploymentRunId: null,
+        deploymentSessionId: setupState.setupSessionId,
         idempotencyKey: null,
         payloadHash: null,
         message:
@@ -930,6 +946,7 @@ export default function ClinicSetupPage() {
               deploymentRunResult={deploymentRunResult}
               reviewedDraft={reviewedDeploymentDraft}
               isPersisting={isPersistingDeploymentRun}
+              onStartOver={startOver}
             />
           )}
 
@@ -937,7 +954,7 @@ export default function ClinicSetupPage() {
             <button
               type="button"
               onClick={goBack}
-              disabled={isWelcome}
+              disabled={isWelcome || (isComplete && deploymentRunResult?.ok)}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -994,10 +1011,12 @@ function CompleteStep({
   deploymentRunResult,
   reviewedDraft,
   isPersisting,
+  onStartOver,
 }: {
   deploymentRunResult: PersistDeploymentRunActionResult | null;
   reviewedDraft: DeploymentDraft | null;
   isPersisting: boolean;
+  onStartOver: () => void;
 }) {
   const completedDraftSections = [
     "Clinic profile configured",
@@ -1025,6 +1044,7 @@ function CompleteStep({
       : isPersisting
         ? "Persisting deployment run"
         : "Ready to persist deployment run";
+  const supportHref = buildDeploymentSupportHref(deploymentRunResult);
 
   return (
     <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
@@ -1070,7 +1090,15 @@ function CompleteStep({
               "Confirm deployment to persist a deployment_runs evidence record."}
           </p>
 
-          <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+          <dl className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Session ID
+              </dt>
+              <dd className="mt-1 break-all font-mono text-xs">
+                {deploymentRunResult?.deploymentSessionId ?? "Pending"}
+              </dd>
+            </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
                 Run ID
@@ -1105,12 +1133,55 @@ function CompleteStep({
             workstations, packs, cycles, traces, audit logs, or downstream
             deployment-stage records are created by this step.
           </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 disabled:cursor-not-allowed"
+              title="Automatic workspace access will be enabled after clinic creation is activated."
+            >
+              Access SteriSphere Platform
+            </button>
+            <button
+              type="button"
+              onClick={onStartOver}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Start Over
+            </button>
+            <a
+              href={supportHref}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
+            >
+              Contact Support
+            </a>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+function buildDeploymentSupportHref(
+  result: PersistDeploymentRunActionResult | null,
+): string {
+  const subject = encodeURIComponent("SteriSphere deployment support");
+  const body = encodeURIComponent(
+    [
+      "Please help with this SteriSphere deployment session.",
+      "",
+      `Deployment session ID: ${result?.deploymentSessionId ?? "not persisted"}`,
+      `Deployment run ID: ${result?.deploymentRunId ?? "not persisted"}`,
+      `Idempotency key: ${result?.idempotencyKey ?? "not available"}`,
+      `Payload hash: ${result?.payloadHash ?? "not available"}`,
+      `Status: ${result?.status ?? "not persisted"}`,
+      `Message: ${result?.message ?? "No server response yet."}`,
+    ].join("\n"),
+  );
+
+  return `mailto:support@sterisphere.app?subject=${subject}&body=${body}`;
+}
 function ReviewStep({
   profile,
   workstationQuantities,

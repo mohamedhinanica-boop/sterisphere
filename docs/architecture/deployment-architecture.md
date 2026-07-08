@@ -617,3 +617,9 @@ The harness assumes a trusted server Supabase client with permission to select a
 The Deployment Workspace Complete step now has a guarded real persistence action for `deployment_runs`. It calls a server action, which uses the server-only deployment-run helper to create or reuse one evidence row for the reviewed canonical draft.
 
 This is not real clinic deployment. The Deployment Engine stage sequence remains simulated, `execute()` is unchanged, and no downstream repository or operational table is wired. The UI must continue to tell users that the deployment run was persisted while clinic creation remains simulated and not activated.
+
+### RC2.5 Deployment Session Identity
+
+Deployment run identity is based on the immutable setup session, not the editable clinic code. The clinic code remains clinic profile data and may be changed without changing which setup session owns the deployment run idempotency key.
+
+The completion UX now models the post-deployment handoff before real clinic creation: previous steps lock after run persistence, Access SteriSphere Platform is reserved for future activation, Start Over creates a new session, and Contact Support carries the deployment/session context needed for troubleshooting.
