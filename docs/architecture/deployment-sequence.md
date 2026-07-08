@@ -641,3 +641,15 @@ before any runtime wiring. The harness proves the deployment-run branch can
 create, reuse, reject, conflict, and resume using only the repository contract.
 It also records that no clinic, tenant, settings, user, stage, or engine
 boundary is touched by the service tests.
+
+## RC2.5 Runtime Boundary Note
+
+RC2.5 Slice 1 wires only the Stage 2 deployment-run evidence boundary behind a private server-only helper. Trusted server code can create a `DeploymentRunService` backed by `SupabaseDeploymentRunRepository`, then create or reuse a `deployment_runs` record through the existing idempotency decision flow.
+
+This does not change the documented deployment sequence or enable real deployment execution. Stage 2 remains simulated inside `DeploymentEngine`, and every downstream stage, including clinic creation, tenant setup, settings, users, providers, sterilizers, packs, cycles, traces, audit logs, dashboard unlock, and redirect behavior, remains simulated or unwired until a later approved slice.
+
+## RC2.5 Smoke Harness Note
+
+The RC2.5 smoke harness verifies only the private Stage 2 deployment-run persistence boundary. It can create or reuse one `deployment_runs` evidence row and confirm an idempotency conflict, but it does not advance the Deployment Engine sequence or execute any downstream stage.
+
+Clinic creation, tenant setup, settings, users, providers, sterilizers, packs, cycles, traces, audit logs, dashboard unlock, and redirect behavior remain outside this smoke harness.

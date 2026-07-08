@@ -597,3 +597,17 @@ keeps explicit forbidden-boundary counters at zero for clinic, tenant,
 settings, user, stage, and engine activity. The harness is compile-checked but
 does not introduce a runtime test runner, Supabase calls, UI wiring, API
 routes, or deployment execution.
+
+### RC2.5 Server-only Deployment Run Wiring
+
+`deployment-run-server.ts` is the first runtime composition point for the RC2 `deployment_runs` boundary. It is marked with `server-only`, accepts a trusted server-side Supabase client, and composes `SupabaseDeploymentRunRepository` with `DeploymentRunService`.
+
+This wiring is intentionally private. It is not exported from the deployment module barrel and is not reachable from the Setup Wizard, UI components, public API routes, or the Deploy button. The Deployment Engine remains simulation-first, and `execute()` continues to delegate to the simulated sequence.
+
+The helper may create or reuse only a `deployment_runs` evidence record. It must not create clinics, tenants, settings, users, providers, sterilizers, packs, cycles, traces, audit logs, or any downstream deployment-stage records.
+
+### RC2.5 Server Boundary Smoke Harness
+
+`deployment-run-smoke-harness.ts` is a private server-only verification helper for the deployment-run wiring. It uses `createOrReuseServerDeploymentRun()` to prove create, reuse, and conflict behavior against `deployment_runs` without exposing a route, changing UI, or importing the Deployment Engine.
+
+The harness assumes a trusted server Supabase client with permission to select and insert `deployment_runs`. In an RLS-enabled environment, manual execution should use a service-role server client and the smoke row should be removed with the cleanup query documented in the deployment persistence plan.

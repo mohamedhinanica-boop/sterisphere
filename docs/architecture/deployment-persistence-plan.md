@@ -274,3 +274,54 @@ The harness covers:
 The repository fake is intentionally limited to the `DeploymentRunRepository`
 interface. It cannot create clinic records or execute deployment stages, which
 keeps the test harness aligned with the RC2 persistence-readiness boundary.
+
+## RC2.5 Slice 1 Server-only Runtime Wiring
+
+`deployment-run-server.ts` is the private server-only composition point for deployment-run persistence. It imports `server-only`, accepts a trusted server-side Supabase client, creates a `SupabaseDeploymentRunRepository`, and returns a `DeploymentRunService`.
+
+The helper `createOrReuseServerDeploymentRun()` maps a server command into the existing `DeploymentRunCreateCommand`, filling only deployment-run identifiers and the creation timestamp when they are not provided. The service still owns idempotency validation, payload-hash comparison, create/reuse/conflict decisions, and the final repository call.
+
+This slice wires runtime persistence for `deployment_runs` only. It does not export the helper through the deployment barrel, expose an API route, change the Setup Wizard, change the Deploy button, call `DeploymentEngine.execute()`, or create clinics, tenants, settings, users, providers, sterilizers, packs, cycles, traces, audit logs, or downstream stage records.
+
+## RC2.5 Slice 2 Server Boundary Smoke Harness
+
+`deployment-run-smoke-harness.ts` is a private server-only smoke harness for the RC2.5 runtime wiring. It imports `server-only`, uses `createOrReuseServerDeploymentRun()`, and exercises only the `deployment_runs` repository path.
+
+The harness verifies:
+
+- a new idempotency key creates one `deployment_runs` row;
+- the same idempotency key and same payload hash reuses that row;
+- the same idempotency key and a different payload hash returns conflict.
+
+The harness is not exported from `lib/modules/deployment/index.ts`, not used by the app runtime, and not reachable from UI, routes, the Setup Wizard, the Deploy button, or `DeploymentEngine`.
+
+### Manual Smoke Execution
+
+Run this only from a trusted local/server environment with a Supabase client that can select and insert `deployment_runs`. With RLS enabled, this normally means using the service-role key on the server. Never expose the service-role key to browser code.
+
+1. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the local server shell.
+2. Create a temporary local script outside app routes that imports `createClient` from `@supabase/supabase-js` and imports `runDeploymentRunSmokeHarness()` plus `createDeploymentRunSmokeHarnessInput()` from `lib/modules/deployment/deployment-run-smoke-harness`.
+3. Build a label such as `rc25-slice2-YYYYMMDD-HHMM`.
+4. Create the server Supabase client with the service-role key.
+5. Call `runDeploymentRunSmokeHarness(client, createDeploymentRunSmokeHarnessInput(label))`.
+6. Confirm the result has `passed: true` and step statuses `created`, `reused`, and `conflict`.
+7. Confirm Supabase contains exactly one smoke row for the generated `idempotencyKey`.
+
+Example verification SQL:
+
+```sql
+select deployment_run_id, idempotency_key, payload_hash, metadata
+from deployment_runs
+where idempotency_key = 'deployment-run-smoke-rc25-slice2-YYYYMMDD-HHMM';
+```
+
+Expected result: one row. The row should have `metadata->>'smokeHarness' = 'deployment_runs_only'`.
+
+Cleanup SQL:
+
+```sql
+delete from deployment_runs
+where idempotency_key = 'deployment-run-smoke-rc25-slice2-YYYYMMDD-HHMM'
+  and deployment_run_id = 'deployment-run-smoke-rc25-slice2-YYYYMMDD-HHMM'
+  and metadata->>'smokeHarness' = 'deployment_runs_only';
+```
