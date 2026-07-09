@@ -1021,3 +1021,30 @@ Field mapping:
 Idempotency is key-based. Retrying the same clinic/draft reuses existing shells by `(clinic_id, deployment_workstation_key)`, partial retries create only missing keys, duplicate keys within one clinic are conflicts/skips, and the same key may exist for different clinics. Legacy global workstations with `clinic_id is null` are ignored and are never attached, updated, renamed, activated, or reused for deployment matching.
 
 The in-memory harness covers fresh create, retry reuse, partial existing rows, empty drafts, duplicate same-clinic keys, same keys across clinics, deterministic payload generation, ignored global legacy workstations, and forbidden downstream counters remaining zero. Workstation provisioning remains a foundation boundary only; hardware devices, packs, cycles, traces, users, audit logs, activation, dashboard access, public API routes, full deployment repository wiring, and `DeploymentEngine.execute()` remain outside this slice.
+
+## RC4 Slice 4B - Workstation Schema Preflight and Supabase Repository
+
+RC4 Slice 4B adds schema verification and the unused server-only Supabase repository for workstation planned shells. It does not wire setup actions, UI, `DeploymentEngine.execute()`, runtime server composition, SQL migrations, smoke runners, or deployment inserts.
+
+Created verification and repository files:
+
+- `supabase_clinical_workstations_deployment_preflight.sql`
+- `deployment-workstation-supabase-repository.ts`
+
+Schema verification against the checked-in `supabase_clinical_workstations.sql` shows that `public.clinical_workstations` already has the operational workstation shape used by Settings: `clinic_id`, `name`, `workstation_type`, `display_order`, `location_label`, `room_number`, `agent_url`, `supports_printer`, `supports_usb_scanner`, `supports_camera`, `supports_sound`, `supports_sterilizer`, `status`, audit fields, clinic/name uniqueness, and agent uniqueness. The Slice 4A deployment-shell model still requires deployment metadata that is not present in that older planning SQL: `deployment_workstation_key`, `provisioning_source`, `provisioning_status`, and an explicit `active` guardrail. No migration is added in this slice.
+
+The repository maps the Slice 4A logical `capabilities` object to the existing workstation support columns rather than assuming a `capabilities` JSON column. A future schema slice must add nullable deployment metadata and a partial unique guardrail for `(clinic_id, deployment_workstation_key)` before this repository can be safely wired at runtime.
+
+Repository behavior follows the provider and sterilizer adapters: it finds by `(clinic_id, deployment_workstation_key)`, validates that payloads are inactive setup-draft planned shells, inserts only missing shells, reuses existing compatible planned shells, and treats non-planned or activated records as conflicts. It never updates, renames, attaches, activates, deletes, or reuses legacy/global workstations where `clinic_id is null`.
+
+## RC4 Slice 4C - Workstation Schema Migration and Live Preflight
+
+RC4 Slice 4C adds the minimal SQL migration draft needed to prepare `public.clinical_workstations` for future deployment workstation planned shells. It does not wire setup actions, UI, `DeploymentEngine.execute()`, runtime server composition, deployment inserts, smoke runners, or unrelated provider/sterilizer behavior.
+
+Created SQL file:
+
+- `supabase_clinical_workstations_deployment_fields.sql`
+
+The migration adds nullable deployment metadata only: `deployment_workstation_key`, `provisioning_source`, `provisioning_status`, and `active`. Existing workstation rows remain valid without deployment keys, and the migration does not backfill legacy/global rows or mark them active/inactive. A provisioning-status check allows `planned`, `active`, and `archived` when a status is present.
+
+The idempotency guardrail is a partial unique index on `(clinic_id, deployment_workstation_key) where deployment_workstation_key is not null`. This permits multiple legacy rows with null deployment keys while preventing duplicate deterministic setup keys such as `workstation-001` within the same clinic.
