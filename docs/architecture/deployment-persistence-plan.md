@@ -1145,3 +1145,21 @@ The durable idempotency guardrail is a partial unique index on `(clinic_id, depl
 `SupabaseDeploymentHardwareRepository` now uses first-class `deployment_hardware_key`, `provisioning_source`, `provisioning_status`, `active`, and `display_order` columns for lookup, insert, mapping, and reuse checks. Metadata remains only for logical fields that still do not have physical columns in this slice: hardware type, quantity, capabilities, assigned workstation key, and assigned sterilizer key.
 
 The hardware preflight SQL now verifies required deployment columns, the partial unique index, duplicate `(clinic_id, deployment_hardware_key)` groups, legacy rows with null deployment keys, and whether any deployment-keyed row appears activated, bound, or otherwise outside inactive setup-draft planned-shell semantics.
+
+## RC5 Slice 1E - Runtime Hardware Shell Provisioning
+
+RC5 Slice 1E wires hardware planned-shell provisioning into the Setup Complete server action after workstation shell persistence succeeds. The ordered runtime path is now:
+
+1. `deployment_run`
+2. `clinic_root`
+3. `clinic_settings`
+4. `provider_shells`
+5. `sterilizer_shells`
+6. `workstation_shells`
+7. `hardware_shells`
+
+Runtime composition is server-only through `deployment-hardware-server.ts`, which composes `SupabaseDeploymentHardwareRepository` with `DeploymentHardwareService` and checks the upstream clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells before provisioning hardware shells.
+
+The Setup Complete action records hardware-shell stage evidence with requested, created, reused, skipped, and conflict counts. Hardware failures are reported after upstream records remain durable; no workstation assignment resolution, sterilizer assignment resolution, clinic agent registration, printer/scanner/camera/sound binding, activation, packs, cycles, traces, users, audit-log rows, or `DeploymentEngine.execute()` behavior is introduced.
+
+Retry/reuse remains keyed by `(clinic_id, deployment_hardware_key)`. Fresh deployments create missing inactive setup-draft planned shells, repeat verification reuses compatible planned shells, partial existing states create only missing keys, and conflicts are reported without mutating existing hardware rows, discovered device rows, or legacy/global rows.

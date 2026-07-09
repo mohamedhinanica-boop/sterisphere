@@ -28,6 +28,9 @@ import {
 import {
   provisionWorkstationShellsForServerDeployment,
 } from "@/lib/modules/deployment/deployment-workstation-server";
+import {
+  provisionHardwareShellsForServerDeployment,
+} from "@/lib/modules/deployment/deployment-hardware-server";
 
 export type PersistDeploymentRunActionStatus =
   | "created"
@@ -124,6 +127,20 @@ export interface WorkstationShellsActionResult {
   message: string;
 }
 
+export type HardwareShellsActionStatus = SterilizerShellsActionStatus;
+
+export interface HardwareShellsActionResult {
+  ok: boolean;
+  status: HardwareShellsActionStatus;
+  clinicId: string | null;
+  requested: number;
+  created: number;
+  reused: number;
+  skipped: number;
+  conflicts: number;
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -136,12 +153,13 @@ export interface PersistDeploymentRunActionResult {
   providerShells: ProviderShellsActionResult;
   sterilizerShells: SterilizerShellsActionResult;
   workstationShells: WorkstationShellsActionResult;
+  hardwareShells: HardwareShellsActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc4-workstation-shell-provisioning";
-const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations";
-const EVIDENCE_VERSION = "deployment-audit-evidence-rc2.5-slice4";
+const DEPLOYMENT_VERSION = "rc5-hardware-shell-provisioning";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware";
+const EVIDENCE_VERSION = "deployment-audit-evidence-rc5-slice1e";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
   status: "skipped",
@@ -188,6 +206,17 @@ const WORKSTATION_SHELLS_NOT_ATTEMPTED: WorkstationShellsActionResult = {
   conflicts: 0,
   message: "Workstation shell provisioning was not attempted.",
 };
+const HARDWARE_SHELLS_NOT_ATTEMPTED: HardwareShellsActionResult = {
+  ok: false,
+  status: "skipped",
+  clinicId: null,
+  requested: 0,
+  created: 0,
+  reused: 0,
+  skipped: 0,
+  conflicts: 0,
+  message: "Hardware shell provisioning was not attempted.",
+};
 
 export async function persistDeploymentRunAction(
   draft: DeploymentDraft,
@@ -211,6 +240,7 @@ export async function persistDeploymentRunAction(
       providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
       workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+      hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -229,6 +259,7 @@ export async function persistDeploymentRunAction(
       providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
       workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+      hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -251,6 +282,7 @@ export async function persistDeploymentRunAction(
       providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
       workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+      hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -304,13 +336,14 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc4-slice4d",
-        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_and_workstation_shells",
+        runtimeSlice: "rc5-slice1e",
+        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_workstation_and_hardware_shells",
         clinicRootPersistence: "enabled",
         clinicSettingsProvisioning: "enabled",
         providerShellProvisioning: "enabled",
         sterilizerShellProvisioning: "enabled",
         workstationShellProvisioning: "enabled",
+        hardwareShellProvisioning: "enabled",
         clinicConfigurationSimulated: true,
         deploymentSessionId: normalizedDeploymentSessionId,
         clinicCode: draft.clinicProfile.clinicCode || null,
@@ -330,6 +363,7 @@ export async function persistDeploymentRunAction(
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -348,6 +382,7 @@ export async function persistDeploymentRunAction(
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -381,6 +416,7 @@ export async function persistDeploymentRunAction(
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -406,6 +442,7 @@ export async function persistDeploymentRunAction(
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -445,6 +482,7 @@ export async function persistDeploymentRunAction(
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
@@ -497,6 +535,7 @@ export async function persistDeploymentRunAction(
         },
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
@@ -562,6 +601,7 @@ export async function persistDeploymentRunAction(
           message: sterilizerShells.message,
         },
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
       };
@@ -640,8 +680,102 @@ export async function persistDeploymentRunAction(
           conflicts: workstationShells.counts.conflicts,
           message: workstationShells.message,
         },
+        hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
+      };
+    }
+    const hardwareShells = await provisionHardwareShellsForServerDeployment(
+      client,
+      {
+        clinicId,
+        draft,
+        createdAt: persistedAt,
+      },
+    );
+
+    if (!hardwareShells.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        deploymentRunId: result.deploymentRun.deploymentRunId,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        idempotencyKey,
+        payloadHash,
+        clinicRoot: {
+          ok: true,
+          status: clinicRoot.status,
+          clinicId,
+          message:
+            clinicRoot.status === "reused"
+              ? "Draft clinic root reused and linked to this deployment run."
+              : "Draft clinic root persisted and linked to this deployment run.",
+        },
+        clinicSettings: {
+          ok: true,
+          status: clinicSettings.status,
+          settingsId: clinicSettings.settings?.id ?? null,
+          clinicId,
+          message:
+            clinicSettings.status === "reused"
+              ? "Clinic settings already exist for this clinic; reuse them."
+              : "Clinic settings provisioned for this draft clinic.",
+        },
+        providerShells: {
+          ok: true,
+          status: providerShells.status,
+          clinicId,
+          requested: providerShells.counts.requested,
+          created: providerShells.counts.created,
+          reused: providerShells.counts.reused,
+          skipped: providerShells.counts.skipped,
+          conflicts: providerShells.counts.conflicts,
+          message:
+            providerShells.status === "reused"
+              ? "Provider placeholder shells already exist for this clinic; reuse them."
+              : "Provider placeholder shells provisioned for this draft clinic.",
+        },
+        sterilizerShells: {
+          ok: true,
+          status: sterilizerShells.status,
+          clinicId,
+          requested: sterilizerShells.counts.requested,
+          created: sterilizerShells.counts.created,
+          reused: sterilizerShells.counts.reused,
+          skipped: sterilizerShells.counts.skipped,
+          conflicts: sterilizerShells.counts.conflicts,
+          message:
+            sterilizerShells.status === "reused"
+              ? "Sterilizer planned shells already exist for this clinic; reuse them."
+              : "Sterilizer planned shells provisioned for this draft clinic.",
+        },
+        workstationShells: {
+          ok: true,
+          status: workstationShells.status,
+          clinicId,
+          requested: workstationShells.counts.requested,
+          created: workstationShells.counts.created,
+          reused: workstationShells.counts.reused,
+          skipped: workstationShells.counts.skipped,
+          conflicts: workstationShells.counts.conflicts,
+          message:
+            workstationShells.status === "reused"
+              ? "Workstation planned shells already exist for this clinic; reuse them."
+              : "Workstation planned shells provisioned for this draft clinic.",
+        },
+        hardwareShells: {
+          ok: false,
+          status: hardwareShells.status,
+          clinicId,
+          requested: hardwareShells.counts.requested,
+          created: hardwareShells.counts.created,
+          reused: hardwareShells.counts.reused,
+          skipped: hardwareShells.counts.skipped,
+          conflicts: hardwareShells.counts.conflicts,
+          message: hardwareShells.message,
+        },
+        message:
+          "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells are durable, but hardware shell provisioning failed safely. No downstream records were created.",
       };
     }
     return {
@@ -712,8 +846,22 @@ export async function persistDeploymentRunAction(
             ? "Workstation planned shells already exist for this clinic; reuse them."
             : "Workstation planned shells provisioned for this draft clinic.",
       },
+      hardwareShells: {
+        ok: true,
+        status: hardwareShells.status,
+        clinicId,
+        requested: hardwareShells.counts.requested,
+        created: hardwareShells.counts.created,
+        reused: hardwareShells.counts.reused,
+        skipped: hardwareShells.counts.skipped,
+        conflicts: hardwareShells.counts.conflicts,
+        message:
+          hardwareShells.status === "reused"
+            ? "Hardware planned shells already exist for this clinic; reuse them."
+            : "Hardware planned shells provisioned for this draft clinic.",
+      },
       message:
-        "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, and workstation planned shells are provisioned. Hardware, pack, cycle, trace, user, and audit provisioning remains simulated.",
+        "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, and hardware planned shells are provisioned. Pack, cycle, trace, user, audit, assignment, binding, and activation provisioning remains simulated.",
     };
   } catch {
     return {
@@ -773,6 +921,18 @@ export async function persistDeploymentRunAction(
         conflicts: 0,
         message:
           "Workstation shell provisioning may be incomplete or unavailable. No downstream records were created.",
+      },
+      hardwareShells: {
+        ok: false,
+        status: "error",
+        clinicId: null,
+        requested: 0,
+        created: 0,
+        reused: 0,
+        skipped: 0,
+        conflicts: 0,
+        message:
+          "Hardware shell provisioning may be incomplete or unavailable. No downstream records were created.",
       },
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",

@@ -763,6 +763,17 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message: "Workstation shell provisioning was not attempted.",
         },
+        hardwareShells: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message: "Hardware shell provisioning was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -836,6 +847,18 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message:
             "Workstation shell provisioning was not completed. No downstream records were created.",
+        },
+        hardwareShells: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message:
+            "Hardware shell provisioning was not completed. No downstream records were created.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1133,6 +1156,7 @@ function CompleteStep({
   const providerShells = deploymentRunResult?.providerShells ?? null;
   const sterilizerShells = deploymentRunResult?.sterilizerShells ?? null;
   const workstationShells = deploymentRunResult?.workstationShells ?? null;
+  const hardwareShells = deploymentRunResult?.hardwareShells ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1228,7 +1252,7 @@ function CompleteStep({
             </div>
           </dl>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 lg:grid-cols-3 xl:grid-cols-6">
             <div className="rounded-xl border border-white/60 bg-white/50 p-4">
               <p className="font-bold">
                 Clinic Root: {clinicRoot?.status ?? "ready"}
@@ -1416,6 +1440,49 @@ function CompleteStep({
                 </div>
               </dl>
             </div>
+            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+              <p className="font-bold">
+                Hardware Shells: {hardwareShells?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {hardwareShells?.message ??
+                  "Hardware planned shells will be provisioned after workstation shells are linked."}
+              </p>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Requested
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {hardwareShells?.requested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Created
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {hardwareShells?.created ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Reused
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {hardwareShells?.reused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Conflicts
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {hardwareShells?.conflicts ?? 0}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
@@ -1423,10 +1490,12 @@ function CompleteStep({
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
             placeholder shells, public.sterilizers planned shells,
-            public.clinical_workstations planned shells, and
+            public.clinical_workstations planned shells,
+            public.clinical_hardware_devices planned shells, and
             deployment_runs.clinic_id are persisted by this step. Users, real
-            provider identities, hardware, packs, cycles, traces, audit logs,
-            and downstream deployment-stage records are not created yet.
+            provider identities, hardware binding, packs, cycles, traces,
+            audit logs, and downstream deployment-stage records are not
+            created yet.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -1489,12 +1558,18 @@ function buildDeploymentSupportHref(
       `Workstation shells created: ${result?.workstationShells.created ?? 0}`,
       `Workstation shells reused: ${result?.workstationShells.reused ?? 0}`,
       `Workstation shell conflicts: ${result?.workstationShells.conflicts ?? 0}`,
+      `Hardware shells status: ${result?.hardwareShells.status ?? "not attempted"}`,
+      `Hardware shells requested: ${result?.hardwareShells.requested ?? 0}`,
+      `Hardware shells created: ${result?.hardwareShells.created ?? 0}`,
+      `Hardware shells reused: ${result?.hardwareShells.reused ?? 0}`,
+      `Hardware shell conflicts: ${result?.hardwareShells.conflicts ?? 0}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
       `Provider shells message: ${result?.providerShells.message ?? "No provider-shell response yet."}`,
       `Sterilizer shells message: ${result?.sterilizerShells.message ?? "No sterilizer-shell response yet."}`,
       `Workstation shells message: ${result?.workstationShells.message ?? "No workstation-shell response yet."}`,
+      `Hardware shells message: ${result?.hardwareShells.message ?? "No hardware-shell response yet."}`,
     ].join("\n"),
   );
 

@@ -793,3 +793,17 @@ The future hardware-shell sequence is designed to run only after:
 At that point, trusted server code may derive deterministic inactive hardware shells from the reviewed hardware quantities and create/reuse only missing future hardware planned-shell rows for that clinic. The planned runtime order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells`.
 
 Hardware shells use deterministic keys such as `hardware-001`, `hardware-002`, and `hardware-003`, remain `status = planned`, `provisioning_source = setup_draft`, `provisioning_status = planned`, and `active = false`, and carry assignment keys only as logical deployment-key references. No Supabase repository, setup action wiring, UI change, SQL migration, smoke runner, printer/scanner/camera/sound binding, workstation or sterilizer assignment, device activation, pack, cycle, trace, user, audit entry, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced by this foundation.
+
+## RC5 Slice 1E Hardware Shell Runtime Sequence
+
+The Setup Complete action now performs hardware-shell provisioning after workstation shells succeed:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells in `public.providers`.
+5. Create or reuse inactive planned sterilizer shells in `public.sterilizers`.
+6. Create or reuse inactive planned workstation shells in `public.clinical_workstations`.
+7. Create or reuse inactive planned hardware shells in `public.clinical_hardware_devices` from the reviewed hardware quantities.
+
+This does not advance the Deployment Engine into full execution. Hardware rows remain inactive setup-draft planned shells with deterministic deployment keys such as `hardware-001`, `hardware-002`, and `hardware-003`. Logical assignment keys remain metadata only and are not resolved to workstation or sterilizer ids. Clinic agent registration, printer/scanner/camera/sound binding, device activation, packs, cycles, traces, users, audit logs, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this runtime boundary.

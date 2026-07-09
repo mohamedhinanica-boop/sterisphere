@@ -761,3 +761,11 @@ The hardware schema migration draft adds first-class deployment metadata to `pub
 The durable idempotency rule is a partial unique index on `(clinic_id, deployment_hardware_key)` where the deployment key is present. The hardware Supabase adapter now uses that first-class key instead of `metadata.deployment_hardware_key`; metadata remains a temporary home only for logical fields that still have no physical columns, such as quantity and assignment keys.
 
 This remains schema and repository preparation only. Runtime setup actions, UI evidence, device binding, assignment resolution, activation, smoke runners, and `DeploymentEngine.execute()` remain unchanged.
+
+## RC5 Slice 1E Runtime Hardware Shell Boundary
+
+Setup completion now includes hardware planned-shell provisioning after deployment-run evidence, draft clinic root linkage, clinic settings, provider shells, sterilizer shells, and workstation shells are durable. The runtime write surface expands only to inactive setup-draft planned rows in `public.clinical_hardware_devices`; no physical device registration, agent enrollment, workstation binding, sterilizer binding, printer/scanner/camera/sound pairing, or hardware activation is performed.
+
+The Complete step reports Hardware Shells status and requested, created, reused, and conflict counts alongside the prior provider, sterilizer, and workstation evidence cards. Retry/reuse is keyed by `(clinic_id, deployment_hardware_key)`, so repeated setup confirmation can verify existing planned shells without duplicating rows.
+
+Platform access stays disabled. Hardware shells remain deployment-planned evidence only; assignment resolution, physical binding, packs, cycles, traces, users, audit logs, clinic activation, public routes, full DeploymentRepository wiring, and `DeploymentEngine.execute()` remain outside this boundary.
