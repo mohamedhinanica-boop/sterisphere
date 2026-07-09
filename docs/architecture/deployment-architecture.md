@@ -623,3 +623,15 @@ This is not real clinic deployment. The Deployment Engine stage sequence remains
 Deployment run identity is based on the immutable setup session, not the editable clinic code. The clinic code remains clinic profile data and may be changed without changing which setup session owns the deployment run idempotency key.
 
 The completion UX now models the post-deployment handoff before real clinic creation: previous steps lock after run persistence, Access SteriSphere Platform is reserved for future activation, Start Over creates a new session, and Contact Support carries the deployment/session context needed for troubleshooting.
+
+### RC3 Clinic Root Boundary
+
+RC3 introduces the clinic root as the first real clinic persistence design, but not as active runtime execution. The clinic root boundary is separate from the full DeploymentRepository and separate from DeploymentEngine.execute().
+
+DeploymentClinicService composes a clinic-root repository with the existing deployment-run repository. It requires an existing deployment run, maps the reviewed DeploymentDraft.clinicProfile into a CreateDeploymentClinicPayload, creates or reuses one draft clinic root, and links that clinic to deployment_runs.clinic_id only after the clinic root is known to exist.
+
+The clinic profile fields mapped into clinics are display name, legal name, clinic code, country, province/state, timezone, primary language, contact fields, address fields, deployment version, schema version, and timestamps. The clinic starts with deployment_status = 'draft', with no deployed timestamp and no operational access.
+
+This boundary does not create clinic_settings, users, memberships, providers, sterilizers, workstations, hardware devices, packs, cycles, traces, audit logs, or planning records. Those remain separate future deployment stages. The full SupabaseDeploymentRepository remains inert until a later slice explicitly replaces simulated stage handling.
+
+The server-only repository and service files import server-only and are not exported from the deployment barrel. Pure type and payload files may be imported for compile-time design review, but runtime clinic creation must later be composed only from trusted server code with service-role Supabase access and explicit authorization checks.

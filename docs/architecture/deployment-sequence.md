@@ -665,3 +665,21 @@ The ordered Deployment Engine sequence is not advanced into real execution. Vali
 Stage 2 runtime persistence now uses a setup-session idempotency boundary. The reviewed draft and editable clinic code are evidence in the deployment run, but the session id owns retry/reuse/conflict behavior for the deployment attempt.
 
 Completion remains pre-clinic-creation. Persisting or reusing the deployment run locks previous setup steps, presents future access and fallback actions, and keeps every downstream deployment stage simulated or unwired.
+
+## RC3 Slice 1 Clinic Root Design Note
+
+RC3 Slice 1 designs the future Stage 4 Create Clinic persistence boundary without enabling it. The ordered deployment sequence remains unchanged and simulated inside DeploymentEngine.
+
+The future server sequence for this narrow boundary is:
+
+1. Stage 2 has already persisted or reused a deployment_runs row.
+2. Trusted server code loads that deployment run by deployment_run_id.
+3. If the run already has clinic_id, the linked clinic is loaded and reused.
+4. If the run has no clinic link, the reviewed draft clinic profile is mapped to one draft clinics insert payload.
+5. If the same clinic code already exists for another session, the request conflicts and no link is written.
+6. If the clinic root is inserted or safely reused, deployment_runs.clinic_id is updated to the clinic id.
+7. All downstream stages remain simulated or unwired.
+
+A successful RC3 clinic-root operation is not full deployment success. The clinic remains non-operational until settings, workstations, sterilizers, planning records, policies, defaults, audit evidence, finalization, dashboard unlock, and redirect stages are deliberately implemented in later slices.
+
+Rollback and recovery remain conservative. If clinic insert fails, the deployment run remains as evidence with no clinic link. If clinic insert succeeds but linking fails in a later implementation, the safest production design is a transaction or RPC that inserts and links atomically; otherwise the draft clinic shell must remain non-operational and require explicit recovery before retry.

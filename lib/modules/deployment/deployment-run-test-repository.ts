@@ -221,6 +221,16 @@ export class InMemoryDeploymentRunTestRepository
     return [...this.recordsByDeploymentRunId.values()];
   }
 
+  linkClinicToDeploymentRun(
+    deploymentRunId: string,
+    clinicId: string,
+  ): DeploymentRunPersistenceResult {
+    return this.updateRecord(deploymentRunId, (record) => ({
+      ...record,
+      clinicId,
+    }));
+  }
+
   private updateRecord(
     deploymentRunId: string,
     updater: (record: DeploymentRunRecord) => DeploymentRunRecord,

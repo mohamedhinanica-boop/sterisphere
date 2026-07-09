@@ -373,3 +373,91 @@ After a deployment run is persisted or reused, the Complete step locks previous 
 Completion UX is designed for later clinic activation without enabling it now. The Complete step includes a disabled Access SteriSphere Platform button for future automatic redirect/workspace access, a Start Over fallback, and a Contact Support link. Contact Support pre-fills deployment/session context: deployment session id, deployment run id, idempotency key, payload hash, status, and server message.
 
 The persistence boundary remains `deployment_runs` only. No clinic, tenant, settings, user, provider, sterilizer, workstation, pack, cycle, trace, audit-log, or downstream deployment-stage record is created by this slice.
+
+## RC3 Slice 1 Clinic Root Persistence Design
+
+RC3 starts with a design-only clinic-root boundary. The new TypeScript foundation describes how a reviewed DeploymentDraft.clinicProfile will later become one non-operational clinics row and how the existing deployment_runs.clinic_id value will be linked after the clinic root exists.
+
+The boundary is represented by:
+
+- deployment-clinic-types.ts
+- deployment-clinic-payload.ts
+- deployment-clinic-repository.ts
+- deployment-clinic-service.ts
+
+The model is intentionally narrow. It supports DeploymentClinicRecord, CreateDeploymentClinicPayload, DeploymentClinicCreateCommand, DeploymentClinicCreateResult, and DeploymentClinicLinkResult. The service can build the clinic insert payload, create or reuse a clinic root for an existing deployment run, link the clinic to deployment_runs.clinic_id, and perform the combined clinic-root flow.
+
+Rules for the future implementation:
+
+- the deployment_runs record must already exist;
+- an existing deployment_runs.clinic_id reuses the linked clinic;
+- a matching clinic_code from another deployment session conflicts;
+- new clinics start as draft and non-operational;
+- deployment_runs.clinic_id is linked only after clinic insert or reuse succeeds;
+- no settings, users, providers, sterilizers, workstations, packs, cycles, traces, audit logs, or downstream deployment stages are created.
+
+This slice does not wire runtime execution. DeploymentEngine.execute() remains simulated, the full deployment repository remains inert, no UI or Setup Wizard path imports the clinic service, and no Supabase clinic writes are enabled yet.
+
+## RC3 Slice 2 Clinics SQL / Schema Verification
+
+supabase_clinics_preflight.sql is a select-only production preflight script for the future clinic-root persistence slice. It inspects public.clinics, its columns, constraints, indexes, triggers, RLS policies, and the existing deployment_runs.clinic_id link column. It must not insert clinics or mutate deployment data.
+
+The RC3 clinic-root boundary expects public.clinics to provide:
+
+- id uuid primary key default gen_random_uuid();
+- name text not null;
+- legal_name text;
+- clinic_code text not null with a unique constraint or unique index;
+- country text not null;
+- province_state text not null;
+- timezone text not null;
+- primary_language text not null;
+- nullable phone, email, website, address_street, address_city, and address_postal_code;
+- deployment_status text not null default 'draft' constrained to draft, deploying, deployed, failed, and archived;
+- nullable deployed_at, deployment_version, and schema_version;
+- created_at timestamptz not null default now();
+- updated_at timestamptz not null default now() with update maintenance.
+
+The existing supabase_deployment_core.sql planning shape matches the current clinic-root TypeScript payload shape. RC3 Slice 3 remains blocked until the production preflight confirms that public.clinics exists, clinic_code is unique, deployment_runs.clinic_id exists and is nullable, and the RLS posture is intentionally approved for server-only service-role writes.
+
+## RC3 Slice 2B Clinics SQL Migration Draft
+
+Production Supabase does not currently have public.clinics, so RC3 adds a dedicated clinics-only migration draft in supabase_clinics.sql. The file creates only the canonical clinic root table and does not mutate deployment_runs, insert clinic rows, create settings, users, memberships, providers, sterilizers, workstations, packs, cycles, traces, audit logs, or any downstream deployment-stage records.
+
+The migration includes:
+
+- public.clinics with uuid primary key, required clinic profile fields, nullable contact and address fields, deployment lifecycle fields, deployment/schema versions, and created/updated timestamps;
+- non-empty checks for name and clinic_code;
+- allowed deployment_status values of draft, deploying, deployed, failed, and archived;
+- unique clinic_code through the table constraint;
+- lookup indexes for deployment_status and created_at;
+- an updated_at trigger using public.set_clinics_updated_at();
+- a trigger function with a fixed search_path for security hardening;
+- RLS enabled immediately.
+
+No RLS policies are created in this slice. RC3 clinic-root writes are expected to use trusted server-only service-role Supabase access plus explicit application authorization checks. Browser clients must not insert or update clinics.
+
+After applying supabase_clinics.sql, run supabase_clinics_preflight.sql to verify table existence, columns, constraints, indexes, trigger registration, RLS status, and the existing deployment_runs.clinic_id link column before enabling any clinic-root runtime persistence.
+
+## RC3 Slice 3 Inert Supabase Clinic Repository
+
+RC3 Slice 3 adds deployment-clinic-supabase-repository.ts as a concrete Supabase adapter for the clinic-root repository contract. The adapter is server-only and remains unused by runtime deployment until a later approved server composition slice explicitly imports it.
+
+The repository supports:
+
+- findClinicById() against public.clinics;
+- findClinicByCode() against public.clinics;
+- createClinic() with inserts limited to public.clinics;
+- linkClinicToDeploymentRun() with updates limited to deployment_runs.clinic_id.
+
+Clinic creation maps the TypeScript clinic-root payload to the public.clinics columns and always writes deployment_status as draft with deployed_at null. It does not mark a clinic deployed and does not create clinic settings, users, providers, sterilizers, workstations, packs, cycles, traces, audit logs, planning records, or any downstream deployment-stage records.
+
+Duplicate clinic_code handling is explicit. The repository pre-reads by clinic code before insert and also converts unique-constraint races into DeploymentClinicCodeConflictError with the existing clinic attached when available. Deployment-run linking rejects missing runs, missing clinics, and attempts to attach a run that is already linked to a different clinic root.
+
+## RC3 Slice 4 Clinic Root Service Harness
+
+RC3 Slice 4 adds a pure TypeScript in-memory harness for the clinic-root service before any runtime wiring. deployment-clinic-test-repository.ts implements the DeploymentClinicRepository contract with local maps only, and deployment-clinic-service.test.ts compile-checks the create, link, retry, and conflict scenarios.
+
+The harness verifies that a deployment run must exist before clinic creation, a clinic root can be created from an existing run, deployment_runs.clinic_id is linked after clinic creation, retrying the same run reuses the linked clinic, the same clinic_code from a different session conflicts, and linking a run already attached to another clinic returns an explicit conflict.
+
+The in-memory repository tracks forbidden-boundary counters for settings, providers, sterilizers, workstations, packs, cycles, traces, and audit logs. These counters remain zero in the harness. The harness does not call Supabase, does not import UI or Setup Wizard code, does not call DeploymentEngine.execute(), and does not create downstream deployment records.
