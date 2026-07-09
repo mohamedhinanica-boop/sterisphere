@@ -685,3 +685,41 @@ The adapter enforces shell semantics before insert: `setup_draft`, `placeholder`
 Setup completion now includes provider-shell provisioning after deployment-run evidence, draft clinic root linkage, and clinic settings are durable. The runtime write surface expands only to inactive placeholder rows in `public.providers`; no operational named staff identities are created.
 
 The Complete step reports Provider Shells status and requested, created, reused, and conflict counts. Retry/reuse is keyed by `(clinic_id, deployment_provider_key)`, so repeated setup confirmation can verify existing shells without duplicating rows. Platform access stays disabled and downstream configuration remains simulated.
+
+## RC4 Slice 3 Sterilizer Provisioning Design Boundary
+
+Sterilizer provisioning is designed but not runtime-wired. The current pipeline remains `deployment_run -> clinic root -> clinic_settings -> provider placeholder shells`; sterilizer inserts are still blocked.
+
+The setup draft already contains itemized sterilizer planning rows. Unlike provider counts, sterilizer rows can describe real planned equipment through display name, type, manufacturer, model, serial number, workstation assignment, and status. Runtime provisioning must still keep them inactive until a later operational readiness step because existing cycle-start screens list `public.sterilizers` where `active = true` and then store the selected sterilizer name on cycle records.
+
+Future sterilizer provisioning must be clinic-scoped and deterministic. It should require a durable deployment run, linked draft clinic root, linked clinic settings, and completed provider shell provisioning before creating any sterilizer rows. Each reviewed draft item should receive a key such as `sterilizer-001`, and retries must reuse by `(clinic_id, deployment_sterilizer_key)`. Legacy global sterilizers where `clinic_id is null` remain untouched and are not auto-attached to new clinics.
+
+The next approved work should be schema-first: inspect the live `public.sterilizers` table, then draft nullable clinic/deployment/provisioning metadata plus a partial unique index for `(clinic_id, deployment_sterilizer_key)`. Only after that should a server-only sterilizer type/payload/repository/service foundation be added. No workstation, hardware, pack, cycle, trace, user, audit, activation, Deploy button, or `DeploymentEngine.execute()` behavior belongs in the sterilizer design slice.
+
+## RC4 Slice 3A Sterilizer Schema Preparation
+
+The sterilizer schema preparation is SQL-only. `supabase_sterilizers_preflight.sql` inspects the existing operational sterilizer table before changes, including active distribution and global name uniqueness risk. `supabase_sterilizers_deployment_fields.sql` prepares nullable clinic/deployment metadata while preserving legacy rows with `clinic_id = null`.
+
+The planned schema guardrail is `(clinic_id, deployment_sterilizer_key)` uniqueness for deterministic setup-created keys such as `sterilizer-001`. Future setup-created sterilizers must remain inactive (`active = false`) and use `provisioning_status = planned` until an explicit operational activation workflow enables cycle use. Workstation assignment remains deferred until workstation persistence exists.
+
+## RC4 Slice 3B Sterilizer Provisioning Foundation
+
+The sterilizer provisioning foundation is now defined as an inert deployment module boundary. It adds type contracts, a pure payload builder, repository interfaces, a server-only service, and an in-memory harness, but it is not imported by runtime setup completion and does not call Supabase.
+
+The model treats setup draft sterilizer rows as planned equipment records, not operational devices. Payloads use deterministic deployment keys such as `sterilizer-001`, generate globally unique readable names with a clinic suffix, write future rows as `provisioning_source = setup_draft`, `provisioning_status = planned`, and `active = false`, and leave workstation assignment null/deferred.
+
+The service requires clinic root, clinic settings, and provider shells before provisioning can proceed. Retry behavior is anchored on `(clinic_id, deployment_sterilizer_key)`, while legacy global sterilizers with `clinic_id = null` stay outside matching and are never mutated. Workstations, hardware, packs, cycles, traces, users, audit logs, clinic activation, Deploy button behavior, and `DeploymentEngine.execute()` remain outside this boundary.
+
+## RC4 Slice 3C Sterilizer Supabase Repository
+
+The sterilizer-shell boundary now has an unused server-only Supabase adapter. It implements only deployment-key lookup, inactive planned shell insert, and clinic shell listing against `public.sterilizers`; prerequisite checks and orchestration remain owned by the service layer and future trusted composition.
+
+The adapter enforces shell semantics before insert: clinic-scoped, deterministic deployment key, generated name, type, `setup_draft`, `planned`, and inactive. Duplicate deployment-key races are converted into safe reuse when the matching planned shell exists. Global name uniqueness collisions remain safe conflicts unless the same clinic/key can be re-read and reused. This does not wire sterilizer provisioning into setup completion or advance the deployment sequence beyond provider shells.
+
+## RC4 Slice 3E Runtime Sterilizer Shell Boundary
+
+Setup completion now includes sterilizer-shell provisioning after deployment-run evidence, draft clinic root linkage, clinic settings, and provider shells are durable. The runtime write surface expands only to inactive planned rows in `public.sterilizers`; no operational sterilizer activation or workstation assignment is performed.
+
+The Complete step reports Sterilizer Shells status and requested, created, reused, and conflict counts. Retry/reuse is keyed by `(clinic_id, deployment_sterilizer_key)`, so repeated setup confirmation can verify existing shells without duplicating rows. Generated names keep a clinic-specific suffix to avoid the legacy global sterilizer name uniqueness constraint.
+
+Platform access stays disabled. Workstation persistence, hardware persistence, pack/cycle/trace records, users, audit logs, clinic activation, public routes, full deployment repository wiring, and `DeploymentEngine.execute()` remain outside this boundary.

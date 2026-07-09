@@ -735,3 +735,28 @@ The Setup Complete action now performs the first runtime provider-shell provisio
 4. Create or reuse inactive provider placeholder shells in `public.providers` from the reviewed provider counts.
 
 This does not advance the Deployment Engine into full execution. Provider shells are placeholders only; sterilizers, workstations, hardware devices, packs, cycles, traces, users, audit logs, activation, dashboard unlock, and redirect behavior remain outside this runtime boundary.
+
+## RC4 Slice 3B Sterilizer Foundation Sequence Note
+
+RC4 Slice 3B prepares the future sterilizer-shell step but does not add it to the runtime sequence. The current Setup Complete action still stops after provider shell provisioning, and the Deployment Engine sequence remains simulated.
+
+The future sterilizer-shell sequence is designed to run only after:
+
+1. `deployment_runs` exists or is reused.
+2. The draft clinic root exists and `deployment_runs.clinic_id` is linked.
+3. `clinic_settings` exists for that clinic.
+4. Provider shells have been provisioned or reused for that clinic.
+
+At that point, trusted server code may derive deterministic inactive sterilizer shells from the reviewed draft sterilizer list and create/reuse only missing `public.sterilizers` rows for that clinic. Names must include a clinic-specific suffix because global sterilizer name uniqueness exists. No workstation assignment, hardware device, pack, cycle, trace, user, audit entry, activation, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced by this foundation.
+
+## RC4 Slice 3E Sterilizer Shell Runtime Sequence
+
+The Setup Complete action now performs sterilizer-shell provisioning after provider shells succeed:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells in `public.providers`.
+5. Create or reuse inactive planned sterilizer shells in `public.sterilizers` from the reviewed sterilizer draft list.
+
+This does not advance the Deployment Engine into full execution. Sterilizer rows remain inactive planned shells with deterministic deployment keys and clinic-specific generated names. Workstation assignment, hardware devices, packs, cycles, traces, users, audit logs, activation, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this runtime boundary.

@@ -740,3 +740,236 @@ select count(*) as legacy_global_provider_rows
 from public.providers
 where clinic_id is null;
 ```
+
+## RC4 Slice 3 - Sterilizer Provisioning Design
+
+Sterilizer provisioning remains design-only in this slice. No runtime path, Setup Wizard action, Deploy button, UI, route, `DeploymentEngine.execute()`, repository wiring, or sterilizer insert is changed.
+
+### Readiness verdict
+
+Not ready for runtime provisioning until a sterilizer schema preflight and migration draft are completed. The local app contract shows `public.sterilizers` is currently used as an operational equipment directory with `id`, `name`, `type`, `active`, and `created_at`. No checked-in SQL definition for `public.sterilizers` was found in this repo, so the live table must be verified before implementation.
+
+### Current usage findings
+
+Settings reads all sterilizers, inserts new rows with `name`, `type`, and `active = true`, toggles `active`, and treats duplicate name errors (`23505`) as existing sterilizers. Cycle-start flows read only `active = true` sterilizers and store the selected sterilizer as a string on cycle records. Because active sterilizers are selectable in clinical workflows, deployment-created sterilizer rows must start inactive and must not be marked operational by setup provisioning.
+
+The reviewed `DeploymentDraft.sterilizers` shape is itemized rather than count-only. Each draft row carries a local draft id, display name, type, manufacturer, model, serial number, optional assigned workstation draft id, and status. When display name or equipment identifiers were reviewed, the row represents planned real equipment. If the row only contains generated/default setup values or lacks identifying details, the provisioned row should be treated as a draft equipment shell, not as verified operational hardware.
+
+### Required schema changes
+
+A safe sterilizer deployment migration should preserve legacy/global sterilizers and add nullable deployment metadata:
+
+- `clinic_id uuid null` with a foreign key to `public.clinics(id)` using `on delete restrict`.
+- `deployment_sterilizer_key text null` for deterministic keys such as `sterilizer-001`.
+- `provisioning_source text null`, expected value `setup_draft` for setup-created rows.
+- `provisioning_status text not null default 'active'` with allowed values `planned`, `active`, and `archived`.
+- Equipment detail columns should be handled in a later slice only after the live schema proves whether manufacturer, model, serial-number, or workstation-link fields already exist.
+
+Expected indexes and constraints:
+
+```sql
+create index if not exists sterilizers_clinic_id_idx
+  on public.sterilizers (clinic_id)
+  where clinic_id is not null;
+
+create unique index if not exists sterilizers_clinic_deployment_key_unique_idx
+  on public.sterilizers (clinic_id, deployment_sterilizer_key)
+  where deployment_sterilizer_key is not null;
+
+-- A clinic-scoped name uniqueness change is intentionally deferred until the
+-- preflight proves whether current name uniqueness is global or absent.
+```
+
+Do not remove any existing global name uniqueness constraint until a separate compatibility migration is designed. If a global unique index on `lower(trim(name))` exists, deployment-generated names must include a readable clinic suffix or the migration must move uniqueness to a clinic-scoped partial index without breaking legacy rows. That decision requires live preflight evidence.
+
+### Field mapping
+
+Future payload mapping from `DeploymentDraftSterilizer` to `public.sterilizers` should be:
+
+- `clinic_id` = existing draft clinic id.
+- `deployment_sterilizer_key` = deterministic sequence key in reviewed draft order: `sterilizer-001`, `sterilizer-002`, etc.
+- `name` = reviewed `displayName` when non-empty; if generated/default, keep readable shell naming and include a short clinic suffix if global name uniqueness requires it.
+- `type` = reviewed `sterilizerType` / setup `type`.
+- `manufacturer` = reviewed manufacturer/brand when the column exists.
+- `model` = reviewed model when the column exists.
+- `serial_number` = reviewed serial number when the column exists.
+- `assigned_workstation_id` = null until workstation persistence creates durable workstation ids; retain only draft assignment in deployment evidence or future metadata.
+- `provisioning_source` = `setup_draft`.
+- `provisioning_status` = `planned` for future setup-created sterilizer rows until a later activation workflow changes it.
+- `active` = false for all setup-created rows in this slice family, regardless of draft status, because activation requires a later operational readiness workflow.
+
+### Idempotency and conflicts
+
+Retry and partial retry must be keyed by `(clinic_id, deployment_sterilizer_key)`. A retry reuses existing rows with matching clinic/key and compatible `provisioning_source = setup_draft`. Missing keys may be created later by the implementation slice. Duplicate keys within the same clinic are conflicts and should be skipped with explicit counts. The same deterministic key may exist in different clinics.
+
+Existing legacy/global sterilizers with `clinic_id is null` must never be auto-attached, renamed, updated, activated, or reused for deployment matching. Name or serial-number collisions against legacy rows should surface as conflicts unless the future migration proves they are safely clinic-scoped.
+
+### Recovery model
+
+If a future sterilizer insert fails after deployment run, clinic root, clinic settings, and provider shells are durable, those upstream records remain evidence and are not rolled back by this slice family. Recovery is retry-first for missing deterministic keys. If a name or unique-key conflict blocks retry, support should inspect the linked clinic, deployment run, and sterilizer rows, then either resolve the conflicting row manually or rerun after a migration fix. No recovery path should activate sterilizers, create cycles, create workstations, or attach legacy global sterilizers automatically.
+
+### Safest next implementation slice
+
+The safest next slice is `RC4 Slice 3A - Sterilizers Schema Preflight and Migration Draft`:
+
+1. Create a select-only preflight for `public.sterilizers` columns, constraints, indexes, triggers, RLS, active/name distribution, and duplicate lower-trimmed names.
+2. Draft a nullable metadata migration that adds clinic/deployment/provisioning fields without changing existing legacy rows.
+3. Decide from live evidence whether global `name` uniqueness exists and whether setup-created names need a clinic suffix.
+4. Do not add a TypeScript repository or runtime provisioning until the schema is verified.
+
+## RC4 Slice 3A - Sterilizers Schema Preflight and Migration Draft
+
+RC4 Slice 3A adds SQL-only preparation for future sterilizer provisioning. It does not wire runtime execution, change UI, change the Setup Wizard, change the Deploy button, call `DeploymentEngine.execute()`, insert sterilizers, or persist workstations, hardware, packs, cycles, traces, users, or audit records.
+
+Created SQL drafts:
+
+- `supabase_sterilizers_preflight.sql` is read-only and inspects today's `public.sterilizers` table.
+- `supabase_sterilizers_deployment_fields.sql` adds nullable deployment metadata for a later sterilizer provisioner.
+
+The preflight checks:
+
+- table existence;
+- columns, constraints, indexes, RLS status, and triggers;
+- total existing sterilizer row count;
+- active/inactive distribution through the existing `active` field;
+- whether `clinic_id`, `deployment_sterilizer_key`, `provisioning_source`, and `provisioning_status` already exist;
+- whether any unique index appears to enforce global lower-trimmed `name` uniqueness;
+- duplicate lower-trimmed sterilizer names in current data.
+
+The migration draft preserves existing rows and current app behavior:
+
+- Adds `clinic_id uuid null` with FK to `public.clinics(id)` using `on delete restrict`.
+- Adds `deployment_sterilizer_key text null`.
+- Adds `provisioning_source text null`.
+- Adds `provisioning_status text not null default 'active'`.
+- Adds `sterilizers_provisioning_status_check` for `planned`, `active`, and `archived`.
+- Adds `sterilizers_clinic_id_idx` for clinic-scoped lookup.
+- Adds partial unique index `(clinic_id, deployment_sterilizer_key) where deployment_sterilizer_key is not null`.
+
+Legacy compatibility:
+
+- Existing sterilizers remain valid with `clinic_id is null`.
+- Existing global sterilizers are not forced into a clinic.
+- Existing Settings-created sterilizers keep `provisioning_status = active` by default.
+- The migration does not change existing active/inactive behavior.
+- Any future setup-created sterilizer rows should be clinic-scoped, use deterministic deployment keys such as `sterilizer-001`, keep `active = false`, and use `provisioning_status = planned` until a later activation workflow intentionally enables operational use.
+
+Workstation assignment remains deferred because workstation persistence does not yet create durable workstation ids. Setup draft workstation assignment can remain deployment evidence, but no `assigned_workstation_id` write belongs in this schema-prep slice.
+
+## RC4 Slice 3B - Sterilizer Provisioning Foundation
+
+RC4 Slice 3B adds the inert TypeScript foundation for clinic-scoped sterilizer shell provisioning. It is not wired into runtime execution, the Setup Wizard, the Deploy button, `DeploymentEngine.execute()`, routes, UI, or the deployment barrel. It performs no Supabase writes and inserts no sterilizers.
+
+Created foundation files:
+
+- `deployment-sterilizer-types.ts`
+- `deployment-sterilizer-payload.ts`
+- `deployment-sterilizer-repository.ts`
+- `deployment-sterilizer-service.ts`
+- `deployment-sterilizer-test-repository.ts`
+- `deployment-sterilizer-service.test.ts`
+
+Sterilizer shell provisioning requires the ordered upstream RC4 persistence chain to be complete before any future insert can occur:
+
+1. Existing clinic root.
+2. Existing clinic settings row for that clinic.
+3. Provider shells already provisioned for that clinic.
+
+Provider shells are an explicit prerequisite because RC4 Slice 2E made them the durable stage immediately before sterilizer provisioning in the setup-completion pipeline. This foundation therefore models the approved order rather than allowing sterilizers to follow clinic settings directly.
+
+The payload builder consumes the reviewed `DeploymentDraft.sterilizers` array in order and creates deterministic keys:
+
+- `sterilizer-001`
+- `sterilizer-002`
+- etc.
+
+Field mapping:
+
+- `clinicId` -> `public.sterilizers.clinic_id`.
+- `deploymentSterilizerKey` -> `deployment_sterilizer_key`.
+- `name` -> reviewed draft display name, or `Sterilizer Placeholder NNN` when blank, suffixed with a compact clinic id segment to avoid global name uniqueness collisions.
+- `type` -> reviewed draft sterilizer type, or `Steam Autoclave` when blank to match existing app expectations.
+- `active` -> false.
+- `provisioningSource` -> `setup_draft`.
+- `provisioningStatus` -> `planned`.
+- `createdAt` / `updatedAt` -> supplied timestamp when provided.
+
+Assigned workstation remains deferred. The draft workstation assignment is not mapped to a durable workstation id because workstation persistence is not implemented in this slice. This foundation creates no workstation, hardware, pack, cycle, trace, user, audit, activation, or downstream records.
+
+Idempotency is key-based. Retrying the same clinic/draft reuses existing shells by `(clinic_id, deployment_sterilizer_key)`, partial retries create only missing keys, duplicate keys within one clinic are conflicts/skips, and the same key may exist for different clinics. Legacy global sterilizers with `clinic_id is null` are ignored and are never attached, updated, deleted, activated, or reused for deployment matching.
+
+The in-memory harness covers create, retry reuse, partial existing rows, empty drafts, duplicate same-clinic keys, same keys across clinics, generated-name divergence across clinics, ignored global legacy sterilizers, and forbidden downstream counters remaining zero.
+
+## RC4 Slice 3C - Sterilizer Supabase Repository Implementation
+
+RC4 Slice 3C adds `deployment-sterilizer-supabase-repository.ts` as the concrete Supabase adapter for the sterilizer-shell repository contract. The adapter is server-only and remains unused by runtime deployment, Setup Wizard actions, UI, routes, the Deploy button, and `DeploymentEngine.execute()`.
+
+The repository write surface is limited to `public.sterilizers` inserts for inactive setup-draft planned shells. It maps sterilizer shell payloads to:
+
+- `clinic_id`
+- `deployment_sterilizer_key`
+- `name`
+- `type`
+- `active = false`
+- `provisioning_source = setup_draft`
+- `provisioning_status = planned`
+- optional `created_at` / `updated_at` when supplied by the service payload
+
+The adapter never updates or deletes sterilizer rows and never mutates legacy global sterilizers where `clinic_id is null`. It pre-reads `(clinic_id, deployment_sterilizer_key)` before insert, reuses an existing inactive setup-draft planned shell, and reports a conflict if that key belongs to a non-planned or active sterilizer record.
+
+Unique constraint races are handled by re-reading the same clinic/key pair. If the re-read finds a reusable planned shell, the adapter returns reuse. If the re-read does not find a matching shell, the adapter returns a safe unresolved conflict. This covers both duplicate `(clinic_id, deployment_sterilizer_key)` races and global name uniqueness collisions without attaching, renaming, activating, or mutating any existing row.
+
+No workstation, hardware, pack, cycle, trace, user, audit, activation, runtime setup provisioning, or downstream records are created by this adapter.
+
+## RC4 Slice 3E - Setup Runtime Sterilizer Shell Provisioning
+
+The Setup Complete server action now provisions sterilizer planned shells after provider shell provisioning succeeds. The ordered runtime path is:
+
+1. Create or reuse `deployment_runs` by setup-session idempotency key and payload hash.
+2. Create or reuse the draft `public.clinics` root and link `deployment_runs.clinic_id`.
+3. Create or reuse the linked `public.clinic_settings` row.
+4. Create or reuse inactive provider placeholder shells in `public.providers`.
+5. Create or reuse inactive planned sterilizer shells in `public.sterilizers`.
+
+Sterilizer shell provisioning consumes the reviewed `DeploymentDraft.sterilizers` array and assigns deterministic keys such as `sterilizer-001` and `sterilizer-002`. Runtime-created rows are clinic-scoped planned equipment shells: `clinic_id` is linked, `deployment_sterilizer_key` is present, `provisioning_source = setup_draft`, `provisioning_status = planned`, generated names include a clinic-specific suffix for global name uniqueness, and `active = false`.
+
+Retry behavior is idempotent through `(clinic_id, deployment_sterilizer_key)`. Re-running the same reviewed setup session reuses existing shells, while partial existing shells create only missing keys. Legacy global sterilizers with `clinic_id is null` are not updated, activated, deleted, attached, or reused for deployment shell matching.
+
+This slice does not create or mutate workstation assignments, hardware devices, packs, cycles, traces, users, audit logs, clinic activation records, dashboard access, public API routes, full deployment repository wiring, or `DeploymentEngine.execute()`. Access to the SteriSphere platform remains disabled and downstream workstation/hardware/pack/cycle/trace provisioning remains simulated.
+
+Manual verification queries:
+
+```sql
+select deployment_run_id, clinic_id
+from public.deployment_runs
+where deployment_run_id = '<deployment-run-id>';
+
+select id, clinic_code, deployment_status
+from public.clinics
+where id = '<clinic-id>';
+
+select id, clinic_id
+from public.clinic_settings
+where clinic_id = '<clinic-id>';
+
+select clinic_id, deployment_provider_key, provisioning_source, provisioning_status, active
+from public.providers
+where clinic_id = '<clinic-id>'
+order by deployment_provider_key;
+
+select clinic_id, deployment_sterilizer_key, name, type, provisioning_source, provisioning_status, active
+from public.sterilizers
+where clinic_id = '<clinic-id>'
+order by deployment_sterilizer_key;
+
+select clinic_id, deployment_sterilizer_key, count(*)
+from public.sterilizers
+where clinic_id = '<clinic-id>'
+  and deployment_sterilizer_key is not null
+group by clinic_id, deployment_sterilizer_key
+having count(*) > 1;
+
+select count(*) as legacy_global_sterilizer_rows
+from public.sterilizers
+where clinic_id is null;
+```

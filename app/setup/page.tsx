@@ -741,6 +741,17 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message: "Provider shell provisioning was not attempted.",
         },
+        sterilizerShells: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message: "Sterilizer shell provisioning was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -790,6 +801,18 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message:
             "Provider shell provisioning was not completed. No downstream records were created.",
+        },
+        sterilizerShells: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message:
+            "Sterilizer shell provisioning was not completed. No downstream records were created.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1085,6 +1108,7 @@ function CompleteStep({
   const clinicRoot = deploymentRunResult?.clinicRoot ?? null;
   const clinicSettings = deploymentRunResult?.clinicSettings ?? null;
   const providerShells = deploymentRunResult?.providerShells ?? null;
+  const sterilizerShells = deploymentRunResult?.sterilizerShells ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1180,7 +1204,7 @@ function CompleteStep({
             </div>
           </dl>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="mt-4 grid gap-3 lg:grid-cols-4">
             <div className="rounded-xl border border-white/60 bg-white/50 p-4">
               <p className="font-bold">
                 Clinic Root: {clinicRoot?.status ?? "ready"}
@@ -1280,17 +1304,61 @@ function CompleteStep({
                 </div>
               </dl>
             </div>
-          </div>
 
+            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+              <p className="font-bold">
+                Sterilizer Shells: {sterilizerShells?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {sterilizerShells?.message ??
+                  "Sterilizer planned shells will be provisioned after provider shells are linked."}
+              </p>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Requested
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {sterilizerShells?.requested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Created
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {sterilizerShells?.created ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Reused
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {sterilizerShells?.reused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Conflicts
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {sterilizerShells?.conflicts ?? 0}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
           </p>
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
-            placeholder shells, and deployment_runs.clinic_id are persisted by
-            this step. Users, real provider identities, sterilizers,
-            workstations, packs, cycles, traces, audit logs, and downstream
-            deployment-stage records are not created yet.
+            placeholder shells, public.sterilizers planned shells, and
+            deployment_runs.clinic_id are persisted by this step. Users, real
+            provider identities, workstations, hardware, packs, cycles, traces,
+            audit logs, and downstream deployment-stage records are not created
+            yet.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -1343,10 +1411,16 @@ function buildDeploymentSupportHref(
       `Provider shells created: ${result?.providerShells.created ?? 0}`,
       `Provider shells reused: ${result?.providerShells.reused ?? 0}`,
       `Provider shell conflicts: ${result?.providerShells.conflicts ?? 0}`,
+      `Sterilizer shells status: ${result?.sterilizerShells.status ?? "not attempted"}`,
+      `Sterilizer shells requested: ${result?.sterilizerShells.requested ?? 0}`,
+      `Sterilizer shells created: ${result?.sterilizerShells.created ?? 0}`,
+      `Sterilizer shells reused: ${result?.sterilizerShells.reused ?? 0}`,
+      `Sterilizer shell conflicts: ${result?.sterilizerShells.conflicts ?? 0}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
       `Provider shells message: ${result?.providerShells.message ?? "No provider-shell response yet."}`,
+      `Sterilizer shells message: ${result?.sterilizerShells.message ?? "No sterilizer-shell response yet."}`,
     ].join("\n"),
   );
 
