@@ -3,6 +3,11 @@ import "server-only";
 import {
   buildProviderShellPayloadsFromDraft as buildPayloads,
 } from "./deployment-provider-payload";
+import {
+  createDeploymentProvisionCounts,
+  findDuplicateDeploymentKeys,
+  resolveDeploymentProvisionStatus,
+} from "./deployment-provisioning-utils";
 import type {
   DeploymentProviderProvisioningPrerequisiteRepository,
   DeploymentProviderRepository,
@@ -63,15 +68,15 @@ export class DeploymentProviderService {
       ...command,
       clinicId,
     });
-    const counts = createCounts(payloads.length);
+    const counts = createDeploymentProvisionCounts(payloads.length);
     const providers: DeploymentProviderShellRecord[] = [];
-    const duplicateRequestedKeys = findDuplicateKeys(
+    const duplicateRequestedKeys = findDuplicateDeploymentKeys(
       payloads.map((payload) => payload.deploymentProviderKey),
     );
     const existingShells = await this.repository.listDeploymentProviderShells(
       clinicId,
     );
-    const conflictingExistingKeys = findDuplicateKeys(
+    const conflictingExistingKeys = findDuplicateDeploymentKeys(
       existingShells
         .map((provider) => provider.deploymentProviderKey)
         .filter((key): key is string => Boolean(key)),
@@ -137,54 +142,22 @@ export function buildProviderShellPayloadsFromDraft(
   });
 }
 
-function createCounts(requested: number): DeploymentProviderProvisionCounts {
-  return {
-    requested,
-    created: 0,
-    reused: 0,
-    skipped: 0,
-    conflicts: 0,
-  };
-}
-
 function rejectedResult(message: string): DeploymentProviderProvisionResult {
   return {
     ok: false,
     status: "rejected",
     providers: [],
-    counts: createCounts(0),
+    counts: createDeploymentProvisionCounts(0),
     message,
   };
-}
-
-function findDuplicateKeys(keys: readonly string[]): Set<string> {
-  const seenKeys = new Set<string>();
-  const duplicateKeys = new Set<string>();
-
-  keys.forEach((key) => {
-    if (seenKeys.has(key)) {
-      duplicateKeys.add(key);
-      return;
-    }
-
-    seenKeys.add(key);
-  });
-
-  return duplicateKeys;
 }
 
 function resolveStatus(
   counts: DeploymentProviderProvisionCounts,
 ): DeploymentProviderProvisionResult["status"] {
-  if (counts.conflicts > 0) {
-    return counts.created > 0 || counts.reused > 0 ? "partial" : "conflict";
-  }
-
-  if (counts.created > 0) {
-    return counts.reused > 0 ? "partial" : "created";
-  }
-
-  return "reused";
+  return resolveDeploymentProvisionStatus<
+    DeploymentProviderProvisionResult["status"]
+  >(counts);
 }
 
 function resolveMessage(counts: DeploymentProviderProvisionCounts): string {

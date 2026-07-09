@@ -3,6 +3,11 @@ import "server-only";
 import {
   buildHardwareShellPayloadsFromDraft as buildPayloads,
 } from "./deployment-hardware-payload";
+import {
+  createDeploymentProvisionCounts,
+  findDuplicateDeploymentKeys,
+  resolveDeploymentProvisionStatus,
+} from "./deployment-provisioning-utils";
 import type {
   DeploymentHardwareProvisioningPrerequisiteRepository,
   DeploymentHardwareRepository,
@@ -90,14 +95,14 @@ export class DeploymentHardwareService {
       ...command,
       clinicId,
     });
-    const counts = createCounts(payloads.length);
+    const counts = createDeploymentProvisionCounts(payloads.length);
     const hardware: DeploymentHardwareShellRecord[] = [];
-    const duplicateRequestedKeys = findDuplicateKeys(
+    const duplicateRequestedKeys = findDuplicateDeploymentKeys(
       payloads.map((payload) => payload.deploymentHardwareKey),
     );
     const existingShells =
       await this.repository.listDeploymentHardwareShells(clinicId);
-    const conflictingExistingKeys = findDuplicateKeys(
+    const conflictingExistingKeys = findDuplicateDeploymentKeys(
       existingShells
         .map((hardwareShell) => hardwareShell.deploymentHardwareKey)
         .filter((key): key is string => Boolean(key)),
@@ -163,54 +168,22 @@ export function buildHardwareShellPayloadsFromDraft(
   });
 }
 
-function createCounts(requested: number): DeploymentHardwareProvisionCounts {
-  return {
-    requested,
-    created: 0,
-    reused: 0,
-    skipped: 0,
-    conflicts: 0,
-  };
-}
-
 function rejectedResult(message: string): DeploymentHardwareProvisionResult {
   return {
     ok: false,
     status: "rejected",
     hardware: [],
-    counts: createCounts(0),
+    counts: createDeploymentProvisionCounts(0),
     message,
   };
-}
-
-function findDuplicateKeys(keys: readonly string[]): Set<string> {
-  const seenKeys = new Set<string>();
-  const duplicateKeys = new Set<string>();
-
-  keys.forEach((key) => {
-    if (seenKeys.has(key)) {
-      duplicateKeys.add(key);
-      return;
-    }
-
-    seenKeys.add(key);
-  });
-
-  return duplicateKeys;
 }
 
 function resolveStatus(
   counts: DeploymentHardwareProvisionCounts,
 ): DeploymentHardwareProvisionResult["status"] {
-  if (counts.conflicts > 0) {
-    return counts.created > 0 || counts.reused > 0 ? "partial" : "conflict";
-  }
-
-  if (counts.created > 0) {
-    return counts.reused > 0 ? "partial" : "created";
-  }
-
-  return "reused";
+  return resolveDeploymentProvisionStatus<
+    DeploymentHardwareProvisionResult["status"]
+  >(counts);
 }
 
 function resolveMessage(counts: DeploymentHardwareProvisionCounts): string {

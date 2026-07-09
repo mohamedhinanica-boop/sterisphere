@@ -3,6 +3,11 @@ import "server-only";
 import {
   buildWorkstationShellPayloadsFromDraft as buildPayloads,
 } from "./deployment-workstation-payload";
+import {
+  createDeploymentProvisionCounts,
+  findDuplicateDeploymentKeys,
+  resolveDeploymentProvisionStatus,
+} from "./deployment-provisioning-utils";
 import type {
   DeploymentWorkstationProvisioningPrerequisiteRepository,
   DeploymentWorkstationRepository,
@@ -81,14 +86,14 @@ export class DeploymentWorkstationService {
       ...command,
       clinicId,
     });
-    const counts = createCounts(payloads.length);
+    const counts = createDeploymentProvisionCounts(payloads.length);
     const workstations: DeploymentWorkstationShellRecord[] = [];
-    const duplicateRequestedKeys = findDuplicateKeys(
+    const duplicateRequestedKeys = findDuplicateDeploymentKeys(
       payloads.map((payload) => payload.deploymentWorkstationKey),
     );
     const existingShells =
       await this.repository.listDeploymentWorkstationShells(clinicId);
-    const conflictingExistingKeys = findDuplicateKeys(
+    const conflictingExistingKeys = findDuplicateDeploymentKeys(
       existingShells
         .map((workstation) => workstation.deploymentWorkstationKey)
         .filter((key): key is string => Boolean(key)),
@@ -155,16 +160,6 @@ export function buildWorkstationShellPayloadsFromDraft(
   });
 }
 
-function createCounts(requested: number): DeploymentWorkstationProvisionCounts {
-  return {
-    requested,
-    created: 0,
-    reused: 0,
-    skipped: 0,
-    conflicts: 0,
-  };
-}
-
 function rejectedResult(
   message: string,
 ): DeploymentWorkstationProvisionResult {
@@ -172,39 +167,17 @@ function rejectedResult(
     ok: false,
     status: "rejected",
     workstations: [],
-    counts: createCounts(0),
+    counts: createDeploymentProvisionCounts(0),
     message,
   };
-}
-
-function findDuplicateKeys(keys: readonly string[]): Set<string> {
-  const seenKeys = new Set<string>();
-  const duplicateKeys = new Set<string>();
-
-  keys.forEach((key) => {
-    if (seenKeys.has(key)) {
-      duplicateKeys.add(key);
-      return;
-    }
-
-    seenKeys.add(key);
-  });
-
-  return duplicateKeys;
 }
 
 function resolveStatus(
   counts: DeploymentWorkstationProvisionCounts,
 ): DeploymentWorkstationProvisionResult["status"] {
-  if (counts.conflicts > 0) {
-    return counts.created > 0 || counts.reused > 0 ? "partial" : "conflict";
-  }
-
-  if (counts.created > 0) {
-    return counts.reused > 0 ? "partial" : "created";
-  }
-
-  return "reused";
+  return resolveDeploymentProvisionStatus<
+    DeploymentWorkstationProvisionResult["status"]
+  >(counts);
 }
 
 function resolveMessage(

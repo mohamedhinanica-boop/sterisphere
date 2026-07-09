@@ -3,6 +3,11 @@ import "server-only";
 import {
   buildSterilizerShellPayloadsFromDraft as buildPayloads,
 } from "./deployment-sterilizer-payload";
+import {
+  createDeploymentProvisionCounts,
+  findDuplicateDeploymentKeys,
+  resolveDeploymentProvisionStatus,
+} from "./deployment-provisioning-utils";
 import type {
   DeploymentSterilizerProvisioningPrerequisiteRepository,
   DeploymentSterilizerRepository,
@@ -72,14 +77,14 @@ export class DeploymentSterilizerService {
       ...command,
       clinicId,
     });
-    const counts = createCounts(payloads.length);
+    const counts = createDeploymentProvisionCounts(payloads.length);
     const sterilizers: DeploymentSterilizerShellRecord[] = [];
-    const duplicateRequestedKeys = findDuplicateKeys(
+    const duplicateRequestedKeys = findDuplicateDeploymentKeys(
       payloads.map((payload) => payload.deploymentSterilizerKey),
     );
     const existingShells =
       await this.repository.listDeploymentSterilizerShells(clinicId);
-    const conflictingExistingKeys = findDuplicateKeys(
+    const conflictingExistingKeys = findDuplicateDeploymentKeys(
       existingShells
         .map((sterilizer) => sterilizer.deploymentSterilizerKey)
         .filter((key): key is string => Boolean(key)),
@@ -146,16 +151,6 @@ export function buildSterilizerShellPayloadsFromDraft(
   });
 }
 
-function createCounts(requested: number): DeploymentSterilizerProvisionCounts {
-  return {
-    requested,
-    created: 0,
-    reused: 0,
-    skipped: 0,
-    conflicts: 0,
-  };
-}
-
 function rejectedResult(
   message: string,
 ): DeploymentSterilizerProvisionResult {
@@ -163,39 +158,17 @@ function rejectedResult(
     ok: false,
     status: "rejected",
     sterilizers: [],
-    counts: createCounts(0),
+    counts: createDeploymentProvisionCounts(0),
     message,
   };
-}
-
-function findDuplicateKeys(keys: readonly string[]): Set<string> {
-  const seenKeys = new Set<string>();
-  const duplicateKeys = new Set<string>();
-
-  keys.forEach((key) => {
-    if (seenKeys.has(key)) {
-      duplicateKeys.add(key);
-      return;
-    }
-
-    seenKeys.add(key);
-  });
-
-  return duplicateKeys;
 }
 
 function resolveStatus(
   counts: DeploymentSterilizerProvisionCounts,
 ): DeploymentSterilizerProvisionResult["status"] {
-  if (counts.conflicts > 0) {
-    return counts.created > 0 || counts.reused > 0 ? "partial" : "conflict";
-  }
-
-  if (counts.created > 0) {
-    return counts.reused > 0 ? "partial" : "created";
-  }
-
-  return "reused";
+  return resolveDeploymentProvisionStatus<
+    DeploymentSterilizerProvisionResult["status"]
+  >(counts);
 }
 
 function resolveMessage(
