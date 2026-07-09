@@ -670,7 +670,7 @@ The field mapping intentionally avoids fake people:
 - `provisioning_source` = `setup_draft`.
 - `provisioning_status` = `placeholder`.
 - `first_name` / `last_name` = null.
-- `title`, `display_name`, and `full_name` = explicit placeholder labels such as `Dentist Placeholder 001`.
+- `title` = role placeholder label such as `Dentist Placeholder`; `display_name` and `full_name` = globally unique placeholder labels such as `Dentist Placeholder 001 - <clinic-id-short>`.
 - `role` = the planned provider category label.
 - `active` = false so shells do not appear in legacy active-provider clinical selection before a future activation/naming workflow.
 
@@ -688,7 +688,7 @@ The repository write surface is limited to `public.providers` inserts for inacti
 - `provisioning_status = placeholder`
 - `first_name = null`
 - `last_name = null`
-- placeholder `title`, `display_name`, and `full_name`
+- placeholder `title`, plus globally unique placeholder `display_name` and `full_name`
 - provider category `role`
 - `active = false`
 
@@ -703,7 +703,7 @@ The Setup Complete server action now provisions provider placeholder shells afte
 3. Create or reuse the linked `public.clinic_settings` row.
 4. Create or reuse inactive provider placeholder shells in `public.providers` for the linked `clinic_id`.
 
-Provider shell provisioning consumes the reviewed `DeploymentDraft.providerPlan` counts and produces deterministic keys such as `dentist-001`, `hygienist-001`, and `assistant-001`. Runtime-created shell rows remain placeholders: `provisioning_source = setup_draft`, `provisioning_status = placeholder`, first/last names are null, display fields include placeholder labels, and `active = false`.
+Provider shell provisioning consumes the reviewed `DeploymentDraft.providerPlan` counts and produces deterministic keys such as `dentist-001`, `hygienist-001`, and `assistant-001`. Runtime-created shell rows remain placeholders: `provisioning_source = setup_draft`, `provisioning_status = placeholder`, first/last names are null, `title` is the role placeholder, `display_name` and `full_name` include a short clinic-id suffix for the global full-name uniqueness index, and `active = false`.
 
 Retry behavior is idempotent through `(clinic_id, deployment_provider_key)`. Re-running the same reviewed setup session reuses existing shells, while partial existing shells create only missing keys. Legacy global providers with `clinic_id is null` are not updated, deleted, or reused for deployment shell matching.
 

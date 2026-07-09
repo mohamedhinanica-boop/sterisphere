@@ -191,36 +191,60 @@ async function scenarioDifferentClinicsCanUseSameDeploymentProviderKey(): Promis
   const harness = createHarness({
     clinicIds: [CLINIC_ID, OTHER_CLINIC_ID],
     clinicIdsWithSettings: [CLINIC_ID, OTHER_CLINIC_ID],
-    providers: [
-      createProviderShellRecord({
-        id: "provider-other-clinic",
-        clinicId: OTHER_CLINIC_ID,
-        deploymentProviderKey: "dentist-001",
-      }),
-    ],
   });
-  const result = await harness.service.provisionProviderShellsForClinic({
+  const draft = createDraft({
+    dentists: 1,
+    hygienists: 0,
+    assistants: 0,
+    receptionists: 0,
+    treatmentCoordinators: 0,
+    sterilizationTechnicians: 0,
+    officeManagers: 0,
+  });
+  const firstClinicResult = await harness.service.provisionProviderShellsForClinic({
     clinicId: CLINIC_ID,
-    draft: createDraft({
-      dentists: 1,
-      hygienists: 0,
-      assistants: 0,
-      receptionists: 0,
-      treatmentCoordinators: 0,
-      sterilizationTechnicians: 0,
-      officeManagers: 0,
-    }),
+    draft,
     createdAt: FIXED_TIMESTAMP,
   });
+  const otherClinicResult = await harness.service.provisionProviderShellsForClinic({
+    clinicId: OTHER_CLINIC_ID,
+    draft,
+    createdAt: FIXED_TIMESTAMP,
+  });
+  const retryResult = await harness.service.provisionProviderShellsForClinic({
+    clinicId: CLINIC_ID,
+    draft,
+    createdAt: FIXED_TIMESTAMP,
+  });
+  const matchingProviders = harness.repository.providers.filter(
+    (provider) => provider.deploymentProviderKey === "dentist-001",
+  );
+  const [firstClinicProvider] = matchingProviders.filter(
+    (provider) => provider.clinicId === CLINIC_ID,
+  );
+  const [otherClinicProvider] = matchingProviders.filter(
+    (provider) => provider.clinicId === OTHER_CLINIC_ID,
+  );
 
   return expectScenario(
     "different clinics can use same deployment_provider_key",
-    result.ok &&
-      result.counts.created === 1 &&
-      harness.repository.providers.filter(
-        (provider) => provider.deploymentProviderKey === "dentist-001",
-      ).length === 2,
-    `created=${result.counts.created}; matchingKeys=${harness.repository.providers.filter((provider) => provider.deploymentProviderKey === "dentist-001").length}`,
+    firstClinicResult.ok &&
+      otherClinicResult.ok &&
+      retryResult.ok &&
+      firstClinicResult.counts.created === 1 &&
+      otherClinicResult.counts.created === 1 &&
+      retryResult.counts.created === 0 &&
+      retryResult.counts.reused === 1 &&
+      matchingProviders.length === 2 &&
+      firstClinicProvider?.fullName !== undefined &&
+      otherClinicProvider?.fullName !== undefined &&
+      firstClinicProvider.fullName !== otherClinicProvider.fullName &&
+      firstClinicProvider.displayName !== otherClinicProvider.displayName &&
+      firstClinicProvider.displayName === firstClinicProvider.fullName &&
+      otherClinicProvider.displayName === otherClinicProvider.fullName &&
+      firstClinicProvider.title === "Dentist Placeholder" &&
+      otherClinicProvider.title === "Dentist Placeholder",
+    `firstCreated=${firstClinicResult.counts.created}; otherCreated=${otherClinicResult.counts.created}; retryReused=${retryResult.counts.reused}; firstName=${firstClinicProvider?.fullName}; otherName=${otherClinicProvider?.fullName}`,
   );
 }
 

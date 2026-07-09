@@ -73,7 +73,8 @@ function buildCategoryPayloads(
   for (let index = 1; index <= count; index += 1) {
     const sequence = index.toString().padStart(3, "0");
     const deploymentProviderKey = `${definition.category}-${sequence}`;
-    const placeholderName = `${definition.label} Placeholder ${sequence}`;
+    const title = `${definition.label} Placeholder`;
+    const placeholderName = `${title} ${sequence} - ${buildClinicIdShort(context.clinicId)}`;
 
     payloads.push({
       clinicId: context.clinicId,
@@ -82,7 +83,7 @@ function buildCategoryPayloads(
       provisioningStatus: "placeholder",
       firstName: null,
       lastName: null,
-      title: placeholderName,
+      title,
       displayName: placeholderName,
       fullName: placeholderName,
       role: definition.label,
@@ -94,6 +95,12 @@ function buildCategoryPayloads(
   }
 
   return payloads;
+}
+
+function buildClinicIdShort(clinicId: string): string {
+  const normalizedClinicId = clinicId.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  return normalizedClinicId.slice(0, 8) || "clinic";
 }
 
 function normalizeCount(value: number): number {
