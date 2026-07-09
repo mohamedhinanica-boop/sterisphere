@@ -717,6 +717,12 @@ export default function ClinicSetupPage() {
         deploymentSessionId: setupState.setupSessionId,
         idempotencyKey: null,
         payloadHash: null,
+        clinicRoot: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          message: "Clinic root persistence was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -740,8 +746,15 @@ export default function ClinicSetupPage() {
         deploymentSessionId: setupState.setupSessionId,
         idempotencyKey: null,
         payloadHash: null,
+        clinicRoot: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          message:
+            "Clinic root persistence was not completed. No downstream records were created.",
+        },
         message:
-          "Deployment run persistence failed safely. No clinic data was created.",
+          "Deployment runtime persistence failed safely. No downstream records were created.",
       });
     } finally {
       setIsPersistingDeploymentRun(false);
@@ -1030,20 +1043,22 @@ function CompleteStep({
   const payloadHash = reviewedDraft
     ? hashDeploymentDraftInput(reviewedDraft)
     : null;
+  const deploymentRunPersisted = Boolean(deploymentRunResult?.deploymentRunId);
+  const clinicRoot = deploymentRunResult?.clinicRoot ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
       ? "border-amber-200 bg-amber-50 text-amber-950"
       : "border-blue-200 bg-blue-50 text-blue-950";
-  const statusTitle = deploymentRunResult?.ok
-    ? deploymentRunResult.status === "reused"
-      ? "Deployment run reused"
-      : "Deployment run persisted"
-    : deploymentRunResult
-      ? "Deployment run not persisted"
-      : isPersisting
-        ? "Persisting deployment run"
-        : "Ready to persist deployment run";
+  const statusTitle = deploymentRunResult
+    ? deploymentRunPersisted
+      ? deploymentRunResult.status === "reused"
+        ? "Deployment run reused"
+        : "Deployment run persisted"
+      : "Deployment run not persisted"
+    : isPersisting
+      ? "Persisting deployment runtime records"
+      : "Ready to persist deployment runtime records";
   const supportHref = buildDeploymentSupportHref(deploymentRunResult);
 
   return (
@@ -1087,7 +1102,7 @@ function CompleteStep({
           <p className="font-bold">{statusTitle}</p>
           <p className="mt-2">
             {deploymentRunResult?.message ??
-              "Confirm deployment to persist a deployment_runs evidence record."}
+              "Confirm deployment to persist a deployment_runs evidence record and draft clinic root."}
           </p>
 
           <dl className="mt-4 grid gap-3 sm:grid-cols-4">
@@ -1117,7 +1132,7 @@ function CompleteStep({
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-                Persistence
+                Deployment Run
               </dt>
               <dd className="mt-1 font-semibold">
                 {deploymentRunResult?.status ?? "ready"}
@@ -1125,13 +1140,42 @@ function CompleteStep({
             </div>
           </dl>
 
+          <div className="mt-4 rounded-xl border border-white/60 bg-white/50 p-4">
+            <p className="font-bold">
+              Clinic root status: {clinicRoot?.status ?? "ready"}
+            </p>
+            <p className="mt-1">
+              {clinicRoot?.message ??
+                "A successful confirmation will create or reuse one draft clinic root after the deployment_run is durable."}
+            </p>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  Clinic ID
+                </dt>
+                <dd className="mt-1 break-all font-mono text-xs">
+                  {clinicRoot?.clinicId ?? "Not linked"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  Clinic Root
+                </dt>
+                <dd className="mt-1 font-semibold">
+                  {clinicRoot?.ok ? "linked draft" : "not linked"}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
           <p className="mt-4 font-semibold">
-            Clinic creation is still simulated and is not activated.
+            Clinic configuration is still simulated and is not activated.
           </p>
           <p className="mt-1">
-            No clinic, tenant, settings, users, providers, sterilizers,
-            workstations, packs, cycles, traces, audit logs, or downstream
-            deployment-stage records are created by this step.
+            Only public.clinics and deployment_runs.clinic_id are persisted by
+            this step. Settings, users, providers, sterilizers, workstations,
+            packs, cycles, traces, audit logs, and downstream deployment-stage
+            records are not created yet.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -1162,7 +1206,6 @@ function CompleteStep({
     </div>
   );
 }
-
 function buildDeploymentSupportHref(
   result: PersistDeploymentRunActionResult | null,
 ): string {
@@ -1175,8 +1218,11 @@ function buildDeploymentSupportHref(
       `Deployment run ID: ${result?.deploymentRunId ?? "not persisted"}`,
       `Idempotency key: ${result?.idempotencyKey ?? "not available"}`,
       `Payload hash: ${result?.payloadHash ?? "not available"}`,
-      `Status: ${result?.status ?? "not persisted"}`,
+      `Deployment run status: ${result?.status ?? "not persisted"}`,
+      `Clinic root status: ${result?.clinicRoot.status ?? "not attempted"}`,
+      `Clinic ID: ${result?.clinicRoot.clinicId ?? "not linked"}`,
       `Message: ${result?.message ?? "No server response yet."}`,
+      `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
     ].join("\n"),
   );
 

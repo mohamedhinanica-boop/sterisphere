@@ -518,3 +518,30 @@ Recovery if clinic insert succeeds but deployment_run linking fails:
 3. If the clinic belongs to the failed smoke attempt and no operational records exist, either link the deployment run to that clinic id through a controlled server repair or delete the draft clinic shell with the cleanup query above.
 4. Do not mark the clinic deployed.
 5. Do not create downstream records as part of recovery.
+
+## RC3 Slice 6 - Setup Runtime Clinic Root Wiring
+
+The Setup Complete server action now persists runtime evidence in two ordered server-only steps:
+
+1. Create or reuse the `deployment_runs` row using the immutable setup session id idempotency key and reviewed draft payload hash.
+2. Only after the deployment run succeeds, create or reuse one draft `public.clinics` root and link `deployment_runs.clinic_id` to that clinic id.
+
+The runtime boundary is limited to `public.clinics` and `deployment_runs.clinic_id`. The clinic root remains `deployment_status = 'draft'`; it is not marked deployed and it does not activate platform access. Settings, users, providers, sterilizers, workstations, packs, cycles, traces, audit logs, and downstream stage records remain simulated/not persisted.
+
+If clinic-root persistence fails after the deployment run is durable, the UI reports the deployment run as durable evidence and reports the clinic root as unlinked or conflicted. The safe recovery path is to inspect the deployment run and draft clinic shell, then either retry the same setup session or manually link only after confirming the clinic root belongs to that deployment run.
+
+Manual verification queries:
+
+```sql
+select deployment_run_id, idempotency_key, payload_hash, clinic_id, created_at
+from public.deployment_runs
+where deployment_run_id = '<deployment-run-id>';
+
+select id, name, clinic_code, deployment_status, deployed_at, deployment_version, schema_version, created_at, updated_at
+from public.clinics
+where id = '<clinic-id>';
+
+select id, clinic_code, deployment_status, deployed_at
+from public.clinics
+where clinic_code = '<clinic-code>';
+```

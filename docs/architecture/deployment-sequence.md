@@ -689,3 +689,15 @@ Rollback and recovery remain conservative. If clinic insert fails, the deploymen
 RC3 Slice 5 prepares the first trusted server helper for the future Stage 4 Create Clinic boundary without advancing the public deployment sequence. The helper requires Stage 2 deployment-run evidence to already exist and can create or reuse the draft clinic root, then link deployment_runs.clinic_id after the clinic root is known.
 
 The ordered Deployment Engine sequence remains simulated and unchanged. Stage 5 and later deployment stages remain unwired, including settings, workstations, sterilizers, planning records, policies, defaults, audit entries, finalization, dashboard unlock, and redirect.
+
+## RC3 Slice 6 Setup Completion Sequence
+
+1. User confirms deployment from the Setup Complete step.
+2. The server action validates the reviewed draft and setup session identity.
+3. The server action creates/reuses `deployment_runs` by idempotency key and payload hash.
+4. If deployment-run persistence conflicts, clinic-root persistence is skipped.
+5. If deployment-run persistence succeeds, the server action calls the server-only clinic-root helper.
+6. The helper requires the existing deployment run, creates/reuses one draft `public.clinics` row, and links `deployment_runs.clinic_id`.
+7. The UI reports deployment-run status, clinic-root status, linked `clinic_id`, and the continuing simulation boundary.
+
+Retry behavior: the same setup session and same payload hash reuses the deployment run; if that run already has `clinic_id`, the clinic-root helper reuses the linked draft clinic. A different setup session using the same clinic code conflicts and does not create a duplicate clinic.

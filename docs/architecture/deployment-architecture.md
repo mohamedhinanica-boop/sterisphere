@@ -641,3 +641,11 @@ The server-only repository and service files import server-only and are not expo
 RC3 now has a private server-only clinic-root helper that composes the Supabase clinic repository, Supabase deployment-run repository, and DeploymentClinicService. This is a composition boundary only; it is not exported from the deployment barrel and is not imported by UI, routes, Setup Wizard code, or DeploymentEngine.
 
 The helper may create or reuse one draft clinic root for an existing deployment run and link deployment_runs.clinic_id to the clinic id. The clinic remains non-operational with deployment_status = draft. Settings, users, memberships, providers, sterilizers, workstations, packs, cycles, traces, audit logs, planning records, finalization, dashboard unlock, and redirect behavior remain outside this boundary.
+
+## RC3 Slice 6 Runtime Boundary
+
+The first Setup runtime clinic-root wiring remains server-only. `app/setup/actions.ts` creates the trusted Supabase service-role client, persists/reuses the deployment run through `deployment-run-server.ts`, and then calls `deployment-clinic-server.ts` to create/reuse one draft clinic root and link `deployment_runs.clinic_id`.
+
+This boundary does not expose a public API route and does not call `DeploymentEngine.execute()`. The DeploymentEngine simulation path remains unchanged. The only runtime writes introduced by this slice are `public.clinics` inserts/reuse and `deployment_runs.clinic_id` linking.
+
+The Complete step displays both deployment-run status and clinic-root status. Platform access stays disabled because clinic configuration and all downstream operational records are still simulated.
