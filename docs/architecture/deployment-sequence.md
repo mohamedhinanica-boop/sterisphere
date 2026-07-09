@@ -776,3 +776,20 @@ The future workstation-shell sequence is designed to run only after:
 At that point, trusted server code may derive deterministic inactive workstation shells from the reviewed draft workstation list and create/reuse only missing future `clinical_workstations` rows for that clinic. The planned runtime order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells`.
 
 Workstation shells use deterministic keys such as `workstation-001`, `workstation-002`, and `workstation-003`, remain `status = planned`, `provisioning_source = setup_draft`, `provisioning_status = planned`, and `active = false`, and do not enroll local agents or create hardware records. No Supabase repository, setup action wiring, UI change, SQL migration, smoke runner, hardware device, pack, cycle, trace, user, audit entry, activation, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced by this foundation.
+
+## RC5 Slice 1A Hardware Foundation Sequence Note
+
+RC5 Slice 1A prepares the future hardware-shell step but does not add it to the runtime sequence. The current Setup Complete action still stops after workstation shell provisioning, and the Deployment Engine sequence remains simulated.
+
+The future hardware-shell sequence is designed to run only after:
+
+1. `deployment_runs` exists or is reused.
+2. The draft clinic root exists and `deployment_runs.clinic_id` is linked.
+3. `clinic_settings` exists for that clinic.
+4. Provider shells have been provisioned or reused for that clinic.
+5. Sterilizer shells have been provisioned or reused for that clinic.
+6. Workstation shells have been provisioned or reused for that clinic.
+
+At that point, trusted server code may derive deterministic inactive hardware shells from the reviewed hardware quantities and create/reuse only missing future hardware planned-shell rows for that clinic. The planned runtime order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells`.
+
+Hardware shells use deterministic keys such as `hardware-001`, `hardware-002`, and `hardware-003`, remain `status = planned`, `provisioning_source = setup_draft`, `provisioning_status = planned`, and `active = false`, and carry assignment keys only as logical deployment-key references. No Supabase repository, setup action wiring, UI change, SQL migration, smoke runner, printer/scanner/camera/sound binding, workstation or sterilizer assignment, device activation, pack, cycle, trace, user, audit entry, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced by this foundation.

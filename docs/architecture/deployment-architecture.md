@@ -733,3 +733,15 @@ The planned persistence order is now documented as `deployment_run -> clinic_roo
 The model treats setup draft workstation rows as planned deployment shells, not active clinical workstations or enrolled agents. Payloads use deterministic deployment keys such as `workstation-001`, `workstation-002`, and `workstation-003`, preserve reviewed workstation name/type/location/capability data, set `display_order` from reviewed order, set `agent_url = null`, and write future rows as `provisioning_source = setup_draft`, `provisioning_status = planned`, `status = planned`, and `active = false`.
 
 Retry behavior is anchored on `(clinic_id, deployment_workstation_key)`, while legacy global workstations with `clinic_id = null` stay outside matching and are never attached, renamed, activated, or mutated. Supabase repositories, setup action wiring, UI changes, SQL migrations, smoke runners, hardware devices, packs, cycles, traces, users, audit logs, clinic activation, and `DeploymentEngine.execute()` remain outside this foundation.
+
+## RC5 Slice 1A Hardware Planned Shell Foundation
+
+The hardware planned-shell foundation is now defined as an inert deployment module boundary. It adds type contracts, a pure payload builder, repository interfaces, a server-only service, and an in-memory harness, but it is not imported by setup completion and does not call Supabase.
+
+The planned persistence order is now documented as `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells`. Hardware shell provisioning requires clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells before any future trusted server composition may create planned hardware rows.
+
+The model treats setup draft hardware quantities as planned deployment shells, not registered physical devices. Payloads use deterministic deployment keys such as `hardware-001`, `hardware-002`, and `hardware-003`, generate one planned shell per counted printer or scanner, set `quantity = 1`, carry logical capability labels, and keep `provisioning_source = setup_draft`, `provisioning_status = planned`, `status = planned`, and `active = false`.
+
+Logical assignment fields carry deterministic workstation or sterilizer deployment keys only. They do not resolve durable ids, bind printers or scanners, enroll agents, register hardware devices, activate devices, or mutate workstation or sterilizer records. Schema details remain assumptions until a later hardware schema preflight confirms the existing persistence surface.
+
+Retry behavior is anchored on `(clinic_id, deployment_hardware_key)`, while legacy global hardware with `clinic_id = null` stays outside matching and is never attached, assigned, activated, renamed, or mutated. Supabase repositories, setup action wiring, UI changes, SQL migrations, smoke runners, packs, cycles, traces, users, audit logs, clinic activation, and `DeploymentEngine.execute()` remain outside this foundation.

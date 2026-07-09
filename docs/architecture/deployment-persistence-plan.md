@@ -1058,3 +1058,57 @@ Runtime composition is server-only through `deployment-workstation-server.ts`, w
 The Setup Complete action now records workstation-shell stage evidence with requested, created, reused, skipped, and conflict counts. Workstation shell failures are reported after upstream records remain durable; no downstream hardware, pack, cycle, trace, user, audit, activation, agent registration, printer/scanner persistence, camera binding, sound binding, or `DeploymentEngine.execute()` behavior is introduced.
 
 Retry/reuse remains keyed by `(clinic_id, deployment_workstation_key)`. Fresh deployments create missing planned shells, repeat verification reuses compatible setup-draft planned shells, partial existing states create only missing keys, and conflicts are reported without mutating existing workstation rows or legacy/global rows.
+
+## RC5 Slice 1A - Hardware Planned Shell Foundation
+
+RC5 Slice 1A adds the inert TypeScript foundation for clinic-scoped hardware planned-shell provisioning. It is not wired into runtime execution, the Setup Wizard, the Deploy button, `DeploymentEngine.execute()`, routes, UI, SQL migrations, smoke harnesses, runtime server composition, Supabase repositories, or the deployment barrel. It performs no Supabase writes and inserts no hardware records.
+
+Created foundation files:
+
+- `deployment-hardware-types.ts`
+- `deployment-hardware-payload.ts`
+- `deployment-hardware-repository.ts`
+- `deployment-hardware-service.ts`
+- `deployment-hardware-test-repository.ts`
+- `deployment-hardware-service.test.ts`
+
+Hardware planned-shell provisioning is planned after workstation shells in the ordered setup persistence chain:
+
+1. `deployment_run`
+2. `clinic_root`
+3. `clinic_settings`
+4. `provider_shells`
+5. `sterilizer_shells`
+6. `workstation_shells`
+7. `hardware_shells`
+
+The payload builder consumes the reviewed `DeploymentDraft.hardwarePlan` quantities and creates deterministic unit shells in order:
+
+- `hardware-001`
+- `hardware-002`
+- `hardware-003`
+
+Field mapping is logical until a later schema-verification slice confirms the physical table shape:
+
+- `clinicId` -> future clinic ownership field.
+- `deploymentHardwareKey` -> future deployment idempotency key field.
+- `name` -> generated hardware shell label such as `Label Printer 001` or `USB Scanner 002`.
+- `hardwareType` -> reviewed hardware category such as `label_printer` or `usb_scanner`.
+- `quantity` -> `1` per deterministic planned shell.
+- `displayOrder` -> reviewed generated order, starting at 1.
+- `status` -> `planned`.
+- `capabilities` -> logical hardware capabilities only.
+- `assignedWorkstationKey` -> logical deterministic workstation key when the reviewed workstation capabilities provide a match.
+- `assignedSterilizerKey` -> null in this foundation because the current hardware draft has printer and scanner quantities only.
+- `active` -> false.
+- `provisioningSource` -> `setup_draft`.
+- `provisioningStatus` -> `planned`.
+- `createdAt` / `updatedAt` -> supplied timestamp when provided.
+
+Assignment keys are carried as logical deployment keys only. This foundation does not resolve them to durable workstation or sterilizer ids, does not bind hardware to workstations or sterilizers, and does not register printers, scanners, cameras, sound devices, clinic agents, packs, cycles, traces, users, or audit records.
+
+Idempotency is key-based. Retrying the same clinic/draft reuses existing shells by `(clinic_id, deployment_hardware_key)`, partial retries create only missing keys, duplicate keys within one clinic are conflicts/skips, and the same key may exist for different clinics. Legacy global hardware with `clinic_id is null` is ignored and is never attached, updated, renamed, activated, assigned, or reused for deployment matching.
+
+Schema assumptions remain intentionally uncommitted in this slice. A later schema preflight must inspect the existing hardware persistence surface before choosing table names, column names, indexes, or migration SQL. The logical model expects nullable deployment metadata and a partial unique guardrail for `(clinic_id, deployment_hardware_key)` when physical persistence is approved.
+
+The in-memory harness covers fresh create, retry reuse, partial existing rows, empty drafts, duplicate same-clinic keys, same keys across clinics, deterministic payload generation for `hardware-001..003`, ignored global legacy hardware, logical assignment keys without durable resolution, and forbidden downstream counters remaining zero.
