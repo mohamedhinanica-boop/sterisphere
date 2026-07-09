@@ -1252,8 +1252,8 @@ function CompleteStep({
             </div>
           </dl>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-3 xl:grid-cols-6">
-            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+          <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
                 Clinic Root: {clinicRoot?.status ?? "ready"}
               </p>
@@ -1261,9 +1261,9 @@ function CompleteStep({
                 {clinicRoot?.message ??
                   "A successful confirmation will create or reuse one draft clinic root after the deployment_run is durable."}
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Clinic ID
                   </dt>
                   <dd className="mt-1 break-all font-mono text-xs">
@@ -1271,17 +1271,17 @@ function CompleteStep({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Clinic Root
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {clinicRoot?.ok ? "linked draft" : "not linked"}
                   </dd>
                 </div>
               </dl>
             </div>
 
-            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
                 Clinic Settings: {clinicSettings?.status ?? "ready"}
               </p>
@@ -1289,9 +1289,9 @@ function CompleteStep({
                 {clinicSettings?.message ??
                   "Clinic settings will be provisioned after the draft clinic root is linked."}
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Settings ID
                   </dt>
                   <dd className="mt-1 break-all font-mono text-xs">
@@ -1299,17 +1299,17 @@ function CompleteStep({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Clinic Settings
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {clinicSettings?.ok ? "linked" : "not linked"}
                   </dd>
                 </div>
               </dl>
             </div>
 
-            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
                 Provider Shells: {providerShells?.status ?? "ready"}
               </p>
@@ -1317,43 +1317,43 @@ function CompleteStep({
                 {providerShells?.message ??
                   "Provider placeholder shells will be provisioned after clinic settings are linked."}
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Requested
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {providerShells?.requested ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Created
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {providerShells?.created ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Reused
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {providerShells?.reused ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Conflicts
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {providerShells?.conflicts ?? 0}
                   </dd>
                 </div>
               </dl>
             </div>
 
-            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
                 Sterilizer Shells: {sterilizerShells?.status ?? "ready"}
               </p>
@@ -1361,43 +1361,43 @@ function CompleteStep({
                 {sterilizerShells?.message ??
                   "Sterilizer planned shells will be provisioned after provider shells are linked."}
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Requested
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {sterilizerShells?.requested ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Created
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {sterilizerShells?.created ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Reused
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {sterilizerShells?.reused ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Conflicts
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {sterilizerShells?.conflicts ?? 0}
                   </dd>
                 </div>
               </dl>
             </div>
 
-            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
                 Workstation Shells: {workstationShells?.status ?? "ready"}
               </p>
@@ -1405,42 +1405,42 @@ function CompleteStep({
                 {workstationShells?.message ??
                   "Workstation planned shells will be provisioned after sterilizer shells are linked."}
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Requested
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {workstationShells?.requested ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Created
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {workstationShells?.created ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Reused
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {workstationShells?.reused ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Conflicts
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {workstationShells?.conflicts ?? 0}
                   </dd>
                 </div>
               </dl>
             </div>
-            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
                 Hardware Shells: {hardwareShells?.status ?? "ready"}
               </p>
@@ -1448,36 +1448,36 @@ function CompleteStep({
                 {hardwareShells?.message ??
                   "Hardware planned shells will be provisioned after workstation shells are linked."}
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Requested
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {hardwareShells?.requested ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Created
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {hardwareShells?.created ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Reused
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {hardwareShells?.reused ?? 0}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
                     Conflicts
                   </dt>
-                  <dd className="mt-1 font-semibold">
+                  <dd className="mt-1 text-base font-semibold">
                     {hardwareShells?.conflicts ?? 0}
                   </dd>
                 </div>
