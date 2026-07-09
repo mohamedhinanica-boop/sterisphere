@@ -745,3 +745,19 @@ The model treats setup draft hardware quantities as planned deployment shells, n
 Logical assignment fields carry deterministic workstation or sterilizer deployment keys only. They do not resolve durable ids, bind printers or scanners, enroll agents, register hardware devices, activate devices, or mutate workstation or sterilizer records. Schema details remain assumptions until a later hardware schema preflight confirms the existing persistence surface.
 
 Retry behavior is anchored on `(clinic_id, deployment_hardware_key)`, while legacy global hardware with `clinic_id = null` stays outside matching and is never attached, assigned, activated, renamed, or mutated. Supabase repositories, setup action wiring, UI changes, SQL migrations, smoke runners, packs, cycles, traces, users, audit logs, clinic activation, and `DeploymentEngine.execute()` remain outside this foundation.
+
+## RC5 Slice 1B Hardware Schema Bridge
+
+The first hardware Supabase adapter targets the existing `public.clinical_hardware_devices` table, which currently represents hardware digital twins observed by clinic agents. That table does not yet have first-class deployment planned-shell columns for `deployment_hardware_key`, quantity, display order, provisioning status, active state, or logical assignment keys.
+
+Until a later schema-hardening slice creates physical deployment metadata and a partial unique constraint, the adapter stores deployment shell metadata in the existing `metadata jsonb` column and writes only existing physical fields. It keeps device rows non-active by using the existing `status = discovered` and `health = unknown`, leaves agent and workstation id fields null, and preserves assignment keys only as logical metadata. This bridge is repository-only and remains unused by setup runtime.
+
+The missing durable guardrail is still `(clinic_id, deployment_hardware_key)`. Runtime wiring must not proceed until schema preflight and migration work confirms a first-class idempotency constraint or an approved equivalent.
+
+## RC5 Slice 1C Hardware Deployment Metadata
+
+The hardware schema migration draft adds first-class deployment metadata to `public.clinical_hardware_devices` for future planned-shell persistence: `deployment_hardware_key`, `provisioning_source`, `provisioning_status`, `active`, and `display_order`. The fields are nullable so existing discovered hardware and legacy rows remain untouched.
+
+The durable idempotency rule is a partial unique index on `(clinic_id, deployment_hardware_key)` where the deployment key is present. The hardware Supabase adapter now uses that first-class key instead of `metadata.deployment_hardware_key`; metadata remains a temporary home only for logical fields that still have no physical columns, such as quantity and assignment keys.
+
+This remains schema and repository preparation only. Runtime setup actions, UI evidence, device binding, assignment resolution, activation, smoke runners, and `DeploymentEngine.execute()` remain unchanged.
