@@ -730,6 +730,17 @@ export default function ClinicSetupPage() {
           clinicId: null,
           message: "Clinic settings provisioning was not attempted.",
         },
+        providerShells: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message: "Provider shell provisioning was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -767,6 +778,18 @@ export default function ClinicSetupPage() {
           clinicId: null,
           message:
             "Clinic settings provisioning was not completed. No rollback was performed.",
+        },
+        providerShells: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message:
+            "Provider shell provisioning was not completed. No downstream records were created.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1015,10 +1038,10 @@ export default function ClinicSetupPage() {
             >
               {isComplete
                 ? isPersistingDeploymentRun
-                  ? "Persisting Deployment Run"
+                  ? "Persisting Runtime Records"
                   : deploymentRunResult?.ok
-                    ? "Verify / Reuse Deployment Run"
-                    : "Persist Deployment Run"
+                    ? "Verify / Reuse Runtime Records"
+                    : "Persist Runtime Records"
                 : isReview
                   ? "Confirm Review"
                   : "Next"}
@@ -1061,6 +1084,7 @@ function CompleteStep({
   const deploymentRunPersisted = Boolean(deploymentRunResult?.deploymentRunId);
   const clinicRoot = deploymentRunResult?.clinicRoot ?? null;
   const clinicSettings = deploymentRunResult?.clinicSettings ?? null;
+  const providerShells = deploymentRunResult?.providerShells ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1156,7 +1180,7 @@ function CompleteStep({
             </div>
           </dl>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
             <div className="rounded-xl border border-white/60 bg-white/50 p-4">
               <p className="font-bold">
                 Clinic Root: {clinicRoot?.status ?? "ready"}
@@ -1212,16 +1236,61 @@ function CompleteStep({
                 </div>
               </dl>
             </div>
+
+            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+              <p className="font-bold">
+                Provider Shells: {providerShells?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {providerShells?.message ??
+                  "Provider placeholder shells will be provisioned after clinic settings are linked."}
+              </p>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Requested
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {providerShells?.requested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Created
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {providerShells?.created ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Reused
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {providerShells?.reused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Conflicts
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {providerShells?.conflicts ?? 0}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
 
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
           </p>
           <p className="mt-1">
-            Only public.clinics, public.clinic_settings, and
-            deployment_runs.clinic_id are persisted by this step. Users,
-            providers, sterilizers, workstations, packs, cycles, traces, audit
-            logs, and downstream deployment-stage records are not created yet.
+            Only public.clinics, public.clinic_settings, public.providers
+            placeholder shells, and deployment_runs.clinic_id are persisted by
+            this step. Users, real provider identities, sterilizers,
+            workstations, packs, cycles, traces, audit logs, and downstream
+            deployment-stage records are not created yet.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -1229,7 +1298,7 @@ function CompleteStep({
               type="button"
               disabled
               className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 disabled:cursor-not-allowed"
-              title="Automatic workspace access will be enabled after clinic creation is activated."
+              title="Automatic workspace access will be enabled after clinic activation is implemented."
             >
               Access SteriSphere Platform
             </button>
@@ -1269,9 +1338,15 @@ function buildDeploymentSupportHref(
       `Clinic ID: ${result?.clinicRoot.clinicId ?? "not linked"}`,
       `Clinic settings status: ${result?.clinicSettings.status ?? "not attempted"}`,
       `Clinic settings ID: ${result?.clinicSettings.settingsId ?? "not linked"}`,
+      `Provider shells status: ${result?.providerShells.status ?? "not attempted"}`,
+      `Provider shells requested: ${result?.providerShells.requested ?? 0}`,
+      `Provider shells created: ${result?.providerShells.created ?? 0}`,
+      `Provider shells reused: ${result?.providerShells.reused ?? 0}`,
+      `Provider shell conflicts: ${result?.providerShells.conflicts ?? 0}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
+      `Provider shells message: ${result?.providerShells.message ?? "No provider-shell response yet."}`,
     ].join("\n"),
   );
 
@@ -3494,7 +3569,7 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
             <ArrowRight className="h-4 w-4" />
           </button>
           <p className="mt-3 text-sm text-slate-500">
-            Dashboard access becomes available after deployment is completed.
+            Dashboard access remains disabled until clinic activation is implemented.
           </p>
         </div>
       </div>

@@ -17,6 +17,9 @@ import {
   provisionClinicSettingsForServerDeployment,
 } from "@/lib/modules/deployment/deployment-clinic-settings-server";
 import {
+  provisionProviderShellsForServerDeployment,
+} from "@/lib/modules/deployment/deployment-provider-server";
+import {
   createOrReuseServerDeploymentRun,
 } from "@/lib/modules/deployment/deployment-run-server";
 
@@ -59,6 +62,27 @@ export interface ClinicSettingsActionResult {
   message: string;
 }
 
+export type ProviderShellsActionStatus =
+  | "created"
+  | "reused"
+  | "partial"
+  | "conflict"
+  | "rejected"
+  | "error"
+  | "skipped";
+
+export interface ProviderShellsActionResult {
+  ok: boolean;
+  status: ProviderShellsActionStatus;
+  clinicId: string | null;
+  requested: number;
+  created: number;
+  reused: number;
+  skipped: number;
+  conflicts: number;
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -68,11 +92,12 @@ export interface PersistDeploymentRunActionResult {
   payloadHash: string | null;
   clinicRoot: ClinicRootActionResult;
   clinicSettings: ClinicSettingsActionResult;
+  providerShells: ProviderShellsActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc4-clinic-settings-provisioning";
-const SCHEMA_VERSION = "deployment-run-clinic-root-settings";
+const DEPLOYMENT_VERSION = "rc4-provider-shell-provisioning";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers";
 const EVIDENCE_VERSION = "deployment-audit-evidence-rc2.5-slice4";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
@@ -86,6 +111,17 @@ const CLINIC_SETTINGS_NOT_ATTEMPTED: ClinicSettingsActionResult = {
   settingsId: null,
   clinicId: null,
   message: "Clinic settings provisioning was not attempted.",
+};
+const PROVIDER_SHELLS_NOT_ATTEMPTED: ProviderShellsActionResult = {
+  ok: false,
+  status: "skipped",
+  clinicId: null,
+  requested: 0,
+  created: 0,
+  reused: 0,
+  skipped: 0,
+  conflicts: 0,
+  message: "Provider shell provisioning was not attempted.",
 };
 
 export async function persistDeploymentRunAction(
@@ -107,6 +143,7 @@ export async function persistDeploymentRunAction(
       payloadHash: null,
       clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
       clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+      providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -122,6 +159,7 @@ export async function persistDeploymentRunAction(
       payloadHash: null,
       clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
       clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+      providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -141,6 +179,7 @@ export async function persistDeploymentRunAction(
       payloadHash: null,
       clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
       clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+      providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -194,10 +233,11 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc4-slice1",
-        boundary: "deployment_run_clinic_root_and_clinic_settings",
+        runtimeSlice: "rc4-slice2e",
+        boundary: "deployment_run_clinic_root_settings_and_provider_shells",
         clinicRootPersistence: "enabled",
         clinicSettingsProvisioning: "enabled",
+        providerShellProvisioning: "enabled",
         clinicConfigurationSimulated: true,
         deploymentSessionId: normalizedDeploymentSessionId,
         clinicCode: draft.clinicProfile.clinicCode || null,
@@ -214,6 +254,7 @@ export async function persistDeploymentRunAction(
         payloadHash,
         clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+        providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -229,6 +270,7 @@ export async function persistDeploymentRunAction(
         payloadHash,
         clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+        providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -259,6 +301,7 @@ export async function persistDeploymentRunAction(
               : clinicRoot.message,
         },
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+        providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -281,6 +324,7 @@ export async function persistDeploymentRunAction(
           message: "Clinic root persisted but no clinic id was returned.",
         },
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+        providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -317,8 +361,59 @@ export async function persistDeploymentRunAction(
           clinicId,
           message: clinicSettings.message,
         },
+        providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
+      };
+    }
+
+    const providerShells =
+      await provisionProviderShellsForServerDeployment(client, {
+        clinicId,
+        draft,
+        createdAt: persistedAt,
+      });
+
+    if (!providerShells.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        deploymentRunId: result.deploymentRun.deploymentRunId,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        idempotencyKey,
+        payloadHash,
+        clinicRoot: {
+          ok: true,
+          status: clinicRoot.status,
+          clinicId,
+          message:
+            clinicRoot.status === "reused"
+              ? "Draft clinic root reused and linked to this deployment run."
+              : "Draft clinic root persisted and linked to this deployment run.",
+        },
+        clinicSettings: {
+          ok: true,
+          status: clinicSettings.status,
+          settingsId: clinicSettings.settings?.id ?? null,
+          clinicId,
+          message:
+            clinicSettings.status === "reused"
+              ? "Clinic settings already exist for this clinic; reuse them."
+              : "Clinic settings provisioned for this draft clinic.",
+        },
+        providerShells: {
+          ok: false,
+          status: providerShells.status,
+          clinicId,
+          requested: providerShells.counts.requested,
+          created: providerShells.counts.created,
+          reused: providerShells.counts.reused,
+          skipped: providerShells.counts.skipped,
+          conflicts: providerShells.counts.conflicts,
+          message: providerShells.message,
+        },
+        message:
+          "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
     }
 
@@ -348,8 +443,22 @@ export async function persistDeploymentRunAction(
             ? "Clinic settings already exist for this clinic; reuse them."
             : "Clinic settings provisioned for this draft clinic.",
       },
+      providerShells: {
+        ok: true,
+        status: providerShells.status,
+        clinicId,
+        requested: providerShells.counts.requested,
+        created: providerShells.counts.created,
+        reused: providerShells.counts.reused,
+        skipped: providerShells.counts.skipped,
+        conflicts: providerShells.counts.conflicts,
+        message:
+          providerShells.status === "reused"
+            ? "Provider placeholder shells already exist for this clinic; reuse them."
+            : "Provider placeholder shells provisioned for this draft clinic.",
+      },
       message:
-        "Deployment run, draft clinic root, and clinic settings are provisioned. Clinic configuration remains simulated.",
+        "Deployment run, draft clinic root, clinic settings, and provider placeholder shells are provisioned. Downstream clinic configuration remains simulated.",
     };
   } catch {
     return {
@@ -373,6 +482,18 @@ export async function persistDeploymentRunAction(
         clinicId: null,
         message:
           "Clinic settings may be unlinked or unavailable. No rollback was performed.",
+      },
+      providerShells: {
+        ok: false,
+        status: "error",
+        clinicId: null,
+        requested: 0,
+        created: 0,
+        reused: 0,
+        skipped: 0,
+        conflicts: 0,
+        message:
+          "Provider shell provisioning may be incomplete or unavailable. No downstream records were created.",
       },
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",

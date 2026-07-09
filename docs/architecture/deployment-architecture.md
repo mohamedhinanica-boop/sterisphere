@@ -663,3 +663,25 @@ The Complete step reports Clinic Root and Clinic Settings independently. Platfor
 Provider provisioning is not runtime-wired yet. The current setup draft provides provider counts only, while `public.providers` represents real named people used by Settings and Traceability. RC4 provider provisioning must therefore use clinic-scoped provider shells with explicit placeholder semantics in a later slice.
 
 The schema draft preserves global providers and adds nullable clinic/provisioning metadata so a later server-only provisioner can safely create deterministic shell records per draft clinic without changing current Settings behavior or Traceability reads.
+
+## RC4 Slice 2B Provider Provisioning Foundation
+
+The provider provisioning foundation now defines provider-shell types, a pure payload builder, an inert repository contract, a server-only service, and an in-memory harness. It remains unwired from runtime deployment and does not change UI, Setup Wizard behavior, the Deploy button, or `DeploymentEngine`.
+
+Provider counts map to clinic-scoped placeholder shells, not staff identities. The deterministic key space is per clinic and uses category sequences such as `dentist-001`, `hygienist-001`, `assistant-001`, `receptionist-001`, `treatment-coordinator-001`, `sterilization-technician-001`, and `office-manager-001`. Shell display fields clearly show placeholder status, for example `Dentist Placeholder 001`; first and last names remain null.
+
+The service requires a real clinic root and existing `clinic_settings` before provider shells can be provisioned. Shells are written with `provisioning_source = setup_draft`, `provisioning_status = placeholder`, and `active = false`. Keeping placeholders inactive prevents them from leaking into legacy active-provider traceability workflows before a later naming/activation workflow intentionally promotes them.
+
+Retry behavior is deterministic: existing shells with matching deployment keys are reused, only missing shells are created, duplicate keys in the same clinic are reported as conflicts, and global legacy providers with `clinic_id = null` do not participate in deployment-shell matching.
+
+## RC4 Slice 2C Provider Supabase Repository
+
+The provider-shell boundary now has an unused server-only Supabase adapter. It implements only provider-shell lookup, insert, and listing against `public.providers`; prerequisite checks and orchestration remain owned by the service layer and future trusted composition.
+
+The adapter enforces shell semantics before insert: `setup_draft`, `placeholder`, inactive, clinic-scoped, deterministic deployment key, and no first/last names. Duplicate clinic/key handling is explicit and idempotent for existing placeholders, while non-placeholder collisions are surfaced as conflicts. This does not wire provider provisioning into setup completion or advance the deployment sequence beyond clinic settings.
+
+## RC4 Slice 2E Runtime Provider Shell Boundary
+
+Setup completion now includes provider-shell provisioning after deployment-run evidence, draft clinic root linkage, and clinic settings are durable. The runtime write surface expands only to inactive placeholder rows in `public.providers`; no operational named staff identities are created.
+
+The Complete step reports Provider Shells status and requested, created, reused, and conflict counts. Retry/reuse is keyed by `(clinic_id, deployment_provider_key)`, so repeated setup confirmation can verify existing shells without duplicating rows. Platform access stays disabled and downstream configuration remains simulated.

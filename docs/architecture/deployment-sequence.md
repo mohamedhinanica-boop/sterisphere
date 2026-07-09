@@ -712,3 +712,26 @@ Retry behavior: the same setup session and same payload hash reuses the deployme
 6. If settings provisioning fails, the deployment run and clinic root remain durable and the UI reports a safe settings failure.
 
 The sequence stops after clinic settings. Providers, sterilizers, workstations, hardware, packs, cycles, traces, users, audit logs, activation, and real workspace access remain out of scope.
+
+## RC4 Slice 2B Provider Foundation Sequence Note
+
+RC4 Slice 2B prepares the future provider-shell step but does not add it to the runtime sequence. The Complete action still stops after clinic settings, and the Deployment Engine sequence remains simulated.
+
+The future provider-shell sequence is designed to run only after:
+
+1. `deployment_runs` exists or is reused.
+2. The draft clinic root exists and `deployment_runs.clinic_id` is linked.
+3. `clinic_settings` exists for that `clinic_id`.
+
+At that point, trusted server code may derive deterministic placeholder shells from the reviewed draft provider counts and create/reuse only missing `public.providers` rows for that clinic. No fake named people, users, sterilizers, workstations, hardware devices, packs, cycles, traces, audit entries, activation, dashboard unlock, or redirect behavior is introduced by this foundation.
+
+## RC4 Slice 2E Provider Shell Runtime Sequence
+
+The Setup Complete action now performs the first runtime provider-shell provisioning step after clinic settings succeeds:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells in `public.providers` from the reviewed provider counts.
+
+This does not advance the Deployment Engine into full execution. Provider shells are placeholders only; sterilizers, workstations, hardware devices, packs, cycles, traces, users, audit logs, activation, dashboard unlock, and redirect behavior remain outside this runtime boundary.

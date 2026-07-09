@@ -648,3 +648,95 @@ Legacy compatibility:
 - No fake person rows should be created from count-only draft data without placeholder semantics.
 
 Future runtime provider provisioning should run only after `deployment_runs`, draft clinic root, and `clinic_settings` are durable. It should create or reuse clinic-scoped placeholder/provider-shell records by deterministic `deployment_provider_key`; it should not create operational named staff from counts alone.
+
+## RC4 Slice 2B - Provider Provisioning Foundation
+
+RC4 Slice 2B adds the inert TypeScript foundation for clinic-scoped provider shell provisioning. It is not wired into runtime execution, the Setup Wizard, the Deploy button, `DeploymentEngine.execute()`, routes, UI, or the deployment barrel.
+
+Provider shells are placeholders derived only from reviewed draft counts. They require an existing `clinic_id` and an already-provisioned `clinic_settings` row before any shell creation is allowed. Shell keys are deterministic per clinic:
+
+- `dentist-001`, `dentist-002`, ...
+- `hygienist-001`, ...
+- `assistant-001`, ...
+- `receptionist-001`, ...
+- `treatment-coordinator-001`, ...
+- `sterilization-technician-001`, ...
+- `office-manager-001`, ...
+
+The field mapping intentionally avoids fake people:
+
+- `clinic_id` = existing draft clinic id.
+- `deployment_provider_key` = deterministic shell key.
+- `provisioning_source` = `setup_draft`.
+- `provisioning_status` = `placeholder`.
+- `first_name` / `last_name` = null.
+- `title`, `display_name`, and `full_name` = explicit placeholder labels such as `Dentist Placeholder 001`.
+- `role` = the planned provider category label.
+- `active` = false so shells do not appear in legacy active-provider clinical selection before a future activation/naming workflow.
+
+Idempotency is key-based. Retrying the same clinic/draft reuses existing shells, partial retries create only missing keys, duplicate keys within one clinic are treated as conflicts/skips, and the same key may exist for different clinics. Legacy global providers with `clinic_id is null` are ignored. The foundation creates no downstream sterilizer, workstation, hardware, pack, cycle, trace, user, or audit records.
+
+## RC4 Slice 2C - Provider Supabase Repository Implementation
+
+RC4 Slice 2C adds `deployment-provider-supabase-repository.ts` as the concrete Supabase adapter for the provider-shell repository contract. The adapter is server-only and remains unused by runtime deployment, Setup Wizard actions, UI, routes, the Deploy button, and `DeploymentEngine.execute()`.
+
+The repository write surface is limited to `public.providers` inserts for inactive setup-draft placeholders. It maps provider shell payloads to:
+
+- `clinic_id`
+- `deployment_provider_key`
+- `provisioning_source = setup_draft`
+- `provisioning_status = placeholder`
+- `first_name = null`
+- `last_name = null`
+- placeholder `title`, `display_name`, and `full_name`
+- provider category `role`
+- `active = false`
+
+The adapter never updates or deletes provider rows and never mutates legacy global providers where `clinic_id is null`. It pre-reads `(clinic_id, deployment_provider_key)` before insert, reuses an existing inactive setup-draft placeholder, and reports a conflict if that key belongs to a non-placeholder provider record. Unique constraint races are handled by re-reading the same clinic/key pair and resolving to reuse or safe conflict. No sterilizer, workstation, hardware, pack, cycle, trace, user, audit, activation, or downstream records are created.
+
+## RC4 Slice 2E - Setup Runtime Provider Shell Provisioning
+
+The Setup Complete server action now provisions provider placeholder shells after the prior runtime persistence boundaries succeed. The ordered runtime path is:
+
+1. Create or reuse `deployment_runs` by setup-session idempotency key and payload hash.
+2. Create or reuse the draft `public.clinics` root and link `deployment_runs.clinic_id`.
+3. Create or reuse the linked `public.clinic_settings` row.
+4. Create or reuse inactive provider placeholder shells in `public.providers` for the linked `clinic_id`.
+
+Provider shell provisioning consumes the reviewed `DeploymentDraft.providerPlan` counts and produces deterministic keys such as `dentist-001`, `hygienist-001`, and `assistant-001`. Runtime-created shell rows remain placeholders: `provisioning_source = setup_draft`, `provisioning_status = placeholder`, first/last names are null, display fields include placeholder labels, and `active = false`.
+
+Retry behavior is idempotent through `(clinic_id, deployment_provider_key)`. Re-running the same reviewed setup session reuses existing shells, while partial existing shells create only missing keys. Legacy global providers with `clinic_id is null` are not updated, deleted, or reused for deployment shell matching.
+
+This slice does not create sterilizers, workstations, hardware devices, packs, cycles, traces, users, audit logs, activation records, or downstream deployment-stage records. Access to the SteriSphere platform remains disabled and downstream provisioning remains simulated.
+
+Manual verification queries:
+
+```sql
+select deployment_run_id, clinic_id
+from public.deployment_runs
+where deployment_run_id = '<deployment-run-id>';
+
+select id, clinic_code, deployment_status
+from public.clinics
+where id = '<clinic-id>';
+
+select id, clinic_id
+from public.clinic_settings
+where clinic_id = '<clinic-id>';
+
+select clinic_id, deployment_provider_key, provisioning_source, provisioning_status, active, first_name, last_name, display_name, full_name
+from public.providers
+where clinic_id = '<clinic-id>'
+order by deployment_provider_key;
+
+select clinic_id, deployment_provider_key, count(*)
+from public.providers
+where clinic_id = '<clinic-id>'
+  and deployment_provider_key is not null
+group by clinic_id, deployment_provider_key
+having count(*) > 1;
+
+select count(*) as legacy_global_provider_rows
+from public.providers
+where clinic_id is null;
+```
