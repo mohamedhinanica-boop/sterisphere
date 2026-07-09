@@ -649,3 +649,11 @@ The first Setup runtime clinic-root wiring remains server-only. `app/setup/actio
 This boundary does not expose a public API route and does not call `DeploymentEngine.execute()`. The DeploymentEngine simulation path remains unchanged. The only runtime writes introduced by this slice are `public.clinics` inserts/reuse and `deployment_runs.clinic_id` linking.
 
 The Complete step displays both deployment-run status and clinic-root status. Platform access stays disabled because clinic configuration and all downstream operational records are still simulated.
+
+## RC4 Slice 1 Provisioning Boundary
+
+Clinic settings provisioning is implemented as a server-only deployment module. The setup server action calls the settings helper only after clinic-root provisioning succeeds and a clinic id is available.
+
+The provisioner composes `SupabaseDeploymentClinicSettingsRepository` and `DeploymentClinicSettingsService`. It reads `public.clinics` to require the clinic root and writes only `public.clinic_settings`. It does not call `DeploymentEngine.execute()`, does not change the full DeploymentRepository, and does not provision providers, sterilizers, workstations, hardware, packs, cycles, traces, users, or audit logs.
+
+The Complete step reports Clinic Root and Clinic Settings independently. Platform access remains disabled because clinic activation and operational provisioning are still future slices.

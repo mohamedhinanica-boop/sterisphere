@@ -545,3 +545,77 @@ select id, clinic_code, deployment_status, deployed_at
 from public.clinics
 where clinic_code = '<clinic-code>';
 ```
+
+## RC4 Slice 1 - Clinic Settings Provisioning
+
+After a deployment run and draft clinic root are successfully created or reused, the setup server action now provisions exactly one `public.clinic_settings` row for the linked draft clinic.
+
+Runtime write order:
+
+1. `deployment_runs` create/reuse by setup session idempotency key and payload hash.
+2. `public.clinics` create/reuse in `deployment_status = 'draft'`.
+3. `deployment_runs.clinic_id` link/reuse.
+4. `public.clinic_settings` create/reuse by `clinic_id`.
+
+The clinic settings provisioner requires an existing clinic root before it inserts settings. On retry it looks up `clinic_settings` by `clinic_id` and reuses the existing row. If settings creation fails, the durable deployment run and draft clinic root remain in place; no rollback is performed and no additional downstream records are created.
+
+Manual verification queries:
+
+```sql
+select deployment_run_id, clinic_id
+from public.deployment_runs
+where deployment_run_id = '<deployment-run-id>';
+
+select id, clinic_code, deployment_status
+from public.clinics
+where id = '<clinic-id>';
+
+select id, clinic_id, clinic_name, pack_expiration_days, created_at, updated_at
+from public.clinic_settings
+where clinic_id = '<clinic-id>';
+```
+
+RC4 Slice 1 schema assumption: `public.clinic_settings.clinic_id` must exist and be unique for strict duplicate prevention. The provisioner pre-reads by `clinic_id` and resolves unique conflicts as reuse; production verification should confirm the `clinic_id` uniqueness constraint before broad rollout.
+
+## RC4 Slice 1B - clinic_settings clinic_id Migration
+
+Production `public.clinic_settings` currently exists as a legacy/global settings table without `clinic_id`. RC4 Slice 1 provisioning needs per-clinic linkage before it can safely create exactly one settings row for each deployed draft clinic.
+
+Migration draft: `supabase_clinic_settings_clinic_id.sql`.
+
+The draft keeps compatibility with the existing global/default settings row by adding `clinic_id uuid null` first. It then adds a foreign key to `public.clinics(id)` with `on delete restrict` and a partial unique index on `clinic_id where clinic_id is not null`. This allows legacy rows with `clinic_id is null` to remain untouched while enforcing one linked clinic-specific settings row per clinic for RC4 provisioning.
+
+RC4 provisioning behavior after this migration:
+
+- Existing unlinked legacy settings remain unlinked.
+- New deployment-created clinics receive linked clinic-specific settings rows.
+- Retry for the same clinic reuses the linked settings row.
+- A different deployment cannot create a duplicate settings row for the same clinic id.
+- A later cleanup/migration can decide whether to migrate, archive, or keep the legacy unlinked settings row.
+
+Preflight and verification queries are included in the SQL draft. The key post-migration checks are:
+
+```sql
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'clinic_settings'
+  and column_name = 'clinic_id';
+
+select conname, pg_get_constraintdef(oid)
+from pg_constraint
+where conrelid = 'public.clinic_settings'::regclass
+  and conname = 'clinic_settings_clinic_id_fkey';
+
+select indexname, indexdef
+from pg_indexes
+where schemaname = 'public'
+  and tablename = 'clinic_settings'
+  and indexname = 'clinic_settings_clinic_id_unique_idx';
+
+select clinic_id, count(*)
+from public.clinic_settings
+where clinic_id is not null
+group by clinic_id
+having count(*) > 1;
+```

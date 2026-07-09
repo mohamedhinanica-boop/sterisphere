@@ -701,3 +701,14 @@ The ordered Deployment Engine sequence remains simulated and unchanged. Stage 5 
 7. The UI reports deployment-run status, clinic-root status, linked `clinic_id`, and the continuing simulation boundary.
 
 Retry behavior: the same setup session and same payload hash reuses the deployment run; if that run already has `clinic_id`, the clinic-root helper reuses the linked draft clinic. A different setup session using the same clinic code conflicts and does not create a duplicate clinic.
+
+## RC4 Slice 1 Clinic Settings Sequence
+
+1. User confirms deployment from Setup Complete.
+2. The server action creates/reuses `deployment_runs`.
+3. The server action creates/reuses the draft clinic root and links `deployment_runs.clinic_id`.
+4. The server action provisions `clinic_settings` for the linked `clinic_id`.
+5. If `clinic_settings` already exists for that clinic, the settings row is reused.
+6. If settings provisioning fails, the deployment run and clinic root remain durable and the UI reports a safe settings failure.
+
+The sequence stops after clinic settings. Providers, sterilizers, workstations, hardware, packs, cycles, traces, users, audit logs, activation, and real workspace access remain out of scope.

@@ -14,6 +14,9 @@ import {
   createClinicRootForServerDeploymentRun,
 } from "@/lib/modules/deployment/deployment-clinic-server";
 import {
+  provisionClinicSettingsForServerDeployment,
+} from "@/lib/modules/deployment/deployment-clinic-settings-server";
+import {
   createOrReuseServerDeploymentRun,
 } from "@/lib/modules/deployment/deployment-run-server";
 
@@ -40,6 +43,22 @@ export interface ClinicRootActionResult {
   message: string;
 }
 
+export type ClinicSettingsActionStatus =
+  | "created"
+  | "reused"
+  | "conflict"
+  | "rejected"
+  | "error"
+  | "skipped";
+
+export interface ClinicSettingsActionResult {
+  ok: boolean;
+  status: ClinicSettingsActionStatus;
+  settingsId: string | null;
+  clinicId: string | null;
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -48,17 +67,25 @@ export interface PersistDeploymentRunActionResult {
   idempotencyKey: string | null;
   payloadHash: string | null;
   clinicRoot: ClinicRootActionResult;
+  clinicSettings: ClinicSettingsActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc3-clinic-root-runtime-wiring";
-const SCHEMA_VERSION = "deployment-run-and-clinic-root";
+const DEPLOYMENT_VERSION = "rc4-clinic-settings-provisioning";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings";
 const EVIDENCE_VERSION = "deployment-audit-evidence-rc2.5-slice4";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
   status: "skipped",
   clinicId: null,
   message: "Clinic root persistence was not attempted.",
+};
+const CLINIC_SETTINGS_NOT_ATTEMPTED: ClinicSettingsActionResult = {
+  ok: false,
+  status: "skipped",
+  settingsId: null,
+  clinicId: null,
+  message: "Clinic settings provisioning was not attempted.",
 };
 
 export async function persistDeploymentRunAction(
@@ -79,6 +106,7 @@ export async function persistDeploymentRunAction(
       idempotencyKey: null,
       payloadHash: null,
       clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
+      clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -93,6 +121,7 @@ export async function persistDeploymentRunAction(
       idempotencyKey: null,
       payloadHash: null,
       clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
+      clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -111,6 +140,7 @@ export async function persistDeploymentRunAction(
       idempotencyKey: null,
       payloadHash: null,
       clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
+      clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -164,9 +194,10 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc3-slice6",
-        boundary: "deployment_run_and_clinic_root",
+        runtimeSlice: "rc4-slice1",
+        boundary: "deployment_run_clinic_root_and_clinic_settings",
         clinicRootPersistence: "enabled",
+        clinicSettingsProvisioning: "enabled",
         clinicConfigurationSimulated: true,
         deploymentSessionId: normalizedDeploymentSessionId,
         clinicCode: draft.clinicProfile.clinicCode || null,
@@ -182,6 +213,7 @@ export async function persistDeploymentRunAction(
         idempotencyKey,
         payloadHash,
         clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
+        clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -196,6 +228,7 @@ export async function persistDeploymentRunAction(
         idempotencyKey,
         payloadHash,
         clinicRoot: CLINIC_ROOT_NOT_ATTEMPTED,
+        clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -225,8 +258,67 @@ export async function persistDeploymentRunAction(
               ? "Clinic root was not linked because this clinic code is already assigned to another deployment session."
               : clinicRoot.message,
         },
+        clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
+      };
+    }
+
+    const clinicId = clinicRoot.clinic?.id ?? null;
+
+    if (!clinicId) {
+      return {
+        ok: false,
+        status: result.status,
+        deploymentRunId: result.deploymentRun.deploymentRunId,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        idempotencyKey,
+        payloadHash,
+        clinicRoot: {
+          ok: true,
+          status: clinicRoot.status,
+          clinicId: null,
+          message: "Clinic root persisted but no clinic id was returned.",
+        },
+        clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
+        message:
+          "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
+      };
+    }
+
+    const clinicSettings =
+      await provisionClinicSettingsForServerDeployment(client, {
+        clinicId,
+        draft,
+        createdAt: persistedAt,
+      });
+
+    if (!clinicSettings.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        deploymentRunId: result.deploymentRun.deploymentRunId,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        idempotencyKey,
+        payloadHash,
+        clinicRoot: {
+          ok: true,
+          status: clinicRoot.status,
+          clinicId,
+          message:
+            clinicRoot.status === "reused"
+              ? "Draft clinic root reused and linked to this deployment run."
+              : "Draft clinic root persisted and linked to this deployment run.",
+        },
+        clinicSettings: {
+          ok: false,
+          status: clinicSettings.status,
+          settingsId: clinicSettings.settings?.id ?? null,
+          clinicId,
+          message: clinicSettings.message,
+        },
+        message:
+          "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
     }
 
@@ -240,14 +332,24 @@ export async function persistDeploymentRunAction(
       clinicRoot: {
         ok: true,
         status: clinicRoot.status,
-        clinicId: clinicRoot.clinic?.id ?? null,
+        clinicId,
         message:
           clinicRoot.status === "reused"
             ? "Draft clinic root reused and linked to this deployment run."
             : "Draft clinic root persisted and linked to this deployment run.",
       },
+      clinicSettings: {
+        ok: true,
+        status: clinicSettings.status,
+        settingsId: clinicSettings.settings?.id ?? null,
+        clinicId,
+        message:
+          clinicSettings.status === "reused"
+            ? "Clinic settings already exist for this clinic; reuse them."
+            : "Clinic settings provisioned for this draft clinic.",
+      },
       message:
-        "Deployment run persisted and draft clinic root linked. Clinic configuration is still simulated.",
+        "Deployment run, draft clinic root, and clinic settings are provisioned. Clinic configuration remains simulated.",
     };
   } catch {
     return {
@@ -263,6 +365,14 @@ export async function persistDeploymentRunAction(
         clinicId: null,
         message:
           "Clinic root may be unlinked or unavailable. The deployment_run remains durable evidence and no downstream records were created.",
+      },
+      clinicSettings: {
+        ok: false,
+        status: "error",
+        settingsId: null,
+        clinicId: null,
+        message:
+          "Clinic settings may be unlinked or unavailable. No rollback was performed.",
       },
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",

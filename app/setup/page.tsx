@@ -723,6 +723,13 @@ export default function ClinicSetupPage() {
           clinicId: null,
           message: "Clinic root persistence was not attempted.",
         },
+        clinicSettings: {
+          ok: false,
+          status: "skipped",
+          settingsId: null,
+          clinicId: null,
+          message: "Clinic settings provisioning was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -752,6 +759,14 @@ export default function ClinicSetupPage() {
           clinicId: null,
           message:
             "Clinic root persistence was not completed. No downstream records were created.",
+        },
+        clinicSettings: {
+          ok: false,
+          status: "error",
+          settingsId: null,
+          clinicId: null,
+          message:
+            "Clinic settings provisioning was not completed. No rollback was performed.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1045,6 +1060,7 @@ function CompleteStep({
     : null;
   const deploymentRunPersisted = Boolean(deploymentRunResult?.deploymentRunId);
   const clinicRoot = deploymentRunResult?.clinicRoot ?? null;
+  const clinicSettings = deploymentRunResult?.clinicSettings ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1140,42 +1156,72 @@ function CompleteStep({
             </div>
           </dl>
 
-          <div className="mt-4 rounded-xl border border-white/60 bg-white/50 p-4">
-            <p className="font-bold">
-              Clinic root status: {clinicRoot?.status ?? "ready"}
-            </p>
-            <p className="mt-1">
-              {clinicRoot?.message ??
-                "A successful confirmation will create or reuse one draft clinic root after the deployment_run is durable."}
-            </p>
-            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-                  Clinic ID
-                </dt>
-                <dd className="mt-1 break-all font-mono text-xs">
-                  {clinicRoot?.clinicId ?? "Not linked"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-                  Clinic Root
-                </dt>
-                <dd className="mt-1 font-semibold">
-                  {clinicRoot?.ok ? "linked draft" : "not linked"}
-                </dd>
-              </div>
-            </dl>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+              <p className="font-bold">
+                Clinic Root: {clinicRoot?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {clinicRoot?.message ??
+                  "A successful confirmation will create or reuse one draft clinic root after the deployment_run is durable."}
+              </p>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Clinic ID
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-xs">
+                    {clinicRoot?.clinicId ?? "Not linked"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Clinic Root
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {clinicRoot?.ok ? "linked draft" : "not linked"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="rounded-xl border border-white/60 bg-white/50 p-4">
+              <p className="font-bold">
+                Clinic Settings: {clinicSettings?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {clinicSettings?.message ??
+                  "Clinic settings will be provisioned after the draft clinic root is linked."}
+              </p>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Settings ID
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-xs">
+                    {clinicSettings?.settingsId ?? "Not linked"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                    Clinic Settings
+                  </dt>
+                  <dd className="mt-1 font-semibold">
+                    {clinicSettings?.ok ? "linked" : "not linked"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
 
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
           </p>
           <p className="mt-1">
-            Only public.clinics and deployment_runs.clinic_id are persisted by
-            this step. Settings, users, providers, sterilizers, workstations,
-            packs, cycles, traces, audit logs, and downstream deployment-stage
-            records are not created yet.
+            Only public.clinics, public.clinic_settings, and
+            deployment_runs.clinic_id are persisted by this step. Users,
+            providers, sterilizers, workstations, packs, cycles, traces, audit
+            logs, and downstream deployment-stage records are not created yet.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -1221,8 +1267,11 @@ function buildDeploymentSupportHref(
       `Deployment run status: ${result?.status ?? "not persisted"}`,
       `Clinic root status: ${result?.clinicRoot.status ?? "not attempted"}`,
       `Clinic ID: ${result?.clinicRoot.clinicId ?? "not linked"}`,
+      `Clinic settings status: ${result?.clinicSettings.status ?? "not attempted"}`,
+      `Clinic settings ID: ${result?.clinicSettings.settingsId ?? "not linked"}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
+      `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
     ].join("\n"),
   );
 
