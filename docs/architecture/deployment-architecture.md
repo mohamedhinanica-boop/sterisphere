@@ -657,3 +657,9 @@ Clinic settings provisioning is implemented as a server-only deployment module. 
 The provisioner composes `SupabaseDeploymentClinicSettingsRepository` and `DeploymentClinicSettingsService`. It reads `public.clinics` to require the clinic root and writes only `public.clinic_settings`. It does not call `DeploymentEngine.execute()`, does not change the full DeploymentRepository, and does not provision providers, sterilizers, workstations, hardware, packs, cycles, traces, users, or audit logs.
 
 The Complete step reports Clinic Root and Clinic Settings independently. Platform access remains disabled because clinic activation and operational provisioning are still future slices.
+
+## RC4 Slice 2A Provider Provisioning Design Boundary
+
+Provider provisioning is not runtime-wired yet. The current setup draft provides provider counts only, while `public.providers` represents real named people used by Settings and Traceability. RC4 provider provisioning must therefore use clinic-scoped provider shells with explicit placeholder semantics in a later slice.
+
+The schema draft preserves global providers and adds nullable clinic/provisioning metadata so a later server-only provisioner can safely create deterministic shell records per draft clinic without changing current Settings behavior or Traceability reads.

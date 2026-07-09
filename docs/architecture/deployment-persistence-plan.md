@@ -619,3 +619,32 @@ where clinic_id is not null
 group by clinic_id
 having count(*) > 1;
 ```
+
+## RC4 Slice 2A - Providers Schema Preflight and Migration Draft
+
+Provider provisioning remains design-only. The reviewed setup draft currently contains provider counts, not named operational people. `public.providers` is used by Settings and Traceability as a named provider directory with fields such as `first_name`, `last_name`, `title`, `display_name`, `full_name`, `role`, and `active`.
+
+Created SQL drafts:
+
+- `supabase_providers_preflight.sql` inspects provider columns, constraints, indexes, RLS status, triggers, row counts, role/active distribution, and whether deployment linkage columns already exist.
+- `supabase_providers_deployment_fields.sql` prepares future clinic-scoped provider-shell provisioning by adding nullable deployment metadata only.
+
+Migration draft behavior:
+
+- Adds `clinic_id uuid null` with FK to `public.clinics(id)` using `on delete restrict`.
+- Adds `deployment_provider_key text null` for deterministic future shell keys such as `dentist-001`.
+- Adds `provisioning_source text null` for provenance such as `setup_draft`.
+- Adds `provisioning_status text not null default 'active'` with allowed values `placeholder`, `active`, and `archived`.
+- Adds `providers_clinic_id_idx` for clinic-scoped provider lookups.
+- Adds partial unique index `(clinic_id, deployment_provider_key) where deployment_provider_key is not null` for idempotent future deployment-created shells.
+
+Legacy compatibility:
+
+- Existing global providers remain valid with `clinic_id is null`.
+- Existing Settings-managed named providers are not forced into a clinic.
+- Existing provider app behavior is not changed by this draft.
+- Manually named providers remain Settings-managed.
+- Future deployment-created provider shells must be explicitly marked with placeholder semantics and deterministic keys.
+- No fake person rows should be created from count-only draft data without placeholder semantics.
+
+Future runtime provider provisioning should run only after `deployment_runs`, draft clinic root, and `clinic_settings` are durable. It should create or reuse clinic-scoped placeholder/provider-shell records by deterministic `deployment_provider_key`; it should not create operational named staff from counts alone.
