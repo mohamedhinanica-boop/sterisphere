@@ -25,6 +25,9 @@ import {
 import {
   provisionSterilizerShellsForServerDeployment,
 } from "@/lib/modules/deployment/deployment-sterilizer-server";
+import {
+  provisionWorkstationShellsForServerDeployment,
+} from "@/lib/modules/deployment/deployment-workstation-server";
 
 export type PersistDeploymentRunActionStatus =
   | "created"
@@ -107,6 +110,20 @@ export interface SterilizerShellsActionResult {
   message: string;
 }
 
+export type WorkstationShellsActionStatus = SterilizerShellsActionStatus;
+
+export interface WorkstationShellsActionResult {
+  ok: boolean;
+  status: WorkstationShellsActionStatus;
+  clinicId: string | null;
+  requested: number;
+  created: number;
+  reused: number;
+  skipped: number;
+  conflicts: number;
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -118,11 +135,12 @@ export interface PersistDeploymentRunActionResult {
   clinicSettings: ClinicSettingsActionResult;
   providerShells: ProviderShellsActionResult;
   sterilizerShells: SterilizerShellsActionResult;
+  workstationShells: WorkstationShellsActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc4-sterilizer-shell-provisioning";
-const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers";
+const DEPLOYMENT_VERSION = "rc4-workstation-shell-provisioning";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations";
 const EVIDENCE_VERSION = "deployment-audit-evidence-rc2.5-slice4";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
@@ -159,6 +177,17 @@ const STERILIZER_SHELLS_NOT_ATTEMPTED: SterilizerShellsActionResult = {
   conflicts: 0,
   message: "Sterilizer shell provisioning was not attempted.",
 };
+const WORKSTATION_SHELLS_NOT_ATTEMPTED: WorkstationShellsActionResult = {
+  ok: false,
+  status: "skipped",
+  clinicId: null,
+  requested: 0,
+  created: 0,
+  reused: 0,
+  skipped: 0,
+  conflicts: 0,
+  message: "Workstation shell provisioning was not attempted.",
+};
 
 export async function persistDeploymentRunAction(
   draft: DeploymentDraft,
@@ -181,6 +210,7 @@ export async function persistDeploymentRunAction(
       clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
       providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+      workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -198,6 +228,7 @@ export async function persistDeploymentRunAction(
       clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
       providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+      workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -219,6 +250,7 @@ export async function persistDeploymentRunAction(
       clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
       providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+      workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -272,12 +304,13 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc4-slice3e",
-        boundary: "deployment_run_clinic_root_settings_provider_and_sterilizer_shells",
+        runtimeSlice: "rc4-slice4d",
+        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_and_workstation_shells",
         clinicRootPersistence: "enabled",
         clinicSettingsProvisioning: "enabled",
         providerShellProvisioning: "enabled",
         sterilizerShellProvisioning: "enabled",
+        workstationShellProvisioning: "enabled",
         clinicConfigurationSimulated: true,
         deploymentSessionId: normalizedDeploymentSessionId,
         clinicCode: draft.clinicProfile.clinicCode || null,
@@ -296,6 +329,7 @@ export async function persistDeploymentRunAction(
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -313,6 +347,7 @@ export async function persistDeploymentRunAction(
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -345,6 +380,7 @@ export async function persistDeploymentRunAction(
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -369,6 +405,7 @@ export async function persistDeploymentRunAction(
         clinicSettings: CLINIC_SETTINGS_NOT_ATTEMPTED,
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -407,6 +444,7 @@ export async function persistDeploymentRunAction(
         },
         providerShells: PROVIDER_SHELLS_NOT_ATTEMPTED,
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
@@ -458,6 +496,7 @@ export async function persistDeploymentRunAction(
           message: providerShells.message,
         },
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
@@ -522,8 +561,87 @@ export async function persistDeploymentRunAction(
           conflicts: sterilizerShells.counts.conflicts,
           message: sterilizerShells.message,
         },
+        workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
+      };
+    }
+
+    const workstationShells =
+      await provisionWorkstationShellsForServerDeployment(client, {
+        clinicId,
+        draft,
+        createdAt: persistedAt,
+      });
+
+    if (!workstationShells.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        deploymentRunId: result.deploymentRun.deploymentRunId,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        idempotencyKey,
+        payloadHash,
+        clinicRoot: {
+          ok: true,
+          status: clinicRoot.status,
+          clinicId,
+          message:
+            clinicRoot.status === "reused"
+              ? "Draft clinic root reused and linked to this deployment run."
+              : "Draft clinic root persisted and linked to this deployment run.",
+        },
+        clinicSettings: {
+          ok: true,
+          status: clinicSettings.status,
+          settingsId: clinicSettings.settings?.id ?? null,
+          clinicId,
+          message:
+            clinicSettings.status === "reused"
+              ? "Clinic settings already exist for this clinic; reuse them."
+              : "Clinic settings provisioned for this draft clinic.",
+        },
+        providerShells: {
+          ok: true,
+          status: providerShells.status,
+          clinicId,
+          requested: providerShells.counts.requested,
+          created: providerShells.counts.created,
+          reused: providerShells.counts.reused,
+          skipped: providerShells.counts.skipped,
+          conflicts: providerShells.counts.conflicts,
+          message:
+            providerShells.status === "reused"
+              ? "Provider placeholder shells already exist for this clinic; reuse them."
+              : "Provider placeholder shells provisioned for this draft clinic.",
+        },
+        sterilizerShells: {
+          ok: true,
+          status: sterilizerShells.status,
+          clinicId,
+          requested: sterilizerShells.counts.requested,
+          created: sterilizerShells.counts.created,
+          reused: sterilizerShells.counts.reused,
+          skipped: sterilizerShells.counts.skipped,
+          conflicts: sterilizerShells.counts.conflicts,
+          message:
+            sterilizerShells.status === "reused"
+              ? "Sterilizer planned shells already exist for this clinic; reuse them."
+              : "Sterilizer planned shells provisioned for this draft clinic.",
+        },
+        workstationShells: {
+          ok: false,
+          status: workstationShells.status,
+          clinicId,
+          requested: workstationShells.counts.requested,
+          created: workstationShells.counts.created,
+          reused: workstationShells.counts.reused,
+          skipped: workstationShells.counts.skipped,
+          conflicts: workstationShells.counts.conflicts,
+          message: workstationShells.message,
+        },
+        message:
+          "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
       };
     }
     return {
@@ -580,8 +698,22 @@ export async function persistDeploymentRunAction(
             ? "Sterilizer planned shells already exist for this clinic; reuse them."
             : "Sterilizer planned shells provisioned for this draft clinic.",
       },
+      workstationShells: {
+        ok: true,
+        status: workstationShells.status,
+        clinicId,
+        requested: workstationShells.counts.requested,
+        created: workstationShells.counts.created,
+        reused: workstationShells.counts.reused,
+        skipped: workstationShells.counts.skipped,
+        conflicts: workstationShells.counts.conflicts,
+        message:
+          workstationShells.status === "reused"
+            ? "Workstation planned shells already exist for this clinic; reuse them."
+            : "Workstation planned shells provisioned for this draft clinic.",
+      },
       message:
-        "Deployment run, draft clinic root, clinic settings, provider placeholder shells, and sterilizer planned shells are provisioned. Workstation, hardware, pack, cycle, trace, user, and audit provisioning remains simulated.",
+        "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, and workstation planned shells are provisioned. Hardware, pack, cycle, trace, user, and audit provisioning remains simulated.",
     };
   } catch {
     return {
@@ -629,6 +761,18 @@ export async function persistDeploymentRunAction(
         conflicts: 0,
         message:
           "Sterilizer shell provisioning may be incomplete or unavailable. No downstream records were created.",
+      },
+      workstationShells: {
+        ok: false,
+        status: "error",
+        clinicId: null,
+        requested: 0,
+        created: 0,
+        reused: 0,
+        skipped: 0,
+        conflicts: 0,
+        message:
+          "Workstation shell provisioning may be incomplete or unavailable. No downstream records were created.",
       },
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",

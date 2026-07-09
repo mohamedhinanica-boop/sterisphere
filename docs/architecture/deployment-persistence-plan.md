@@ -1048,3 +1048,13 @@ Created SQL file:
 The migration adds nullable deployment metadata only: `deployment_workstation_key`, `provisioning_source`, `provisioning_status`, and `active`. Existing workstation rows remain valid without deployment keys, and the migration does not backfill legacy/global rows or mark them active/inactive. A provisioning-status check allows `planned`, `active`, and `archived` when a status is present.
 
 The idempotency guardrail is a partial unique index on `(clinic_id, deployment_workstation_key) where deployment_workstation_key is not null`. This permits multiple legacy rows with null deployment keys while preventing duplicate deterministic setup keys such as `workstation-001` within the same clinic.
+
+## RC4 Slice 4D - Runtime Workstation Shell Provisioning
+
+RC4 Slice 4D wires workstation planned-shell provisioning into the Setup Complete server action after sterilizer shell persistence. The runtime order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells`.
+
+Runtime composition is server-only through `deployment-workstation-server.ts`, which composes `SupabaseDeploymentWorkstationRepository` with `DeploymentWorkstationService` and checks the upstream clinic root, clinic settings, provider shells, and sterilizer shells before provisioning workstation shells.
+
+The Setup Complete action now records workstation-shell stage evidence with requested, created, reused, skipped, and conflict counts. Workstation shell failures are reported after upstream records remain durable; no downstream hardware, pack, cycle, trace, user, audit, activation, agent registration, printer/scanner persistence, camera binding, sound binding, or `DeploymentEngine.execute()` behavior is introduced.
+
+Retry/reuse remains keyed by `(clinic_id, deployment_workstation_key)`. Fresh deployments create missing planned shells, repeat verification reuses compatible setup-draft planned shells, partial existing states create only missing keys, and conflicts are reported without mutating existing workstation rows or legacy/global rows.

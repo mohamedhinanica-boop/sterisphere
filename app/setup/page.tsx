@@ -752,6 +752,17 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message: "Sterilizer shell provisioning was not attempted.",
         },
+        workstationShells: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message: "Workstation shell provisioning was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -813,6 +824,18 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message:
             "Sterilizer shell provisioning was not completed. No downstream records were created.",
+        },
+        workstationShells: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message:
+            "Workstation shell provisioning was not completed. No downstream records were created.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1416,11 +1439,17 @@ function buildDeploymentSupportHref(
       `Sterilizer shells created: ${result?.sterilizerShells.created ?? 0}`,
       `Sterilizer shells reused: ${result?.sterilizerShells.reused ?? 0}`,
       `Sterilizer shell conflicts: ${result?.sterilizerShells.conflicts ?? 0}`,
+      `Workstation shells status: ${result?.workstationShells.status ?? "not attempted"}`,
+      `Workstation shells requested: ${result?.workstationShells.requested ?? 0}`,
+      `Workstation shells created: ${result?.workstationShells.created ?? 0}`,
+      `Workstation shells reused: ${result?.workstationShells.reused ?? 0}`,
+      `Workstation shell conflicts: ${result?.workstationShells.conflicts ?? 0}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
       `Provider shells message: ${result?.providerShells.message ?? "No provider-shell response yet."}`,
       `Sterilizer shells message: ${result?.sterilizerShells.message ?? "No sterilizer-shell response yet."}`,
+      `Workstation shells message: ${result?.workstationShells.message ?? "No workstation-shell response yet."}`,
     ].join("\n"),
   );
 
