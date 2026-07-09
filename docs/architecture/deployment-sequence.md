@@ -683,3 +683,9 @@ The future server sequence for this narrow boundary is:
 A successful RC3 clinic-root operation is not full deployment success. The clinic remains non-operational until settings, workstations, sterilizers, planning records, policies, defaults, audit evidence, finalization, dashboard unlock, and redirect stages are deliberately implemented in later slices.
 
 Rollback and recovery remain conservative. If clinic insert fails, the deployment run remains as evidence with no clinic link. If clinic insert succeeds but linking fails in a later implementation, the safest production design is a transaction or RPC that inserts and links atomically; otherwise the draft clinic shell must remain non-operational and require explicit recovery before retry.
+
+## RC3 Slice 5 Server-only Clinic Root Helper Note
+
+RC3 Slice 5 prepares the first trusted server helper for the future Stage 4 Create Clinic boundary without advancing the public deployment sequence. The helper requires Stage 2 deployment-run evidence to already exist and can create or reuse the draft clinic root, then link deployment_runs.clinic_id after the clinic root is known.
+
+The ordered Deployment Engine sequence remains simulated and unchanged. Stage 5 and later deployment stages remain unwired, including settings, workstations, sterilizers, planning records, policies, defaults, audit entries, finalization, dashboard unlock, and redirect.

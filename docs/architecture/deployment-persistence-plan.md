@@ -461,3 +461,60 @@ RC3 Slice 4 adds a pure TypeScript in-memory harness for the clinic-root service
 The harness verifies that a deployment run must exist before clinic creation, a clinic root can be created from an existing run, deployment_runs.clinic_id is linked after clinic creation, retrying the same run reuses the linked clinic, the same clinic_code from a different session conflicts, and linking a run already attached to another clinic returns an explicit conflict.
 
 The in-memory repository tracks forbidden-boundary counters for settings, providers, sterilizers, workstations, packs, cycles, traces, and audit logs. These counters remain zero in the harness. The harness does not call Supabase, does not import UI or Setup Wizard code, does not call DeploymentEngine.execute(), and does not create downstream deployment records.
+
+## RC3 Slice 5 Server-only Clinic Root Runtime Helper
+
+RC3 Slice 5 adds deployment-clinic-server.ts as the private server-only composition point for first real clinic-root persistence. It accepts a trusted server Supabase client, composes SupabaseDeploymentClinicRepository, SupabaseDeploymentRunRepository, and DeploymentClinicService, and can create or reuse a draft clinic root for an existing deployment run.
+
+The helper remains private. It is not exported from the deployment barrel, not imported by UI, not exposed through a route, and not wired to the Setup Wizard, Deploy button, or DeploymentEngine.execute(). It may touch only public.clinics and deployment_runs.clinic_id.
+
+RC3 Slice 5 also adds deployment-clinic-smoke-harness.ts. The smoke harness requires caller-provided deployment_run ids. It does not create deployment_runs. It can verify create/reuse for one existing run and, when a second existing run id is supplied, conflict behavior for the same clinic_code from a different deployment run.
+
+Manual smoke steps:
+
+1. Apply supabase_clinics.sql if public.clinics is not already present.
+2. Run supabase_clinics_preflight.sql and confirm public.clinics exists, RLS is enabled, clinic_code is unique, and deployment_runs.clinic_id exists.
+3. Create or identify one existing deployment_runs row with clinic_id null for the smoke target.
+4. Optionally create or identify a second existing deployment_runs row with clinic_id null for the same clinic_code conflict check.
+5. From a trusted local/server-only script, create a service-role Supabase client and call runDeploymentClinicSmokeHarness() with the existing deployment_run id, optional conflictDeploymentRunId, and reviewed DeploymentDraft.
+6. Confirm the first step creates or reuses one draft clinic root.
+7. Confirm the retry step returns reused and creates no duplicate clinic.
+8. Confirm the optional conflict step returns conflict.
+9. Confirm no settings, users, providers, sterilizers, workstations, packs, cycles, traces, audit logs, or downstream records were created.
+
+Verification SQL:
+
+`sql
+select id, clinic_code, deployment_status, deployed_at, deployment_version, schema_version, created_at
+from public.clinics
+where clinic_code = 'YOUR_SMOKE_CLINIC_CODE';
+
+select deployment_run_id, clinic_id, idempotency_key, payload_hash
+from public.deployment_runs
+where deployment_run_id in ('YOUR_DEPLOYMENT_RUN_ID', 'YOUR_OPTIONAL_CONFLICT_RUN_ID');
+`
+
+Expected result: one clinic row for the smoke clinic_code with deployment_status = 'draft' and deployed_at is null. The primary smoke deployment_runs row should have clinic_id equal to that clinic id. The optional conflict deployment run should remain clinic_id null.
+
+Cleanup SQL for a test clinic root:
+
+`sql
+update public.deployment_runs
+set clinic_id = null
+where deployment_run_id in ('YOUR_DEPLOYMENT_RUN_ID', 'YOUR_OPTIONAL_CONFLICT_RUN_ID')
+  and clinic_id = 'YOUR_TEST_CLINIC_ID';
+
+delete from public.clinics
+where id = 'YOUR_TEST_CLINIC_ID'
+  and deployment_status = 'draft'
+  and deployed_at is null
+  and clinic_code = 'YOUR_SMOKE_CLINIC_CODE';
+`
+
+Recovery if clinic insert succeeds but deployment_run linking fails:
+
+1. Keep the deployment run as durable evidence.
+2. Query for a draft clinic with the reviewed clinic_code and deployed_at is null.
+3. If the clinic belongs to the failed smoke attempt and no operational records exist, either link the deployment run to that clinic id through a controlled server repair or delete the draft clinic shell with the cleanup query above.
+4. Do not mark the clinic deployed.
+5. Do not create downstream records as part of recovery.

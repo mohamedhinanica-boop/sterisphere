@@ -635,3 +635,9 @@ The clinic profile fields mapped into clinics are display name, legal name, clin
 This boundary does not create clinic_settings, users, memberships, providers, sterilizers, workstations, hardware devices, packs, cycles, traces, audit logs, or planning records. Those remain separate future deployment stages. The full SupabaseDeploymentRepository remains inert until a later slice explicitly replaces simulated stage handling.
 
 The server-only repository and service files import server-only and are not exported from the deployment barrel. Pure type and payload files may be imported for compile-time design review, but runtime clinic creation must later be composed only from trusted server code with service-role Supabase access and explicit authorization checks.
+
+### RC3 Server-only Clinic Root Helper
+
+RC3 now has a private server-only clinic-root helper that composes the Supabase clinic repository, Supabase deployment-run repository, and DeploymentClinicService. This is a composition boundary only; it is not exported from the deployment barrel and is not imported by UI, routes, Setup Wizard code, or DeploymentEngine.
+
+The helper may create or reuse one draft clinic root for an existing deployment run and link deployment_runs.clinic_id to the clinic id. The clinic remains non-operational with deployment_status = draft. Settings, users, memberships, providers, sterilizers, workstations, packs, cycles, traces, audit logs, planning records, finalization, dashboard unlock, and redirect behavior remain outside this boundary.
