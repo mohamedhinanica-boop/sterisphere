@@ -973,3 +973,51 @@ select count(*) as legacy_global_sterilizer_rows
 from public.sterilizers
 where clinic_id is null;
 ```
+
+## RC4 Slice 4A - Workstation Runtime Provisioning Foundation
+
+RC4 Slice 4A adds the inert TypeScript foundation for clinic-scoped workstation shell provisioning. It is not wired into runtime execution, the Setup Wizard, the Deploy button, `DeploymentEngine.execute()`, routes, UI, SQL migrations, smoke harnesses, or the deployment barrel. It performs no Supabase writes and inserts no runtime workstation records.
+
+Created foundation files:
+
+- `deployment-workstation-types.ts`
+- `deployment-workstation-payload.ts`
+- `deployment-workstation-repository.ts`
+- `deployment-workstation-service.ts`
+- `deployment-workstation-test-repository.ts`
+- `deployment-workstation-service.test.ts`
+
+Workstation shell provisioning is planned after sterilizers in the ordered setup persistence chain:
+
+1. `deployment_run`
+2. `clinic_root`
+3. `clinic_settings`
+4. `provider_shells`
+5. `sterilizer_shells`
+6. `workstation_shells`
+
+The payload builder consumes the reviewed `DeploymentDraft.workstations` array in order and creates deterministic keys:
+
+- `workstation-001`
+- `workstation-002`
+- `workstation-003`
+
+Field mapping:
+
+- `clinicId` -> future `clinical_workstations.clinic_id`.
+- `deploymentWorkstationKey` -> future `deployment_workstation_key`.
+- `name` -> reviewed draft workstation name, or `Workstation Placeholder NNN` when blank.
+- `workstationType` -> reviewed draft workstation type.
+- `displayOrder` -> reviewed draft order, starting at 1.
+- `status` -> `planned`.
+- `capabilities` -> canonical workstation capability map.
+- `locationLabel` -> reviewed location label, falling back to room number when needed.
+- `agentUrl` -> null.
+- `active` -> false.
+- `provisioningSource` -> `setup_draft`.
+- `provisioningStatus` -> `planned`.
+- `createdAt` / `updatedAt` -> supplied timestamp when provided.
+
+Idempotency is key-based. Retrying the same clinic/draft reuses existing shells by `(clinic_id, deployment_workstation_key)`, partial retries create only missing keys, duplicate keys within one clinic are conflicts/skips, and the same key may exist for different clinics. Legacy global workstations with `clinic_id is null` are ignored and are never attached, updated, renamed, activated, or reused for deployment matching.
+
+The in-memory harness covers fresh create, retry reuse, partial existing rows, empty drafts, duplicate same-clinic keys, same keys across clinics, deterministic payload generation, ignored global legacy workstations, and forbidden downstream counters remaining zero. Workstation provisioning remains a foundation boundary only; hardware devices, packs, cycles, traces, users, audit logs, activation, dashboard access, public API routes, full deployment repository wiring, and `DeploymentEngine.execute()` remain outside this slice.

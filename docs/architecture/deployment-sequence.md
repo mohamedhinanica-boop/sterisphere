@@ -760,3 +760,19 @@ The Setup Complete action now performs sterilizer-shell provisioning after provi
 5. Create or reuse inactive planned sterilizer shells in `public.sterilizers` from the reviewed sterilizer draft list.
 
 This does not advance the Deployment Engine into full execution. Sterilizer rows remain inactive planned shells with deterministic deployment keys and clinic-specific generated names. Workstation assignment, hardware devices, packs, cycles, traces, users, audit logs, activation, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this runtime boundary.
+
+## RC4 Slice 4A Workstation Foundation Sequence Note
+
+RC4 Slice 4A prepares the future workstation-shell step but does not add it to the runtime sequence. The current Setup Complete action still stops after sterilizer shell provisioning, and the Deployment Engine sequence remains simulated.
+
+The future workstation-shell sequence is designed to run only after:
+
+1. `deployment_runs` exists or is reused.
+2. The draft clinic root exists and `deployment_runs.clinic_id` is linked.
+3. `clinic_settings` exists for that clinic.
+4. Provider shells have been provisioned or reused for that clinic.
+5. Sterilizer shells have been provisioned or reused for that clinic.
+
+At that point, trusted server code may derive deterministic inactive workstation shells from the reviewed draft workstation list and create/reuse only missing future `clinical_workstations` rows for that clinic. The planned runtime order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells`.
+
+Workstation shells use deterministic keys such as `workstation-001`, `workstation-002`, and `workstation-003`, remain `status = planned`, `provisioning_source = setup_draft`, `provisioning_status = planned`, and `active = false`, and do not enroll local agents or create hardware records. No Supabase repository, setup action wiring, UI change, SQL migration, smoke runner, hardware device, pack, cycle, trace, user, audit entry, activation, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced by this foundation.

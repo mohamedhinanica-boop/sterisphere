@@ -723,3 +723,13 @@ Setup completion now includes sterilizer-shell provisioning after deployment-run
 The Complete step reports Sterilizer Shells status and requested, created, reused, and conflict counts. Retry/reuse is keyed by `(clinic_id, deployment_sterilizer_key)`, so repeated setup confirmation can verify existing shells without duplicating rows. Generated names keep a clinic-specific suffix to avoid the legacy global sterilizer name uniqueness constraint.
 
 Platform access stays disabled. Workstation persistence, hardware persistence, pack/cycle/trace records, users, audit logs, clinic activation, public routes, full deployment repository wiring, and `DeploymentEngine.execute()` remain outside this boundary.
+
+## RC4 Slice 4A Workstation Provisioning Foundation
+
+The workstation provisioning foundation is now defined as an inert deployment module boundary. It adds type contracts, a pure payload builder, repository interfaces, a server-only service, and an in-memory harness, but it is not imported by setup completion and does not call Supabase.
+
+The planned persistence order is now documented as `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells`. Workstation shell provisioning requires clinic root, clinic settings, provider shells, and sterilizer shells before any future trusted server composition may create planned workstation rows.
+
+The model treats setup draft workstation rows as planned deployment shells, not active clinical workstations or enrolled agents. Payloads use deterministic deployment keys such as `workstation-001`, `workstation-002`, and `workstation-003`, preserve reviewed workstation name/type/location/capability data, set `display_order` from reviewed order, set `agent_url = null`, and write future rows as `provisioning_source = setup_draft`, `provisioning_status = planned`, `status = planned`, and `active = false`.
+
+Retry behavior is anchored on `(clinic_id, deployment_workstation_key)`, while legacy global workstations with `clinic_id = null` stay outside matching and are never attached, renamed, activated, or mutated. Supabase repositories, setup action wiring, UI changes, SQL migrations, smoke runners, hardware devices, packs, cycles, traces, users, audit logs, clinic activation, and `DeploymentEngine.execute()` remain outside this foundation.
