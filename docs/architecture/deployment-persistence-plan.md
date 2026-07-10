@@ -1249,3 +1249,24 @@ RC6 Slice 2B adds a read-only server-only Supabase repository for the assignment
 The schema assumption for runtime compatibility is that `public.clinical_workstations` exposes `clinic_id`, `deployment_workstation_key`, `status`, `provisioning_source`, `provisioning_status`, and `active`, while `public.sterilizers` exposes `clinic_id`, `deployment_sterilizer_key`, `provisioning_source`, `provisioning_status`, and `active`. Same-clinic duplicate deployment keys are treated as repository errors because they prevent deterministic validation. Cross-clinic or legacy/global keyed rows are surfaced through the any-target lookup path so the validation service can report them separately from missing targets.
 
 `supabase_assignment_target_validation_preflight.sql` is read-only and verifies required columns, deployment-key indexes, duplicate same-clinic deployment keys, deployment-keyed rows with null clinic ids, active setup-draft planned rows, malformed planned deployment keys, and current planned hardware assignment compatibility with the validation rules. If a live environment fails any required-column check, the next slice must add the missing nullable deployment metadata columns or indexes before runtime validation can be wired.
+
+## RC6 Infrastructure Cleanup - Deployment Table RLS Baseline
+
+The first deployment-table security hardening target is `public.deployment_hardware_assignments`, which is deployment-only persistence owned by trusted server-side service-role repositories. Browser code does not need direct anonymous or authenticated access to this table, so the baseline security posture is RLS enabled with no permissive policies.
+
+`supabase_deployment_tables_rls_baseline.sql` enables row level security on `public.deployment_hardware_assignments` and `public.deployment_runs` and intentionally creates no anon or broad authenticated policies. Service-role deployment provisioning continues to rely on Supabase service-role bypass plus application-level server authorization checks. The migration does not insert, update, delete, backfill, bind, activate, or mutate deployment rows.
+
+Audit summary for the Phase 9 deployment-related tables:
+
+| Table | Current access model | Cleanup decision |
+| --- | --- | --- |
+| `public.deployment_hardware_assignments` | Server-only service-role deployment repositories. | Enable RLS deny-by-default in this cleanup. |
+| `public.deployment_runs` | Server-only service-role deployment evidence. | Enable RLS deny-by-default in this cleanup. |
+| `public.clinics` | Server-only deployment root in checked-in schema; RLS already enabled with no policies. | No change. |
+| `public.clinic_settings` | Existing Settings UI reads and writes directly from the browser. | Defer until authenticated clinic-scoped policies are designed. |
+| `public.providers` | Existing Settings UI reads and writes directly from the browser; deployment shells share the table with operational provider settings. | Defer until authenticated clinic-scoped policies are designed. |
+| `public.sterilizers` | Existing cycle and Settings UI read/write paths use this table directly. | Defer until operational policies are designed. |
+| `public.clinical_workstations` | Existing browser hook reads clinical rooms/workstations directly. | Defer until workstation read policies are designed. |
+| `public.clinical_hardware_devices` | Operational device/digital-twin table with future agent workflows. | Defer until agent and admin policies are designed. |
+
+`supabase_deployment_tables_rls_preflight.sql` audits RLS state, policies, assignment-table policy exposure, row counts, constraints, indexes, and duplicate assignment key groups. It should be run before and after applying the RLS migration, followed by Supabase Security Advisor verification.
