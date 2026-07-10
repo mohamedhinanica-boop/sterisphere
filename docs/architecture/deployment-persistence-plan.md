@@ -1219,3 +1219,23 @@ RC6 Slice 1D wires hardware assignment persistence into setup completion immedia
 Runtime composition is server-only through `deployment-hardware-assignment-server.ts`, which composes `SupabaseDeploymentHardwareAssignmentRepository` with `DeploymentHardwareAssignmentService` and verifies the upstream clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells before creating or reusing assignment rows.
 
 The setup action records hardware-assignment stage evidence with requested, created, reused, skipped, and conflict counts. Assignment persistence remains logical only: it writes `deployment_hardware_key`, `assignment_key`, `target_type`, and `target_deployment_key` without resolving workstation ids, sterilizer ids, hardware ids, or agent ids. It never writes `clinical_hardware_devices.default_workstation_id`, `current_workstation_id`, or `agent_id`, and does not activate hardware or assignments.
+
+## RC6 Slice 2A - Assignment Target Validation Foundation
+
+RC6 Slice 2A adds an inert deployment-domain validation boundary for planned hardware assignment targets. It does not wire setup actions, UI, `DeploymentEngine.execute()`, runtime composition, Supabase repositories, SQL migrations, smoke runners, durable ID resolution, or hardware binding writes.
+
+The future ordered relationship chain is now documented as:
+
+1. `deployment_run`
+2. `clinic_root`
+3. `clinic_settings`
+4. `provider_shells`
+5. `sterilizer_shells`
+6. `workstation_shells`
+7. `hardware_shells`
+8. `hardware_assignments`
+9. `assignment_target_validation`
+
+The validation service reads planned hardware assignments for one clinic and checks only logical deployment targets. Workstation targets must reference a same-clinic inactive setup-draft planned workstation shell using a `workstation-###` key. Sterilizer targets must reference a same-clinic inactive setup-draft planned sterilizer shell using a `sterilizer-###` key. Explicit `unassigned` relationships remain valid only when `target_deployment_key` is null and require no target lookup.
+
+Structured issues distinguish missing keys, unexpected unassigned target keys, unsupported target types, malformed deterministic keys, missing targets, cross-clinic or legacy targets, and incompatible targets. Batch results report requested, valid, invalid, missing target, and incompatible target counts, plus zero downstream write counters. Validation is read-only and does not mutate assignments, workstation shells, sterilizer shells, hardware rows, operational binding columns, activation state, agents, packs, cycles, traces, users, or audit records.

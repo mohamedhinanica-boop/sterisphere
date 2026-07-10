@@ -837,3 +837,22 @@ No setup action, runtime composition, UI, hardware binding, target id resolution
 Setup completion now persists `hardware_assignments` immediately after `hardware_shells`. The order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`.
 
 If hardware assignment provisioning fails or detects conflicts, the action returns safely with upstream durable records intact and no downstream work. Assignment rows remain inactive setup-draft planned relationships using logical deployment keys only.
+
+## RC6 Slice 2A Assignment Target Validation Foundation Sequence Note
+
+RC6 Slice 2A prepares the future assignment-target validation step but does not add it to setup completion or `DeploymentEngine.execute()`. The current runtime sequence still stops after `hardware_assignments`.
+
+The future validation step is designed to run only after:
+
+1. `deployment_runs` exists or is reused.
+2. The draft clinic root exists and `deployment_runs.clinic_id` is linked.
+3. `clinic_settings` exists for that clinic.
+4. Provider shells have been provisioned or reused for that clinic.
+5. Sterilizer shells have been provisioned or reused for that clinic.
+6. Workstation shells have been provisioned or reused for that clinic.
+7. Hardware shells have been provisioned or reused for that clinic.
+8. Hardware assignments have been provisioned or reused for that clinic.
+
+At that point, trusted server code may validate logical assignment targets before any later ID resolution or hardware binding workflow. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments -> assignment_target_validation`.
+
+Validation checks only logical deployment keys. It does not resolve workstation ids, sterilizer ids, hardware ids, or agent ids; does not write operational hardware binding columns; does not activate hardware or assignments; and does not create packs, cycles, traces, users, audit logs, dashboard access, redirect behavior, or deployment engine execution changes.

@@ -801,3 +801,11 @@ Runtime composition, setup actions, UI, activation, smoke runners, and `Deployme
 Hardware assignment provisioning is now part of the trusted setup-completion runtime chain after hardware shells. The stage persists inactive setup-draft planned relationships in `public.deployment_hardware_assignments` and reports requested, created, reused, skipped, and conflict evidence back to the Complete page.
 
 The stage remains relationship-only. It does not resolve or write workstation ids, sterilizer ids, hardware ids, or agent ids, and it does not mutate operational hardware binding columns. Conflicting assignment rows stop the assignment stage safely while upstream deployment evidence and shell rows remain durable.
+
+## RC6 Slice 2A Assignment Target Validation Foundation
+
+Assignment target validation is introduced as a read-only deployment-domain foundation after planned hardware assignments. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments -> assignment_target_validation`.
+
+The validator confirms that planned assignment targets are logical, scoped, and compatible before a later runtime slice resolves or binds anything. Workstation targets must point to same-clinic inactive setup-draft planned workstation shells. Sterilizer targets must point to same-clinic inactive setup-draft planned sterilizer shells. Unassigned hardware is a valid explicit state and must not carry a target key.
+
+This foundation deliberately avoids Supabase repositories, SQL migrations, runtime setup wiring, UI changes, ID resolution, hardware binding columns, activation, agent registration, device enrollment, smoke runners, and `DeploymentEngine.execute()` changes. It reports structured validation issues and zero downstream counters only.
