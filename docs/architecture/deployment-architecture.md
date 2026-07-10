@@ -769,3 +769,13 @@ Setup completion now includes hardware planned-shell provisioning after deployme
 The Complete step reports Hardware Shells status and requested, created, reused, and conflict counts alongside the prior provider, sterilizer, and workstation evidence cards. Retry/reuse is keyed by `(clinic_id, deployment_hardware_key)`, so repeated setup confirmation can verify existing planned shells without duplicating rows.
 
 Platform access stays disabled. Hardware shells remain deployment-planned evidence only; assignment resolution, physical binding, packs, cycles, traces, users, audit logs, clinic activation, public routes, full DeploymentRepository wiring, and `DeploymentEngine.execute()` remain outside this boundary.
+
+## RC6 Slice 1A Hardware Assignment Foundation
+
+The hardware assignment foundation introduces a deployment-domain relationship layer after hardware shells. The model records planned clinic-scoped relationships from a deployment hardware key to a logical target deployment key, not to durable workstation, sterilizer, hardware, or agent ids.
+
+The future relationship order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`. Assignment records remain inactive setup-draft planned relationships with `assignment_status = planned`, `assignment_source = setup_draft`, and `active = false`.
+
+Supported target kinds are `workstation`, `sterilizer`, and `unassigned`. The deterministic assignment key format is `hardware-assignment-${deployment_hardware_key}`. Idempotency is scoped by `(clinic_id, deployment_hardware_key)`, so a hardware shell can have at most one planned assignment in a clinic while the same hardware key may appear in another clinic.
+
+This slice does not create a Supabase repository, migration, runtime composition, UI wiring, assignment id resolution, hardware binding update, activation path, clinic agent registration, smoke runner, or `DeploymentEngine.execute()` change.

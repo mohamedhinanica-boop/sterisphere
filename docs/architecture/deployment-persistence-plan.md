@@ -1163,3 +1163,33 @@ Runtime composition is server-only through `deployment-hardware-server.ts`, whic
 The Setup Complete action records hardware-shell stage evidence with requested, created, reused, skipped, and conflict counts. Hardware failures are reported after upstream records remain durable; no workstation assignment resolution, sterilizer assignment resolution, clinic agent registration, printer/scanner/camera/sound binding, activation, packs, cycles, traces, users, audit-log rows, or `DeploymentEngine.execute()` behavior is introduced.
 
 Retry/reuse remains keyed by `(clinic_id, deployment_hardware_key)`. Fresh deployments create missing inactive setup-draft planned shells, repeat verification reuses compatible planned shells, partial existing states create only missing keys, and conflicts are reported without mutating existing hardware rows, discovered device rows, or legacy/global rows.
+
+## RC6 Slice 1A - Hardware Assignment Foundation
+
+RC6 Slice 1A adds the inert TypeScript foundation for clinic-scoped planned hardware assignment relationships. It is not wired into runtime execution, the Setup Wizard action, UI behavior, Supabase repositories, SQL migrations, smoke runners, or `DeploymentEngine.execute()`. It performs no Supabase writes and does not mutate hardware shell binding columns.
+
+Created foundation files:
+
+- `deployment-hardware-assignment-types.ts`
+- `deployment-hardware-assignment-payload.ts`
+- `deployment-hardware-assignment-repository.ts`
+- `deployment-hardware-assignment-service.ts`
+- `deployment-hardware-assignment-test-repository.ts`
+- `deployment-hardware-assignment-service.test.ts`
+
+The future planned relationship order is:
+
+1. `deployment_run`
+2. `clinic_root`
+3. `clinic_settings`
+4. `provider_shells`
+5. `sterilizer_shells`
+6. `workstation_shells`
+7. `hardware_shells`
+8. `hardware_assignments`
+
+Hardware assignments are planned relationships between a deployment hardware shell and a logical deployment target. Supported target kinds in this foundation are `workstation`, `sterilizer`, and `unassigned`. Assignment payloads use the deterministic assignment key format `hardware-assignment-${deployment_hardware_key}`, for example `hardware-assignment-hardware-001`.
+
+The idempotency boundary is `(clinic_id, deployment_hardware_key)`, allowing at most one planned assignment per hardware shell per clinic. Existing compatible inactive setup-draft planned assignments are reused. Missing assignments are created through the repository contract. Duplicate same-clinic hardware keys and conflicting target assignments are reported as conflicts without mutation.
+
+Assignment payloads carry only logical deployment keys. They do not resolve workstation ids, sterilizer ids, hardware row ids, or agent ids. Explicit `unassigned` remains a valid planned state when a hardware shell has no logical target. Legacy/global assignments remain outside matching and are never attached, activated, mutated, or reused.

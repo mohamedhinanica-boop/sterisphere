@@ -807,3 +807,21 @@ The Setup Complete action now performs hardware-shell provisioning after worksta
 7. Create or reuse inactive planned hardware shells in `public.clinical_hardware_devices` from the reviewed hardware quantities.
 
 This does not advance the Deployment Engine into full execution. Hardware rows remain inactive setup-draft planned shells with deterministic deployment keys such as `hardware-001`, `hardware-002`, and `hardware-003`. Logical assignment keys remain metadata only and are not resolved to workstation or sterilizer ids. Clinic agent registration, printer/scanner/camera/sound binding, device activation, packs, cycles, traces, users, audit logs, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this runtime boundary.
+
+## RC6 Slice 1A Hardware Assignment Foundation Sequence Note
+
+RC6 Slice 1A prepares the future hardware-assignment relationship step but does not add it to the runtime sequence. The current Setup Complete action still stops after hardware shell provisioning, and the Deployment Engine sequence remains simulated.
+
+The future hardware-assignment sequence is designed to run only after:
+
+1. `deployment_runs` exists or is reused.
+2. The draft clinic root exists and `deployment_runs.clinic_id` is linked.
+3. `clinic_settings` exists for that clinic.
+4. Provider shells have been provisioned or reused for that clinic.
+5. Sterilizer shells have been provisioned or reused for that clinic.
+6. Workstation shells have been provisioned or reused for that clinic.
+7. Hardware shells have been provisioned or reused for that clinic.
+
+At that point, trusted server code may derive inactive planned hardware assignment relationships from the reviewed hardware shell plan. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`.
+
+Hardware assignment payloads use deterministic keys such as `hardware-assignment-hardware-001`, remain `assignment_status = planned`, `assignment_source = setup_draft`, and `active = false`, and target only logical deployment keys. Workstation id resolution, sterilizer id resolution, hardware row id resolution, agent registration, printer/scanner/camera/sound binding, device activation, packs, cycles, traces, users, audit logs, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this foundation.
