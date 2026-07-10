@@ -1193,3 +1193,21 @@ Hardware assignments are planned relationships between a deployment hardware she
 The idempotency boundary is `(clinic_id, deployment_hardware_key)`, allowing at most one planned assignment per hardware shell per clinic. Existing compatible inactive setup-draft planned assignments are reused. Missing assignments are created through the repository contract. Duplicate same-clinic hardware keys and conflicting target assignments are reported as conflicts without mutation.
 
 Assignment payloads carry only logical deployment keys. They do not resolve workstation ids, sterilizer ids, hardware row ids, or agent ids. Explicit `unassigned` remains a valid planned state when a hardware shell has no logical target. Legacy/global assignments remain outside matching and are never attached, activated, mutated, or reused.
+
+## RC6 Slice 1B - Hardware Assignment Schema Preflight and Supabase Repository
+
+RC6 Slice 1B selects a dedicated `public.deployment_hardware_assignments` table as the safest future persistence model for planned hardware assignment relationships. The existing `public.clinical_hardware_devices` columns `default_workstation_id`, `current_workstation_id`, and `agent_id` represent operational device binding and must not store setup-draft planned assignment evidence. No existing checked-in assignment or junction table cleanly represents clinic-scoped deployment hardware-to-logical-target relationships without mutating operational bindings.
+
+The server-only `SupabaseDeploymentHardwareAssignmentRepository` is implemented against the dedicated table shape but remains unused by runtime setup completion. It finds by `(clinic_id, deployment_hardware_key)`, inserts only inactive setup-draft planned assignments, reuses compatible planned rows, and returns conflicts for incompatible, active, non-planned, or differently targeted rows. It never updates, retargets, activates, deletes, resolves durable workstation/sterilizer/hardware ids, or writes `clinical_hardware_devices` binding columns.
+
+The expected table columns for the next schema slice are `clinic_id`, `deployment_hardware_key`, `assignment_key`, `target_type`, `target_deployment_key`, `assignment_status`, `assignment_source`, `active`, optional `display_order`, optional `reason`, optional `metadata`, and audit timestamps. The required durable guardrail is a partial unique index on `(clinic_id, deployment_hardware_key) where deployment_hardware_key is not null`. Target type should allow `workstation`, `sterilizer`, and `unassigned`; `target_deployment_key` should be null for `unassigned` and non-null for workstation or sterilizer targets.
+
+`supabase_deployment_hardware_assignments_preflight.sql` is a read-only schema assessment for this future table. It verifies the current operational hardware binding columns, searches for existing assignment-like tables, checks the expected dedicated table columns and indexes when present, and reports planned hardware shell rows that already carry operational bindings.
+
+## RC6 Slice 1C - Hardware Assignment Schema Migration
+
+RC6 Slice 1C creates the dedicated `public.deployment_hardware_assignments` table for setup-draft planned hardware relationships. The table stores clinic-scoped relationships from `deployment_hardware_key` to a logical `target_deployment_key`, with `target_type` limited to `workstation`, `sterilizer`, or `unassigned`. It does not reference workstation, sterilizer, hardware, or agent ids.
+
+The table is owned by the deployment relationship layer and uses `clinic_id references public.clinics(id) on delete restrict`, matching the restrictive delete behavior used by other deployment-owned clinic-scoped rows. It enforces inactive setup-draft defaults, positive `display_order` when present, target-key shape rules for assigned versus unassigned rows, and uniqueness on both `(clinic_id, deployment_hardware_key)` and `(clinic_id, assignment_key)`.
+
+The migration does not backfill assignment rows, mutate `clinical_hardware_devices`, write `default_workstation_id`, write `current_workstation_id`, write `agent_id`, resolve target ids, activate assignments, or wire runtime behavior. The updated preflight verifies the table shape, constraints, indexes, duplicate guards, target-key invariants, inactive planned state, and that the migration itself introduced zero assignment rows.

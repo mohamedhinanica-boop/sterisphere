@@ -825,3 +825,9 @@ The future hardware-assignment sequence is designed to run only after:
 At that point, trusted server code may derive inactive planned hardware assignment relationships from the reviewed hardware shell plan. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`.
 
 Hardware assignment payloads use deterministic keys such as `hardware-assignment-hardware-001`, remain `assignment_status = planned`, `assignment_source = setup_draft`, and `active = false`, and target only logical deployment keys. Workstation id resolution, sterilizer id resolution, hardware row id resolution, agent registration, printer/scanner/camera/sound binding, device activation, packs, cycles, traces, users, audit logs, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this foundation.
+
+## RC6 Slice 1C Hardware Assignment Schema Readiness
+
+The future `hardware_assignments` relationship step now has a dedicated durable table, `public.deployment_hardware_assignments`, for inactive setup-draft planned relationships. The sequence remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`, but this slice creates only the schema boundary.
+
+No setup action, runtime composition, UI, hardware binding, target id resolution, activation, smoke runner, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced. The table is ready for a later runtime slice to create or reuse planned assignment rows after hardware shell persistence.

@@ -779,3 +779,19 @@ The future relationship order is `deployment_run -> clinic_root -> clinic_settin
 Supported target kinds are `workstation`, `sterilizer`, and `unassigned`. The deterministic assignment key format is `hardware-assignment-${deployment_hardware_key}`. Idempotency is scoped by `(clinic_id, deployment_hardware_key)`, so a hardware shell can have at most one planned assignment in a clinic while the same hardware key may appear in another clinic.
 
 This slice does not create a Supabase repository, migration, runtime composition, UI wiring, assignment id resolution, hardware binding update, activation path, clinic agent registration, smoke runner, or `DeploymentEngine.execute()` change.
+
+## RC6 Slice 1B Hardware Assignment Persistence Decision
+
+The durable planned-assignment model should use a dedicated `public.deployment_hardware_assignments` table. The existing `public.clinical_hardware_devices` binding columns are operational: `default_workstation_id` is the stable home workstation, `current_workstation_id` is the current operational assignment, and `agent_id` links observed devices to clinic agents. Using those fields for setup-draft planned relationships would resolve ids too early and would mutate operational hardware state.
+
+The Supabase repository boundary for hardware assignments is server-only and repository-only. It maps the logical assignment key to a physical `assignment_key` column, preserves logical deployment keys in `target_deployment_key`, treats explicit `unassigned` as a valid planned relationship, and requires compatibility across clinic id, deployment hardware key, assignment key, target type, target deployment key, assignment source, assignment status, and inactive state before reuse.
+
+A future migration must create the dedicated table and partial uniqueness rule before runtime wiring. Until then, setup actions, UI, runtime composition, binding columns, activation, and `DeploymentEngine.execute()` remain unchanged.
+
+## RC6 Slice 1C Hardware Assignment Schema Boundary
+
+The planned hardware assignment persistence model now has a dedicated schema artifact: `public.deployment_hardware_assignments`. The table keeps setup-draft assignment evidence separate from operational hardware binding columns on `public.clinical_hardware_devices`, so `default_workstation_id`, `current_workstation_id`, and `agent_id` remain untouched until a later explicit binding workflow.
+
+The schema preserves deterministic relationship identity with unique `(clinic_id, deployment_hardware_key)` and `(clinic_id, assignment_key)` indexes. Target relationships remain logical deployment-key references only; workstation, sterilizer, hardware, and agent database ids are not resolved by this slice.
+
+Runtime composition, setup actions, UI, activation, smoke runners, and `DeploymentEngine.execute()` remain unchanged. Hardware assignment rows will not be created until a later approved runtime wiring slice.
