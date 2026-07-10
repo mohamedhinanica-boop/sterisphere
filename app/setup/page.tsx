@@ -56,7 +56,7 @@ import {
   persistDeploymentRunAction,
   type PersistDeploymentRunActionResult,
 } from "./actions";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const stepLabels: Record<SetupStepId, string> = {
   WELCOME: "Welcome",
@@ -520,6 +520,8 @@ export default function ClinicSetupPage() {
     useState<PersistDeploymentRunActionResult | null>(null);
   const [isPersistingDeploymentRun, setIsPersistingDeploymentRun] =
     useState(false);
+  const [deploymentExecutionMode, setDeploymentExecutionMode] =
+    useState<"persist" | "verify">("persist");
 
   const currentStepIndex = SETUP_STEP_ORDER.indexOf(setupState.currentStep);
   const isWelcome = setupState.currentStep === SetupStep.WELCOME;
@@ -593,7 +595,7 @@ export default function ClinicSetupPage() {
   }
 
   function goBack() {
-    if (isComplete && deploymentRunResult?.ok) {
+    if (isPersistingDeploymentRun || (isComplete && deploymentRunResult?.ok)) {
       return;
     }
 
@@ -605,6 +607,7 @@ export default function ClinicSetupPage() {
     setReviewedDeploymentDraft(null);
     setDeploymentRunResult(null);
     setIsPersistingDeploymentRun(false);
+    setDeploymentExecutionMode("persist");
   }
 
   function updateProfile(field: ClinicProfileField, value: string) {
@@ -709,6 +712,10 @@ export default function ClinicSetupPage() {
   }
 
   async function persistDeploymentRun() {
+    if (isPersistingDeploymentRun) {
+      return;
+    }
+
     if (!reviewedDeploymentDraft) {
       setDeploymentRunResult({
         ok: false,
@@ -791,6 +798,7 @@ export default function ClinicSetupPage() {
       return;
     }
 
+    setDeploymentExecutionMode(deploymentRunResult?.ok ? "verify" : "persist");
     setIsPersistingDeploymentRun(true);
     setDeploymentRunResult(null);
 
@@ -888,6 +896,7 @@ export default function ClinicSetupPage() {
       });
     } finally {
       setIsPersistingDeploymentRun(false);
+      setDeploymentExecutionMode("persist");
     }
   }
   function updateWorkstationQuantity(
@@ -1089,6 +1098,7 @@ export default function ClinicSetupPage() {
               deploymentRunResult={deploymentRunResult}
               reviewedDraft={reviewedDeploymentDraft}
               isPersisting={isPersistingDeploymentRun}
+              executionMode={deploymentExecutionMode}
               onStartOver={startOver}
             />
           )}
@@ -1097,7 +1107,11 @@ export default function ClinicSetupPage() {
             <button
               type="button"
               onClick={goBack}
-              disabled={isWelcome || (isComplete && deploymentRunResult?.ok)}
+              disabled={
+                isWelcome ||
+                isPersistingDeploymentRun ||
+                (isComplete && deploymentRunResult?.ok)
+              }
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -1126,18 +1140,26 @@ export default function ClinicSetupPage() {
                   !isReview &&
                   !isComplete)
               }
+              aria-busy={isComplete && isPersistingDeploymentRun}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             >
               {isComplete
                 ? isPersistingDeploymentRun
-                  ? "Persisting Runtime Records"
+                  ? deploymentExecutionMode === "verify"
+                    ? "Verifying Runtime Records"
+                    : "Persisting Runtime Records"
                   : deploymentRunResult?.ok
                     ? "Verify / Reuse Runtime Records"
                     : "Persist Runtime Records"
                 : isReview
                   ? "Confirm Review"
                   : "Next"}
-              {isComplete ? (
+              {isComplete && isPersistingDeploymentRun ? (
+                <span
+                  aria-hidden="true"
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"
+                />
+              ) : isComplete ? (
                 <Rocket className="h-4 w-4" />
               ) : (
                 <ArrowRight className="h-4 w-4" />
@@ -1150,17 +1172,29 @@ export default function ClinicSetupPage() {
   );
 }
 
+const deploymentExecutionStageLabels = [
+  "Preparing deployment run",
+  "Linking clinic configuration",
+  "Provisioning provider and sterilizer shells",
+  "Provisioning workstation and hardware shells",
+  "Recording planned hardware assignments",
+  "Finalizing deployment evidence",
+] as const;
+
 function CompleteStep({
   deploymentRunResult,
   reviewedDraft,
   isPersisting,
+  executionMode,
   onStartOver,
 }: {
   deploymentRunResult: PersistDeploymentRunActionResult | null;
   reviewedDraft: DeploymentDraft | null;
   isPersisting: boolean;
+  executionMode: "persist" | "verify";
   onStartOver: () => void;
 }) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const completedDraftSections = [
     "Clinic profile configured",
     "Workstations planned",
@@ -1196,9 +1230,37 @@ function CompleteStep({
       ? "Persisting deployment runtime records"
       : "Ready to persist deployment runtime records";
   const supportHref = buildDeploymentSupportHref(deploymentRunResult);
+  const executionStageLabel =
+    deploymentExecutionStageLabels[
+      Math.min(
+        deploymentExecutionStageLabels.length - 1,
+        Math.floor(elapsedSeconds / 4),
+      )
+    ];
+  const executionTitle =
+    executionMode === "verify"
+      ? "Verifying deployment records"
+      : "Provisioning clinic runtime";
+
+  useEffect(() => {
+    if (!isPersisting) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    setElapsedSeconds(0);
+    const intervalId = window.setInterval(() => {
+      setElapsedSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isPersisting]);
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
+    <div
+      aria-busy={isPersisting}
+      className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm"
+    >
       <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950 p-6 text-white sm:p-9">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
           <Check className="h-6 w-6" />
@@ -1237,9 +1299,49 @@ function CompleteStep({
         <div className={`mt-6 rounded-2xl border p-5 text-sm leading-6 ${statusTone}`}>
           <p className="font-bold">{statusTitle}</p>
           <p className="mt-2">
-            {deploymentRunResult?.message ??
-              "Confirm deployment to persist a deployment_runs evidence record and draft clinic root."}
+            {isPersisting
+              ? "Please keep this page open while SteriSphere processes the secure setup stages."
+              : deploymentRunResult?.message ??
+                "Confirm deployment to persist a deployment_runs evidence record and draft clinic root."}
           </p>
+
+          {isPersisting && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-4 rounded-xl border border-white/60 bg-white/60 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-900/10"
+                >
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-800 border-t-transparent" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold">{executionTitle}</p>
+                  <p className="mt-1">
+                    Several secure setup stages are being processed. This may
+                    take a few moments.
+                  </p>
+                  <p className="mt-3 text-xs font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Current activity
+                  </p>
+                  <p className="mt-1 font-semibold">{executionStageLabel}</p>
+                  <p className="mt-1 text-xs opacity-75">
+                    These labels are informational while the server action runs;
+                    final evidence appears when processing completes.
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold opacity-75">
+                  {elapsedSeconds}s
+                </span>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-950/10">
+                <div className="h-full w-1/2 animate-pulse rounded-full bg-emerald-700" />
+              </div>
+            </div>
+          )}
 
           <dl className="mt-4 grid gap-3 sm:grid-cols-4">
             <div>
@@ -1578,7 +1680,8 @@ function CompleteStep({
             <button
               type="button"
               onClick={onStartOver}
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              disabled={isPersisting}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Start Over
             </button>
