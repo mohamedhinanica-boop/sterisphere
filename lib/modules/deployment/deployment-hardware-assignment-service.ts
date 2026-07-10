@@ -211,6 +211,8 @@ function isReusableAssignment(
   return (
     assignment.clinicId === payload.clinicId &&
     assignment.deploymentHardwareKey === payload.deploymentHardwareKey &&
+    assignment.deploymentHardwareAssignmentKey ===
+      payload.deploymentHardwareAssignmentKey &&
     assignment.targetType === payload.targetType &&
     assignment.targetDeploymentKey === payload.targetDeploymentKey &&
     assignment.assignmentSource === "setup_draft" &&

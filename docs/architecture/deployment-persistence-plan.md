@@ -1211,3 +1211,11 @@ RC6 Slice 1C creates the dedicated `public.deployment_hardware_assignments` tabl
 The table is owned by the deployment relationship layer and uses `clinic_id references public.clinics(id) on delete restrict`, matching the restrictive delete behavior used by other deployment-owned clinic-scoped rows. It enforces inactive setup-draft defaults, positive `display_order` when present, target-key shape rules for assigned versus unassigned rows, and uniqueness on both `(clinic_id, deployment_hardware_key)` and `(clinic_id, assignment_key)`.
 
 The migration does not backfill assignment rows, mutate `clinical_hardware_devices`, write `default_workstation_id`, write `current_workstation_id`, write `agent_id`, resolve target ids, activate assignments, or wire runtime behavior. The updated preflight verifies the table shape, constraints, indexes, duplicate guards, target-key invariants, inactive planned state, and that the migration itself introduced zero assignment rows.
+
+## RC6 Slice 1D - Hardware Assignment Runtime Wiring
+
+RC6 Slice 1D wires hardware assignment persistence into setup completion immediately after hardware shell provisioning. The runtime order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`.
+
+Runtime composition is server-only through `deployment-hardware-assignment-server.ts`, which composes `SupabaseDeploymentHardwareAssignmentRepository` with `DeploymentHardwareAssignmentService` and verifies the upstream clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells before creating or reusing assignment rows.
+
+The setup action records hardware-assignment stage evidence with requested, created, reused, skipped, and conflict counts. Assignment persistence remains logical only: it writes `deployment_hardware_key`, `assignment_key`, `target_type`, and `target_deployment_key` without resolving workstation ids, sterilizer ids, hardware ids, or agent ids. It never writes `clinical_hardware_devices.default_workstation_id`, `current_workstation_id`, or `agent_id`, and does not activate hardware or assignments.

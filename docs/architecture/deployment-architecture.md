@@ -795,3 +795,9 @@ The planned hardware assignment persistence model now has a dedicated schema art
 The schema preserves deterministic relationship identity with unique `(clinic_id, deployment_hardware_key)` and `(clinic_id, assignment_key)` indexes. Target relationships remain logical deployment-key references only; workstation, sterilizer, hardware, and agent database ids are not resolved by this slice.
 
 Runtime composition, setup actions, UI, activation, smoke runners, and `DeploymentEngine.execute()` remain unchanged. Hardware assignment rows will not be created until a later approved runtime wiring slice.
+
+## RC6 Slice 1D Hardware Assignment Runtime Boundary
+
+Hardware assignment provisioning is now part of the trusted setup-completion runtime chain after hardware shells. The stage persists inactive setup-draft planned relationships in `public.deployment_hardware_assignments` and reports requested, created, reused, skipped, and conflict evidence back to the Complete page.
+
+The stage remains relationship-only. It does not resolve or write workstation ids, sterilizer ids, hardware ids, or agent ids, and it does not mutate operational hardware binding columns. Conflicting assignment rows stop the assignment stage safely while upstream deployment evidence and shell rows remain durable.

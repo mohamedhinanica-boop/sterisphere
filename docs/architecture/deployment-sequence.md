@@ -831,3 +831,9 @@ Hardware assignment payloads use deterministic keys such as `hardware-assignment
 The future `hardware_assignments` relationship step now has a dedicated durable table, `public.deployment_hardware_assignments`, for inactive setup-draft planned relationships. The sequence remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`, but this slice creates only the schema boundary.
 
 No setup action, runtime composition, UI, hardware binding, target id resolution, activation, smoke runner, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced. The table is ready for a later runtime slice to create or reuse planned assignment rows after hardware shell persistence.
+
+## RC6 Slice 1D Hardware Assignment Runtime Sequence
+
+Setup completion now persists `hardware_assignments` immediately after `hardware_shells`. The order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments`.
+
+If hardware assignment provisioning fails or detects conflicts, the action returns safely with upstream durable records intact and no downstream work. Assignment rows remain inactive setup-draft planned relationships using logical deployment keys only.

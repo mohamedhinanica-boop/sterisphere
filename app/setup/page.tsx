@@ -774,6 +774,17 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message: "Hardware shell provisioning was not attempted.",
         },
+        hardwareAssignments: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message: "Hardware assignment provisioning was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -859,6 +870,18 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message:
             "Hardware shell provisioning was not completed. No downstream records were created.",
+        },
+        hardwareAssignments: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          created: 0,
+          reused: 0,
+          skipped: 0,
+          conflicts: 0,
+          message:
+            "Hardware assignment provisioning was not completed. No downstream records were created.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1157,6 +1180,7 @@ function CompleteStep({
   const sterilizerShells = deploymentRunResult?.sterilizerShells ?? null;
   const workstationShells = deploymentRunResult?.workstationShells ?? null;
   const hardwareShells = deploymentRunResult?.hardwareShells ?? null;
+  const hardwareAssignments = deploymentRunResult?.hardwareAssignments ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1483,6 +1507,49 @@ function CompleteStep({
                 </div>
               </dl>
             </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Hardware Assignments: {hardwareAssignments?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {hardwareAssignments?.message ??
+                  "Hardware planned assignments will be provisioned after hardware shells are linked."}
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {hardwareAssignments?.requested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Created
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {hardwareAssignments?.created ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Reused
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {hardwareAssignments?.reused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Conflicts
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {hardwareAssignments?.conflicts ?? 0}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
@@ -1491,7 +1558,8 @@ function CompleteStep({
             Only public.clinics, public.clinic_settings, public.providers
             placeholder shells, public.sterilizers planned shells,
             public.clinical_workstations planned shells,
-            public.clinical_hardware_devices planned shells, and
+            public.clinical_hardware_devices planned shells,
+            public.deployment_hardware_assignments planned relationships, and
             deployment_runs.clinic_id are persisted by this step. Users, real
             provider identities, hardware binding, packs, cycles, traces,
             audit logs, and downstream deployment-stage records are not
@@ -1563,6 +1631,11 @@ function buildDeploymentSupportHref(
       `Hardware shells created: ${result?.hardwareShells.created ?? 0}`,
       `Hardware shells reused: ${result?.hardwareShells.reused ?? 0}`,
       `Hardware shell conflicts: ${result?.hardwareShells.conflicts ?? 0}`,
+      `Hardware assignments status: ${result?.hardwareAssignments.status ?? "not attempted"}`,
+      `Hardware assignments requested: ${result?.hardwareAssignments.requested ?? 0}`,
+      `Hardware assignments created: ${result?.hardwareAssignments.created ?? 0}`,
+      `Hardware assignments reused: ${result?.hardwareAssignments.reused ?? 0}`,
+      `Hardware assignment conflicts: ${result?.hardwareAssignments.conflicts ?? 0}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
@@ -1570,6 +1643,7 @@ function buildDeploymentSupportHref(
       `Sterilizer shells message: ${result?.sterilizerShells.message ?? "No sterilizer-shell response yet."}`,
       `Workstation shells message: ${result?.workstationShells.message ?? "No workstation-shell response yet."}`,
       `Hardware shells message: ${result?.hardwareShells.message ?? "No hardware-shell response yet."}`,
+      `Hardware assignments message: ${result?.hardwareAssignments.message ?? "No hardware-assignment response yet."}`,
     ].join("\n"),
   );
 
