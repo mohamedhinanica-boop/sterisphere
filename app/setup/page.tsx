@@ -781,6 +781,25 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message: "Hardware shell provisioning was not attempted.",
         },
+        assignmentTargetValidation: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          valid: 0,
+          invalid: 0,
+          missingTargets: 0,
+          incompatibleTargets: 0,
+          issues: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message: "Assignment target validation was not attempted.",
+        },
         hardwareAssignments: {
           ok: false,
           status: "skipped",
@@ -878,6 +897,26 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message:
             "Hardware shell provisioning was not completed. No downstream records were created.",
+        },
+        assignmentTargetValidation: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          valid: 0,
+          invalid: 0,
+          missingTargets: 0,
+          incompatibleTargets: 0,
+          issues: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message:
+            "Assignment target validation was not completed. Hardware assignments were not persisted.",
         },
         hardwareAssignments: {
           ok: false,
@@ -1177,6 +1216,7 @@ const deploymentExecutionStageLabels = [
   "Linking clinic configuration",
   "Provisioning provider and sterilizer shells",
   "Provisioning workstation and hardware shells",
+  "Validating assignment targets",
   "Recording planned hardware assignments",
   "Finalizing deployment evidence",
 ] as const;
@@ -1214,6 +1254,8 @@ function CompleteStep({
   const sterilizerShells = deploymentRunResult?.sterilizerShells ?? null;
   const workstationShells = deploymentRunResult?.workstationShells ?? null;
   const hardwareShells = deploymentRunResult?.hardwareShells ?? null;
+  const assignmentTargetValidation =
+    deploymentRunResult?.assignmentTargetValidation ?? null;
   const hardwareAssignments = deploymentRunResult?.hardwareAssignments ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
@@ -1611,6 +1653,89 @@ function CompleteStep({
             </div>
             <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
               <p className="font-bold">
+                Assignment Target Validation: {assignmentTargetValidation?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {assignmentTargetValidation?.message ??
+                  "Logical hardware assignment targets will be checked after hardware shells are linked and before assignment rows are created."}
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {assignmentTargetValidation?.requested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Valid
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {assignmentTargetValidation?.valid ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Invalid
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {assignmentTargetValidation?.invalid ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Missing
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {assignmentTargetValidation?.missingTargets ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Incompatible
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {assignmentTargetValidation?.incompatibleTargets ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              {assignmentTargetValidation?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Validation Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {assignmentTargetValidation.issues.slice(0, 4).map((issue) => (
+                      <li
+                        key={`${issue.deploymentHardwareKey}-${issue.targetType}-${issue.targetDeploymentKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.deploymentHardwareKey || "hardware target"}
+                        </span>{" "}
+                        {issue.targetType}
+                        {issue.targetDeploymentKey
+                          ? ` ${issue.targetDeploymentKey}`
+                          : " unassigned"}
+                        : {issue.code}. {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {assignmentTargetValidation.issues.length > 4 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {assignmentTargetValidation.issues.length - 4} more validation issues are included in support evidence.
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs">
+                    Upstream deployment records remain durable; hardware assignment rows were not persisted.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
                 Hardware Assignments: {hardwareAssignments?.status ?? "ready"}
               </p>
               <p className="mt-1">
@@ -1660,11 +1785,12 @@ function CompleteStep({
             Only public.clinics, public.clinic_settings, public.providers
             placeholder shells, public.sterilizers planned shells,
             public.clinical_workstations planned shells,
-            public.clinical_hardware_devices planned shells,
-            public.deployment_hardware_assignments planned relationships, and
-            deployment_runs.clinic_id are persisted by this step. Users, real
-            provider identities, hardware binding, packs, cycles, traces,
-            audit logs, and downstream deployment-stage records are not
+            public.clinical_hardware_devices planned shells, and
+            deployment_runs.clinic_id are persisted before the read-only
+            assignment target validation gate. public.deployment_hardware_assignments
+            planned relationships are persisted only after validation passes.
+            Users, real provider identities, hardware binding, packs, cycles,
+            traces, audit logs, and downstream deployment-stage records are not
             created yet.
           </p>
 
@@ -1734,6 +1860,13 @@ function buildDeploymentSupportHref(
       `Hardware shells created: ${result?.hardwareShells.created ?? 0}`,
       `Hardware shells reused: ${result?.hardwareShells.reused ?? 0}`,
       `Hardware shell conflicts: ${result?.hardwareShells.conflicts ?? 0}`,
+      `Assignment target validation status: ${result?.assignmentTargetValidation.status ?? "not attempted"}`,
+      `Assignment target validation requested: ${result?.assignmentTargetValidation.requested ?? 0}`,
+      `Assignment target validation valid: ${result?.assignmentTargetValidation.valid ?? 0}`,
+      `Assignment target validation invalid: ${result?.assignmentTargetValidation.invalid ?? 0}`,
+      `Assignment target validation missing targets: ${result?.assignmentTargetValidation.missingTargets ?? 0}`,
+      `Assignment target validation incompatible targets: ${result?.assignmentTargetValidation.incompatibleTargets ?? 0}`,
+      `Assignment target validation issues: ${result?.assignmentTargetValidation.issues.map((issue) => `${issue.deploymentHardwareKey}:${issue.targetType}:${issue.targetDeploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Hardware assignments status: ${result?.hardwareAssignments.status ?? "not attempted"}`,
       `Hardware assignments requested: ${result?.hardwareAssignments.requested ?? 0}`,
       `Hardware assignments created: ${result?.hardwareAssignments.created ?? 0}`,
@@ -1746,6 +1879,7 @@ function buildDeploymentSupportHref(
       `Sterilizer shells message: ${result?.sterilizerShells.message ?? "No sterilizer-shell response yet."}`,
       `Workstation shells message: ${result?.workstationShells.message ?? "No workstation-shell response yet."}`,
       `Hardware shells message: ${result?.hardwareShells.message ?? "No hardware-shell response yet."}`,
+      `Assignment target validation message: ${result?.assignmentTargetValidation.message ?? "No assignment-target-validation response yet."}`,
       `Hardware assignments message: ${result?.hardwareAssignments.message ?? "No hardware-assignment response yet."}`,
     ].join("\n"),
   );

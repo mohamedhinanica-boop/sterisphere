@@ -853,6 +853,21 @@ The future validation step is designed to run only after:
 7. Hardware shells have been provisioned or reused for that clinic.
 8. Hardware assignments have been provisioned or reused for that clinic.
 
-At that point, trusted server code may validate logical assignment targets before any later ID resolution or hardware binding workflow. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments -> assignment_target_validation`.
+At that point, trusted server code may validate logical assignment targets before any later ID resolution or hardware binding workflow. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments`.
 
 Validation checks only logical deployment keys. It does not resolve workstation ids, sterilizer ids, hardware ids, or agent ids; does not write operational hardware binding columns; does not activate hardware or assignments; and does not create packs, cycles, traces, users, audit logs, dashboard access, redirect behavior, or deployment engine execution changes.
+## RC6 Slice 2C Assignment Target Validation Runtime Sequence
+
+Setup completion now validates logical assignment targets immediately after `hardware_shells` and before `hardware_assignments`:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells.
+5. Create or reuse inactive planned sterilizer shells.
+6. Create or reuse inactive planned workstation shells.
+7. Create or reuse inactive planned hardware shells.
+8. Validate assignment targets from the deterministic hardware assignment payloads.
+9. Create or reuse inactive planned hardware assignment rows only when validation passes.
+
+Validation failure stops the sequence safely at step 8. Upstream durable evidence remains intact, hardware assignment persistence is skipped, no downstream work is attempted, and no operational binding, activation, or `DeploymentEngine.execute()` behavior changes are introduced.

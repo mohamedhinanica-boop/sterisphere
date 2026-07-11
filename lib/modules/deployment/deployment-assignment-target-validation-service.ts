@@ -42,15 +42,45 @@ export class DeploymentAssignmentTargetValidationService {
 
     const assignments =
       await this.repository.listPlannedHardwareAssignments(normalizedClinicId);
+
+    return this.validateAssignmentTargetsForClinicAssignments(
+      normalizedClinicId,
+      assignments,
+    );
+  }
+
+  async validateAssignmentTargetsForClinicAssignments(
+    clinicId: string,
+    assignments: readonly DeploymentAssignmentTargetValidationAssignment[],
+  ): Promise<DeploymentAssignmentTargetValidationResult> {
+    const normalizedClinicId = clinicId.trim();
+
+    if (!normalizedClinicId) {
+      return buildResult([], [
+        buildIssue({
+          deploymentHardwareKey: "",
+          targetType: "unknown",
+          targetDeploymentKey: null,
+          code: "target_missing",
+          message:
+            "Assignment target validation requires a clinic id before reading planned relationships.",
+        }),
+      ]);
+    }
+
+    const scopedAssignments = assignments.map((assignment) => ({
+      ...assignment,
+      clinicId: normalizedClinicId,
+    }));
     const issues: DeploymentAssignmentTargetValidationIssue[] = [];
 
-    for (const assignment of assignments) {
+    for (const assignment of scopedAssignments) {
       issues.push(
         ...(await this.validateAssignment(normalizedClinicId, assignment)),
       );
     }
 
-    return buildResult(assignments, issues);
+    return buildResult(scopedAssignments, issues);
   }
 
   private async validateAssignment(
@@ -296,6 +326,7 @@ function buildResult(
     status: orderedIssues.length === 0 ? "valid" : "invalid",
     counts,
     downstream: {
+      requested: 0,
       created: 0,
       reused: 0,
       skipped: 0,

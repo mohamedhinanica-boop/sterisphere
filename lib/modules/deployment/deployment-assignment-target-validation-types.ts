@@ -66,6 +66,7 @@ export interface DeploymentAssignmentTargetValidationCounts {
 }
 
 export interface DeploymentAssignmentTargetValidationDownstreamCounts {
+  requested: 0;
   created: 0;
   reused: 0;
   skipped: 0;

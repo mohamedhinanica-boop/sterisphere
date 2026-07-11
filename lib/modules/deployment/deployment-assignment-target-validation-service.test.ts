@@ -496,6 +496,96 @@ async function scenarioBatchResultCountersAndOrdering(): Promise<DeploymentAssig
   );
 }
 
+async function scenarioRuntimePayloadValidationDoesNotReadAssignmentRows(): Promise<DeploymentAssignmentTargetValidationServiceHarnessScenario> {
+  const harness = createHarness({
+    assignments: [
+      createAssignment({
+        deploymentHardwareKey: "hardware-999",
+        targetType: "workstation",
+        targetDeploymentKey: "workstation-999",
+      }),
+    ],
+    workstationTargets: [createWorkstationTarget("workstation-001")],
+  });
+  const result = await harness.service.validateAssignmentTargetsForClinicAssignments(
+    CLINIC_ID,
+    [
+      createAssignment({
+        deploymentHardwareKey: "hardware-001",
+        targetType: "workstation",
+        targetDeploymentKey: "workstation-001",
+      }),
+    ],
+  );
+
+  return expectScenario(
+    "runtime payload validation does not read persisted assignment rows",
+    result.ok &&
+      result.counts.requested === 1 &&
+      harness.repository.calls.listPlannedHardwareAssignments === 0,
+    `requested=${result.counts.requested}; assignmentReads=${harness.repository.calls.listPlannedHardwareAssignments}`,
+  );
+}
+
+async function scenarioRuntimePayloadValidationBlocksInvalidBatch(): Promise<DeploymentAssignmentTargetValidationServiceHarnessScenario> {
+  const harness = createHarness({
+    workstationTargets: [createWorkstationTarget("workstation-001")],
+  });
+  const result = await harness.service.validateAssignmentTargetsForClinicAssignments(
+    CLINIC_ID,
+    [
+      createAssignment({
+        deploymentHardwareKey: "hardware-001",
+        targetType: "workstation",
+        targetDeploymentKey: "workstation-001",
+      }),
+      createAssignment({
+        deploymentHardwareKey: "hardware-002",
+        targetType: "sterilizer",
+        targetDeploymentKey: "sterilizer-999",
+      }),
+    ],
+  );
+
+  return expectScenario(
+    "runtime payload validation blocks invalid target batches deterministically",
+    !result.ok &&
+      result.counts.requested === 2 &&
+      result.counts.valid === 1 &&
+      result.counts.invalid === 1 &&
+      result.issues[0]?.deploymentHardwareKey === "hardware-002" &&
+      result.issues[0]?.code === "target_missing",
+    `requested=${result.counts.requested}; valid=${result.counts.valid}; issue=${result.issues[0]?.code}`,
+  );
+}
+
+async function scenarioRuntimePayloadValidationKeepsDownstreamCountersZero(): Promise<DeploymentAssignmentTargetValidationServiceHarnessScenario> {
+  const harness = createHarness({
+    workstationTargets: [createWorkstationTarget("workstation-001")],
+  });
+  const result = await harness.service.validateAssignmentTargetsForClinicAssignments(
+    CLINIC_ID,
+    [
+      createAssignment({
+        deploymentHardwareKey: "hardware-001",
+        targetType: "workstation",
+        targetDeploymentKey: "workstation-001",
+      }),
+    ],
+  );
+
+  return expectScenario(
+    "runtime payload validation keeps downstream counters zero",
+    result.ok &&
+      result.downstream.requested === 0 &&
+      result.downstream.created === 0 &&
+      result.downstream.reused === 0 &&
+      result.downstream.skipped === 0 &&
+      result.downstream.conflicts === 0 &&
+      harness.repository.downstreamWriteCount === 0,
+    `downstreamWrites=${harness.repository.downstreamWriteCount}`,
+  );
+}
 async function scenarioEmptyAssignmentSet(): Promise<DeploymentAssignmentTargetValidationServiceHarnessScenario> {
   const harness = createHarness();
   const result =

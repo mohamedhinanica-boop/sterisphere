@@ -1270,3 +1270,10 @@ Audit summary for the Phase 9 deployment-related tables:
 | `public.clinical_hardware_devices` | Operational device/digital-twin table with future agent workflows. | Defer until agent and admin policies are designed. |
 
 `supabase_deployment_tables_rls_preflight.sql` audits RLS state, policies, assignment-table policy exposure, row counts, constraints, indexes, and duplicate assignment key groups. It should be run before and after applying the RLS migration, followed by Supabase Security Advisor verification.
+## RC6 Slice 2C - Runtime Assignment Target Validation
+
+RC6 Slice 2C wires assignment target validation into setup completion immediately after hardware shell provisioning and before hardware assignment persistence. The runtime order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments`.
+
+The server-only validation helper builds the same deterministic planned assignment payloads that assignment persistence would write, maps them into validation inputs, and validates logical workstation or sterilizer target deployment keys against same-clinic inactive setup-draft planned shells. Explicit `unassigned` remains valid without a target lookup.
+
+If validation passes, setup completion proceeds to `public.deployment_hardware_assignments` persistence. If validation finds invalid targets or the read-only validation repository fails unexpectedly, the action returns safely with deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells preserved as durable upstream evidence. No assignment rows are created, no downstream counters advance, no durable ids are resolved, and no operational hardware binding or activation columns are written.

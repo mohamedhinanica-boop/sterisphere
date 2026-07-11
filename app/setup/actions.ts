@@ -34,6 +34,12 @@ import {
 import {
   provisionHardwareAssignmentsForServerDeployment,
 } from "@/lib/modules/deployment/deployment-hardware-assignment-server";
+import {
+  validateAssignmentTargetsForServerDeployment,
+} from "@/lib/modules/deployment/deployment-assignment-target-validation-server";
+import type {
+  DeploymentAssignmentTargetValidationIssue,
+} from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
 
 export type PersistDeploymentRunActionStatus =
   | "created"
@@ -144,6 +150,31 @@ export interface HardwareShellsActionResult {
   message: string;
 }
 
+export type AssignmentTargetValidationActionStatus =
+  | "valid"
+  | "invalid"
+  | "error"
+  | "skipped";
+
+export interface AssignmentTargetValidationActionResult {
+  ok: boolean;
+  status: AssignmentTargetValidationActionStatus;
+  clinicId: string | null;
+  requested: number;
+  valid: number;
+  invalid: number;
+  missingTargets: number;
+  incompatibleTargets: number;
+  issues: readonly DeploymentAssignmentTargetValidationIssue[];
+  downstream: {
+    requested: 0;
+    created: 0;
+    reused: 0;
+    skipped: 0;
+    conflicts: 0;
+  };
+  message: string;
+}
 export type HardwareAssignmentsActionStatus = SterilizerShellsActionStatus;
 
 export interface HardwareAssignmentsActionResult {
@@ -171,13 +202,14 @@ export interface PersistDeploymentRunActionResult {
   sterilizerShells: SterilizerShellsActionResult;
   workstationShells: WorkstationShellsActionResult;
   hardwareShells: HardwareShellsActionResult;
+  assignmentTargetValidation: AssignmentTargetValidationActionResult;
   hardwareAssignments: HardwareAssignmentsActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc6-hardware-assignment-provisioning";
-const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware-assignments";
-const EVIDENCE_VERSION = "deployment-audit-evidence-rc6-slice1d";
+const DEPLOYMENT_VERSION = "rc6-assignment-target-validation";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware-assignment-validation";
+const EVIDENCE_VERSION = "deployment-audit-evidence-rc6-slice2c";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
   status: "skipped",
@@ -235,6 +267,25 @@ const HARDWARE_SHELLS_NOT_ATTEMPTED: HardwareShellsActionResult = {
   conflicts: 0,
   message: "Hardware shell provisioning was not attempted.",
 };
+const ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED: AssignmentTargetValidationActionResult = {
+  ok: false,
+  status: "skipped",
+  clinicId: null,
+  requested: 0,
+  valid: 0,
+  invalid: 0,
+  missingTargets: 0,
+  incompatibleTargets: 0,
+  issues: [],
+  downstream: {
+    requested: 0,
+    created: 0,
+    reused: 0,
+    skipped: 0,
+    conflicts: 0,
+  },
+  message: "Assignment target validation was not attempted.",
+};
 const HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED: HardwareAssignmentsActionResult = {
   ok: false,
   status: "skipped",
@@ -270,6 +321,7 @@ export async function persistDeploymentRunAction(
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
       workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
       hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+      assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
@@ -290,6 +342,7 @@ export async function persistDeploymentRunAction(
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
       workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
       hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+      assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
@@ -314,6 +367,7 @@ export async function persistDeploymentRunAction(
       sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
       workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
       hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+      assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
@@ -368,14 +422,15 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc6-slice1d",
-        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_workstation_hardware_shells_and_assignments",
+        runtimeSlice: "rc6-slice2c",
+        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_workstation_hardware_shells_assignment_target_validation_and_assignments",
         clinicRootPersistence: "enabled",
         clinicSettingsProvisioning: "enabled",
         providerShellProvisioning: "enabled",
         sterilizerShellProvisioning: "enabled",
         workstationShellProvisioning: "enabled",
         hardwareShellProvisioning: "enabled",
+        assignmentTargetValidation: "enabled",
         hardwareAssignmentProvisioning: "enabled",
         clinicConfigurationSimulated: true,
         deploymentSessionId: normalizedDeploymentSessionId,
@@ -397,6 +452,7 @@ export async function persistDeploymentRunAction(
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
@@ -417,6 +473,7 @@ export async function persistDeploymentRunAction(
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message: result.message,
       };
@@ -452,6 +509,7 @@ export async function persistDeploymentRunAction(
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
@@ -479,6 +537,7 @@ export async function persistDeploymentRunAction(
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
@@ -520,6 +579,7 @@ export async function persistDeploymentRunAction(
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
@@ -574,6 +634,7 @@ export async function persistDeploymentRunAction(
         sterilizerShells: STERILIZER_SHELLS_NOT_ATTEMPTED,
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
@@ -641,6 +702,7 @@ export async function persistDeploymentRunAction(
         },
         workstationShells: WORKSTATION_SHELLS_NOT_ATTEMPTED,
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
@@ -721,6 +783,7 @@ export async function persistDeploymentRunAction(
           message: workstationShells.message,
         },
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
@@ -815,12 +878,113 @@ export async function persistDeploymentRunAction(
           conflicts: hardwareShells.counts.conflicts,
           message: hardwareShells.message,
         },
+        assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells are durable, but hardware shell provisioning failed safely. No downstream records were created.",
       };
     }
 
+    const assignmentTargetValidation =
+      await validateAssignmentTargetsForServerDeployment(client, {
+        clinicId,
+        draft,
+        createdAt: persistedAt,
+      });
+
+    if (!assignmentTargetValidation.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        deploymentRunId: result.deploymentRun.deploymentRunId,
+        deploymentSessionId: normalizedDeploymentSessionId,
+        idempotencyKey,
+        payloadHash,
+        clinicRoot: {
+          ok: true,
+          status: clinicRoot.status,
+          clinicId,
+          message:
+            clinicRoot.status === "reused"
+              ? "Draft clinic root reused and linked to this deployment run."
+              : "Draft clinic root persisted and linked to this deployment run.",
+        },
+        clinicSettings: {
+          ok: true,
+          status: clinicSettings.status,
+          settingsId: clinicSettings.settings?.id ?? null,
+          clinicId,
+          message:
+            clinicSettings.status === "reused"
+              ? "Clinic settings already exist for this clinic; reuse them."
+              : "Clinic settings provisioned for this draft clinic.",
+        },
+        providerShells: {
+          ok: true,
+          status: providerShells.status,
+          clinicId,
+          requested: providerShells.counts.requested,
+          created: providerShells.counts.created,
+          reused: providerShells.counts.reused,
+          skipped: providerShells.counts.skipped,
+          conflicts: providerShells.counts.conflicts,
+          message:
+            providerShells.status === "reused"
+              ? "Provider placeholder shells already exist for this clinic; reuse them."
+              : "Provider placeholder shells provisioned for this draft clinic.",
+        },
+        sterilizerShells: {
+          ok: true,
+          status: sterilizerShells.status,
+          clinicId,
+          requested: sterilizerShells.counts.requested,
+          created: sterilizerShells.counts.created,
+          reused: sterilizerShells.counts.reused,
+          skipped: sterilizerShells.counts.skipped,
+          conflicts: sterilizerShells.counts.conflicts,
+          message:
+            sterilizerShells.status === "reused"
+              ? "Sterilizer planned shells already exist for this clinic; reuse them."
+              : "Sterilizer planned shells provisioned for this draft clinic.",
+        },
+        workstationShells: {
+          ok: true,
+          status: workstationShells.status,
+          clinicId,
+          requested: workstationShells.counts.requested,
+          created: workstationShells.counts.created,
+          reused: workstationShells.counts.reused,
+          skipped: workstationShells.counts.skipped,
+          conflicts: workstationShells.counts.conflicts,
+          message:
+            workstationShells.status === "reused"
+              ? "Workstation planned shells already exist for this clinic; reuse them."
+              : "Workstation planned shells provisioned for this draft clinic.",
+        },
+        hardwareShells: {
+          ok: true,
+          status: hardwareShells.status,
+          clinicId,
+          requested: hardwareShells.counts.requested,
+          created: hardwareShells.counts.created,
+          reused: hardwareShells.counts.reused,
+          skipped: hardwareShells.counts.skipped,
+          conflicts: hardwareShells.counts.conflicts,
+          message:
+            hardwareShells.status === "reused"
+              ? "Hardware planned shells already exist for this clinic; reuse them."
+              : "Hardware planned shells provisioned for this draft clinic.",
+        },
+        assignmentTargetValidation: mapAssignmentTargetValidationActionResult(
+          assignmentTargetValidation,
+        ),
+        hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        message:
+          assignmentTargetValidation.status === "error"
+            ? "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but assignment target validation failed safely. Hardware assignments were not persisted."
+            : "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but assignment target validation found invalid logical targets. Hardware assignments were not persisted.",
+      };
+    }
     const hardwareAssignments =
       await provisionHardwareAssignmentsForServerDeployment(client, {
         clinicId,
@@ -911,6 +1075,9 @@ export async function persistDeploymentRunAction(
               ? "Hardware planned shells already exist for this clinic; reuse them."
               : "Hardware planned shells provisioned for this draft clinic.",
         },
+        assignmentTargetValidation: mapAssignmentTargetValidationActionResult(
+          assignmentTargetValidation,
+        ),
         hardwareAssignments: {
           ok: false,
           status: hardwareAssignments.status,
@@ -1008,6 +1175,9 @@ export async function persistDeploymentRunAction(
             ? "Hardware planned shells already exist for this clinic; reuse them."
             : "Hardware planned shells provisioned for this draft clinic.",
       },
+      assignmentTargetValidation: mapAssignmentTargetValidationActionResult(
+        assignmentTargetValidation,
+      ),
       hardwareAssignments: {
         ok: true,
         status: hardwareAssignments.status,
@@ -1096,6 +1266,7 @@ export async function persistDeploymentRunAction(
         message:
           "Hardware shell provisioning may be incomplete or unavailable. No downstream records were created.",
       },
+      assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: {
         ok: false,
         status: "error",
@@ -1114,6 +1285,23 @@ export async function persistDeploymentRunAction(
   }
 }
 
+function mapAssignmentTargetValidationActionResult(
+  result: Awaited<ReturnType<typeof validateAssignmentTargetsForServerDeployment>>,
+): AssignmentTargetValidationActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    clinicId: result.clinicId,
+    requested: result.requested,
+    valid: result.valid,
+    invalid: result.invalid,
+    missingTargets: result.missingTargets,
+    incompatibleTargets: result.incompatibleTargets,
+    issues: result.issues,
+    downstream: result.downstream,
+    message: result.message,
+  };
+}
 function normalizeDeploymentSessionId(
   deploymentSessionId: string | null | undefined,
 ): string {

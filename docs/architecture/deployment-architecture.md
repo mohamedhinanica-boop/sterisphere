@@ -804,8 +804,13 @@ The stage remains relationship-only. It does not resolve or write workstation id
 
 ## RC6 Slice 2A Assignment Target Validation Foundation
 
-Assignment target validation is introduced as a read-only deployment-domain foundation after planned hardware assignments. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> hardware_assignments -> assignment_target_validation`.
+Assignment target validation is introduced as a read-only deployment-domain foundation before planned hardware assignment persistence. The future order is `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments`.
 
 The validator confirms that planned assignment targets are logical, scoped, and compatible before a later runtime slice resolves or binds anything. Workstation targets must point to same-clinic inactive setup-draft planned workstation shells. Sterilizer targets must point to same-clinic inactive setup-draft planned sterilizer shells. Unassigned hardware is a valid explicit state and must not carry a target key.
 
 This foundation deliberately avoids Supabase repositories, SQL migrations, runtime setup wiring, UI changes, ID resolution, hardware binding columns, activation, agent registration, device enrollment, smoke runners, and `DeploymentEngine.execute()` changes. It reports structured validation issues and zero downstream counters only.
+## RC6 Slice 2C Runtime Assignment Target Validation Gate
+
+Setup completion now includes a read-only assignment target validation gate between hardware shell persistence and hardware assignment persistence. The trusted server action composes `deployment-assignment-target-validation-server.ts` with the Supabase validation repository and validates the deterministic assignment payloads for the reviewed draft before any assignment rows are created.
+
+The gate is evidence-only and mutation-free: workstation and sterilizer targets are checked by logical deployment key, clinic scope, inactive state, `setup_draft` source, and `planned` status. It does not resolve workstation ids, sterilizer ids, hardware ids, or agent ids and does not write operational hardware binding columns. Validation failures are returned as structured evidence on the Setup Complete page and prevent `public.deployment_hardware_assignments` writes for that attempt while preserving upstream durable records.
