@@ -811,6 +811,28 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message: "Hardware assignment provisioning was not attempted.",
         },
+        plannedAssignmentResolution: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          requested: 0,
+          resolved: 0,
+          unresolved: 0,
+          missingHardware: 0,
+          missingTargets: 0,
+          incompatibleHardware: 0,
+          incompatibleTargets: 0,
+          records: [],
+          issues: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message: "Planned assignment resolution was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -929,6 +951,29 @@ export default function ClinicSetupPage() {
           conflicts: 0,
           message:
             "Hardware assignment provisioning was not completed. No downstream records were created.",
+        },
+        plannedAssignmentResolution: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          requested: 0,
+          resolved: 0,
+          unresolved: 0,
+          missingHardware: 0,
+          missingTargets: 0,
+          incompatibleHardware: 0,
+          incompatibleTargets: 0,
+          records: [],
+          issues: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message:
+            "Planned assignment resolution was not completed. Logical assignments remain inactive and unbound.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1218,6 +1263,7 @@ const deploymentExecutionStageLabels = [
   "Provisioning workstation and hardware shells",
   "Validating assignment targets",
   "Recording planned hardware assignments",
+  "Resolving planned assignment IDs",
   "Finalizing deployment evidence",
 ] as const;
 
@@ -1257,6 +1303,8 @@ function CompleteStep({
   const assignmentTargetValidation =
     deploymentRunResult?.assignmentTargetValidation ?? null;
   const hardwareAssignments = deploymentRunResult?.hardwareAssignments ?? null;
+  const plannedAssignmentResolution =
+    deploymentRunResult?.plannedAssignmentResolution ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1777,6 +1825,105 @@ function CompleteStep({
                 </div>
               </dl>
             </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Planned Assignment Resolution: {plannedAssignmentResolution?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {plannedAssignmentResolution?.message ??
+                  "Planned assignment IDs will be resolved in memory after assignment rows are persisted."}
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.requested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Resolved
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.resolved ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Unresolved
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.unresolved ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Missing Hardware
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.missingHardware ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Missing Targets
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.missingTargets ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Incompatible Hardware
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.incompatibleHardware ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Incompatible Targets
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {plannedAssignmentResolution?.incompatibleTargets ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              {plannedAssignmentResolution?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Resolution Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {plannedAssignmentResolution.issues.slice(0, 4).map((issue) => (
+                      <li
+                        key={`${issue.deploymentHardwareKey}-${issue.assignmentKey ?? "assignment"}-${issue.targetType}-${issue.targetDeploymentKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.deploymentHardwareKey || "hardware target"}
+                        </span>{" "}
+                        {issue.targetType}
+                        {issue.targetDeploymentKey
+                          ? ` ${issue.targetDeploymentKey}`
+                          : " unassigned"}
+                        : {issue.code}. {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {plannedAssignmentResolution.issues.length > 4 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {plannedAssignmentResolution.issues.length - 4} more resolution issues are included in support evidence.
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs">
+                    Logical assignment rows remain inactive and persisted; no resolved IDs were written back.
+                  </p>
+                </div>
+              ) : null}
+            </div>
           </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
@@ -1789,9 +1936,11 @@ function CompleteStep({
             deployment_runs.clinic_id are persisted before the read-only
             assignment target validation gate. public.deployment_hardware_assignments
             planned relationships are persisted only after validation passes.
-            Users, real provider identities, hardware binding, packs, cycles,
-            traces, audit logs, and downstream deployment-stage records are not
-            created yet.
+            Planned assignment resolution reads those rows and matching planned
+            shells to return durable IDs in evidence only; it does not persist
+            resolved IDs, write hardware bindings, activate devices, create
+            users, packs, cycles, traces, audit logs, or downstream deployment
+            records.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -1872,6 +2021,16 @@ function buildDeploymentSupportHref(
       `Hardware assignments created: ${result?.hardwareAssignments.created ?? 0}`,
       `Hardware assignments reused: ${result?.hardwareAssignments.reused ?? 0}`,
       `Hardware assignment conflicts: ${result?.hardwareAssignments.conflicts ?? 0}`,
+      `Planned assignment resolution status: ${result?.plannedAssignmentResolution.status ?? "not attempted"}`,
+      `Planned assignment resolution requested: ${result?.plannedAssignmentResolution.requested ?? 0}`,
+      `Planned assignment resolution resolved: ${result?.plannedAssignmentResolution.resolved ?? 0}`,
+      `Planned assignment resolution unresolved: ${result?.plannedAssignmentResolution.unresolved ?? 0}`,
+      `Planned assignment resolution missing hardware: ${result?.plannedAssignmentResolution.missingHardware ?? 0}`,
+      `Planned assignment resolution missing targets: ${result?.plannedAssignmentResolution.missingTargets ?? 0}`,
+      `Planned assignment resolution incompatible hardware: ${result?.plannedAssignmentResolution.incompatibleHardware ?? 0}`,
+      `Planned assignment resolution incompatible targets: ${result?.plannedAssignmentResolution.incompatibleTargets ?? 0}`,
+      `Planned assignment resolution records: ${result?.plannedAssignmentResolution.records.map((record) => `${record.deploymentHardwareKey}:${record.hardwareId ?? "none"}:${record.targetType}:${record.targetDeploymentKey ?? "none"}:${record.targetId ?? "none"}:${record.resolutionStatus}`).join("; ") ?? "none"}`,
+      `Planned assignment resolution issues: ${result?.plannedAssignmentResolution.issues.map((issue) => `${issue.deploymentHardwareKey}:${issue.assignmentKey ?? "none"}:${issue.targetType}:${issue.targetDeploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
@@ -1881,6 +2040,7 @@ function buildDeploymentSupportHref(
       `Hardware shells message: ${result?.hardwareShells.message ?? "No hardware-shell response yet."}`,
       `Assignment target validation message: ${result?.assignmentTargetValidation.message ?? "No assignment-target-validation response yet."}`,
       `Hardware assignments message: ${result?.hardwareAssignments.message ?? "No hardware-assignment response yet."}`,
+      `Planned assignment resolution message: ${result?.plannedAssignmentResolution.message ?? "No planned-assignment-resolution response yet."}`,
     ].join("\n"),
   );
 

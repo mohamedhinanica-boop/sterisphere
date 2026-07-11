@@ -37,9 +37,16 @@ import {
 import {
   validateAssignmentTargetsForServerDeployment,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-server";
+import {
+  resolvePlannedAssignmentsForServerDeployment,
+} from "@/lib/modules/deployment/deployment-planned-assignment-resolution-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
+import type {
+  DeploymentPlannedAssignmentResolutionIssue,
+  DeploymentPlannedAssignmentResolvedRecord,
+} from "@/lib/modules/deployment/deployment-planned-assignment-resolution-types";
 
 export type PersistDeploymentRunActionStatus =
   | "created"
@@ -189,6 +196,35 @@ export interface HardwareAssignmentsActionResult {
   message: string;
 }
 
+export type PlannedAssignmentResolutionActionStatus =
+  | "resolved"
+  | "unresolved"
+  | "error"
+  | "skipped";
+
+export interface PlannedAssignmentResolutionActionResult {
+  ok: boolean;
+  status: PlannedAssignmentResolutionActionStatus;
+  clinicId: string | null;
+  requested: number;
+  resolved: number;
+  unresolved: number;
+  missingHardware: number;
+  missingTargets: number;
+  incompatibleHardware: number;
+  incompatibleTargets: number;
+  records: readonly DeploymentPlannedAssignmentResolvedRecord[];
+  issues: readonly DeploymentPlannedAssignmentResolutionIssue[];
+  downstream: {
+    requested: 0;
+    created: 0;
+    reused: 0;
+    skipped: 0;
+    conflicts: 0;
+  };
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -204,12 +240,13 @@ export interface PersistDeploymentRunActionResult {
   hardwareShells: HardwareShellsActionResult;
   assignmentTargetValidation: AssignmentTargetValidationActionResult;
   hardwareAssignments: HardwareAssignmentsActionResult;
+  plannedAssignmentResolution: PlannedAssignmentResolutionActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc6-assignment-target-validation";
-const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware-assignment-validation";
-const EVIDENCE_VERSION = "deployment-audit-evidence-rc6-slice2c";
+const DEPLOYMENT_VERSION = "rc7-planned-assignment-resolution";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware-assignment-validation-resolution";
+const EVIDENCE_VERSION = "deployment-audit-evidence-rc7-slice1c";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
   status: "skipped",
@@ -297,6 +334,28 @@ const HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED: HardwareAssignmentsActionResult = {
   conflicts: 0,
   message: "Hardware assignment provisioning was not attempted.",
 };
+const PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED: PlannedAssignmentResolutionActionResult = {
+  ok: false,
+  status: "skipped",
+  clinicId: null,
+  requested: 0,
+  resolved: 0,
+  unresolved: 0,
+  missingHardware: 0,
+  missingTargets: 0,
+  incompatibleHardware: 0,
+  incompatibleTargets: 0,
+  records: [],
+  issues: [],
+  downstream: {
+    requested: 0,
+    created: 0,
+    reused: 0,
+    skipped: 0,
+    conflicts: 0,
+  },
+  message: "Planned assignment resolution was not attempted.",
+};
 
 export async function persistDeploymentRunAction(
   draft: DeploymentDraft,
@@ -323,6 +382,7 @@ export async function persistDeploymentRunAction(
       hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
       assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+      plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -344,6 +404,7 @@ export async function persistDeploymentRunAction(
       hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
       assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+      plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -369,6 +430,7 @@ export async function persistDeploymentRunAction(
       hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
       assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+      plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -454,6 +516,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -475,6 +538,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -511,6 +575,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -539,6 +604,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -581,6 +647,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
@@ -636,6 +703,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
@@ -704,6 +772,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
       };
@@ -785,6 +854,7 @@ export async function persistDeploymentRunAction(
         hardwareShells: HARDWARE_SHELLS_NOT_ATTEMPTED,
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
       };
@@ -880,6 +950,7 @@ export async function persistDeploymentRunAction(
         },
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells are durable, but hardware shell provisioning failed safely. No downstream records were created.",
       };
@@ -979,6 +1050,7 @@ export async function persistDeploymentRunAction(
           assignmentTargetValidation,
         ),
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           assignmentTargetValidation.status === "error"
             ? "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but assignment target validation failed safely. Hardware assignments were not persisted."
@@ -1089,12 +1161,19 @@ export async function persistDeploymentRunAction(
           conflicts: hardwareAssignments.counts.conflicts,
           message: hardwareAssignments.message,
         },
+        plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but hardware assignment provisioning failed safely. No downstream records were created.",
       };
     }
+
+    const plannedAssignmentResolution =
+      await resolvePlannedAssignmentsForServerDeployment(client, {
+        clinicId,
+      });
+
     return {
-      ok: true,
+      ok: plannedAssignmentResolution.ok,
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -1192,8 +1271,12 @@ export async function persistDeploymentRunAction(
             ? "Hardware planned assignments already exist for this clinic; reuse them."
             : "Hardware planned assignments provisioned for this draft clinic.",
       },
-      message:
-        "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, hardware planned shells, and hardware planned assignments are provisioned. Pack, cycle, trace, user, audit, binding, and activation provisioning remains simulated.",
+      plannedAssignmentResolution: mapPlannedAssignmentResolutionActionResult(
+        plannedAssignmentResolution,
+      ),
+      message: plannedAssignmentResolution.ok
+        ? "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, hardware planned shells, hardware planned assignments, and read-only planned assignment resolution are complete. Pack, cycle, trace, user, audit, binding, and activation provisioning remains simulated."
+        : "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, hardware planned shells, and hardware planned assignments are durable, but planned assignment resolution is incomplete. Logical assignments remain persisted; activation preparation is blocked until the references resolve cleanly.",
     };
   } catch {
     return {
@@ -1279,6 +1362,7 @@ export async function persistDeploymentRunAction(
         message:
           "Hardware assignment provisioning may be incomplete or unavailable. No downstream records were created.",
       },
+      plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",
     };
@@ -1297,6 +1381,26 @@ function mapAssignmentTargetValidationActionResult(
     invalid: result.invalid,
     missingTargets: result.missingTargets,
     incompatibleTargets: result.incompatibleTargets,
+    issues: result.issues,
+    downstream: result.downstream,
+    message: result.message,
+  };
+}
+function mapPlannedAssignmentResolutionActionResult(
+  result: Awaited<ReturnType<typeof resolvePlannedAssignmentsForServerDeployment>>,
+): PlannedAssignmentResolutionActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    clinicId: result.clinicId,
+    requested: result.requested,
+    resolved: result.resolved,
+    unresolved: result.unresolved,
+    missingHardware: result.missingHardware,
+    missingTargets: result.missingTargets,
+    incompatibleHardware: result.incompatibleHardware,
+    incompatibleTargets: result.incompatibleTargets,
+    records: result.records,
     issues: result.issues,
     downstream: result.downstream,
     message: result.message,
