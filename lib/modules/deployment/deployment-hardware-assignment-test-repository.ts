@@ -3,6 +3,9 @@ import type {
   DeploymentHardwareAssignmentProvisioningPrerequisiteRepository,
   DeploymentHardwareAssignmentRepository,
 } from "./deployment-hardware-assignment-repository";
+import {
+  resolveExistingHardwareAssignment,
+} from "./deployment-hardware-assignment-integrity";
 import type {
   CreateDeploymentHardwareAssignmentPayload,
   DeploymentHardwareAssignmentRecord,
@@ -203,11 +206,17 @@ export class InMemoryDeploymentHardwareAssignmentTestRepository
   ): Promise<readonly DeploymentHardwareAssignmentRecord[]> {
     this.calls.listDeploymentHardwareAssignments += 1;
 
-    return this.assignments.filter(
-      (assignment) =>
-        assignment.clinicId === clinicId &&
-        assignment.deploymentHardwareKey !== null,
-    );
+    return this.assignments
+      .filter(
+        (assignment) =>
+          assignment.clinicId === clinicId &&
+          assignment.deploymentHardwareKey !== null,
+      )
+      .sort((left, right) =>
+        String(left.deploymentHardwareKey).localeCompare(
+          String(right.deploymentHardwareKey),
+        ),
+      );
   }
 
   get assignments(): readonly DeploymentHardwareAssignmentRecord[] {

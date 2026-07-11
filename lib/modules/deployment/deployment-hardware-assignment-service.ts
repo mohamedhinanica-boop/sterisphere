@@ -8,6 +8,9 @@ import {
   findDuplicateDeploymentKeys,
   resolveDeploymentProvisionStatus,
 } from "./deployment-provisioning-utils";
+import {
+  isReusableHardwareAssignment,
+} from "./deployment-hardware-assignment-integrity";
 import type {
   DeploymentHardwareAssignmentProvisioningPrerequisiteRepository,
   DeploymentHardwareAssignmentRepository,
@@ -134,7 +137,7 @@ export class DeploymentHardwareAssignmentService {
         );
 
       if (existingAssignment) {
-        if (isReusableAssignment(existingAssignment, payload)) {
+        if (isReusableHardwareAssignment(existingAssignment, payload)) {
           counts.reused += 1;
           assignments.push(existingAssignment);
           continue;
@@ -202,23 +205,6 @@ function resolveStatus(
   return resolveDeploymentProvisionStatus<
     DeploymentHardwareAssignmentProvisionResult["status"]
   >(counts);
-}
-
-function isReusableAssignment(
-  assignment: DeploymentHardwareAssignmentRecord,
-  payload: CreateDeploymentHardwareAssignmentPayload,
-): boolean {
-  return (
-    assignment.clinicId === payload.clinicId &&
-    assignment.deploymentHardwareKey === payload.deploymentHardwareKey &&
-    assignment.deploymentHardwareAssignmentKey ===
-      payload.deploymentHardwareAssignmentKey &&
-    assignment.targetType === payload.targetType &&
-    assignment.targetDeploymentKey === payload.targetDeploymentKey &&
-    assignment.assignmentSource === "setup_draft" &&
-    assignment.assignmentStatus === "planned" &&
-    assignment.active === false
-  );
 }
 
 function resolveMessage(
