@@ -871,3 +871,10 @@ Setup completion now validates logical assignment targets immediately after `har
 9. Create or reuse inactive planned hardware assignment rows only when validation passes.
 
 Validation failure stops the sequence safely at step 8. Upstream durable evidence remains intact, hardware assignment persistence is skipped, no downstream work is attempted, and no operational binding, activation, or `DeploymentEngine.execute()` behavior changes are introduced.
+## RC7 Slice 1A - Planned Assignment Resolution Foundation
+
+RC7 Slice 1A introduces a read-only in-memory resolution foundation after planned hardware assignment persistence. The future order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution`.
+
+Planned assignment resolution converts clinic-scoped logical deployment keys into durable row identities in memory only. A planned hardware assignment can resolve `deployment_hardware_key` to a planned hardware shell row id, resolve workstation or sterilizer `target_deployment_key` values to same-clinic planned shell row ids, or preserve explicit `unassigned` with a null target id. The layer returns structured resolved/unresolved records, batch counters, and issues; it does not persist resolution evidence or write ids back to assignments.
+
+Compatibility remains setup-draft and inactive. Hardware, workstation, and sterilizer shells must be same-clinic planned rows with `provisioning_source = setup_draft`, `provisioning_status = planned`, and `active = false`. Hardware shells with `agent_id`, `default_workstation_id`, or `current_workstation_id` are rejected as already operationally bound. The foundation does not create a Supabase repository, SQL migration, setup action wiring, UI evidence, operational binding, activation, agent registration, or `DeploymentEngine.execute()` change.
