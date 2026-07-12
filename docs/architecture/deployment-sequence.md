@@ -894,3 +894,20 @@ Setup completion now runs read-only planned assignment resolution immediately af
 10. Resolve persisted planned assignments to durable hardware and target row ids in memory only.
 
 Resolution failure or incomplete resolution stops the runtime chain safely after upstream evidence and planned assignment rows are durable. The response includes structured resolution issues, but no resolved ids are persisted, no hardware binding columns are written, no records are activated, and no `DeploymentEngine.execute()` behavior changes.
+## RC7 Slice 1E Activation Readiness Foundation Sequence
+
+A future read-only `deployment_activation_readiness` stage is documented after planned assignment resolution:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells.
+5. Create or reuse inactive planned sterilizer shells.
+6. Create or reuse inactive planned workstation shells.
+7. Create or reuse inactive planned hardware shells.
+8. Validate assignment targets.
+9. Create or reuse inactive planned hardware assignment rows.
+10. Resolve planned assignments to durable ids in memory only.
+11. Assess deployment activation readiness without writing or activating anything.
+
+Activation readiness is not activation. It is the final read-only safety boundary before any future phase may bind hardware, persist resolved ids, activate clinic records, register agents, or update deployment status.

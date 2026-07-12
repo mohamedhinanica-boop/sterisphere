@@ -838,3 +838,8 @@ The repository assumes first-class deployment key columns are present and does n
 Setup completion now includes a read-only planned assignment resolution stage after `public.deployment_hardware_assignments` persistence. The stage converts logical deployment assignment references into durable row identities in memory and returns evidence to the Complete page.
 
 The boundary remains mutation-free: resolved hardware, workstation, and sterilizer ids are not written back to assignment rows or operational hardware binding columns. Incomplete resolution preserves all upstream durable evidence and reports structured issues so retry can succeed after the durable reference problem is corrected. Activation, hardware binding, agent registration, packs, cycles, traces, users, audit-log rows, dashboard unlock, redirect behavior, and `DeploymentEngine.execute()` remain outside this slice.
+## RC7 Slice 1E Activation Readiness Boundary
+
+Deployment activation readiness is introduced as the final planned read-only safety boundary before a future activation phase. It evaluates whether the deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, hardware shells, hardware assignments, assignment target validation evidence, and planned assignment resolution evidence are mutually compatible.
+
+Readiness distinguishes blockers from warnings. Blockers prevent readiness, warnings remain visible without changing a ready result, and unexpected repository failures return an error result. The layer never activates records, persists readiness evidence, writes resolved ids, mutates hardware binding columns, registers agents, or changes deployment execution behavior.

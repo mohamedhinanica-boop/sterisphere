@@ -1308,3 +1308,10 @@ Resolution is activation preparation evidence only. It returns requested, resolv
 RC7 Slice 1D clarifies the authoritative compatibility contract for planned hardware assignment resolution. `public.clinical_hardware_devices.status` remains the operational/device lifecycle value used by the hardware table, and planned hardware shells created by deployment provisioning may persist as `status = discovered` while their deployment shell state is represented by `provisioning_source = setup_draft`, `provisioning_status = planned`, `active = false`, and null operational binding columns.
 
 Planned assignment resolution therefore treats same-clinic hardware rows as compatible when the deployment key matches, provisioning metadata is setup-draft planned, the row is inactive, and `agent_id`, `default_workstation_id`, and `current_workstation_id` are null. It still rejects active, archived, wrong-source, cross-clinic, legacy/global, or operationally bound hardware rows and never mutates persisted hardware or assignment data.
+## RC7 Slice 1E - Deployment Activation Readiness Foundation
+
+RC7 Slice 1E adds an inert activation-readiness domain foundation after planned assignment resolution. The future order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness`.
+
+Activation readiness is a read-only safety assessment that verifies durable deployment evidence, planned shells, planned assignments, assignment target validation evidence, and planned assignment resolution evidence before any later activation phase. The assessment returns ready, blocked, or error with deterministic blocker and warning issues plus zero downstream counters.
+
+This foundation does not create a Supabase repository, SQL migration, setup action wiring, UI evidence, resolved-id persistence, operational binding, activation, agent registration, deployment-status changes, smoke runners, or `DeploymentEngine.execute()` changes.
