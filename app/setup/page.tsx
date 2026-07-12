@@ -108,6 +108,41 @@ function createEmptyActivationExecutionEvidence(input: {
     message: input.message ?? "Activation execution preparation was not attempted.",
   } as const;
 }
+
+function createEmptyActivationExecutionPersistenceEvidence(input: {
+  status?: "error" | "not_attempted";
+  message?: string;
+} = {}) {
+  return {
+    ok: false,
+    status: input.status ?? "not_attempted",
+    sessionId: null,
+    executionKey: null,
+    planKey: null,
+    sessionCreated: 0,
+    sessionReused: 0,
+    itemsRequested: 0,
+    itemsCreated: 0,
+    itemsReused: 0,
+    itemsConflicted: 0,
+    blockers: 0,
+    warnings: 0,
+    issues: [],
+    downstream: {
+      itemsClaimed: 0,
+      itemsStarted: 0,
+      itemsSucceeded: 0,
+      itemsFailed: 0,
+      itemsRolledBack: 0,
+      sessionsCompleted: 0,
+      sessionsFailed: 0,
+      bindingsWritten: 0,
+      entitiesActivated: 0,
+      deploymentRunsFinalized: 0,
+    },
+    message: input.message ?? "Activation execution persistence was not attempted.",
+  } as const;
+}
 const deploymentProgressByStep: Record<SetupStepId, number> = {
   WELCOME: 0,
   CLINIC_PROFILE: 0,
@@ -916,6 +951,7 @@ export default function ClinicSetupPage() {
           message: "Controlled activation planning was not attempted.",
         },
         deploymentActivationExecution: createEmptyActivationExecutionEvidence(),
+        deploymentActivationExecutionPersistence: createEmptyActivationExecutionPersistenceEvidence(),
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -1108,6 +1144,11 @@ export default function ClinicSetupPage() {
           status: "error",
           message:
             "Activation execution preparation was not completed. No execution session was persisted.",
+        }),
+        deploymentActivationExecutionPersistence: createEmptyActivationExecutionPersistenceEvidence({
+          status: "error",
+          message:
+            "Activation execution persistence was not completed. No execution session or item rows were persisted.",
         }),
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1400,6 +1441,8 @@ const deploymentExecutionStageLabels = [
   "Resolving planned assignment IDs",
   "Assessing activation readiness",
   "Generating controlled activation plan",
+  "Preparing activation execution",
+  "Persisting prepared activation execution evidence",
   "Finalizing deployment evidence",
 ] as const;
 
@@ -1447,6 +1490,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationPlan ?? null;
   const deploymentActivationExecution =
     deploymentRunResult?.deploymentActivationExecution ?? null;
+  const deploymentActivationExecutionPersistence =
+    deploymentRunResult?.deploymentActivationExecutionPersistence ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2405,8 +2450,124 @@ function CompleteStep({
                 </div>
               ) : null}
               <p className="mt-4 text-xs text-slate-600">
-                No activation button is available. No execution session or item rows were persisted.
+                No activation button is available. Prepared execution persistence is evidence only.
               </p>
+            </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Activation Execution Persistence: {deploymentActivationExecutionPersistence?.status ?? "not_attempted"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationExecutionPersistence?.message ??
+                  "Prepared activation execution persistence will run after execution preparation is ready."}
+              </p>
+              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
+                <p>Session ID: {deploymentActivationExecutionPersistence?.sessionId ?? "not persisted"}</p>
+                <p>Execution key: {deploymentActivationExecutionPersistence?.executionKey ?? "not prepared"}</p>
+                <p>Plan key: {deploymentActivationExecutionPersistence?.planKey ?? "not generated"}</p>
+              </div>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Session Created
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.sessionCreated ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Session Reused
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.sessionReused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.itemsRequested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Created
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.itemsCreated ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Reused
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.itemsReused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Item Conflicts
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.itemsConflicted ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Blockers
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.blockers ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Warnings
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionPersistence?.warnings ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">
+                  Prepared Only
+                </p>
+                <p className="mt-2">
+                  Session status remains prepared. Item statuses remain ready or pending. No owner, lease, attempts, execution timestamps, activation, binding, rollback, or deployment finalization is started here.
+                </p>
+                <p className="mt-1">
+                  Downstream execution counters: claimed {deploymentActivationExecutionPersistence?.downstream.itemsClaimed ?? 0}, started {deploymentActivationExecutionPersistence?.downstream.itemsStarted ?? 0}, succeeded {deploymentActivationExecutionPersistence?.downstream.itemsSucceeded ?? 0}, failed {deploymentActivationExecutionPersistence?.downstream.itemsFailed ?? 0}.
+                </p>
+              </div>
+              {deploymentActivationExecutionPersistence?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Persistence Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationExecutionPersistence.issues.slice(0, 5).map((issue) => (
+                      <li
+                        key={`${issue.executionKey ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.planItemKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.severity}: {issue.code}
+                        </span>{" "}
+                        {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationExecutionPersistence.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationExecutionPersistence.issues.length - 5} more execution-persistence issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
           </div>
@@ -2425,10 +2586,14 @@ function CompleteStep({
             shells to return durable IDs in evidence only. Deployment activation
             readiness combines that fresh evidence with the durable snapshot as
             a read-only safety gate. Controlled activation planning then builds
-            deterministic plan evidence only; it persists no plan rows, executes
-            no plan items, writes no hardware bindings, activates no devices,
-            creates no users, packs, cycles, traces, audit logs, or downstream
-            deployment records.
+            deterministic plan evidence only; it persists no plan rows. Activation
+            execution preparation produces pre-execution evidence, and
+            public.deployment_activation_execution_sessions plus
+            public.deployment_activation_execution_items may persist that prepared
+            evidence only. No session is claimed, no item starts, no hardware
+            bindings are written, no devices activate, and no users, packs,
+            cycles, traces, audit logs, rollback work, or deployment finalization
+            occurs.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -2550,6 +2715,21 @@ function buildDeploymentSupportHref(
       `Activation execution issues: ${result?.deploymentActivationExecution.issues.map((issue) => `${issue.severity}:${issue.entityType}:${issue.deploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Activation execution items: ${result?.deploymentActivationExecution.executionItems.slice(0, 8).map((item) => `${item.sequence}:${item.action}:${item.entityType}:${item.deploymentKey ?? "none"}:${item.executionStatus}`).join("; ") ?? "none"}`,
       `Activation execution message: ${result?.deploymentActivationExecution.message ?? "No activation-execution-preparation response yet."}`,
+      `Activation execution persistence status: ${result?.deploymentActivationExecutionPersistence.status ?? "not attempted"}`,
+      `Activation execution persistence session ID: ${result?.deploymentActivationExecutionPersistence.sessionId ?? "not persisted"}`,
+      `Activation execution persistence execution key: ${result?.deploymentActivationExecutionPersistence.executionKey ?? "not prepared"}`,
+      `Activation execution persistence plan key: ${result?.deploymentActivationExecutionPersistence.planKey ?? "not generated"}`,
+      `Activation execution persistence session created: ${result?.deploymentActivationExecutionPersistence.sessionCreated ?? 0}`,
+      `Activation execution persistence session reused: ${result?.deploymentActivationExecutionPersistence.sessionReused ?? 0}`,
+      `Activation execution persistence items requested: ${result?.deploymentActivationExecutionPersistence.itemsRequested ?? 0}`,
+      `Activation execution persistence items created: ${result?.deploymentActivationExecutionPersistence.itemsCreated ?? 0}`,
+      `Activation execution persistence items reused: ${result?.deploymentActivationExecutionPersistence.itemsReused ?? 0}`,
+      `Activation execution persistence item conflicts: ${result?.deploymentActivationExecutionPersistence.itemsConflicted ?? 0}`,
+      `Activation execution persistence blockers: ${result?.deploymentActivationExecutionPersistence.blockers ?? 0}`,
+      `Activation execution persistence warnings: ${result?.deploymentActivationExecutionPersistence.warnings ?? 0}`,
+      `Activation execution persistence issues: ${result?.deploymentActivationExecutionPersistence.issues.map((issue) => `${issue.severity}:${issue.executionKey ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Activation execution persistence message: ${result?.deploymentActivationExecutionPersistence.message ?? "No activation-execution-persistence response yet."}`,
+      "Activation execution persistence note: prepared evidence only; no activation, ownership claim, lease, attempt, binding, rollback, or finalization began.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
@@ -2562,6 +2742,8 @@ function buildDeploymentSupportHref(
       `Planned assignment resolution message: ${result?.plannedAssignmentResolution.message ?? "No planned-assignment-resolution response yet."}`,
       `Deployment activation readiness message: ${result?.deploymentActivationReadiness.message ?? "No deployment-activation-readiness response yet."}`,
       `Activation plan message: ${result?.deploymentActivationPlan.message ?? "No activation-plan response yet."}`,
+      `Activation execution preparation message: ${result?.deploymentActivationExecution.message ?? "No activation-execution-preparation response yet."}`,
+      `Activation execution persistence message: ${result?.deploymentActivationExecutionPersistence.message ?? "No activation-execution-persistence response yet."}`,
     ].join("\n"),
   );
 

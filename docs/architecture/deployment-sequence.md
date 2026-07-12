@@ -1050,3 +1050,13 @@ The future order remains `controlled_activation_execution_preparation -> activat
 When wired later, successful ready execution preparation can create or reuse one prepared execution session and its prepared execution items. The durable rows will be idempotency and ownership evidence before any later controlled executor may claim work. The rows themselves do not authorize activation and do not execute plan items.
 
 No runtime action, UI, SQL application confirmation, ownership claim, running state, attempt update, activation, binding, deployment finalization, rollback execution, worker, polling, streaming, or `DeploymentEngine.execute()` change is included in this slice.
+
+## RC8 Slice 2C Runtime Prepared Execution Persistence Sequence
+
+Setup completion now appends durable prepared execution persistence after successful activation execution preparation:
+
+`deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution_preparation -> activation_execution_persistence`
+
+The new stage persists prepared execution evidence only into `public.deployment_activation_execution_sessions` and `public.deployment_activation_execution_items`. Sessions remain `prepared`; items remain `ready` or `pending`; ownership, leases, attempts, execution timestamps, activation, hardware binding, rollback, dashboard unlock, deployment finalization, and `DeploymentEngine.execute()` remain unchanged.
+
+Prepared persistence is retry-safe. A retry reuses compatible immutable session and item evidence, partial durable item state creates only missing compatible items, and conflicts are reported without repair or overwrite. Future execution claiming must verify the session exists, every expected item exists, no item conflict exists, and persisted item count matches session evidence before any ownership claim or mutation.

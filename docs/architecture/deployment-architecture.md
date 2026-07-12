@@ -925,3 +925,9 @@ Prepared activation execution evidence now has a proposed durable database bound
 The session table is the future execution ownership boundary, but Slice 2B only allows prepared evidence insertion. Owner, ownership token, lease, start, completion, and failure fields remain null for prepared sessions. The item table stores approved pre-execution instructions and allows future lifecycle statuses in constraints, but the repository creates only `ready` and `pending` rows with zero attempts and no execution timestamps.
 
 The Supabase adapter is server-only and mutation-limited to insert-only prepared persistence. It does not claim sessions, start items, complete items, fail items, roll back, activate entities, bind hardware, write agent/workstation ids, update provisioning status, or finalize deployment runs. A later runtime slice may wire the persistence service after successful execution preparation, still without executing activation.
+
+## RC8 Slice 2C Prepared Execution Persistence Boundary
+
+Runtime setup now composes the activation execution persistence service after ready execution preparation. The server action resolves the durable `deployment_runs` row for the current clinic and logical deployment run before persisting, then creates or reuses one prepared execution session plus deterministic prepared execution items.
+
+This is a durable evidence boundary, not an execution boundary. The session is not claimed, no ownership token or lease is created, item attempts stay zero, item statuses stay `ready` or `pending`, and no clinic, shell, hardware, assignment, binding, rollback, audit, or deployment-run finalization state is mutated. Partial prepared evidence remains durable for safe retry; future claiming must enforce completeness before ownership.
