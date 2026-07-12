@@ -1,3 +1,13 @@
+import {
+  buildClinicActivationCurrentState,
+  buildDeploymentRunActivationCurrentState,
+  buildHardwareAssignmentActivationCurrentState,
+  buildHardwareBindingActivationCurrentState,
+  buildHardwareShellActivationCurrentState,
+  buildProviderShellActivationCurrentState,
+  buildSterilizerShellActivationCurrentState,
+  buildWorkstationShellActivationCurrentState,
+} from "./deployment-activation-current-state";
 import { DeploymentActivationExecutionService } from "./deployment-activation-execution-service";
 import { InMemoryDeploymentActivationExecutionTestRepository } from "./deployment-activation-execution-test-repository";
 import type {
@@ -562,7 +572,10 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: CLINIC_ID,
       deploymentKey: null,
       action: "activate",
-      currentState: { deploymentStatus: "draft" },
+      currentState: buildClinicActivationCurrentState({
+        clinicId: CLINIC_ID,
+        deploymentStatus: "draft",
+      }),
       targetState: { deploymentStatus: "active" },
       dependencyKeys: [],
       reversible: true,
@@ -575,7 +588,14 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: "provider-row-001",
       deploymentKey: "provider-001",
       action: "activate",
-      currentState: { provisioningStatus: "placeholder", active: false },
+      currentState: buildProviderShellActivationCurrentState({
+        id: "provider-row-001",
+        clinicId: CLINIC_ID,
+        deploymentProviderKey: "provider-001",
+        provisioningSource: "setup_draft",
+        provisioningStatus: "placeholder",
+        active: false,
+      }),
       targetState: { provisioningStatus: "active", active: true },
       dependencyKeys: [clinicKey],
       reversible: true,
@@ -588,7 +608,14 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: "sterilizer-row-001",
       deploymentKey: "sterilizer-001",
       action: "activate",
-      currentState: { provisioningStatus: "planned", active: false },
+      currentState: buildSterilizerShellActivationCurrentState({
+        id: "sterilizer-row-001",
+        clinicId: CLINIC_ID,
+        deploymentSterilizerKey: "sterilizer-001",
+        provisioningSource: "setup_draft",
+        provisioningStatus: "planned",
+        active: false,
+      }),
       targetState: { provisioningStatus: "active", active: true },
       dependencyKeys: [clinicKey],
       reversible: true,
@@ -601,7 +628,14 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: "workstation-row-001",
       deploymentKey: "workstation-001",
       action: "activate",
-      currentState: { provisioningStatus: "planned", active: false },
+      currentState: buildWorkstationShellActivationCurrentState({
+        id: "workstation-row-001",
+        clinicId: CLINIC_ID,
+        deploymentWorkstationKey: "workstation-001",
+        provisioningSource: "setup_draft",
+        provisioningStatus: "planned",
+        active: false,
+      }),
       targetState: { provisioningStatus: "active", active: true },
       dependencyKeys: [clinicKey],
       reversible: true,
@@ -614,7 +648,18 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: "hardware-row-001",
       deploymentKey: "hardware-001",
       action: "activate",
-      currentState: { provisioningStatus: "planned", active: false },
+      currentState: buildHardwareShellActivationCurrentState({
+        id: "hardware-row-001",
+        clinicId: CLINIC_ID,
+        deploymentHardwareKey: "hardware-001",
+        provisioningSource: "setup_draft",
+        provisioningStatus: "planned",
+        active: false,
+        operationalStatus: "discovered",
+        agentId: null,
+        defaultWorkstationId: null,
+        currentWorkstationId: null,
+      }),
       targetState: { provisioningStatus: "active", active: true },
       dependencyKeys: [clinicKey],
       reversible: true,
@@ -627,11 +672,13 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: "hardware-row-001",
       deploymentKey: "hardware-001",
       action: "bind",
-      currentState: {
+      currentState: buildHardwareBindingActivationCurrentState({
         hardwareId: "hardware-row-001",
-        targetId: null,
+        deploymentHardwareKey: "hardware-001",
         targetType: "workstation",
-      },
+        targetDeploymentKey: "workstation-001",
+        targetId: null,
+      }),
       targetState: {
         hardwareId: "hardware-row-001",
         targetId: "workstation-row-001",
@@ -649,7 +696,17 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: "hardware-assignment-row-001",
       deploymentKey: "hardware-001",
       action: "finalize",
-      currentState: { assignmentStatus: "planned", active: false },
+      currentState: buildHardwareAssignmentActivationCurrentState({
+        id: "hardware-assignment-row-001",
+        clinicId: CLINIC_ID,
+        deploymentHardwareKey: "hardware-001",
+        assignmentKey: "hardware-assignment-hardware-001",
+        targetType: "workstation",
+        targetDeploymentKey: "workstation-001",
+        assignmentSource: "setup_draft",
+        assignmentStatus: "planned",
+        active: false,
+      }),
       targetState: { assignmentStatus: "active", active: true },
       dependencyKeys: [hardwareKey, bindingKey],
       reversible: false,
@@ -662,7 +719,12 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
       entityId: null,
       deploymentKey: DEPLOYMENT_RUN_ID,
       action: "finalize",
-      currentState: { deploymentStatus: "deployed" },
+      currentState: buildDeploymentRunActivationCurrentState({
+        deploymentRunId: DEPLOYMENT_RUN_ID,
+        clinicId: CLINIC_ID,
+        lifecycleState: "completed",
+        deploymentStatus: "deployed",
+      }),
       targetState: { deploymentStatus: "activated" },
       dependencyKeys: [
         clinicKey,
@@ -678,7 +740,6 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
     }),
   ];
 }
-
 function item(
   input: Omit<
     DeploymentActivationPlanItem,

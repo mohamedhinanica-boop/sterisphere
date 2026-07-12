@@ -23,6 +23,16 @@ import type {
 import type {
   DeploymentPlannedAssignmentResolvedRecord,
 } from "./deployment-planned-assignment-resolution-types";
+import {
+  buildClinicActivationCurrentState,
+  buildDeploymentRunActivationCurrentState,
+  buildHardwareAssignmentActivationCurrentState,
+  buildHardwareBindingActivationCurrentState,
+  buildHardwareShellActivationCurrentState,
+  buildProviderShellActivationCurrentState,
+  buildSterilizerShellActivationCurrentState,
+  buildWorkstationShellActivationCurrentState,
+} from "./deployment-activation-current-state";
 
 const FINALIZED_RUN_STATES = new Set([
   "activated",
@@ -615,7 +625,10 @@ function buildPlanItems(input: {
       deploymentKey: null,
       clinicId: input.clinicId,
       action: "activate",
-      currentState: { deploymentStatus: "draft" },
+      currentState: buildClinicActivationCurrentState({
+        clinicId: input.snapshot.clinic?.id ?? input.clinicId,
+        deploymentStatus: "draft",
+      }),
       targetState: { deploymentStatus: "active" },
       dependencyKeys: [],
       reversible: true,
@@ -626,28 +639,56 @@ function buildPlanItems(input: {
   for (const key of input.expected.providerKeys) {
     const shell = input.providerShells.items.get(key);
     items.push(
-      activationItem(input.planKey, nextSequence(), "provider_shell", shell?.id ?? null, key, input.clinicId, [clinicItemKey], "placeholder"),
+      providerActivationItem({
+        planKey: input.planKey,
+        sequence: nextSequence(),
+        shell,
+        deploymentKey: key,
+        clinicId: input.clinicId,
+        dependencyKeys: [clinicItemKey],
+      }),
     );
   }
 
   for (const key of input.expected.sterilizerKeys) {
     const shell = input.sterilizerShells.items.get(key);
     items.push(
-      activationItem(input.planKey, nextSequence(), "sterilizer_shell", shell?.id ?? null, key, input.clinicId, [clinicItemKey], "planned"),
+      sterilizerActivationItem({
+        planKey: input.planKey,
+        sequence: nextSequence(),
+        shell,
+        deploymentKey: key,
+        clinicId: input.clinicId,
+        dependencyKeys: [clinicItemKey],
+      }),
     );
   }
 
   for (const key of input.expected.workstationKeys) {
     const shell = input.workstationShells.items.get(key);
     items.push(
-      activationItem(input.planKey, nextSequence(), "workstation_shell", shell?.id ?? null, key, input.clinicId, [clinicItemKey], "planned"),
+      workstationActivationItem({
+        planKey: input.planKey,
+        sequence: nextSequence(),
+        shell,
+        deploymentKey: key,
+        clinicId: input.clinicId,
+        dependencyKeys: [clinicItemKey],
+      }),
     );
   }
 
   for (const key of input.expected.hardwareKeys) {
     const shell = input.hardwareShells.items.get(key);
     items.push(
-      activationItem(input.planKey, nextSequence(), "hardware_shell", shell?.id ?? null, key, input.clinicId, [clinicItemKey], "planned"),
+      hardwareActivationItem({
+        planKey: input.planKey,
+        sequence: nextSequence(),
+        shell,
+        deploymentKey: key,
+        clinicId: input.clinicId,
+        dependencyKeys: [clinicItemKey],
+      }),
     );
   }
 
@@ -671,11 +712,13 @@ function buildPlanItems(input: {
         deploymentKey: key,
         clinicId: input.clinicId,
         action: "bind",
-        currentState: {
+        currentState: buildHardwareBindingActivationCurrentState({
           hardwareId: resolved.hardwareId,
-          targetId: null,
+          deploymentHardwareKey: resolved.deploymentHardwareKey,
           targetType: resolved.targetType,
-        },
+          targetDeploymentKey: resolved.targetDeploymentKey,
+          targetId: null,
+        }),
         targetState: {
           hardwareId: resolved.hardwareId,
           targetId: resolved.targetId,
@@ -716,7 +759,17 @@ function buildPlanItems(input: {
         deploymentKey: key,
         clinicId: input.clinicId,
         action: "finalize",
-        currentState: { assignmentStatus: "planned", active: false },
+        currentState: buildHardwareAssignmentActivationCurrentState({
+          id: assignment?.id ?? null,
+          clinicId: assignment?.clinicId ?? input.clinicId,
+          deploymentHardwareKey: assignment?.deploymentHardwareKey ?? key,
+          assignmentKey: assignment?.assignmentKey ?? null,
+          targetType: assignment?.targetType ?? null,
+          targetDeploymentKey: assignment?.targetDeploymentKey ?? null,
+          assignmentSource: assignment?.assignmentSource ?? null,
+          assignmentStatus: assignment?.assignmentStatus ?? null,
+          active: assignment?.active ?? null,
+        }),
         targetState: { assignmentStatus: "active", active: true },
         dependencyKeys: [
           `${input.planKey}:hardware_shell:${key}`,
@@ -741,7 +794,14 @@ function buildPlanItems(input: {
       deploymentKey: input.deploymentRunId,
       clinicId: input.clinicId,
       action: "finalize",
-      currentState: { deploymentStatus: input.snapshot.deploymentRun?.deploymentStatus ?? null },
+      currentState: buildDeploymentRunActivationCurrentState({
+        deploymentRunId:
+          input.snapshot.deploymentRun?.deploymentRunId ??
+          input.deploymentRunId,
+        clinicId: input.snapshot.deploymentRun?.clinicId ?? input.clinicId,
+        lifecycleState: input.snapshot.deploymentRun?.lifecycleState ?? null,
+        deploymentStatus: input.snapshot.deploymentRun?.deploymentStatus ?? null,
+      }),
       targetState: { deploymentStatus: "activated" },
       dependencyKeys: items.map((current) => current.planItemKey),
       reversible: false,
@@ -763,43 +823,154 @@ function buildPlanItems(input: {
   return items;
 }
 
-function activationItem(
-  planKey: string,
-  sequence: number,
+function providerActivationItem(input: {
+  planKey: string;
+  sequence: number;
+  shell: DeploymentActivationReadinessProviderShell | undefined;
+  deploymentKey: string;
+  clinicId: string;
+  dependencyKeys: readonly string[];
+}): DeploymentActivationPlanItem {
+  return shellActivationItem({
+    planKey: input.planKey,
+    sequence: input.sequence,
+    entityType: "provider_shell",
+    entityId: input.shell?.id ?? null,
+    deploymentKey: input.deploymentKey,
+    clinicId: input.clinicId,
+    dependencyKeys: input.dependencyKeys,
+    currentState: buildProviderShellActivationCurrentState({
+      id: input.shell?.id ?? null,
+      clinicId: input.shell?.clinicId ?? input.clinicId,
+      deploymentProviderKey:
+        input.shell?.deploymentProviderKey ?? input.deploymentKey,
+      provisioningSource: input.shell?.provisioningSource ?? null,
+      provisioningStatus: input.shell?.provisioningStatus ?? null,
+      active: input.shell?.active ?? null,
+    }),
+  });
+}
+
+function sterilizerActivationItem(input: {
+  planKey: string;
+  sequence: number;
+  shell: DeploymentActivationReadinessSterilizerShell | undefined;
+  deploymentKey: string;
+  clinicId: string;
+  dependencyKeys: readonly string[];
+}): DeploymentActivationPlanItem {
+  return shellActivationItem({
+    planKey: input.planKey,
+    sequence: input.sequence,
+    entityType: "sterilizer_shell",
+    entityId: input.shell?.id ?? null,
+    deploymentKey: input.deploymentKey,
+    clinicId: input.clinicId,
+    dependencyKeys: input.dependencyKeys,
+    currentState: buildSterilizerShellActivationCurrentState({
+      id: input.shell?.id ?? null,
+      clinicId: input.shell?.clinicId ?? input.clinicId,
+      deploymentSterilizerKey:
+        input.shell?.deploymentSterilizerKey ?? input.deploymentKey,
+      provisioningSource: input.shell?.provisioningSource ?? null,
+      provisioningStatus: input.shell?.provisioningStatus ?? null,
+      active: input.shell?.active ?? null,
+    }),
+  });
+}
+
+function workstationActivationItem(input: {
+  planKey: string;
+  sequence: number;
+  shell: DeploymentActivationReadinessWorkstationShell | undefined;
+  deploymentKey: string;
+  clinicId: string;
+  dependencyKeys: readonly string[];
+}): DeploymentActivationPlanItem {
+  return shellActivationItem({
+    planKey: input.planKey,
+    sequence: input.sequence,
+    entityType: "workstation_shell",
+    entityId: input.shell?.id ?? null,
+    deploymentKey: input.deploymentKey,
+    clinicId: input.clinicId,
+    dependencyKeys: input.dependencyKeys,
+    currentState: buildWorkstationShellActivationCurrentState({
+      id: input.shell?.id ?? null,
+      clinicId: input.shell?.clinicId ?? input.clinicId,
+      deploymentWorkstationKey:
+        input.shell?.deploymentWorkstationKey ?? input.deploymentKey,
+      provisioningSource: input.shell?.provisioningSource ?? null,
+      provisioningStatus: input.shell?.provisioningStatus ?? null,
+      active: input.shell?.active ?? null,
+    }),
+  });
+}
+
+function hardwareActivationItem(input: {
+  planKey: string;
+  sequence: number;
+  shell: DeploymentActivationReadinessHardwareShell | undefined;
+  deploymentKey: string;
+  clinicId: string;
+  dependencyKeys: readonly string[];
+}): DeploymentActivationPlanItem {
+  return shellActivationItem({
+    planKey: input.planKey,
+    sequence: input.sequence,
+    entityType: "hardware_shell",
+    entityId: input.shell?.id ?? null,
+    deploymentKey: input.deploymentKey,
+    clinicId: input.clinicId,
+    dependencyKeys: input.dependencyKeys,
+    currentState: buildHardwareShellActivationCurrentState({
+      id: input.shell?.id ?? null,
+      clinicId: input.shell?.clinicId ?? input.clinicId,
+      deploymentHardwareKey:
+        input.shell?.deploymentHardwareKey ?? input.deploymentKey,
+      provisioningSource: input.shell?.provisioningSource ?? null,
+      provisioningStatus: input.shell?.provisioningStatus ?? null,
+      active: input.shell?.active ?? null,
+      operationalStatus: input.shell?.status ?? null,
+      agentId: input.shell?.agentId ?? null,
+      defaultWorkstationId: input.shell?.defaultWorkstationId ?? null,
+      currentWorkstationId: input.shell?.currentWorkstationId ?? null,
+    }),
+  });
+}
+
+function shellActivationItem(input: {
+  planKey: string;
+  sequence: number;
   entityType:
     | "provider_shell"
     | "sterilizer_shell"
     | "workstation_shell"
-    | "hardware_shell",
-  entityId: string | null,
-  deploymentKey: string,
-  clinicId: string,
-  dependencyKeys: readonly string[],
-  currentProvisioningStatus: string,
-): DeploymentActivationPlanItem {
+    | "hardware_shell";
+  entityId: string | null;
+  deploymentKey: string;
+  clinicId: string;
+  dependencyKeys: readonly string[];
+  currentState: Record<string, unknown>;
+}): DeploymentActivationPlanItem {
   return item({
-    planItemKey: `${planKey}:${entityType}:${deploymentKey}`,
-    sequence,
-    entityType,
-    entityId,
-    deploymentKey,
-    clinicId,
+    planItemKey: `${input.planKey}:${input.entityType}:${input.deploymentKey}`,
+    sequence: input.sequence,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    deploymentKey: input.deploymentKey,
+    clinicId: input.clinicId,
     action: "activate",
-    currentState: {
-      provisioningSource: "setup_draft",
-      provisioningStatus: currentProvisioningStatus,
-      active: false,
-    },
+    currentState: input.currentState,
     targetState: {
       provisioningStatus: "active",
       active: true,
     },
-    dependencyKeys,
+    dependencyKeys: input.dependencyKeys,
     reversible: true,
-    rollbackAction: `restore ${label(entityType)} to inactive setup_draft state before operational use`,
+    rollbackAction: `restore ${label(input.entityType)} to inactive setup_draft state before operational use`,
   });
 }
-
 function item(
   input: Omit<
     DeploymentActivationPlanItem,

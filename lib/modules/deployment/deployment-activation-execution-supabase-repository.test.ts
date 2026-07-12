@@ -73,7 +73,9 @@ function scenarioDeploymentRunMapping(): DeploymentActivationExecutionSupabaseRe
     run.deploymentRunId === DEPLOYMENT_RUN_ID &&
       run.clinicId === CLINIC_ID &&
       run.lifecycleState === "completed" &&
-      currentState.deploymentStatus === "deployed",
+      currentState.deploymentStatus === "deployed" &&
+      currentState.deploymentRunId === DEPLOYMENT_RUN_ID &&
+      currentState.clinicId === CLINIC_ID,
     JSON.stringify({ run, currentState }),
   );
 }
@@ -122,6 +124,7 @@ function scenarioProviderStateMapping(): DeploymentActivationExecutionSupabaseRe
       id: "provider-row-001",
       clinic_id: CLINIC_ID,
       deployment_provider_key: "provider-001",
+      provisioning_source: "setup_draft",
       provisioning_status: "placeholder",
       active: false,
     },
@@ -129,8 +132,11 @@ function scenarioProviderStateMapping(): DeploymentActivationExecutionSupabaseRe
   );
 
   return expectScenario(
-    "provider shell maps compact execution drift state",
-    state.provisioningStatus === "placeholder" && state.active === false,
+    "provider shell maps canonical execution drift state",
+    state.provisioningStatus === "placeholder" &&
+      state.provisioningSource === "setup_draft" &&
+      state.deploymentProviderKey === "provider-001" &&
+      state.active === false,
     JSON.stringify(state),
   );
 }
@@ -141,6 +147,7 @@ function scenarioSterilizerStateMapping(): DeploymentActivationExecutionSupabase
       id: "sterilizer-row-001",
       clinic_id: CLINIC_ID,
       deployment_sterilizer_key: "sterilizer-001",
+      provisioning_source: "setup_draft",
       provisioning_status: "planned",
       active: false,
     },
@@ -148,8 +155,10 @@ function scenarioSterilizerStateMapping(): DeploymentActivationExecutionSupabase
   );
 
   return expectScenario(
-    "sterilizer shell maps compact execution drift state",
-    state.provisioningStatus === "planned" && state.active === false,
+    "sterilizer shell maps canonical execution drift state",
+    state.provisioningStatus === "planned" &&
+      state.provisioningSource === "setup_draft" &&
+      state.active === false,
     JSON.stringify(state),
   );
 }
@@ -160,6 +169,7 @@ function scenarioWorkstationStateMapping(): DeploymentActivationExecutionSupabas
       id: "workstation-row-001",
       clinic_id: CLINIC_ID,
       deployment_workstation_key: "workstation-001",
+      provisioning_source: "setup_draft",
       provisioning_status: "planned",
       active: false,
     },
@@ -167,8 +177,10 @@ function scenarioWorkstationStateMapping(): DeploymentActivationExecutionSupabas
   );
 
   return expectScenario(
-    "workstation shell maps compact execution drift state",
-    state.provisioningStatus === "planned" && state.active === false,
+    "workstation shell maps canonical execution drift state",
+    state.provisioningStatus === "planned" &&
+      state.provisioningSource === "setup_draft" &&
+      state.active === false,
     JSON.stringify(state),
   );
 }
@@ -180,8 +192,12 @@ function scenarioHardwareStateMapping(): DeploymentActivationExecutionSupabaseRe
   );
 
   return expectScenario(
-    "hardware shell maps compact execution drift state",
-    state.provisioningStatus === "planned" && state.active === false,
+    "hardware shell maps canonical execution drift state",
+    state.provisioningStatus === "planned" &&
+      state.provisioningSource === "setup_draft" &&
+      state.operationalStatus === "planned" &&
+      state.agentId === null &&
+      state.active === false,
     JSON.stringify(state),
   );
 }
@@ -229,6 +245,7 @@ function scenarioAssignmentStateMapping(): DeploymentActivationExecutionSupabase
       assignment_key: "hardware-assignment-hardware-001",
       target_type: "workstation",
       target_deployment_key: "workstation-001",
+      assignment_source: "setup_draft",
       assignment_status: "planned",
       active: false,
     },
@@ -237,7 +254,10 @@ function scenarioAssignmentStateMapping(): DeploymentActivationExecutionSupabase
 
   return expectScenario(
     "hardware assignment maps execution current state",
-    state.assignmentStatus === "planned" && state.active === false,
+    state.assignmentStatus === "planned" &&
+      state.assignmentSource === "setup_draft" &&
+      state.targetDeploymentKey === "workstation-001" &&
+      state.active === false,
     JSON.stringify(state),
   );
 }
@@ -263,7 +283,7 @@ function scenarioClinicSettingsUnsupportedMapping(): DeploymentActivationExecuti
 
   return expectScenario(
     "clinic settings exposes unsupported activation field explicitly",
-    state.unsupportedActivationField === "not_persisted",
+    state.activationMarker === "settings-no-op" && state.clinicId === CLINIC_ID,
     JSON.stringify(state),
   );
 }
@@ -293,6 +313,7 @@ function scenarioMissingEntityMapping(): DeploymentActivationExecutionSupabaseRe
       id: "provider-row-002",
       clinic_id: CLINIC_ID,
       deployment_provider_key: "provider-002",
+      provisioning_source: "setup_draft",
       provisioning_status: "placeholder",
       active: false,
     },
@@ -301,7 +322,7 @@ function scenarioMissingEntityMapping(): DeploymentActivationExecutionSupabaseRe
 
   return expectScenario(
     "incompatible entity id maps to drift-visible state",
-    state.__incompatible === "entity_id_mismatch",
+    state.id === "provider-row-002" && state.id !== "provider-row-001",
     JSON.stringify(state),
   );
 }
@@ -350,8 +371,10 @@ function bindingPlanItem(
     action: "bind",
     currentState: {
       hardwareId: "hardware-row-001",
+      deploymentHardwareKey: "hardware-001",
       targetId: null,
       targetType,
+      targetDeploymentKey: `${targetType}-001`,
     },
     targetState: {
       hardwareId: "hardware-row-001",
@@ -371,6 +394,10 @@ function hardwareRow(
       input.deployment_hardware_key === undefined
         ? "hardware-001"
         : input.deployment_hardware_key,
+    provisioning_source:
+      input.provisioning_source === undefined
+        ? "setup_draft"
+        : input.provisioning_source,
     provisioning_status:
       input.provisioning_status === undefined
         ? "planned"

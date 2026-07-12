@@ -1013,3 +1013,11 @@ Setup completion now appends the final pre-execution safety stage after a ready 
 The runtime order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution_preparation`.
 
 Execution preparation is not activation. It creates no execution rows, executes no plan items, writes no bindings, changes no provisioning status, finalizes no deployment run, performs no rollback, and does not change `DeploymentEngine.execute()`.
+
+## RC8 Slice 1G Execution Drift Contract Alignment
+
+The runtime order remains unchanged: `controlled_activation_plan -> controlled_activation_execution_preparation`. The handoff now uses one canonical current-state contract for both the activation plan and the live execution snapshot.
+
+Execution preparation verifies the pre-execution state of clinic, planned provider/sterilizer/workstation/hardware shells, proposed hardware bindings, planned hardware assignments, and deployment-run finalization with safety-relevant fields only. Proposed binding items compare against the pre-binding durable state, so unbound hardware with a still-valid planned target does not falsely require an existing operational binding.
+
+A true durable change still stops the sequence with `state_drift_detected`. Representation differences, omitted presentation fields, or property ordering no longer create false blockers. The stage remains read-only and still performs no activation, binding, execution persistence, rollback, deployment finalization, or `DeploymentEngine.execute()` change.

@@ -13,6 +13,17 @@ import type {
 import type {
   DeploymentActivationPlanItem,
 } from "./deployment-activation-plan-types";
+import {
+  buildClinicActivationCurrentState,
+  buildClinicSettingsActivationCurrentState,
+  buildDeploymentRunActivationCurrentState,
+  buildHardwareAssignmentActivationCurrentState,
+  buildHardwareBindingActivationCurrentState,
+  buildHardwareShellActivationCurrentState,
+  buildProviderShellActivationCurrentState,
+  buildSterilizerShellActivationCurrentState,
+  buildWorkstationShellActivationCurrentState,
+} from "./deployment-activation-current-state";
 
 const DEPLOYMENT_RUN_COLUMNS = [
   "deployment_run_id",
@@ -28,6 +39,7 @@ const PROVIDER_COLUMNS = [
   "id",
   "clinic_id",
   "deployment_provider_key",
+  "provisioning_source",
   "provisioning_status",
   "active",
 ].join(",");
@@ -36,6 +48,7 @@ const STERILIZER_COLUMNS = [
   "id",
   "clinic_id",
   "deployment_sterilizer_key",
+  "provisioning_source",
   "provisioning_status",
   "active",
 ].join(",");
@@ -44,6 +57,7 @@ const WORKSTATION_COLUMNS = [
   "id",
   "clinic_id",
   "deployment_workstation_key",
+  "provisioning_source",
   "provisioning_status",
   "active",
 ].join(",");
@@ -52,6 +66,7 @@ const HARDWARE_COLUMNS = [
   "id",
   "clinic_id",
   "deployment_hardware_key",
+  "provisioning_source",
   "provisioning_status",
   "active",
   "status",
@@ -67,6 +82,7 @@ const HARDWARE_ASSIGNMENT_COLUMNS = [
   "assignment_key",
   "target_type",
   "target_deployment_key",
+  "assignment_source",
   "assignment_status",
   "active",
 ].join(",");
@@ -92,6 +108,7 @@ type ProviderRow = {
   id: string;
   clinic_id: string | null;
   deployment_provider_key: string | null;
+  provisioning_source: string | null;
   provisioning_status: string | null;
   active: boolean | null;
 };
@@ -100,6 +117,7 @@ type SterilizerRow = {
   id: string;
   clinic_id: string | null;
   deployment_sterilizer_key: string | null;
+  provisioning_source: string | null;
   provisioning_status: string | null;
   active: boolean | null;
 };
@@ -108,6 +126,7 @@ type WorkstationRow = {
   id: string;
   clinic_id: string | null;
   deployment_workstation_key: string | null;
+  provisioning_source: string | null;
   provisioning_status: string | null;
   active: boolean | null;
 };
@@ -116,6 +135,7 @@ type HardwareRow = {
   id: string;
   clinic_id: string | null;
   deployment_hardware_key: string | null;
+  provisioning_source: string | null;
   provisioning_status: string | null;
   active: boolean | null;
   status: string | null;
@@ -131,6 +151,7 @@ type HardwareAssignmentRow = {
   assignment_key: string | null;
   target_type: string | null;
   target_deployment_key: string | null;
+  assignment_source: string | null;
   assignment_status: string | null;
   active: boolean | null;
 };
@@ -461,54 +482,42 @@ export function mapDeploymentRunRow(
 export function mapDeploymentRunCurrentState(
   row: DeploymentActivationExecutionDeploymentRunSnapshot,
 ): Record<string, unknown> {
-  return {
+  return buildDeploymentRunActivationCurrentState({
+    deploymentRunId: row.deploymentRunId,
+    clinicId: row.clinicId,
+    lifecycleState: row.lifecycleState,
     deploymentStatus: row.deploymentStatus,
-  };
+  });
 }
 
 export function mapClinicCurrentState(
   row: ClinicRow,
   expectedClinicId: string,
 ): Record<string, unknown> {
-  if (row.id !== expectedClinicId) {
-    return incompatibleState("clinic_ownership_mismatch", {
-      clinicId: row.id,
-      expectedClinicId,
-    });
-  }
-
-  return {
+  return buildClinicActivationCurrentState({
+    clinicId: row.id,
     deploymentStatus: row.deployment_status,
-  };
+  });
 }
 
 export function mapClinicSettingsCurrentState(
   row: ClinicSettingsRow,
   expectedClinicId: string,
 ): Record<string, unknown> {
-  if (row.clinic_id !== expectedClinicId) {
-    return incompatibleState("clinic_ownership_mismatch", {
-      clinicId: row.clinic_id,
-      expectedClinicId,
-    });
-  }
-
-  return {
-    unsupportedActivationField: "not_persisted",
-  };
+  return buildClinicSettingsActivationCurrentState({
+    clinicId: row.clinic_id,
+  });
 }
 
 export function mapProviderCurrentState(
   row: ProviderRow,
   item: DeploymentActivationPlanItem,
 ): Record<string, unknown> {
-  return keyedShellState({
-    rowId: row.id,
-    expectedEntityId: item.entityId,
-    rowClinicId: row.clinic_id,
-    expectedClinicId: item.clinicId,
-    rowDeploymentKey: row.deployment_provider_key,
-    expectedDeploymentKey: item.deploymentKey,
+  return buildProviderShellActivationCurrentState({
+    id: row.id,
+    clinicId: row.clinic_id,
+    deploymentProviderKey: row.deployment_provider_key,
+    provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,
     active: row.active,
   });
@@ -518,13 +527,11 @@ export function mapSterilizerCurrentState(
   row: SterilizerRow,
   item: DeploymentActivationPlanItem,
 ): Record<string, unknown> {
-  return keyedShellState({
-    rowId: row.id,
-    expectedEntityId: item.entityId,
-    rowClinicId: row.clinic_id,
-    expectedClinicId: item.clinicId,
-    rowDeploymentKey: row.deployment_sterilizer_key,
-    expectedDeploymentKey: item.deploymentKey,
+  return buildSterilizerShellActivationCurrentState({
+    id: row.id,
+    clinicId: row.clinic_id,
+    deploymentSterilizerKey: row.deployment_sterilizer_key,
+    provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,
     active: row.active,
   });
@@ -534,13 +541,11 @@ export function mapWorkstationCurrentState(
   row: WorkstationRow,
   item: DeploymentActivationPlanItem,
 ): Record<string, unknown> {
-  return keyedShellState({
-    rowId: row.id,
-    expectedEntityId: item.entityId,
-    rowClinicId: row.clinic_id,
-    expectedClinicId: item.clinicId,
-    rowDeploymentKey: row.deployment_workstation_key,
-    expectedDeploymentKey: item.deploymentKey,
+  return buildWorkstationShellActivationCurrentState({
+    id: row.id,
+    clinicId: row.clinic_id,
+    deploymentWorkstationKey: row.deployment_workstation_key,
+    provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,
     active: row.active,
   });
@@ -550,15 +555,17 @@ export function mapHardwareCurrentState(
   row: HardwareRow,
   item: DeploymentActivationPlanItem,
 ): Record<string, unknown> {
-  return keyedShellState({
-    rowId: row.id,
-    expectedEntityId: item.entityId,
-    rowClinicId: row.clinic_id,
-    expectedClinicId: item.clinicId,
-    rowDeploymentKey: row.deployment_hardware_key,
-    expectedDeploymentKey: item.deploymentKey,
+  return buildHardwareShellActivationCurrentState({
+    id: row.id,
+    clinicId: row.clinic_id,
+    deploymentHardwareKey: row.deployment_hardware_key,
+    provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,
     active: row.active,
+    operationalStatus: row.status,
+    agentId: row.agent_id,
+    defaultWorkstationId: row.default_workstation_id,
+    currentWorkstationId: row.current_workstation_id,
   });
 }
 
@@ -566,26 +573,13 @@ export function mapHardwareBindingCurrentState(
   row: HardwareRow,
   item: DeploymentActivationPlanItem,
 ): Record<string, unknown> {
-  const keyedState = keyedShellState({
-    rowId: row.id,
-    expectedEntityId: item.entityId,
-    rowClinicId: row.clinic_id,
-    expectedClinicId: item.clinicId,
-    rowDeploymentKey: row.deployment_hardware_key,
-    expectedDeploymentKey: item.deploymentKey,
-    provisioningStatus: row.provisioning_status,
-    active: row.active,
-  });
-
-  if ("__incompatible" in keyedState) {
-    return keyedState;
-  }
-
-  return {
+  return buildHardwareBindingActivationCurrentState({
     hardwareId: row.id,
+    deploymentHardwareKey: row.deployment_hardware_key,
+    targetType: readString(item.currentState.targetType),
+    targetDeploymentKey: readString(item.currentState.targetDeploymentKey),
     targetId: row.current_workstation_id ?? row.default_workstation_id,
-    targetType: item.currentState.targetType ?? null,
-  };
+  });
 }
 
 export function mapHardwareOperationalBindingEvidence(
@@ -603,27 +597,18 @@ export function mapHardwareAssignmentCurrentState(
   row: HardwareAssignmentRow,
   item: DeploymentActivationPlanItem,
 ): Record<string, unknown> {
-  const keyedState = keyedShellState({
-    rowId: row.id,
-    expectedEntityId: item.entityId,
-    rowClinicId: row.clinic_id,
-    expectedClinicId: item.clinicId,
-    rowDeploymentKey: row.deployment_hardware_key,
-    expectedDeploymentKey: item.deploymentKey,
-    provisioningStatus: row.assignment_status,
-    active: row.active,
-  });
-
-  if ("__incompatible" in keyedState) {
-    return keyedState;
-  }
-
-  return {
+  return buildHardwareAssignmentActivationCurrentState({
+    id: row.id,
+    clinicId: row.clinic_id,
+    deploymentHardwareKey: row.deployment_hardware_key,
+    assignmentKey: row.assignment_key,
+    targetType: row.target_type,
+    targetDeploymentKey: row.target_deployment_key,
+    assignmentSource: row.assignment_source,
     assignmentStatus: row.assignment_status,
     active: row.active,
-  };
+  });
 }
-
 export function executionIdentityNotPersisted(): null {
   return null;
 }
@@ -639,51 +624,8 @@ export function assertAtMostOne(
   }
 }
 
-function keyedShellState(input: {
-  rowId: string;
-  expectedEntityId: string | null;
-  rowClinicId: string | null;
-  expectedClinicId: string;
-  rowDeploymentKey: string | null;
-  expectedDeploymentKey: string | null;
-  provisioningStatus: string | null;
-  active: boolean | null;
-}): Record<string, unknown> {
-  if (input.expectedEntityId && input.rowId !== input.expectedEntityId) {
-    return incompatibleState("entity_id_mismatch", {
-      entityId: input.rowId,
-      expectedEntityId: input.expectedEntityId,
-    });
-  }
-
-  if (input.rowClinicId !== input.expectedClinicId) {
-    return incompatibleState("clinic_ownership_mismatch", {
-      clinicId: input.rowClinicId,
-      expectedClinicId: input.expectedClinicId,
-    });
-  }
-
-  if (input.rowDeploymentKey !== input.expectedDeploymentKey) {
-    return incompatibleState("deployment_key_mismatch", {
-      deploymentKey: input.rowDeploymentKey,
-      expectedDeploymentKey: input.expectedDeploymentKey,
-    });
-  }
-
-  return {
-    provisioningStatus: input.provisioningStatus,
-    active: input.active,
-  };
-}
-
-function incompatibleState(
-  reason: string,
-  evidence: Record<string, unknown>,
-): Record<string, unknown> {
-  return {
-    __incompatible: reason,
-    ...evidence,
-  };
+function readString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 function currentState(

@@ -901,3 +901,11 @@ Setup completion now runs controlled activation execution preparation after a re
 The preparation stage performs final plan integrity, dependency, ownership, current-state drift, execution-identity, and rollback-boundary checks. It may return ready, blocked, skipped, or safe error evidence. It does not persist execution sessions or execution items, execute plan items, activate records, bind hardware, register agents, finalize deployment runs, perform rollback, or change `DeploymentEngine.execute()`.
 
 This is the final in-memory pre-execution safety boundary. A later phase must introduce durable execution control, operator authorization, execution-item persistence, and rollback semantics before any operational mutation is allowed.
+
+## RC8 Slice 1G Activation Current-State Contract
+
+`DeploymentActivationPlanService` and `SupabaseDeploymentActivationExecutionRepository` now use the same typed activation current-state builders before drift validation. Planned current state and live current state are compared as canonical safety records rather than ad hoc JSON summaries.
+
+Safety-relevant fields include durable ids, clinic ids, deployment keys, provisioning source/status, active state, hardware operational status, hardware binding columns, hardware-assignment target/source/status, and deployment-run lifecycle/deployment status. Names, labels, timestamps, descriptions, and display order are outside the drift contract unless a later activation slice proves they are safety-critical.
+
+Execution preparation remains conservative: active changes, provisioning source/status changes, clinic/key/id changes, new hardware bindings, assignment target changes, missing rows, and deployment-run state changes still block. Representation-only differences such as property order or snake_case-to-camelCase mapping do not.

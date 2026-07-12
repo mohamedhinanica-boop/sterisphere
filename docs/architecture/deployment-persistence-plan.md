@@ -1373,3 +1373,11 @@ The setup runtime now includes `controlled_activation_execution_preparation` aft
 No execution identity is durable yet. `activation-execution-${deploymentRunId}` is deterministic in-memory evidence only, and no execution/session/item rows are created. No activation, provisioning-status change, hardware binding, agent registration, deployment finalization, cleanup, rollback, or migration occurs in this slice.
 
 The next persistence phase must add durable execution-session and execution-item control before any prepared item can become an operational write.
+
+## RC8 Slice 1G Activation Current-State Contract Alignment
+
+Activation planning and execution preparation now share a canonical current-state contract in `deployment-activation-current-state.ts`. The contract records only safety-relevant durable fields: clinic ownership and deployment status, deployment-run identity/lifecycle/deployment status, planned shell ids, clinic ids, deployment keys, provisioning source/status, active state, hardware operational status and binding columns, and hardware-assignment identity/target/source/status/active state.
+
+The drift comparison canonicalizes field names and property order, preserves null and false as distinct safety values, preserves `clinical_hardware_devices.status = discovered`, and excludes presentation fields such as names, labels, timestamps, and display order. Equivalent representations no longer block execution preparation, but genuine durable drift still blocks with `state_drift_detected` and a safe list of changed safety-field paths.
+
+Controlled activation execution preparation remains read-only. It creates no execution rows, activates no records, writes no hardware bindings, changes no provisioning status, finalizes no deployment run, performs no rollback, and does not change `DeploymentEngine.execute()`.

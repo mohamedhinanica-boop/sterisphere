@@ -1,3 +1,13 @@
+import {
+  buildClinicActivationCurrentState,
+  buildDeploymentRunActivationCurrentState,
+  buildHardwareAssignmentActivationCurrentState,
+  buildHardwareBindingActivationCurrentState,
+  buildHardwareShellActivationCurrentState,
+  buildProviderShellActivationCurrentState,
+  buildSterilizerShellActivationCurrentState,
+  buildWorkstationShellActivationCurrentState,
+} from "./deployment-activation-current-state";
 import { DeploymentActivationExecutionService } from "./deployment-activation-execution-service";
 import {
   prepareActivationExecutionWithService,
@@ -344,37 +354,70 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
   const assignmentKey = `${PLAN_KEY}:hardware_assignment:hardware-001`;
 
   return [
-    item(clinicKey, 1, "clinic", CLINIC_ID, null, "activate", {
+    item(clinicKey, 1, "clinic", CLINIC_ID, null, "activate", buildClinicActivationCurrentState({
+      clinicId: CLINIC_ID,
       deploymentStatus: "draft",
-    }, [], true),
-    item(providerKey, 2, "provider_shell", "provider-row-001", "provider-001", "activate", {
+    }), [], true),
+    item(providerKey, 2, "provider_shell", "provider-row-001", "provider-001", "activate", buildProviderShellActivationCurrentState({
+      id: "provider-row-001",
+      clinicId: CLINIC_ID,
+      deploymentProviderKey: "provider-001",
+      provisioningSource: "setup_draft",
       provisioningStatus: "placeholder",
       active: false,
-    }, [clinicKey], true),
-    item(sterilizerKey, 3, "sterilizer_shell", "sterilizer-row-001", "sterilizer-001", "activate", {
+    }), [clinicKey], true),
+    item(sterilizerKey, 3, "sterilizer_shell", "sterilizer-row-001", "sterilizer-001", "activate", buildSterilizerShellActivationCurrentState({
+      id: "sterilizer-row-001",
+      clinicId: CLINIC_ID,
+      deploymentSterilizerKey: "sterilizer-001",
+      provisioningSource: "setup_draft",
       provisioningStatus: "planned",
       active: false,
-    }, [clinicKey], true),
-    item(workstationKey, 4, "workstation_shell", "workstation-row-001", "workstation-001", "activate", {
+    }), [clinicKey], true),
+    item(workstationKey, 4, "workstation_shell", "workstation-row-001", "workstation-001", "activate", buildWorkstationShellActivationCurrentState({
+      id: "workstation-row-001",
+      clinicId: CLINIC_ID,
+      deploymentWorkstationKey: "workstation-001",
+      provisioningSource: "setup_draft",
       provisioningStatus: "planned",
       active: false,
-    }, [clinicKey], true),
-    item(hardwareKey, 5, "hardware_shell", "hardware-row-001", "hardware-001", "activate", {
+    }), [clinicKey], true),
+    item(hardwareKey, 5, "hardware_shell", "hardware-row-001", "hardware-001", "activate", buildHardwareShellActivationCurrentState({
+      id: "hardware-row-001",
+      clinicId: CLINIC_ID,
+      deploymentHardwareKey: "hardware-001",
+      provisioningSource: "setup_draft",
       provisioningStatus: "planned",
       active: false,
-    }, [clinicKey], true),
-    item(bindingKey, 6, "hardware_binding", "hardware-row-001", "hardware-001", "bind", {
+      operationalStatus: "discovered",
+      agentId: null,
+      defaultWorkstationId: null,
+      currentWorkstationId: null,
+    }), [clinicKey], true),
+    item(bindingKey, 6, "hardware_binding", "hardware-row-001", "hardware-001", "bind", buildHardwareBindingActivationCurrentState({
       hardwareId: "hardware-row-001",
-      targetId: null,
+      deploymentHardwareKey: "hardware-001",
       targetType: "workstation",
-    }, [hardwareKey, workstationKey], true),
-    item(assignmentKey, 7, "hardware_assignment", "assignment-row-001", "hardware-001", "finalize", {
+      targetDeploymentKey: "workstation-001",
+      targetId: null,
+    }), [hardwareKey, workstationKey], true),
+    item(assignmentKey, 7, "hardware_assignment", "assignment-row-001", "hardware-001", "finalize", buildHardwareAssignmentActivationCurrentState({
+      id: "assignment-row-001",
+      clinicId: CLINIC_ID,
+      deploymentHardwareKey: "hardware-001",
+      assignmentKey: "hardware-assignment-hardware-001",
+      targetType: "workstation",
+      targetDeploymentKey: "workstation-001",
+      assignmentSource: "setup_draft",
       assignmentStatus: "planned",
       active: false,
-    }, [hardwareKey, bindingKey], false),
-    item(`${PLAN_KEY}:deployment_run`, 8, "deployment_run", null, DEPLOYMENT_RUN_ID, "finalize", {
+    }), [hardwareKey, bindingKey], false),
+    item(`${PLAN_KEY}:deployment_run`, 8, "deployment_run", null, DEPLOYMENT_RUN_ID, "finalize", buildDeploymentRunActivationCurrentState({
+      deploymentRunId: DEPLOYMENT_RUN_ID,
+      clinicId: CLINIC_ID,
+      lifecycleState: "completed",
       deploymentStatus: "deployed",
-    }, [
+    }), [
       clinicKey,
       providerKey,
       sterilizerKey,
@@ -385,7 +428,6 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
     ], false),
   ];
 }
-
 function item(
   planItemKey: string,
   sequence: number,

@@ -13,6 +13,11 @@ import type {
   DeploymentActivationExecutionRollbackBoundary,
   DeploymentActivationExecutionSnapshot,
 } from "./deployment-activation-execution-types";
+import {
+  canonicalizeActivationCurrentState,
+  compareActivationCurrentStates,
+  formatActivationCurrentStateDifferences,
+} from "./deployment-activation-current-state";
 import type {
   DeploymentActivationPlanAction,
   DeploymentActivationPlanEntityType,
@@ -607,7 +612,7 @@ function assessCurrentStateDrift(
   for (const item of planItems) {
     const currentState = states.get(item.planItemKey);
 
-    if (!currentState || stableStringify(currentState) !== stableStringify(item.currentState)) {
+    if (!currentState) {
       issues.push(
         issue({
           code: "state_drift_detected",
@@ -616,7 +621,27 @@ function assessCurrentStateDrift(
           planItemKey: item.planItemKey,
           deploymentKey: item.deploymentKey,
           message:
-            "Current durable state no longer matches the approved activation plan current state.",
+            "Current durable state no longer matches the approved activation plan current state: live entity is missing.",
+        }),
+      );
+      continue;
+    }
+
+    const comparison = compareActivationCurrentStates(
+      item.currentState,
+      currentState,
+    );
+
+    if (!comparison.equivalent) {
+      issues.push(
+        issue({
+          code: "state_drift_detected",
+          entityType: item.entityType,
+          entityId: item.entityId,
+          planItemKey: item.planItemKey,
+          deploymentKey: item.deploymentKey,
+          message:
+            `Current durable state drifted from the approved activation plan current state: ${formatActivationCurrentStateDifferences(comparison.differences)}.`,
         }),
       );
     }
@@ -848,28 +873,8 @@ function comparePlanItems(
   );
 }
 
-function stableStringify(value: unknown): string {
-  return JSON.stringify(sortValue(value));
-}
-
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortValue);
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => [key, sortValue(entry)]),
-    );
-  }
-
-  return value;
-}
-
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
-  return sortValue(value) as Record<string, unknown>;
+  return canonicalizeActivationCurrentState(value);
 }
 
 function emptyRollbackBoundary(): DeploymentActivationExecutionRollbackBoundary {
