@@ -948,3 +948,13 @@ A future controlled activation plan stage is documented after activation readine
 12. Build a deterministic controlled activation plan without executing it.
 
 The activation plan is the contract for later execution and rollback slices. This foundation creates no Supabase repository, SQL migration, setup action wiring, UI, activation, hardware binding, resolved-id persistence, agent registration, deployment finalization, rollback execution, or `DeploymentEngine.execute()` change.
+## RC8 Slice 1B Activation Plan Supabase Snapshot Sequence Boundary
+
+RC8 Slice 1B does not change runtime ordering. It adds the read-only Supabase snapshot adapter that a future controlled activation plan stage can use after activation readiness:
+
+1. Load the deployment run and clinic-owned source rows deterministically.
+2. Preserve current shell, hardware binding, and assignment target state for drift comparison.
+3. Leave activation-readiness evidence and planned-assignment resolution evidence external to the durable snapshot.
+4. Return no persisted activation-plan identity because activation-plan persistence is not introduced in this slice.
+
+The documented future order remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan`. This slice adds no runtime registration, setup action wiring, UI evidence card, activation, hardware binding, deployment finalization, rollback execution, or `DeploymentEngine.execute()` change.

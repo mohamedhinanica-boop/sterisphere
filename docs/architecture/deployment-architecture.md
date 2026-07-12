@@ -867,3 +867,10 @@ Controlled activation planning is the first RC8 activation-domain layer, but it 
 The initial order is clinic activation, provider shell activation, sterilizer shell activation, workstation shell activation, hardware shell activation, proposed hardware binding items, hardware assignment finalization, and deployment-run finalization. Clinic settings are not given a physical activation write in this foundation because no supported activation column is assumed. Execution slices must not invent actions outside the approved plan.
 
 Rollback is modeled, not implemented. Shell activation and proposed bindings are marked reversible before operational use; hardware assignment finalization and deployment-run finalization are marked irreversible until a later rollback design proves otherwise. Warnings document explicit unassigned hardware and future-only binding/finalization limitations without blocking otherwise safe plans.
+## RC8 Slice 1B Activation Plan Supabase Snapshot Boundary
+
+The controlled activation plan boundary now has a read-only server-only Supabase adapter for durable source rows. `SupabaseDeploymentActivationPlanRepository` builds the activation-planning snapshot from `public.deployment_runs`, `public.clinics`, `public.clinic_settings`, `public.providers`, `public.sterilizers`, `public.clinical_workstations`, `public.clinical_hardware_devices`, and `public.deployment_hardware_assignments`.
+
+The adapter does not make readiness or resolution claims. Activation readiness and planned assignment resolution remain fresh runtime evidence outside durable storage, so the activation planner must receive those results explicitly before it can produce a ready plan. The repository returns those evidence fields as absent and preserves raw current state for drift checks.
+
+Activation-plan persistence remains future work. This slice adds no activation-plan table, writes no activation-plan rows, executes no plan items, changes no deployment status, activates no records, binds no hardware, registers no agents, and does not change setup runtime wiring or `DeploymentEngine.execute()`.
