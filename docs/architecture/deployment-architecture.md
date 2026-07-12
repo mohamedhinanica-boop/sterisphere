@@ -843,3 +843,11 @@ The boundary remains mutation-free: resolved hardware, workstation, and steriliz
 Deployment activation readiness is introduced as the final planned read-only safety boundary before a future activation phase. It evaluates whether the deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, hardware shells, hardware assignments, assignment target validation evidence, and planned assignment resolution evidence are mutually compatible.
 
 Readiness distinguishes blockers from warnings. Blockers prevent readiness, warnings remain visible without changing a ready result, and unexpected repository failures return an error result. The layer never activates records, persists readiness evidence, writes resolved ids, mutates hardware binding columns, registers agents, or changes deployment execution behavior.
+
+## RC7 Slice 1F Activation Readiness Supabase Snapshot Boundary
+
+The activation-readiness boundary now has a read-only server-only Supabase adapter. `SupabaseDeploymentActivationReadinessRepository` builds a deterministic snapshot from durable deployment source tables only: deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, hardware shells, and hardware assignments.
+
+Runtime validation and planned-resolution evidence remains outside the durable snapshot because those results are not persisted today. The repository leaves both evidence fields null rather than deriving success from source rows; a future runtime composition must supply current validation and resolution evidence alongside the durable snapshot before readiness can pass.
+
+This slice adds no activation path, no setup action wiring, no UI changes, no SQL migration, no resolved-id writes, no operational hardware binding, no agent registration, and no `DeploymentEngine.execute()` change. The live preflight SQL reports whether existing durable rows are compatible with the readiness service and whether schema/index assumptions are satisfied.

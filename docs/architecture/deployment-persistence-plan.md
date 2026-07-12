@@ -1315,3 +1315,13 @@ RC7 Slice 1E adds an inert activation-readiness domain foundation after planned 
 Activation readiness is a read-only safety assessment that verifies durable deployment evidence, planned shells, planned assignments, assignment target validation evidence, and planned assignment resolution evidence before any later activation phase. The assessment returns ready, blocked, or error with deterministic blocker and warning issues plus zero downstream counters.
 
 This foundation does not create a Supabase repository, SQL migration, setup action wiring, UI evidence, resolved-id persistence, operational binding, activation, agent registration, deployment-status changes, smoke runners, or `DeploymentEngine.execute()` changes.
+
+## RC7 Slice 1F - Activation Readiness Supabase Repository
+
+RC7 Slice 1F adds a read-only server-only `SupabaseDeploymentActivationReadinessRepository` for building activation-readiness snapshots from durable deployment source rows. It reads `public.deployment_runs`, `public.clinics`, `public.clinic_settings`, `public.providers`, `public.sterilizers`, `public.clinical_workstations`, `public.clinical_hardware_devices`, and `public.deployment_hardware_assignments`.
+
+The durable snapshot boundary is intentionally source-row only. Assignment target validation evidence and planned assignment resolution evidence are currently runtime action results, not persisted tables. The repository therefore returns those readiness evidence fields as null so the readiness service blocks until a future runtime composition supplies current evidence explicitly; it does not reconstruct, infer, or falsify successful validation/resolution evidence from durable rows.
+
+Hardware readiness preserves `clinical_hardware_devices.status` as the operational/device lifecycle value. A deployment hardware shell with `status = discovered` remains compatible when `provisioning_source = setup_draft`, `provisioning_status = planned`, `active = false`, and `agent_id`, `default_workstation_id`, and `current_workstation_id` are null.
+
+`supabase_activation_readiness_preflight.sql` is read-only and verifies required columns, deployment-key indexes, duplicate same-clinic keys, deployment-keyed rows without clinic scope, active setup-draft planned rows, operational hardware binding leaks, deterministic key shapes, assignment target compatibility, and durable readiness snapshot counts. It intentionally does not require persisted validation or resolution evidence because no such durable evidence table exists yet.
