@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   DeploymentActivationExecutionItem,
   DeploymentActivationExecutionResult,
   DeploymentActivationExecutionRollbackBoundary,
@@ -33,6 +33,8 @@ export type DeploymentActivationExecutionPersistedItemStatus =
   | "running"
   | "succeeded"
   | "failed"
+  | "skipped"
+  | "rollback_pending"
   | "rolled_back";
 
 export type DeploymentActivationExecutionRollbackStatus =
@@ -112,8 +114,9 @@ export interface CreateDeploymentActivationExecutionSessionPayload {
 }
 
 export interface DeploymentActivationExecutionSessionRecord
-  extends CreateDeploymentActivationExecutionSessionPayload {
+  extends Omit<CreateDeploymentActivationExecutionSessionPayload, "executionStatus"> {
   id: string;
+  executionStatus: DeploymentActivationExecutionPersistedSessionStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -150,8 +153,10 @@ export interface CreateDeploymentActivationExecutionItemPayload {
 }
 
 export interface DeploymentActivationExecutionItemRecord
-  extends CreateDeploymentActivationExecutionItemPayload {
+  extends Omit<CreateDeploymentActivationExecutionItemPayload, "executionStatus" | "attemptCount"> {
   id: string;
+  executionStatus: DeploymentActivationExecutionPersistedItemStatus;
+  attemptCount: number;
   createdAt: string;
   updatedAt: string;
 }

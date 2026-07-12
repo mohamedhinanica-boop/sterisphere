@@ -917,3 +917,11 @@ The activation execution persistence foundation is the database-domain contract 
 Session idempotency is scoped by clinic id, deployment run id, and deterministic execution key. A single deployment run may not own multiple incompatible active execution sessions. Immutable session evidence includes clinic/deployment ownership, execution key, plan key, payload hash, prepared status, item counters, rollback boundary, and preparation evidence. Immutable item evidence includes execution item key, plan item key, sequence, entity/action identity, expected current state, target state, dependency keys, reversibility, and rollback action.
 
 The service is prepared-only. It rejects blocked/error preparation, missing identities, duplicate item identities, item count mismatches, running/succeeded/failed items, nonzero attempts, execution timestamps, and invalid rollback-boundary evidence before repository writes. Existing incompatible sessions/items are reported as conflicts and are never repaired or overwritten.
+
+## RC8 Slice 2B Activation Execution Persistence Schema Boundary
+
+Prepared activation execution evidence now has a proposed durable database boundary and server-only Supabase adapter. The domain identity remains the logical `deploymentRunId` string produced by execution preparation; the database stores it as `deployment_run_key` and separately records `deployment_run_record_id` as the UUID foreign key to `public.deployment_runs(id)`.
+
+The session table is the future execution ownership boundary, but Slice 2B only allows prepared evidence insertion. Owner, ownership token, lease, start, completion, and failure fields remain null for prepared sessions. The item table stores approved pre-execution instructions and allows future lifecycle statuses in constraints, but the repository creates only `ready` and `pending` rows with zero attempts and no execution timestamps.
+
+The Supabase adapter is server-only and mutation-limited to insert-only prepared persistence. It does not claim sessions, start items, complete items, fail items, roll back, activate entities, bind hardware, write agent/workstation ids, update provisioning status, or finalize deployment runs. A later runtime slice may wire the persistence service after successful execution preparation, still without executing activation.

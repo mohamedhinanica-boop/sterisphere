@@ -1042,3 +1042,11 @@ A future `activation_execution_persistence` stage is documented after execution 
 14. Persist prepared execution-session and execution-item evidence before any future mutation.
 
 This slice does not add the runtime stage, SQL tables, Supabase persistence, ownership locks, execution claims, activation, hardware binding, rollback execution, dashboard unlock, workers, streaming, or `DeploymentEngine.execute()` changes. It defines the immutable prepared evidence that a later schema and repository slice must make durable.
+
+## RC8 Slice 2B Activation Execution Persistence Schema Sequence
+
+The future order remains `controlled_activation_execution_preparation -> activation_execution_persistence`. Slice 2B adds the schema and repository needed by that future stage, but it does not register the stage in setup completion.
+
+When wired later, successful ready execution preparation can create or reuse one prepared execution session and its prepared execution items. The durable rows will be idempotency and ownership evidence before any later controlled executor may claim work. The rows themselves do not authorize activation and do not execute plan items.
+
+No runtime action, UI, SQL application confirmation, ownership claim, running state, attempt update, activation, binding, deployment finalization, rollback execution, worker, polling, streaming, or `DeploymentEngine.execute()` change is included in this slice.
