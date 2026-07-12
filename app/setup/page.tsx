@@ -852,6 +852,29 @@ export default function ClinicSetupPage() {
             conflicts: 0,
           },
           message: "Deployment activation readiness was not attempted.",
+        },        deploymentActivationPlan: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          deploymentRunId: null,
+          planKey: null,
+          itemsRequested: 0,
+          itemsPlanned: 0,
+          itemsBlocked: 0,
+          reversibleItems: 0,
+          irreversibleItems: 0,
+          blockers: 0,
+          warnings: 0,
+          issues: [],
+          planItems: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message: "Controlled activation planning was not attempted.",
         },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
@@ -1015,6 +1038,31 @@ export default function ClinicSetupPage() {
           },
           message:
             "Deployment activation readiness was not completed. No activation occurred.",
+        },
+        deploymentActivationPlan: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          deploymentRunId: null,
+          planKey: null,
+          itemsRequested: 0,
+          itemsPlanned: 0,
+          itemsBlocked: 0,
+          reversibleItems: 0,
+          irreversibleItems: 0,
+          blockers: 0,
+          warnings: 0,
+          issues: [],
+          planItems: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message:
+            "Controlled activation planning was not completed. No activation plan was created.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1305,6 +1353,8 @@ const deploymentExecutionStageLabels = [
   "Validating assignment targets",
   "Recording planned hardware assignments",
   "Resolving planned assignment IDs",
+  "Assessing activation readiness",
+  "Generating controlled activation plan",
   "Finalizing deployment evidence",
 ] as const;
 
@@ -1348,6 +1398,8 @@ function CompleteStep({
     deploymentRunResult?.plannedAssignmentResolution ?? null;
   const deploymentActivationReadiness =
     deploymentRunResult?.deploymentActivationReadiness ?? null;
+  const deploymentActivationPlan =
+    deploymentRunResult?.deploymentActivationPlan ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2047,7 +2099,125 @@ function CompleteStep({
                 </div>
               ) : null}
             </div>
-          </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Controlled Activation Plan: {deploymentActivationPlan?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationPlan?.message ??
+                  "Controlled activation planning will run after activation readiness is ready."}
+              </p>
+              <p className="mt-2 break-words text-xs font-semibold text-slate-600">
+                Plan key: {deploymentActivationPlan?.planKey ?? "not generated"}
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.itemsRequested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Planned
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.itemsPlanned ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Blocked
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.itemsBlocked ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Reversible
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.reversibleItems ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Irreversible
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.irreversibleItems ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Blockers
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.blockers ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Warnings
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationPlan?.warnings ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              {deploymentActivationPlan?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Plan Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationPlan.issues.slice(0, 5).map((issue) => (
+                      <li
+                        key={`${issue.entityType}-${issue.deploymentKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.severity}: {issue.entityType}
+                        </span>{" "}
+                        {issue.deploymentKey ? `${issue.deploymentKey}: ` : ""}
+                        {issue.code}. {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationPlan.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationPlan.issues.length - 5} more activation plan issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {deploymentActivationPlan?.planItems.length ? (
+                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    First Planned Items
+                  </p>
+                  <ol className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationPlan.planItems.slice(0, 6).map((item) => (
+                      <li key={item.planItemKey} className="break-words">
+                        <span className="font-semibold">
+                          {item.sequence} {item.entityType.replace(/_/g, " ")}
+                        </span>{" "}
+                        {item.deploymentKey ? `${item.deploymentKey}: ` : ""}
+                        {item.action}
+                      </li>
+                    ))}
+                  </ol>
+                  {deploymentActivationPlan.planItems.length > 6 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationPlan.planItems.length - 6} more plan items are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>          </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
           </p>
@@ -2062,9 +2232,11 @@ function CompleteStep({
             Planned assignment resolution reads those rows and matching planned
             shells to return durable IDs in evidence only. Deployment activation
             readiness combines that fresh evidence with the durable snapshot as
-            a final read-only safety gate; it does not persist readiness rows,
-            write hardware bindings, activate devices, create users, packs,
-            cycles, traces, audit logs, or downstream deployment records.
+            a read-only safety gate. Controlled activation planning then builds
+            deterministic plan evidence only; it persists no plan rows, executes
+            no plan items, writes no hardware bindings, activates no devices,
+            creates no users, packs, cycles, traces, audit logs, or downstream
+            deployment records.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -2162,6 +2334,17 @@ function buildDeploymentSupportHref(
       `Deployment activation readiness blockers: ${result?.deploymentActivationReadiness.blockers ?? 0}`,
       `Deployment activation readiness warnings: ${result?.deploymentActivationReadiness.warnings ?? 0}`,
       `Deployment activation readiness issues: ${result?.deploymentActivationReadiness.issues.map((issue) => `${issue.severity}:${issue.entityType}:${issue.deploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Activation plan status: ${result?.deploymentActivationPlan.status ?? "not attempted"}`,
+      `Activation plan key: ${result?.deploymentActivationPlan.planKey ?? "not generated"}`,
+      `Activation plan items requested: ${result?.deploymentActivationPlan.itemsRequested ?? 0}`,
+      `Activation plan items planned: ${result?.deploymentActivationPlan.itemsPlanned ?? 0}`,
+      `Activation plan items blocked: ${result?.deploymentActivationPlan.itemsBlocked ?? 0}`,
+      `Activation plan reversible items: ${result?.deploymentActivationPlan.reversibleItems ?? 0}`,
+      `Activation plan irreversible items: ${result?.deploymentActivationPlan.irreversibleItems ?? 0}`,
+      `Activation plan blockers: ${result?.deploymentActivationPlan.blockers ?? 0}`,
+      `Activation plan warnings: ${result?.deploymentActivationPlan.warnings ?? 0}`,
+      `Activation plan issues: ${result?.deploymentActivationPlan.issues.map((issue) => `${issue.severity}:${issue.entityType}:${issue.deploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Activation plan items: ${result?.deploymentActivationPlan.planItems.map((item) => `${item.sequence}:${item.entityType}:${item.deploymentKey ?? "none"}:${item.action}`).join("; ") ?? "none"}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
@@ -2173,6 +2356,7 @@ function buildDeploymentSupportHref(
       `Hardware assignments message: ${result?.hardwareAssignments.message ?? "No hardware-assignment response yet."}`,
       `Planned assignment resolution message: ${result?.plannedAssignmentResolution.message ?? "No planned-assignment-resolution response yet."}`,
       `Deployment activation readiness message: ${result?.deploymentActivationReadiness.message ?? "No deployment-activation-readiness response yet."}`,
+      `Activation plan message: ${result?.deploymentActivationPlan.message ?? "No activation-plan response yet."}`,
     ].join("\n"),
   );
 

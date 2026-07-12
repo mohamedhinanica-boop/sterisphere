@@ -957,4 +957,21 @@ RC8 Slice 1B does not change runtime ordering. It adds the read-only Supabase sn
 3. Leave activation-readiness evidence and planned-assignment resolution evidence external to the durable snapshot.
 4. Return no persisted activation-plan identity because activation-plan persistence is not introduced in this slice.
 
-The documented future order remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan`. This slice adds no runtime registration, setup action wiring, UI evidence card, activation, hardware binding, deployment finalization, rollback execution, or `DeploymentEngine.execute()` change.
+The documented future order remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan`. This slice adds no runtime registration, setup action wiring, UI evidence card, activation, hardware binding, deployment finalization, rollback execution, or `DeploymentEngine.execute()` change.## RC8 Slice 1C Runtime Controlled Activation Planning Sequence
+
+Setup completion now appends a read-only controlled activation plan stage after activation readiness succeeds:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells.
+5. Create or reuse inactive planned sterilizer shells.
+6. Create or reuse inactive planned workstation shells.
+7. Create or reuse inactive planned hardware shells.
+8. Validate logical assignment targets.
+9. Create or reuse inactive planned hardware assignment rows.
+10. Resolve planned assignments to durable ids in memory only.
+11. Assess deployment activation readiness from durable rows plus fresh validation and resolution evidence.
+12. Build a deterministic controlled activation plan when readiness is ready.
+
+Blocked or error readiness skips activation planning. Blocked or error planning preserves every upstream durable record and returns structured evidence only. The runtime does not persist activation plans, execute plan items, activate records, bind hardware, finalize deployment runs, register agents, implement rollback, or change `DeploymentEngine.execute()`.

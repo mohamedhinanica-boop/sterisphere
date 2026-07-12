@@ -873,4 +873,10 @@ The controlled activation plan boundary now has a read-only server-only Supabase
 
 The adapter does not make readiness or resolution claims. Activation readiness and planned assignment resolution remain fresh runtime evidence outside durable storage, so the activation planner must receive those results explicitly before it can produce a ready plan. The repository returns those evidence fields as absent and preserves raw current state for drift checks.
 
-Activation-plan persistence remains future work. This slice adds no activation-plan table, writes no activation-plan rows, executes no plan items, changes no deployment status, activates no records, binds no hardware, registers no agents, and does not change setup runtime wiring or `DeploymentEngine.execute()`.
+Activation-plan persistence remains future work. This slice adds no activation-plan table, writes no activation-plan rows, executes no plan items, changes no deployment status, activates no records, binds no hardware, registers no agents, and does not change setup runtime wiring or `DeploymentEngine.execute()`.## RC8 Slice 1C Runtime Controlled Activation Planning Boundary
+
+The setup runtime now composes controlled activation planning after activation readiness returns `ready`. The stage uses the durable activation-plan Supabase snapshot, fresh activation-readiness evidence, and fresh planned-assignment resolution evidence to generate deterministic plan evidence for the Complete page and support mail.
+
+Readiness `blocked` or `error` skips planning. Planning `blocked` or `error` returns structured evidence while preserving deployment run, clinic, settings, planned shells, validation, assignments, resolution, and readiness evidence. No activation plan rows are persisted and no plan item is executed.
+
+This runtime slice remains read-only. It does not modify provisioning status, activate clinic-owned records, bind hardware, write agent/default/current workstation ids, finalize deployment runs, register agents, implement rollback, create workers, stream progress, or change `DeploymentEngine.execute()`.
