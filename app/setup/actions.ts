@@ -40,9 +40,15 @@ import {
 import {
   resolvePlannedAssignmentsForServerDeployment,
 } from "@/lib/modules/deployment/deployment-planned-assignment-resolution-server";
+import {
+  assessActivationReadinessForServerDeployment,
+} from "@/lib/modules/deployment/deployment-activation-readiness-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
+import type {
+  DeploymentActivationReadinessIssue,
+} from "@/lib/modules/deployment/deployment-activation-readiness-types";
 import type {
   DeploymentPlannedAssignmentResolutionIssue,
   DeploymentPlannedAssignmentResolvedRecord,
@@ -225,6 +231,33 @@ export interface PlannedAssignmentResolutionActionResult {
   message: string;
 }
 
+export type DeploymentActivationReadinessActionStatus =
+  | "ready"
+  | "blocked"
+  | "error"
+  | "skipped";
+
+export interface DeploymentActivationReadinessActionResult {
+  ok: boolean;
+  status: DeploymentActivationReadinessActionStatus;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  checksRequested: number;
+  checksPassed: number;
+  checksFailed: number;
+  blockers: number;
+  warnings: number;
+  issues: readonly DeploymentActivationReadinessIssue[];
+  downstream: {
+    requested: 0;
+    created: 0;
+    reused: 0;
+    skipped: 0;
+    conflicts: 0;
+  };
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -241,12 +274,13 @@ export interface PersistDeploymentRunActionResult {
   assignmentTargetValidation: AssignmentTargetValidationActionResult;
   hardwareAssignments: HardwareAssignmentsActionResult;
   plannedAssignmentResolution: PlannedAssignmentResolutionActionResult;
+  deploymentActivationReadiness: DeploymentActivationReadinessActionResult;
   message: string;
 }
 
-const DEPLOYMENT_VERSION = "rc7-planned-assignment-resolution";
-const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware-assignment-validation-resolution";
-const EVIDENCE_VERSION = "deployment-audit-evidence-rc7-slice1c";
+const DEPLOYMENT_VERSION = "rc7-activation-readiness";
+const SCHEMA_VERSION = "deployment-run-clinic-root-settings-providers-sterilizers-workstations-hardware-assignment-validation-resolution-readiness";
+const EVIDENCE_VERSION = "deployment-audit-evidence-rc7-slice1g";
 const CLINIC_ROOT_NOT_ATTEMPTED: ClinicRootActionResult = {
   ok: false,
   status: "skipped",
@@ -357,6 +391,27 @@ const PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED: PlannedAssignmentResolutionAc
   message: "Planned assignment resolution was not attempted.",
 };
 
+const DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED: DeploymentActivationReadinessActionResult = {
+  ok: false,
+  status: "skipped",
+  clinicId: null,
+  deploymentRunId: null,
+  checksRequested: 0,
+  checksPassed: 0,
+  checksFailed: 0,
+  blockers: 0,
+  warnings: 0,
+  issues: [],
+  downstream: {
+    requested: 0,
+    created: 0,
+    reused: 0,
+    skipped: 0,
+    conflicts: 0,
+  },
+  message: "Deployment activation readiness was not attempted.",
+};
+
 export async function persistDeploymentRunAction(
   draft: DeploymentDraft,
   deploymentSessionId: string,
@@ -383,6 +438,7 @@ export async function persistDeploymentRunAction(
       assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+      deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -405,6 +461,7 @@ export async function persistDeploymentRunAction(
       assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+      deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -431,6 +488,7 @@ export async function persistDeploymentRunAction(
       assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
       hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+      deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -484,8 +542,8 @@ export async function persistDeploymentRunAction(
       evidenceVersion: EVIDENCE_VERSION,
       metadata: {
         source: "setup_wizard_complete",
-        runtimeSlice: "rc6-slice2c",
-        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_workstation_hardware_shells_assignment_target_validation_and_assignments",
+        runtimeSlice: "rc7-slice1g",
+        boundary: "deployment_run_clinic_root_settings_provider_sterilizer_workstation_hardware_shells_assignment_target_validation_assignments_resolution_and_readiness",
         clinicRootPersistence: "enabled",
         clinicSettingsProvisioning: "enabled",
         providerShellProvisioning: "enabled",
@@ -494,6 +552,8 @@ export async function persistDeploymentRunAction(
         hardwareShellProvisioning: "enabled",
         assignmentTargetValidation: "enabled",
         hardwareAssignmentProvisioning: "enabled",
+        plannedAssignmentResolution: "enabled",
+        deploymentActivationReadiness: "enabled",
         clinicConfigurationSimulated: true,
         deploymentSessionId: normalizedDeploymentSessionId,
         clinicCode: draft.clinicProfile.clinicCode || null,
@@ -517,6 +577,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -539,6 +600,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -576,6 +638,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -605,6 +668,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -648,6 +712,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
@@ -704,6 +769,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
@@ -773,6 +839,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
       };
@@ -855,6 +922,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
       };
@@ -951,6 +1019,7 @@ export async function persistDeploymentRunAction(
         assignmentTargetValidation: ASSIGNMENT_TARGET_VALIDATION_NOT_ATTEMPTED,
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells are durable, but hardware shell provisioning failed safely. No downstream records were created.",
       };
@@ -1051,6 +1120,7 @@ export async function persistDeploymentRunAction(
         ),
         hardwareAssignments: HARDWARE_ASSIGNMENTS_NOT_ATTEMPTED,
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           assignmentTargetValidation.status === "error"
             ? "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but assignment target validation failed safely. Hardware assignments were not persisted."
@@ -1162,6 +1232,7 @@ export async function persistDeploymentRunAction(
           message: hardwareAssignments.message,
         },
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+        deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but hardware assignment provisioning failed safely. No downstream records were created.",
       };
@@ -1171,9 +1242,19 @@ export async function persistDeploymentRunAction(
       await resolvePlannedAssignmentsForServerDeployment(client, {
         clinicId,
       });
+    const deploymentActivationReadiness = plannedAssignmentResolution.ok
+      ? await assessActivationReadinessForServerDeployment(client, {
+          clinicId,
+          deploymentRunId: result.deploymentRun.deploymentRunId,
+          draft,
+          assignmentTargetValidation,
+          plannedAssignmentResolution,
+          createdAt: persistedAt,
+        })
+      : null;
 
     return {
-      ok: plannedAssignmentResolution.ok,
+      ok: plannedAssignmentResolution.ok && Boolean(deploymentActivationReadiness?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -1274,9 +1355,22 @@ export async function persistDeploymentRunAction(
       plannedAssignmentResolution: mapPlannedAssignmentResolutionActionResult(
         plannedAssignmentResolution,
       ),
-      message: plannedAssignmentResolution.ok
-        ? "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, hardware planned shells, hardware planned assignments, and read-only planned assignment resolution are complete. Pack, cycle, trace, user, audit, binding, and activation provisioning remains simulated."
-        : "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, hardware planned shells, and hardware planned assignments are durable, but planned assignment resolution is incomplete. Logical assignments remain persisted; activation preparation is blocked until the references resolve cleanly.",
+      deploymentActivationReadiness: deploymentActivationReadiness
+        ? mapDeploymentActivationReadinessActionResult(
+            deploymentActivationReadiness,
+          )
+        : {
+            ...DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
+            clinicId,
+            deploymentRunId: result.deploymentRun.deploymentRunId,
+            message:
+              "Deployment activation readiness was skipped because planned assignment resolution is incomplete.",
+          },
+      message: deploymentActivationReadiness?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, and deployment activation readiness are complete. Activation remains unwired and no operational binding occurred."
+        : plannedAssignmentResolution.ok
+          ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, and planned assignment resolution are durable, but activation readiness is blocked. Planned infrastructure remains inactive and retry remains available."
+          : "Deployment run, draft clinic root, clinic settings, provider placeholder shells, sterilizer planned shells, workstation planned shells, hardware planned shells, and hardware planned assignments are durable, but planned assignment resolution is incomplete. Logical assignments remain persisted; activation preparation is blocked until the references resolve cleanly.",
     };
   } catch {
     return {
@@ -1363,6 +1457,7 @@ export async function persistDeploymentRunAction(
           "Hardware assignment provisioning may be incomplete or unavailable. No downstream records were created.",
       },
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
+      deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",
     };
@@ -1406,6 +1501,25 @@ function mapPlannedAssignmentResolutionActionResult(
     message: result.message,
   };
 }
+function mapDeploymentActivationReadinessActionResult(
+  result: Awaited<ReturnType<typeof assessActivationReadinessForServerDeployment>>,
+): DeploymentActivationReadinessActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    clinicId: result.clinicId,
+    deploymentRunId: result.deploymentRunId,
+    checksRequested: result.checksRequested,
+    checksPassed: result.checksPassed,
+    checksFailed: result.checksFailed,
+    blockers: result.blockers,
+    warnings: result.warnings,
+    issues: result.issues,
+    downstream: result.downstream,
+    message: result.message,
+  };
+}
+
 function normalizeDeploymentSessionId(
   deploymentSessionId: string | null | undefined,
 ): string {

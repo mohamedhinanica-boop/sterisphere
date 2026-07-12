@@ -1325,3 +1325,11 @@ The durable snapshot boundary is intentionally source-row only. Assignment targe
 Hardware readiness preserves `clinical_hardware_devices.status` as the operational/device lifecycle value. A deployment hardware shell with `status = discovered` remains compatible when `provisioning_source = setup_draft`, `provisioning_status = planned`, `active = false`, and `agent_id`, `default_workstation_id`, and `current_workstation_id` are null.
 
 `supabase_activation_readiness_preflight.sql` is read-only and verifies required columns, deployment-key indexes, duplicate same-clinic keys, deployment-keyed rows without clinic scope, active setup-draft planned rows, operational hardware binding leaks, deterministic key shapes, assignment target compatibility, and durable readiness snapshot counts. It intentionally does not require persisted validation or resolution evidence because no such durable evidence table exists yet.
+
+## RC7 Slice 1G - Runtime Activation Readiness Assessment
+
+RC7 Slice 1G wires deployment activation readiness as the final read-only runtime preparation stage after successful planned assignment resolution. The runtime order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness`.
+
+The runtime composition combines the durable Supabase readiness snapshot with fresh assignment target validation evidence and fresh planned assignment resolution evidence from the same setup action. Readiness does not re-run validation or infer resolution success from durable rows alone. It returns structured status, check counters, blockers, warnings, issues, and zero downstream counters.
+
+Readiness remains a safety boundary, not activation. It persists no readiness rows, changes no deployment status, writes no resolved ids, mutates no hardware assignment rows, writes no operational hardware binding columns, registers no agents, and activates no clinic, provider, sterilizer, workstation, hardware, or assignment records. Blocked or error readiness preserves upstream durable evidence and keeps retry available.

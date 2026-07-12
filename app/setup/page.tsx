@@ -833,6 +833,26 @@ export default function ClinicSetupPage() {
           },
           message: "Planned assignment resolution was not attempted.",
         },
+        deploymentActivationReadiness: {
+          ok: false,
+          status: "skipped",
+          clinicId: null,
+          deploymentRunId: null,
+          checksRequested: 0,
+          checksPassed: 0,
+          checksFailed: 0,
+          blockers: 0,
+          warnings: 0,
+          issues: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message: "Deployment activation readiness was not attempted.",
+        },
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -974,6 +994,27 @@ export default function ClinicSetupPage() {
           },
           message:
             "Planned assignment resolution was not completed. Logical assignments remain inactive and unbound.",
+        },
+        deploymentActivationReadiness: {
+          ok: false,
+          status: "error",
+          clinicId: null,
+          deploymentRunId: null,
+          checksRequested: 0,
+          checksPassed: 0,
+          checksFailed: 0,
+          blockers: 0,
+          warnings: 0,
+          issues: [],
+          downstream: {
+            requested: 0,
+            created: 0,
+            reused: 0,
+            skipped: 0,
+            conflicts: 0,
+          },
+          message:
+            "Deployment activation readiness was not completed. No activation occurred.",
         },
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1305,6 +1346,8 @@ function CompleteStep({
   const hardwareAssignments = deploymentRunResult?.hardwareAssignments ?? null;
   const plannedAssignmentResolution =
     deploymentRunResult?.plannedAssignmentResolution ?? null;
+  const deploymentActivationReadiness =
+    deploymentRunResult?.deploymentActivationReadiness ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -1924,6 +1967,86 @@ function CompleteStep({
                 </div>
               ) : null}
             </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Deployment Activation Readiness: {deploymentActivationReadiness?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationReadiness?.message ??
+                  "Activation readiness will be assessed after planned assignment resolution succeeds."}
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Checks Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationReadiness?.checksRequested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Checks Passed
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationReadiness?.checksPassed ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Checks Failed
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationReadiness?.checksFailed ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Blockers
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationReadiness?.blockers ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Warnings
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationReadiness?.warnings ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              {deploymentActivationReadiness?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Readiness Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationReadiness.issues.slice(0, 5).map((issue) => (
+                      <li
+                        key={`${issue.entityType}-${issue.deploymentKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.severity}: {issue.entityType}
+                        </span>{" "}
+                        {issue.deploymentKey ? `${issue.deploymentKey}: ` : ""}
+                        {issue.code}. {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationReadiness.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationReadiness.issues.length - 5} more readiness issues are included in support evidence.
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs">
+                    Activation has not occurred. Planned infrastructure remains inactive, unbound, and retryable.
+                  </p>
+                </div>
+              ) : null}
+            </div>
           </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
@@ -1937,10 +2060,11 @@ function CompleteStep({
             assignment target validation gate. public.deployment_hardware_assignments
             planned relationships are persisted only after validation passes.
             Planned assignment resolution reads those rows and matching planned
-            shells to return durable IDs in evidence only; it does not persist
-            resolved IDs, write hardware bindings, activate devices, create
-            users, packs, cycles, traces, audit logs, or downstream deployment
-            records.
+            shells to return durable IDs in evidence only. Deployment activation
+            readiness combines that fresh evidence with the durable snapshot as
+            a final read-only safety gate; it does not persist readiness rows,
+            write hardware bindings, activate devices, create users, packs,
+            cycles, traces, audit logs, or downstream deployment records.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -2031,6 +2155,13 @@ function buildDeploymentSupportHref(
       `Planned assignment resolution incompatible targets: ${result?.plannedAssignmentResolution.incompatibleTargets ?? 0}`,
       `Planned assignment resolution records: ${result?.plannedAssignmentResolution.records.map((record) => `${record.deploymentHardwareKey}:${record.hardwareId ?? "none"}:${record.targetType}:${record.targetDeploymentKey ?? "none"}:${record.targetId ?? "none"}:${record.resolutionStatus}`).join("; ") ?? "none"}`,
       `Planned assignment resolution issues: ${result?.plannedAssignmentResolution.issues.map((issue) => `${issue.deploymentHardwareKey}:${issue.assignmentKey ?? "none"}:${issue.targetType}:${issue.targetDeploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Deployment activation readiness status: ${result?.deploymentActivationReadiness.status ?? "not attempted"}`,
+      `Deployment activation readiness checks requested: ${result?.deploymentActivationReadiness.checksRequested ?? 0}`,
+      `Deployment activation readiness checks passed: ${result?.deploymentActivationReadiness.checksPassed ?? 0}`,
+      `Deployment activation readiness checks failed: ${result?.deploymentActivationReadiness.checksFailed ?? 0}`,
+      `Deployment activation readiness blockers: ${result?.deploymentActivationReadiness.blockers ?? 0}`,
+      `Deployment activation readiness warnings: ${result?.deploymentActivationReadiness.warnings ?? 0}`,
+      `Deployment activation readiness issues: ${result?.deploymentActivationReadiness.issues.map((issue) => `${issue.severity}:${issue.entityType}:${issue.deploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,
@@ -2041,6 +2172,7 @@ function buildDeploymentSupportHref(
       `Assignment target validation message: ${result?.assignmentTargetValidation.message ?? "No assignment-target-validation response yet."}`,
       `Hardware assignments message: ${result?.hardwareAssignments.message ?? "No hardware-assignment response yet."}`,
       `Planned assignment resolution message: ${result?.plannedAssignmentResolution.message ?? "No planned-assignment-resolution response yet."}`,
+      `Deployment activation readiness message: ${result?.deploymentActivationReadiness.message ?? "No deployment-activation-readiness response yet."}`,
     ].join("\n"),
   );
 

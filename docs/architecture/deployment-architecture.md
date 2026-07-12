@@ -851,3 +851,11 @@ The activation-readiness boundary now has a read-only server-only Supabase adapt
 Runtime validation and planned-resolution evidence remains outside the durable snapshot because those results are not persisted today. The repository leaves both evidence fields null rather than deriving success from source rows; a future runtime composition must supply current validation and resolution evidence alongside the durable snapshot before readiness can pass.
 
 This slice adds no activation path, no setup action wiring, no UI changes, no SQL migration, no resolved-id writes, no operational hardware binding, no agent registration, and no `DeploymentEngine.execute()` change. The live preflight SQL reports whether existing durable rows are compatible with the readiness service and whether schema/index assumptions are satisfied.
+
+## RC7 Slice 1G Runtime Activation Readiness Boundary
+
+Setup completion now runs deployment activation readiness immediately after planned assignment resolution succeeds. The stage is read-only and composes `SupabaseDeploymentActivationReadinessRepository` with fresh assignment target validation and planned assignment resolution evidence from the same server action.
+
+The readiness result is returned to the Complete page as evidence: status, checks requested, checks passed, checks failed, blockers, warnings, issues, and zero downstream counters. A ready result does not unlock the platform or activate anything; blocked and error results preserve all upstream durable records and report retry-safe issue details.
+
+Activation readiness remains separate from activation. It does not persist readiness evidence, update deployment runs, change deployment status, resolve or write operational ids, mutate hardware assignments, bind hardware, register agents, create operational records, or change `DeploymentEngine.execute()`.
