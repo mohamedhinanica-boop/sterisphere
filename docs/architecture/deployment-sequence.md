@@ -974,4 +974,10 @@ Setup completion now appends a read-only controlled activation plan stage after 
 11. Assess deployment activation readiness from durable rows plus fresh validation and resolution evidence.
 12. Build a deterministic controlled activation plan when readiness is ready.
 
-Blocked or error readiness skips activation planning. Blocked or error planning preserves every upstream durable record and returns structured evidence only. The runtime does not persist activation plans, execute plan items, activate records, bind hardware, finalize deployment runs, register agents, implement rollback, or change `DeploymentEngine.execute()`.
+Blocked or error readiness skips activation planning. Blocked or error planning preserves every upstream durable record and returns structured evidence only. The runtime does not persist activation plans, execute plan items, activate records, bind hardware, finalize deployment runs, register agents, implement rollback, or change `DeploymentEngine.execute()`.## RC8 Slice 1D Controlled Activation Execution Foundation Sequence
+
+The documented future order now extends to controlled activation execution:
+
+`deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution`
+
+This slice does not wire a runtime stage. It defines the future execution boundary that will consume an approved controlled activation plan, verify dependency integrity and current durable state, and return pre-execution session evidence. Actual activation, hardware binding, deployment finalization, execution persistence, rollback execution, workers, polling, streaming, and `DeploymentEngine.execute()` remain outside this foundation.

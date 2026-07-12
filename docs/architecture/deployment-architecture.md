@@ -879,4 +879,10 @@ The setup runtime now composes controlled activation planning after activation r
 
 Readiness `blocked` or `error` skips planning. Planning `blocked` or `error` returns structured evidence while preserving deployment run, clinic, settings, planned shells, validation, assignments, resolution, and readiness evidence. No activation plan rows are persisted and no plan item is executed.
 
-This runtime slice remains read-only. It does not modify provisioning status, activate clinic-owned records, bind hardware, write agent/default/current workstation ids, finalize deployment runs, register agents, implement rollback, create workers, stream progress, or change `DeploymentEngine.execute()`.
+This runtime slice remains read-only. It does not modify provisioning status, activate clinic-owned records, bind hardware, write agent/default/current workstation ids, finalize deployment runs, register agents, implement rollback, create workers, stream progress, or change `DeploymentEngine.execute()`.## RC8 Slice 1D Controlled Activation Execution Foundation
+
+The activation domain now includes a foundation for `controlled_activation_execution`, positioned after `controlled_activation_plan`. It is an orchestration model, not an executor. It accepts only actions already present in the approved activation plan (`activate`, `link`, `bind`, `finalize`, and `no_op`) and refuses to invent new operational behavior.
+
+Execution preparation enforces deterministic dependency ordering, dependency existence, cycle prevention, finalization last, hardware binding prerequisites, assignment finalization prerequisites, deployment ownership, execution identity, and final pre-execution state drift checks. Sessions and items remain pre-execution only (`ready` or `pending`); no item is marked executed, succeeded, or rolled back by this foundation.
+
+Irreversible boundaries are explicit. Future mutation slices must honor the prepared rollback boundary and re-check durable state immediately before writing. This slice adds no Supabase execution repository, no migrations, no runtime setup wiring, no UI, no activation, no binding, no deployment finalization, no background work, and no `DeploymentEngine.execute()` change.
