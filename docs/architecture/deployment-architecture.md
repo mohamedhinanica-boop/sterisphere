@@ -859,3 +859,11 @@ Setup completion now runs deployment activation readiness immediately after plan
 The readiness result is returned to the Complete page as evidence: status, checks requested, checks passed, checks failed, blockers, warnings, issues, and zero downstream counters. A ready result does not unlock the platform or activate anything; blocked and error results preserve all upstream durable records and report retry-safe issue details.
 
 Activation readiness remains separate from activation. It does not persist readiness evidence, update deployment runs, change deployment status, resolve or write operational ids, mutate hardware assignments, bind hardware, register agents, create operational records, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 1A Controlled Activation Plan Boundary
+
+Controlled activation planning is the first RC8 activation-domain layer, but it is still read-only. `DeploymentActivationPlanService` consumes a current durable deployment snapshot, a ready activation-readiness result, and fresh planned assignment resolution evidence to produce an ordered plan contract for later execution slices.
+
+The initial order is clinic activation, provider shell activation, sterilizer shell activation, workstation shell activation, hardware shell activation, proposed hardware binding items, hardware assignment finalization, and deployment-run finalization. Clinic settings are not given a physical activation write in this foundation because no supported activation column is assumed. Execution slices must not invent actions outside the approved plan.
+
+Rollback is modeled, not implemented. Shell activation and proposed bindings are marked reversible before operational use; hardware assignment finalization and deployment-run finalization are marked irreversible until a later rollback design proves otherwise. Warnings document explicit unassigned hardware and future-only binding/finalization limitations without blocking otherwise safe plans.

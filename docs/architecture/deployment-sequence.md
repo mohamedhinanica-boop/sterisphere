@@ -929,3 +929,22 @@ Setup completion now appends the final read-only readiness assessment after succ
 11. Assess deployment activation readiness from the durable snapshot plus fresh validation and resolution evidence.
 
 Readiness failure stops the sequence at the final safety boundary with upstream evidence preserved. No activation, binding, resolved-id persistence, agent registration, dashboard unlock, redirect behavior, or `DeploymentEngine.execute()` change is introduced.
+
+## RC8 Slice 1A Controlled Activation Plan Sequence
+
+A future controlled activation plan stage is documented after activation readiness:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse inactive provider placeholder shells.
+5. Create or reuse inactive planned sterilizer shells.
+6. Create or reuse inactive planned workstation shells.
+7. Create or reuse inactive planned hardware shells.
+8. Validate logical assignment targets.
+9. Create or reuse inactive planned hardware assignment rows.
+10. Resolve planned assignments to durable ids in memory only.
+11. Assess deployment activation readiness.
+12. Build a deterministic controlled activation plan without executing it.
+
+The activation plan is the contract for later execution and rollback slices. This foundation creates no Supabase repository, SQL migration, setup action wiring, UI, activation, hardware binding, resolved-id persistence, agent registration, deployment finalization, rollback execution, or `DeploymentEngine.execute()` change.

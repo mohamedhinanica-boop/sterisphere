@@ -1333,3 +1333,11 @@ RC7 Slice 1G wires deployment activation readiness as the final read-only runtim
 The runtime composition combines the durable Supabase readiness snapshot with fresh assignment target validation evidence and fresh planned assignment resolution evidence from the same setup action. Readiness does not re-run validation or infer resolution success from durable rows alone. It returns structured status, check counters, blockers, warnings, issues, and zero downstream counters.
 
 Readiness remains a safety boundary, not activation. It persists no readiness rows, changes no deployment status, writes no resolved ids, mutates no hardware assignment rows, writes no operational hardware binding columns, registers no agents, and activates no clinic, provider, sterilizer, workstation, hardware, or assignment records. Blocked or error readiness preserves upstream durable evidence and keeps retry available.
+
+## RC8 Slice 1A - Controlled Activation Plan Foundation
+
+RC8 Slice 1A introduces a read-only controlled activation planning foundation after deployment activation readiness. The future order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan`.
+
+The activation planner converts a ready deployment into an explicit deterministic plan. It describes proposed activation, binding, assignment finalization, and deployment finalization items with required current state, intended target state, dependencies, reversibility, rollback intent, blockers, and warnings. It does not execute any plan item, persist the plan key, update provisioning status, activate rows, bind hardware, write resolved ids, register agents, finalize deployment runs, or implement rollback.
+
+The plan is drift-protected. It requires readiness status `ready`, zero readiness blockers, matching clinic ownership, current inactive setup-draft planned or placeholder shell states, unbound hardware shells, matching planned assignments, and resolved hardware/target identities for binding items. Explicit unassigned hardware is valid and produces a warning plus no binding item.
