@@ -1358,3 +1358,10 @@ Controlled activation execution now has an inert domain foundation after control
 The execution foundation does not persist execution sessions or items, perform Supabase writes, activate records, bind hardware, write resolved ids, update provisioning status, register agents, finalize deployment runs, or execute rollback. Repository checks are modeled as read-only drift and identity inputs so a later persistence slice can provide live state without weakening the safety contract.
 
 Rollback is represented as evidence only: last reversible sequence, first irreversible sequence, rollback-supported item keys, rollback-unsupported item keys, and whether execution would cross an irreversible boundary. Actual execution and rollback remain future incremental slices.
+## RC8 Slice 1E Activation Execution Snapshot Preflight
+
+Controlled activation execution preparation now has a read-only Supabase snapshot repository, but no execution persistence table is created. The deterministic execution identity is `activation-execution-${deploymentRunId}` and remains service-computed evidence only until a later schema slice introduces durable execution sessions/items.
+
+The snapshot repository reads only existing deployment-owned tables: `deployment_runs`, `clinics`, `clinic_settings`, `providers`, `sterilizers`, `clinical_workstations`, `clinical_hardware_devices`, and `deployment_hardware_assignments`. It returns compact current-state envelopes for drift detection and preserves nullable `active` values plus hardware binding columns without writing them.
+
+`deployment-activation-execution-preflight.sql` is the manual live preflight for this boundary. It verifies required read columns, duplicate same-clinic deployment keys, null-clinic deployment-keyed rows, active planned rows, hardware binding drift inputs, assignment shape, and whether any execution persistence table already exists. No migration, insert, update, activation, binding, rollback, or runtime wiring is part of this slice.

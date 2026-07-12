@@ -981,3 +981,13 @@ The documented future order now extends to controlled activation execution:
 `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution`
 
 This slice does not wire a runtime stage. It defines the future execution boundary that will consume an approved controlled activation plan, verify dependency integrity and current durable state, and return pre-execution session evidence. Actual activation, hardware binding, deployment finalization, execution persistence, rollback execution, workers, polling, streaming, and `DeploymentEngine.execute()` remain outside this foundation.
+## RC8 Slice 1E Activation Execution Supabase Snapshot Sequence Boundary
+
+RC8 Slice 1E does not change runtime ordering. It adds the read-only Supabase adapter that a future controlled activation execution stage can use after a ready controlled activation plan:
+
+1. Load the deployment run and current durable source rows deterministically.
+2. Return compact current-state snapshots for clinic, planned shells, hardware binding proposals, hardware assignment finalization, and deployment-run finalization.
+3. Report no existing execution session because no execution persistence table is introduced in this slice.
+4. Leave rollback capability as unsupported schema evidence only.
+
+The documented future order remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution`. This slice adds no runtime registration, setup action wiring, UI evidence, activation, binding, deployment finalization, execution rows, rollback execution, workers, polling, streaming, or `DeploymentEngine.execute()` change.
