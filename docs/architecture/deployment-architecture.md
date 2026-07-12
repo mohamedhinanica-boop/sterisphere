@@ -931,3 +931,19 @@ The Supabase adapter is server-only and mutation-limited to insert-only prepared
 Runtime setup now composes the activation execution persistence service after ready execution preparation. The server action resolves the durable `deployment_runs` row for the current clinic and logical deployment run before persisting, then creates or reuses one prepared execution session plus deterministic prepared execution items.
 
 This is a durable evidence boundary, not an execution boundary. The session is not claimed, no ownership token or lease is created, item attempts stay zero, item statuses stay `ready` or `pending`, and no clinic, shell, hardware, assignment, binding, rollback, audit, or deployment-run finalization state is mutated. Partial prepared evidence remains durable for safe retry; future claiming must enforce completeness before ownership.
+
+## RC8 Slice 3A Execution Ownership and Lease Foundation
+
+The deployment domain now has a read-only activation execution claim assessment model. It introduces a repository snapshot contract for prepared execution sessions and aggregate item completeness evidence, plus a service that deterministically decides whether a future executor may propose ownership.
+
+The service does not write ownership. It validates claimant identity, claim timestamp, a bounded lease duration of 30 seconds through 15 minutes, session identity, `preparation_status = ready`, `execution_status = prepared`, null lifecycle timestamps, complete prepared items, one ready root item, pending dependents, zero attempts, and no execution, rollback, or error evidence. Active same-owner leases return `already_owned`; active other-owner leases return conflict; expired leases return `lease_expired_reclaimable` only when all execution evidence remains untouched.
+
+Ownership tokens are produced through an injected token factory. Result objects may carry the proposed token for the future repository handoff, but messages and issues intentionally avoid token values. No Supabase adapter, SQL, setup runtime wiring, UI, execution start, activation, binding, rollback, or deployment finalization is introduced.
+
+## RC8 Slice 3B Supabase Claim Repository and Atomic RPC
+
+The claim architecture now separates policy assessment from database mutation. `DeploymentActivationExecutionClaimService` decides whether ownership is safe from a read-only snapshot. `SupabaseDeploymentActivationExecutionClaimRepository` can load that snapshot and call `public.claim_deployment_activation_execution_session` for an explicit `fresh`, `same_owner`, or `expired_reclaim` mode.
+
+The RPC locks the target session row with `FOR UPDATE`, rechecks session identity, ready/prepared evidence, zero blockers, lease duration, item completeness, ready/pending-only item lifecycle, zero attempts, null execution/rollback timestamps, null errors, and duplicate-free item identities before updating ownership. The only successful fresh/reclaim mutation is owner/token/lease plus `execution_status = claimed`; it does not set `started_at`, update items, increment attempts, activate records, bind hardware, finalize assignments, finalize deployment runs, or run rollback.
+
+RLS remains enabled and no anon or broad authenticated policies are added. The function has a fixed search path and execution is intended for trusted service-role server code only. The RPC result may return the ownership token to server-side code for future executor flow, but messages and issue evidence remain token-sanitized.

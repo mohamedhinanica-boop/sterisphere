@@ -1407,3 +1407,23 @@ Database guards include clinic/deployment-run foreign keys, status checks, non-n
 The planned runtime persistence chain now reaches `activation_execution_persistence` after `controlled_activation_execution_preparation`. Successful ready preparation is persisted into `public.deployment_activation_execution_sessions` and `public.deployment_activation_execution_items` as immutable prepared evidence.
 
 Idempotency is scoped by the deployment run and execution key. Compatible prepared sessions and items are reused; missing compatible items are inserted in deterministic sequence order; conflicting immutable evidence is reported without updates, deletes, repair, activation, ownership claims, leases, attempts, execution timestamps, binding writes, rollback work, or deployment-run finalization. The next ownership slice must treat completeness as a hard gate before claiming any prepared execution work.
+
+## RC8 Slice 3A Claim Assessment Persistence Boundary
+
+Prepared activation execution persistence remains the last durable runtime stage. Slice 3A adds only the TypeScript decision boundary for the next planned order:
+
+`activation_execution_persistence -> activation_execution_claim_assessment -> future durable ownership claim`
+
+Claim assessment reads a proposed prepared-session snapshot and item-integrity counters, then returns claimability evidence without persisting ownership. The future durable claim must be atomic and must re-check the same completeness gates before writing any owner, token, lease, or status transition. Active leases protect against concurrent executors; expired leases require untouched prepared evidence before reclaim can even be proposed.
+
+No SQL migration, Supabase repository, runtime wiring, setup UI, session update, item update, attempt increment, activation, hardware binding, rollback, worker, polling, or deployment-run finalization is part of this slice.
+
+## RC8 Slice 3B Atomic Claim Persistence Boundary
+
+The persistence plan now includes the future order:
+
+`activation_execution_persistence -> activation_execution_claim_assessment -> atomic_activation_execution_claim`
+
+Slice 3B adds the Supabase snapshot adapter, atomic claim RPC migration, and read-only preflight SQL. The repository never falls back to read-then-update; ownership writes must go through the RPC so the database can lock the row and re-check compare-and-set predicates. Fresh claim, same-owner idempotent check, and expired reclaim are explicit modes, not generic lifecycle updates.
+
+The session ownership shape allows `claimed` sessions with owner/token/lease and null start/completion/failure timestamps while preserving `prepared` sessions as unowned. Supporting indexes cover claim lookup, lease scans, owner/lease inspection, and item status ordering. No setup runtime wiring, item execution, activation, binding, rollback, heartbeat, lease renewal, worker, polling, streaming, or deployment finalization is introduced.

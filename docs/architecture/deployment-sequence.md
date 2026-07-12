@@ -1060,3 +1060,23 @@ Setup completion now appends durable prepared execution persistence after succes
 The new stage persists prepared execution evidence only into `public.deployment_activation_execution_sessions` and `public.deployment_activation_execution_items`. Sessions remain `prepared`; items remain `ready` or `pending`; ownership, leases, attempts, execution timestamps, activation, hardware binding, rollback, dashboard unlock, deployment finalization, and `DeploymentEngine.execute()` remain unchanged.
 
 Prepared persistence is retry-safe. A retry reuses compatible immutable session and item evidence, partial durable item state creates only missing compatible items, and conflicts are reported without repair or overwrite. Future execution claiming must verify the session exists, every expected item exists, no item conflict exists, and persisted item count matches session evidence before any ownership claim or mutation.
+
+## RC8 Slice 3A Activation Execution Claim Assessment Foundation
+
+A future claim assessment stage is documented after prepared execution persistence:
+
+`activation_execution_persistence -> activation_execution_claim_assessment -> future durable ownership claim`
+
+Slice 3A is TypeScript-only and performs no runtime wiring. It answers whether a prepared activation execution session can be safely claimed by one executor without allowing concurrent execution. The service checks session identity, prepared lifecycle, ownership/lease shape, bounded lease duration, item completeness, dependency readiness, and existing lease state, then returns proposal evidence only.
+
+No ownership is persisted, no token is stored, no lease is written, no session status changes, no item starts, no attempts increment, no activation or binding occurs, and `DeploymentEngine.execute()` remains unchanged. Active leases owned by another executor block concurrent claim proposals. Expired leases are only reclaimable when session and item evidence remain untouched and complete. A future Slice 3B should add Supabase schema preflight and an atomic ownership repository; actual activation remains prohibited.
+
+## RC8 Slice 3B Atomic Activation Execution Claim Boundary
+
+The future sequence now extends the ownership boundary as:
+
+`activation_execution_persistence -> activation_execution_claim_assessment -> atomic_activation_execution_claim`
+
+Claim assessment remains the policy layer. The atomic Supabase RPC is the compare-and-set mutation boundary that locks the prepared execution session row, rechecks critical lifecycle and item-completeness predicates, and writes ownership only when the row still matches the assessed state. `claimed` means exclusive ownership only; it does not mean running, does not start any item, and does not authorize activation by itself.
+
+Fresh claims require an unowned `prepared` session. Same-owner checks are idempotent and do not extend the lease or issue a new token. Active competing leases return conflict. Expired reclaim requires untouched execution evidence plus stale-owner/token/lease compare-and-set values. The next slice may wire server composition for claim assessment plus atomic claim, still without starting execution items.
