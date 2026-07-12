@@ -383,7 +383,6 @@ function isCompatibleHardwareShell(
   return (
     hardware.clinicId === clinicId &&
     hardware.deploymentHardwareKey === hardwareKey &&
-    hardware.status === "planned" &&
     hardware.provisioningSource === "setup_draft" &&
     hardware.provisioningStatus === "planned" &&
     hardware.active === false &&

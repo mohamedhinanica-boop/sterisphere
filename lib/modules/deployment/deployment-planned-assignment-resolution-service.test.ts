@@ -27,6 +27,8 @@ export async function runDeploymentPlannedAssignmentResolutionServiceHarness(): 
     await scenarioValidWorkstationResolution(),
     await scenarioValidSterilizerResolution(),
     await scenarioValidUnassignedResolution(),
+    await scenarioPersistedDiscoveredHardwareResolution(),
+    await scenarioRepeatedPersistedHardwareResolution(),
     await scenarioMissingHardwareShell(),
     await scenarioCrossClinicHardwareShell(),
     await scenarioLegacyGlobalHardwareShell(),
@@ -126,6 +128,46 @@ async function scenarioValidUnassignedResolution(): Promise<DeploymentPlannedAss
   );
 }
 
+async function scenarioPersistedDiscoveredHardwareResolution(): Promise<DeploymentPlannedAssignmentResolutionServiceHarnessScenario> {
+  const harness = createHarness({
+    hardwareShells: [
+      createHardwareShell("hardware-001", { status: "discovered" }),
+    ],
+  });
+  const result = await harness.service.resolveAssignmentsForClinicAssignments(
+    CLINIC_ID,
+    [createAssignment({ deploymentHardwareKey: "hardware-001" })],
+  );
+
+  return expectScenario(
+    "persisted hardware shell with discovered device status resolves",
+    result.ok &&
+      result.counts.resolved === 1 &&
+      result.counts.incompatibleHardware === 0 &&
+      result.records[0]?.hardwareId === "hardware-row-hardware-001",
+    `status=discovered; resolved=${result.counts.resolved}; incompatibleHardware=${result.counts.incompatibleHardware}`,
+  );
+}
+
+async function scenarioRepeatedPersistedHardwareResolution(): Promise<DeploymentPlannedAssignmentResolutionServiceHarnessScenario> {
+  const harness = createHarness({
+    assignments: [createAssignment({ deploymentHardwareKey: "hardware-001" })],
+    hardwareShells: [
+      createHardwareShell("hardware-001", { status: "discovered" }),
+    ],
+  });
+  const first = await harness.service.resolveAssignmentsForClinic(CLINIC_ID);
+  const second = await harness.service.resolveAssignmentsForClinic(CLINIC_ID);
+
+  return expectScenario(
+    "repeated resolution returns the same successful persisted hardware result",
+    first.ok &&
+      second.ok &&
+      JSON.stringify(first.records) === JSON.stringify(second.records) &&
+      harness.repository.downstreamWriteCount === 0,
+    `first=${first.counts.resolved}; second=${second.counts.resolved}; downstreamWrites=${harness.repository.downstreamWriteCount}`,
+  );
+}
 async function scenarioMissingHardwareShell(): Promise<DeploymentPlannedAssignmentResolutionServiceHarnessScenario> {
   return expectIssueFromHarness(
     "missing hardware shell is unresolved",
