@@ -46,6 +46,9 @@ import {
 import {
   buildActivationPlanForServerDeployment,
 } from "@/lib/modules/deployment/deployment-activation-plan-server";
+import {
+  prepareActivationExecutionForServerDeployment,
+} from "@/lib/modules/deployment/deployment-activation-execution-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
@@ -56,6 +59,11 @@ import type {
   DeploymentActivationPlanIssue,
   DeploymentActivationPlanItem,
 } from "@/lib/modules/deployment/deployment-activation-plan-types";
+import type {
+  DeploymentActivationExecutionIssue,
+  DeploymentActivationExecutionItem,
+  DeploymentActivationExecutionRollbackBoundary,
+} from "@/lib/modules/deployment/deployment-activation-execution-types";
 import type {
   DeploymentPlannedAssignmentResolutionIssue,
   DeploymentPlannedAssignmentResolvedRecord,
@@ -295,6 +303,40 @@ export interface DeploymentActivationPlanActionResult {
   message: string;
 }
 
+
+export type DeploymentActivationExecutionActionStatus =
+  | "ready"
+  | "blocked"
+  | "error"
+  | "skipped";
+
+export interface DeploymentActivationExecutionActionResult {
+  ok: boolean;
+  status: DeploymentActivationExecutionActionStatus;
+  executionKey: string | null;
+  planKey: string | null;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  itemsRequested: number;
+  itemsReady: number;
+  itemsBlocked: number;
+  itemsPending: number;
+  reversibleItems: number;
+  irreversibleItems: number;
+  blockers: number;
+  warnings: number;
+  issues: readonly DeploymentActivationExecutionIssue[];
+  executionItems: readonly DeploymentActivationExecutionItem[];
+  rollbackBoundary: DeploymentActivationExecutionRollbackBoundary;
+  downstream: {
+    requested: 0;
+    created: 0;
+    reused: 0;
+    skipped: 0;
+    conflicts: 0;
+  };
+  message: string;
+}
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -313,6 +355,7 @@ export interface PersistDeploymentRunActionResult {
   plannedAssignmentResolution: PlannedAssignmentResolutionActionResult;
   deploymentActivationReadiness: DeploymentActivationReadinessActionResult;
   deploymentActivationPlan: DeploymentActivationPlanActionResult;
+  deploymentActivationExecution: DeploymentActivationExecutionActionResult;
   message: string;
 }
 
@@ -474,6 +517,40 @@ const DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED: DeploymentActivationPlanActionRe
   message: "Controlled activation planning was not attempted.",
 };
 
+const DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED: DeploymentActivationExecutionActionResult = {
+  ok: false,
+  status: "skipped",
+  executionKey: null,
+  planKey: null,
+  clinicId: null,
+  deploymentRunId: null,
+  itemsRequested: 0,
+  itemsReady: 0,
+  itemsBlocked: 0,
+  itemsPending: 0,
+  reversibleItems: 0,
+  irreversibleItems: 0,
+  blockers: 0,
+  warnings: 0,
+  issues: [],
+  executionItems: [],
+  rollbackBoundary: {
+    lastReversibleSequence: null,
+    firstIrreversibleSequence: null,
+    rollbackSupportedItemKeys: [],
+    rollbackUnsupportedItemKeys: [],
+    wouldCrossIrreversibleBoundary: false,
+  },
+  downstream: {
+    requested: 0,
+    created: 0,
+    reused: 0,
+    skipped: 0,
+    conflicts: 0,
+  },
+  message: "Activation execution preparation was not attempted.",
+};
+
 export async function persistDeploymentRunAction(
   draft: DeploymentDraft,
   deploymentSessionId: string,
@@ -502,6 +579,7 @@ export async function persistDeploymentRunAction(
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -526,6 +604,7 @@ export async function persistDeploymentRunAction(
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -554,6 +633,7 @@ export async function persistDeploymentRunAction(
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -645,6 +725,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -669,6 +750,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -708,6 +790,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -739,6 +822,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -784,6 +868,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
@@ -842,6 +927,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
@@ -913,6 +999,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
       };
@@ -997,6 +1084,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
       };
@@ -1095,6 +1183,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells are durable, but hardware shell provisioning failed safely. No downstream records were created.",
       };
@@ -1197,6 +1286,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           assignmentTargetValidation.status === "error"
             ? "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but assignment target validation failed safely. Hardware assignments were not persisted."
@@ -1310,6 +1400,7 @@ export async function persistDeploymentRunAction(
         plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
         deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
         deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but hardware assignment provisioning failed safely. No downstream records were created.",
       };
@@ -1340,11 +1431,19 @@ export async function persistDeploymentRunAction(
         })
       : null;
 
+    const deploymentActivationExecution = deploymentActivationPlan?.ok
+      ? await prepareActivationExecutionForServerDeployment(client, {
+          clinicId,
+          deploymentRunId: result.deploymentRun.deploymentRunId,
+          deploymentActivationPlan,
+        })
+      : null;
     return {
       ok:
         plannedAssignmentResolution.ok &&
         Boolean(deploymentActivationReadiness?.ok) &&
-        Boolean(deploymentActivationPlan?.ok),
+        Boolean(deploymentActivationPlan?.ok) &&
+        Boolean(deploymentActivationExecution?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -1465,8 +1564,20 @@ export async function persistDeploymentRunAction(
             message:
               "Controlled activation planning was skipped because deployment activation readiness did not complete.",
           },
-      message: deploymentActivationPlan?.ok
-        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, and controlled activation plan are complete. Activation remains unwired and no operational binding occurred."
+      deploymentActivationExecution: deploymentActivationExecution
+        ? mapDeploymentActivationExecutionActionResult(deploymentActivationExecution)
+        : {
+            ...DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
+            clinicId,
+            deploymentRunId: result.deploymentRun.deploymentRunId,
+            planKey: deploymentActivationPlan?.planKey ?? null,
+            message:
+              "Activation execution preparation was skipped because the controlled activation plan did not complete ready.",
+          },
+      message: deploymentActivationExecution?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, and activation execution preparation are complete. Execution is prepared in memory only; no activation, binding, execution rows, or rollback occurred."
+        : deploymentActivationPlan?.ok
+          ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, and controlled activation plan are complete, but activation execution preparation is blocked. No plan item executed."
         : deploymentActivationReadiness?.ok
           ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, and deployment activation readiness are complete, but controlled activation planning is blocked. Nothing was activated or persisted downstream."
           : plannedAssignmentResolution.ok
@@ -1560,6 +1671,7 @@ export async function persistDeploymentRunAction(
       plannedAssignmentResolution: PLANNED_ASSIGNMENT_RESOLUTION_NOT_ATTEMPTED,
       deploymentActivationReadiness: DEPLOYMENT_ACTIVATION_READINESS_NOT_ATTEMPTED,
       deploymentActivationPlan: DEPLOYMENT_ACTIVATION_PLAN_NOT_ATTEMPTED,
+        deploymentActivationExecution: DEPLOYMENT_ACTIVATION_EXECUTION_NOT_ATTEMPTED,
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",
     };
@@ -1640,6 +1752,31 @@ function mapDeploymentActivationPlanActionResult(
     warnings: result.warnings,
     issues: result.issues,
     planItems: result.planItems,
+    downstream: result.downstream,
+    message: result.message,
+  };
+}
+function mapDeploymentActivationExecutionActionResult(
+  result: Awaited<ReturnType<typeof prepareActivationExecutionForServerDeployment>>,
+): DeploymentActivationExecutionActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    executionKey: result.executionKey,
+    planKey: result.planKey,
+    clinicId: result.clinicId,
+    deploymentRunId: result.deploymentRunId,
+    itemsRequested: result.itemsRequested,
+    itemsReady: result.itemsReady,
+    itemsBlocked: result.itemsBlocked,
+    itemsPending: result.itemsPending,
+    reversibleItems: result.reversibleItems,
+    irreversibleItems: result.irreversibleItems,
+    blockers: result.blockers,
+    warnings: result.warnings,
+    issues: result.issues,
+    executionItems: result.executionItems,
+    rollbackBoundary: result.rollbackBoundary,
     downstream: result.downstream,
     message: result.message,
   };

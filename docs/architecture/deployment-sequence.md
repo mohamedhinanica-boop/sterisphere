@@ -991,3 +991,25 @@ RC8 Slice 1E does not change runtime ordering. It adds the read-only Supabase ad
 4. Leave rollback capability as unsupported schema evidence only.
 
 The documented future order remains `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution`. This slice adds no runtime registration, setup action wiring, UI evidence, activation, binding, deployment finalization, execution rows, rollback execution, workers, polling, streaming, or `DeploymentEngine.execute()` change.
+
+## RC8 Slice 1F Runtime Activation Execution Preparation Sequence
+
+Setup completion now appends the final pre-execution safety stage after a ready controlled activation plan:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings` for that clinic.
+4. Create or reuse provider shells.
+5. Create or reuse sterilizer shells.
+6. Create or reuse workstation shells.
+7. Create or reuse hardware shells.
+8. Validate logical assignment targets.
+9. Create or reuse planned hardware assignments.
+10. Resolve planned assignments to durable ids in memory only.
+11. Assess deployment activation readiness from durable rows plus fresh validation and resolution evidence.
+12. Build a deterministic controlled activation plan when readiness is ready.
+13. Prepare controlled activation execution from the approved plan and live read-only snapshot.
+
+The runtime order is now `deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution_preparation`.
+
+Execution preparation is not activation. It creates no execution rows, executes no plan items, writes no bindings, changes no provisioning status, finalizes no deployment run, performs no rollback, and does not change `DeploymentEngine.execute()`.

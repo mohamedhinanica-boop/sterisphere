@@ -893,3 +893,11 @@ Irreversible boundaries are explicit. Future mutation slices must honor the prep
 No execution persistence table is introduced in this slice. The execution identity remains deterministic and computed as `activation-execution-${deploymentRunId}` by the execution service, while the Supabase adapter returns no existing execution row. Conflict detection for durable execution sessions is therefore limited until a later slice creates execution-session persistence.
 
 The adapter preserves nullable and operational values for drift detection and does not normalize unsafe state into compatibility. It performs no inserts, updates, deletes, activation, hardware binding, agent registration, deployment finalization, rollback work, runtime wiring, UI changes, or `DeploymentEngine.execute()` changes. The manual preflight script `docs/architecture/deployment-activation-execution-preflight.sql` verifies schema columns, duplicate deployment keys, null-clinic keyed rows, active planned rows, binding distributions, assignment shape, and the current absence or presence of execution persistence tables.
+
+## RC8 Slice 1F Runtime Activation Execution Preparation Boundary
+
+Setup completion now runs controlled activation execution preparation after a ready controlled activation plan. The stage composes `DeploymentActivationExecutionService` with the read-only `SupabaseDeploymentActivationExecutionRepository`, passes the fresh approved plan items unchanged, and returns in-memory execution preparation evidence.
+
+The preparation stage performs final plan integrity, dependency, ownership, current-state drift, execution-identity, and rollback-boundary checks. It may return ready, blocked, skipped, or safe error evidence. It does not persist execution sessions or execution items, execute plan items, activate records, bind hardware, register agents, finalize deployment runs, perform rollback, or change `DeploymentEngine.execute()`.
+
+This is the final in-memory pre-execution safety boundary. A later phase must introduce durable execution control, operator authorization, execution-item persistence, and rollback semantics before any operational mutation is allowed.

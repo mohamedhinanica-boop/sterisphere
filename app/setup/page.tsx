@@ -70,6 +70,44 @@ const stepLabels: Record<SetupStepId, string> = {
   COMPLETE: "Complete",
 };
 
+function createEmptyActivationExecutionEvidence(input: {
+  status?: "error" | "skipped";
+  message?: string;
+} = {}) {
+  return {
+    ok: false,
+    status: input.status ?? "skipped",
+    executionKey: null,
+    planKey: null,
+    clinicId: null,
+    deploymentRunId: null,
+    itemsRequested: 0,
+    itemsReady: 0,
+    itemsBlocked: 0,
+    itemsPending: 0,
+    reversibleItems: 0,
+    irreversibleItems: 0,
+    blockers: 0,
+    warnings: 0,
+    issues: [],
+    executionItems: [],
+    rollbackBoundary: {
+      lastReversibleSequence: null,
+      firstIrreversibleSequence: null,
+      rollbackSupportedItemKeys: [],
+      rollbackUnsupportedItemKeys: [],
+      wouldCrossIrreversibleBoundary: false,
+    },
+    downstream: {
+      requested: 0,
+      created: 0,
+      reused: 0,
+      skipped: 0,
+      conflicts: 0,
+    },
+    message: input.message ?? "Activation execution preparation was not attempted.",
+  } as const;
+}
 const deploymentProgressByStep: Record<SetupStepId, number> = {
   WELCOME: 0,
   CLINIC_PROFILE: 0,
@@ -852,7 +890,8 @@ export default function ClinicSetupPage() {
             conflicts: 0,
           },
           message: "Deployment activation readiness was not attempted.",
-        },        deploymentActivationPlan: {
+        },
+        deploymentActivationPlan: {
           ok: false,
           status: "skipped",
           clinicId: null,
@@ -876,6 +915,7 @@ export default function ClinicSetupPage() {
           },
           message: "Controlled activation planning was not attempted.",
         },
+        deploymentActivationExecution: createEmptyActivationExecutionEvidence(),
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -1064,6 +1104,11 @@ export default function ClinicSetupPage() {
           message:
             "Controlled activation planning was not completed. No activation plan was created.",
         },
+        deploymentActivationExecution: createEmptyActivationExecutionEvidence({
+          status: "error",
+          message:
+            "Activation execution preparation was not completed. No execution session was persisted.",
+        }),
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
       });
@@ -1400,6 +1445,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationReadiness ?? null;
   const deploymentActivationPlan =
     deploymentRunResult?.deploymentActivationPlan ?? null;
+  const deploymentActivationExecution =
+    deploymentRunResult?.deploymentActivationExecution ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2217,7 +2264,152 @@ function CompleteStep({
                   ) : null}
                 </div>
               ) : null}
-            </div>          </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Activation Execution Preparation: {deploymentActivationExecution?.status ?? "ready"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationExecution?.message ??
+                  "Activation execution preparation will run after a controlled activation plan is ready."}
+              </p>
+              <p className="mt-2 break-words text-xs font-semibold text-slate-600">
+                Execution key: {deploymentActivationExecution?.executionKey ?? "not prepared"}
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Items Requested
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.itemsRequested ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Ready
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.itemsReady ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Pending
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.itemsPending ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Blocked
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.itemsBlocked ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Reversible
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.reversibleItems ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Irreversible
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.irreversibleItems ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Blockers
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.blockers ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Warnings
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecution?.warnings ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">
+                  Rollback Boundary
+                </p>
+                <p className="mt-2">
+                  Last reversible sequence: {deploymentActivationExecution?.rollbackBoundary.lastReversibleSequence ?? "none"}. First irreversible sequence: {deploymentActivationExecution?.rollbackBoundary.firstIrreversibleSequence ?? "none"}.
+                </p>
+                <p className="mt-1">
+                  Supported keys: {deploymentActivationExecution?.rollbackBoundary.rollbackSupportedItemKeys.length ?? 0}. Unsupported keys: {deploymentActivationExecution?.rollbackBoundary.rollbackUnsupportedItemKeys.length ?? 0}. Crosses irreversible boundary: {deploymentActivationExecution?.rollbackBoundary.wouldCrossIrreversibleBoundary ? "yes" : "no"}.
+                </p>
+                <p className="mt-2">
+                  Execution and rollback persistence are not implemented; this is in-memory preparation evidence only.
+                </p>
+              </div>
+              {deploymentActivationExecution?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Execution Preparation Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationExecution.issues.slice(0, 5).map((issue) => (
+                      <li
+                        key={`${issue.entityType}-${issue.planItemKey ?? "none"}-${issue.deploymentKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.severity}: {issue.entityType}
+                        </span>{" "}
+                        {issue.deploymentKey ? `${issue.deploymentKey}: ` : ""}
+                        {issue.code}. {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationExecution.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationExecution.issues.length - 5} more execution-preparation issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {deploymentActivationExecution?.executionItems.length ? (
+                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    First Prepared Items
+                  </p>
+                  <ol className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationExecution.executionItems.slice(0, 6).map((item) => (
+                      <li key={item.executionItemKey} className="break-words">
+                        <span className="font-semibold">
+                          {item.sequence} {item.action} {item.entityType.replace(/_/g, " ")}
+                        </span>{" "}
+                        {item.deploymentKey ? `${item.deploymentKey}: ` : ""}
+                        {item.executionStatus}
+                      </li>
+                    ))}
+                  </ol>
+                  {deploymentActivationExecution.executionItems.length > 6 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationExecution.executionItems.length - 6} more prepared items are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="mt-4 text-xs text-slate-600">
+                No activation button is available. No execution session or item rows were persisted.
+              </p>
+            </div>
+          </div>
+          </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
           </p>
@@ -2345,6 +2537,19 @@ function buildDeploymentSupportHref(
       `Activation plan warnings: ${result?.deploymentActivationPlan.warnings ?? 0}`,
       `Activation plan issues: ${result?.deploymentActivationPlan.issues.map((issue) => `${issue.severity}:${issue.entityType}:${issue.deploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Activation plan items: ${result?.deploymentActivationPlan.planItems.map((item) => `${item.sequence}:${item.entityType}:${item.deploymentKey ?? "none"}:${item.action}`).join("; ") ?? "none"}`,
+      `Activation execution preparation status: ${result?.deploymentActivationExecution.status ?? "not attempted"}`,
+      `Activation execution key: ${result?.deploymentActivationExecution.executionKey ?? "not prepared"}`,
+      `Activation execution plan key: ${result?.deploymentActivationExecution.planKey ?? "not generated"}`,
+      `Activation execution items requested: ${result?.deploymentActivationExecution.itemsRequested ?? 0}`,
+      `Activation execution items ready: ${result?.deploymentActivationExecution.itemsReady ?? 0}`,
+      `Activation execution items pending: ${result?.deploymentActivationExecution.itemsPending ?? 0}`,
+      `Activation execution items blocked: ${result?.deploymentActivationExecution.itemsBlocked ?? 0}`,
+      `Activation execution blockers: ${result?.deploymentActivationExecution.blockers ?? 0}`,
+      `Activation execution warnings: ${result?.deploymentActivationExecution.warnings ?? 0}`,
+      `Activation execution rollback boundary: last reversible ${result?.deploymentActivationExecution.rollbackBoundary.lastReversibleSequence ?? "none"}; first irreversible ${result?.deploymentActivationExecution.rollbackBoundary.firstIrreversibleSequence ?? "none"}; crosses irreversible ${result?.deploymentActivationExecution.rollbackBoundary.wouldCrossIrreversibleBoundary ? "yes" : "no"}`,
+      `Activation execution issues: ${result?.deploymentActivationExecution.issues.map((issue) => `${issue.severity}:${issue.entityType}:${issue.deploymentKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Activation execution items: ${result?.deploymentActivationExecution.executionItems.slice(0, 8).map((item) => `${item.sequence}:${item.action}:${item.entityType}:${item.deploymentKey ?? "none"}:${item.executionStatus}`).join("; ") ?? "none"}`,
+      `Activation execution message: ${result?.deploymentActivationExecution.message ?? "No activation-execution-preparation response yet."}`,
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,

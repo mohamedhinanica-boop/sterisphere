@@ -1365,3 +1365,11 @@ Controlled activation execution preparation now has a read-only Supabase snapsho
 The snapshot repository reads only existing deployment-owned tables: `deployment_runs`, `clinics`, `clinic_settings`, `providers`, `sterilizers`, `clinical_workstations`, `clinical_hardware_devices`, and `deployment_hardware_assignments`. It returns compact current-state envelopes for drift detection and preserves nullable `active` values plus hardware binding columns without writing them.
 
 `deployment-activation-execution-preflight.sql` is the manual live preflight for this boundary. It verifies required read columns, duplicate same-clinic deployment keys, null-clinic deployment-keyed rows, active planned rows, hardware binding drift inputs, assignment shape, and whether any execution persistence table already exists. No migration, insert, update, activation, binding, rollback, or runtime wiring is part of this slice.
+
+## RC8 Slice 1F Activation Execution Preparation Runtime Evidence
+
+The setup runtime now includes `controlled_activation_execution_preparation` after `controlled_activation_plan`. The stage reads durable state through the activation-execution Supabase snapshot repository and returns evidence only: execution key, item counters, issues, prepared execution items, rollback-boundary summary, downstream zero counters, and a support-oriented message.
+
+No execution identity is durable yet. `activation-execution-${deploymentRunId}` is deterministic in-memory evidence only, and no execution/session/item rows are created. No activation, provisioning-status change, hardware binding, agent registration, deployment finalization, cleanup, rollback, or migration occurs in this slice.
+
+The next persistence phase must add durable execution-session and execution-item control before any prepared item can become an operational write.
