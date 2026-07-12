@@ -1021,3 +1021,24 @@ The runtime order remains unchanged: `controlled_activation_plan -> controlled_a
 Execution preparation verifies the pre-execution state of clinic, planned provider/sterilizer/workstation/hardware shells, proposed hardware bindings, planned hardware assignments, and deployment-run finalization with safety-relevant fields only. Proposed binding items compare against the pre-binding durable state, so unbound hardware with a still-valid planned target does not falsely require an existing operational binding.
 
 A true durable change still stops the sequence with `state_drift_detected`. Representation differences, omitted presentation fields, or property ordering no longer create false blockers. The stage remains read-only and still performs no activation, binding, execution persistence, rollback, deployment finalization, or `DeploymentEngine.execute()` change.
+
+## RC8 Slice 2A Durable Execution Persistence Foundation Sequence
+
+A future `activation_execution_persistence` stage is documented after execution preparation:
+
+1. Persist or reuse `deployment_runs`.
+2. Create or reuse the draft clinic root and link `deployment_runs.clinic_id`.
+3. Create or reuse `clinic_settings`.
+4. Create or reuse provider shells.
+5. Create or reuse sterilizer shells.
+6. Create or reuse workstation shells.
+7. Create or reuse hardware shells.
+8. Validate assignment targets.
+9. Create or reuse planned hardware assignments.
+10. Resolve planned assignments to durable ids in memory only.
+11. Assess deployment activation readiness.
+12. Build a deterministic controlled activation plan.
+13. Prepare controlled activation execution from the approved plan and live read-only snapshot.
+14. Persist prepared execution-session and execution-item evidence before any future mutation.
+
+This slice does not add the runtime stage, SQL tables, Supabase persistence, ownership locks, execution claims, activation, hardware binding, rollback execution, dashboard unlock, workers, streaming, or `DeploymentEngine.execute()` changes. It defines the immutable prepared evidence that a later schema and repository slice must make durable.

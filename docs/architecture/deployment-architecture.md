@@ -909,3 +909,11 @@ This is the final in-memory pre-execution safety boundary. A later phase must in
 Safety-relevant fields include durable ids, clinic ids, deployment keys, provisioning source/status, active state, hardware operational status, hardware binding columns, hardware-assignment target/source/status, and deployment-run lifecycle/deployment status. Names, labels, timestamps, descriptions, and display order are outside the drift contract unless a later activation slice proves they are safety-critical.
 
 Execution preparation remains conservative: active changes, provisioning source/status changes, clinic/key/id changes, new hardware bindings, assignment target changes, missing rows, and deployment-run state changes still block. Representation-only differences such as property order or snake_case-to-camelCase mapping do not.
+
+## RC8 Slice 2A Durable Activation Execution Persistence Foundation
+
+The activation execution persistence foundation is the database-domain contract that must exist before controlled activation can mutate operational records. It consumes only successful `controlled_activation_execution_preparation` evidence and produces prepared-session/item persistence evidence through an abstract repository interface.
+
+Session idempotency is scoped by clinic id, deployment run id, and deterministic execution key. A single deployment run may not own multiple incompatible active execution sessions. Immutable session evidence includes clinic/deployment ownership, execution key, plan key, payload hash, prepared status, item counters, rollback boundary, and preparation evidence. Immutable item evidence includes execution item key, plan item key, sequence, entity/action identity, expected current state, target state, dependency keys, reversibility, and rollback action.
+
+The service is prepared-only. It rejects blocked/error preparation, missing identities, duplicate item identities, item count mismatches, running/succeeded/failed items, nonzero attempts, execution timestamps, and invalid rollback-boundary evidence before repository writes. Existing incompatible sessions/items are reported as conflicts and are never repaired or overwritten.
