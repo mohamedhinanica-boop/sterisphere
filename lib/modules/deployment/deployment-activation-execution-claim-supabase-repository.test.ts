@@ -149,6 +149,8 @@ function scenarioFreshRpcPayload(): DeploymentActivationExecutionClaimSupabaseRe
     payload.p_claim_mode === "fresh" &&
       payload.p_clinic_id === CLINIC_ID &&
       payload.p_proposed_ownership_token === "proposed-token" &&
+      payload.p_proposed_lease_expires_at === "2026-01-01T12:05:00.000Z" &&
+      !Object.prototype.hasOwnProperty.call(payload, "p_lease_expires_at") &&
       payload.p_expected_item_count === 3,
     JSON.stringify(payload),
   );
@@ -167,7 +169,9 @@ async function scenarioFreshAtomicClaim(): Promise<DeploymentActivationExecution
     result.ok &&
       result.status === "claimed" &&
       rpcCall.name === "claim_deployment_activation_execution_session" &&
-      rpcCall.payload.p_claim_mode === "fresh",
+      rpcCall.payload.p_claim_mode === "fresh" &&
+      rpcCall.payload.p_proposed_lease_expires_at === "2026-01-01T12:05:00.000Z" &&
+      !Object.prototype.hasOwnProperty.call(rpcCall.payload, "p_lease_expires_at"),
     JSON.stringify({ result, rpcCall }),
   );
 }
@@ -184,6 +188,8 @@ async function scenarioSameOwnerAtomicClaim(): Promise<DeploymentActivationExecu
     result.ok &&
       result.status === "already_owned" &&
       client.rpcCalls[0].payload.p_claim_mode === "same_owner" &&
+      client.rpcCalls[0].payload.p_proposed_lease_expires_at === "2026-01-01T12:05:00.000Z" &&
+      !Object.prototype.hasOwnProperty.call(client.rpcCalls[0].payload, "p_lease_expires_at") &&
       client.calls.every((call) => call.operation !== "update"),
     JSON.stringify(result),
   );
@@ -201,13 +207,14 @@ async function scenarioExpiredReclaimPayload(): Promise<DeploymentActivationExec
     "expired reclaim includes stale-owner compare-and-set values",
     result.status === "reclaimed" &&
       payload.p_claim_mode === "expired_reclaim" &&
+      payload.p_proposed_lease_expires_at === "2026-01-01T12:05:00.000Z" &&
+      !Object.prototype.hasOwnProperty.call(payload, "p_lease_expires_at") &&
       payload.p_expected_previous_owner === "previous-owner" &&
       payload.p_expected_previous_ownership_token === "previous-token" &&
       payload.p_expected_previous_lease_expires_at === "2026-01-01T11:55:00.000Z",
     JSON.stringify({ result, payload }),
   );
 }
-
 function scenarioConflictMapping(): DeploymentActivationExecutionClaimSupabaseRepositoryHarnessScenario {
   const result = mapAtomicClaimRpcResult(rpcRow({
     status: "conflict",
