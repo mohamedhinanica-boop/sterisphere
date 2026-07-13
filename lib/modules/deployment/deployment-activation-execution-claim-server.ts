@@ -165,6 +165,19 @@ export async function claimActivationExecutionWithRepository(
       );
     }
 
+    if (
+      assessment.status === "already_owned" &&
+      stableSnapshot.session?.executionStatus === "running"
+    ) {
+      return mapRunningSameOwnerReuse(
+        claimCommand,
+        command.deploymentActivationExecutionPersistence?.planKey ?? null,
+        stableSnapshot,
+        assessment.issues,
+        assessment.warnings,
+      );
+    }
+
     const atomicMode = modeForAssessment(assessment.status);
     const atomicCommand = buildAtomicCommand(
       claimCommand,
@@ -374,6 +387,36 @@ function mapAtomicSuccess(
   return mapped;
 }
 
+
+function mapRunningSameOwnerReuse(
+  command: DeploymentActivationExecutionClaimCommand,
+  planKey: string | null,
+  snapshot: DeploymentActivationExecutionClaimSnapshot,
+  issues: readonly DeploymentActivationExecutionClaimIssue[],
+  warningCount: number,
+): ServerDeploymentActivationExecutionClaimResult {
+  const session = snapshot.session;
+  const mapped: ServerDeploymentActivationExecutionClaimResult = {
+    ...baseResult(command, planKey ?? session?.planKey ?? command.planKey),
+    ok: true,
+    status: "already_owned",
+    persistedOwnerId: session?.executionOwner ?? command.claimantId,
+    leaseExpiresAt: session?.leaseExpiresAt ?? null,
+    claimMode: "same_owner",
+    ownershipResult: "already_owned",
+    sessionReused: 1,
+    warnings: warningCount,
+    issues,
+    message:
+      "Existing running execution-session ownership was reused and the lease was not extended. No activation item has started.",
+  };
+
+  if (session?.ownershipToken) {
+    claimOwnershipTokens.set(mapped, session.ownershipToken);
+  }
+
+  return mapped;
+}
 function successMessage(
   status: DeploymentActivationExecutionAtomicClaimResult["status"],
 ): string {

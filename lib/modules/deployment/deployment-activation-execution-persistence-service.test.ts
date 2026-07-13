@@ -42,6 +42,18 @@ export async function runDeploymentActivationExecutionPersistenceServiceHarness(
     await scenarioFreshItemCreation(),
     await scenarioCompatibleFullRetryReuse(),
     await scenarioCompatibleClaimedSessionReuse(),
+    await scenarioCompatibleRunningSessionReuse(),
+    await scenarioRunningSessionMissingOwnerConflict(),
+    await scenarioRunningSessionMissingTokenConflict(),
+    await scenarioRunningSessionMissingLeaseConflict(),
+    await scenarioRunningSessionMissingStartedAtConflict(),
+    await scenarioRunningSessionCompletedConflict(),
+    await scenarioRunningSessionFailedConflict(),
+    await scenarioRunningSessionItemAttemptConflict(),
+    await scenarioRunningSessionItemTimestampConflict(),
+    await scenarioRunningSessionRollbackConflict(),
+    await scenarioRunningSessionItemErrorConflict(),
+    await scenarioRunningSessionImmutableItemDriftConflict(),
     await scenarioClaimedSessionMissingOwnerConflict(),
     await scenarioClaimedSessionMissingTokenConflict(),
     await scenarioClaimedSessionMissingLeaseConflict(),
@@ -159,6 +171,80 @@ async function scenarioCompatibleClaimedSessionReuse(): Promise<DeploymentActiva
   );
 }
 
+async function scenarioCompatibleRunningSessionReuse(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  const runningSession = runSession(seeded.session);
+  const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
+    sessions: [runningSession],
+    items: seeded.items,
+  });
+  const beforeSession = JSON.stringify(repository.sessions[0]);
+  const beforeItems = JSON.stringify(repository.items);
+  const result = await persist(repository);
+  const afterSession = repository.sessions[0];
+
+  return expectScenario(
+    "compatible running session reuses immutable evidence without mutation",
+    result.status === "reused" &&
+      result.sessionReused === 1 &&
+      result.itemsReused === preparation().executionItems.length &&
+      result.itemsCreated === 0 &&
+      repository.calls.createPreparedSession === 0 &&
+      repository.calls.createPreparedItem === 0 &&
+      afterSession.executionStatus === "running" &&
+      afterSession.executionOwner === "setup-runtime-owner" &&
+      afterSession.ownershipToken === "server-secret-token" &&
+      afterSession.leaseExpiresAt === "2026-01-01T12:05:00.000Z" &&
+      afterSession.startedAt === "2026-01-01T12:01:00.000Z" &&
+      JSON.stringify(afterSession) === beforeSession &&
+      JSON.stringify(repository.items) === beforeItems,
+    JSON.stringify({ result, afterSession }),
+  );
+}
+
+async function scenarioRunningSessionMissingOwnerConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session missing owner blocks reuse", { executionOwner: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioRunningSessionMissingTokenConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session missing token blocks reuse", { ownershipToken: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioRunningSessionMissingLeaseConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session missing lease blocks reuse", { leaseExpiresAt: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioRunningSessionMissingStartedAtConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session missing started timestamp blocks reuse", { startedAt: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioRunningSessionCompletedConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session with completed timestamp blocks reuse", { completedAt: "2026-01-01T12:02:00.000Z" }, undefined, "session_state_conflict");
+}
+
+async function scenarioRunningSessionFailedConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session with failed timestamp blocks reuse", { failedAt: "2026-01-01T12:03:00.000Z" }, undefined, "session_state_conflict");
+}
+
+async function scenarioRunningSessionItemAttemptConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session item attempt blocks reuse", {}, { attemptCount: 1 }, "immutable_evidence_conflict");
+}
+
+async function scenarioRunningSessionItemTimestampConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session item execution timestamp blocks reuse", {}, { startedAt: "2026-01-01T12:02:00.000Z" }, "item_state_conflict");
+}
+
+async function scenarioRunningSessionRollbackConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session item rollback evidence blocks reuse", {}, { rolledBackAt: "2026-01-01T12:03:00.000Z" }, "item_state_conflict");
+}
+
+async function scenarioRunningSessionItemErrorConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session item error evidence blocks reuse", {}, { errorCode: "item_error", errorMessage: "Item failed." }, "item_state_conflict");
+}
+
+async function scenarioRunningSessionImmutableItemDriftConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningConflict("running session immutable item drift blocks reuse", {}, { dependencyKeys: ["other"] }, "immutable_evidence_conflict");
+}
 async function scenarioClaimedSessionMissingOwnerConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
   return expectClaimedConflict("claimed session missing owner blocks reuse", { executionOwner: null }, undefined, "session_state_conflict");
 }
@@ -331,7 +417,7 @@ async function scenarioConflictingRollbackBehavior(): Promise<DeploymentActivati
 }
 
 async function scenarioExistingNonPreparedSessionConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
-  return expectConflict("existing non-prepared session conflict", { session: { executionStatus: "running" } }, "session_state_conflict");
+  return expectConflict("existing non-prepared session conflict", { session: { executionStatus: "completed" } }, "session_state_conflict");
 }
 
 async function scenarioExistingRunningItemConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
@@ -465,6 +551,30 @@ async function expectClaimedConflict(
     JSON.stringify(result.issues),
   );
 }
+async function expectRunningConflict(
+  name: string,
+  sessionPatch: Partial<DeploymentActivationExecutionSessionRecord>,
+  itemPatch: Partial<DeploymentActivationExecutionItemRecord> | undefined,
+  expectedCode: DeploymentActivationExecutionPersistenceIssueCode,
+): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
+    sessions: [{ ...runSession(seeded.session), ...sessionPatch }],
+    items: [{ ...seeded.items[0], ...itemPatch }, ...seeded.items.slice(1)],
+  });
+  const before = JSON.stringify({ sessions: repository.sessions, items: repository.items });
+  const result = await persist(repository);
+
+  return expectScenario(
+    name,
+    result.status === "conflict" &&
+      hasIssue(result, expectedCode) &&
+      JSON.stringify({ sessions: repository.sessions, items: repository.items }) === before &&
+      repository.calls.createPreparedSession === 0 &&
+      repository.calls.createPreparedItem === 0,
+    JSON.stringify(result.issues),
+  );
+}
 async function expectConflict(
   name: string,
   input: {
@@ -559,6 +669,17 @@ function claimSession(
     ownershipToken: "server-secret-token",
     leaseExpiresAt: "2026-01-01T12:05:00.000Z",
     startedAt: null,
+    completedAt: null,
+    failedAt: null,
+  };
+}
+function runSession(
+  session: DeploymentActivationExecutionSessionRecord,
+): DeploymentActivationExecutionSessionRecord {
+  return {
+    ...claimSession(session),
+    executionStatus: "running",
+    startedAt: "2026-01-01T12:01:00.000Z",
     completedAt: null,
     failedAt: null,
   };

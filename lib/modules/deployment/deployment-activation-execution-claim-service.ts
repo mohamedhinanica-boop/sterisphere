@@ -191,6 +191,28 @@ export class DeploymentActivationExecutionClaimService {
       });
     }
 
+    if (session.executionStatus === "running") {
+      return buildResult({
+        status: "blocked",
+        command,
+        session,
+        itemCompleteness,
+        issues: [
+          issue({
+            code: "expired_lease_reclaimable",
+            severity: "blocker",
+            sessionId: session.id,
+            executionKey: session.executionKey,
+            message:
+              "Running execution session has an expired lease and cannot be reclaimed or renewed by verification.",
+          }),
+          ...standardWarnings(command, session),
+        ],
+        message:
+          "Activation execution claim assessment blocked ownership because the running session lease is expired.",
+      });
+    }
+
     return buildResult({
       status: "lease_expired_reclaimable",
       command,
@@ -333,7 +355,7 @@ function validateClaimLifecycle(
     issues.push(blocker("preparation_not_ready", session, "Execution session preparation status is not ready."));
   }
 
-  if (!["prepared", "claimed"].includes(session.executionStatus)) {
+  if (!["prepared", "claimed", "running"].includes(session.executionStatus)) {
     issues.push(blocker("execution_status_not_claimable", session, "Execution session lifecycle status is not claimable."));
   }
 
@@ -341,8 +363,16 @@ function validateClaimLifecycle(
     issues.push(blocker("session_blockers_present", session, "Execution session has blockers or blocked items."));
   }
 
-  if (session.startedAt || session.completedAt || session.failedAt) {
+  if (session.executionStatus === "running") {
+    if (!session.startedAt || !isValidIsoDate(session.startedAt)) {
+      issues.push(blocker("session_timestamp_present", session, "Running execution session is missing valid start evidence."));
+    }
+  } else if (session.startedAt) {
     issues.push(blocker("session_timestamp_present", session, "Execution session has execution lifecycle timestamps."));
+  }
+
+  if (session.completedAt || session.failedAt) {
+    issues.push(blocker("session_timestamp_present", session, "Execution session has terminal lifecycle timestamps."));
   }
 
   return issues;
@@ -367,12 +397,12 @@ function validateOwnershipShape(
     ];
   }
 
-  if (session.executionStatus === "claimed" && presentCount !== ownershipFields.length) {
+  if ((session.executionStatus === "claimed" || session.executionStatus === "running") && presentCount !== ownershipFields.length) {
     return [
       blocker(
         "ownership_shape_inconsistent",
         session,
-        "Claimed execution session requires owner, token, and lease evidence.",
+        "Claimed or running execution session requires owner, token, and lease evidence.",
       ),
     ];
   }
@@ -380,6 +410,7 @@ function validateOwnershipShape(
   if (
     session.executionStatus !== "prepared" &&
     session.executionStatus !== "claimed" &&
+    session.executionStatus !== "running" &&
     presentCount !== 0 &&
     presentCount !== ownershipFields.length
   ) {

@@ -57,6 +57,9 @@ export async function runDeploymentActivationExecutionClaimServiceHarness(): Pro
     await scenarioNoReadyItemBlocks(),
     await scenarioMultipleReadyRootsBlock(),
     await scenarioSameOwnerActiveLease(),
+    await scenarioRunningSameOwnerActiveLease(),
+    await scenarioRunningExpiredLeaseBlocks(),
+    await scenarioRunningMissingStartedAtBlocks(),
     await scenarioSameOwnerSupabaseTimestampActiveLease(),
     await scenarioClaimedMissingOwnerBlocks(),
     await scenarioClaimedMissingTokenBlocks(),
@@ -127,7 +130,7 @@ async function scenarioPreparationNotReadyBlocks(): Promise<DeploymentActivation
 }
 
 async function scenarioExecutionStatusBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
-  return expectIssue("running execution status blocks", snapshot({ session: { executionStatus: "running" } }), "execution_status_not_claimable", "blocked");
+  return expectIssue("terminal execution status blocks", snapshot({ session: { executionStatus: "completed" } }), "execution_status_not_claimable", "blocked");
 }
 
 async function scenarioSessionTimestampsBlock(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
@@ -209,6 +212,42 @@ async function scenarioSameOwnerActiveLease(): Promise<DeploymentActivationExecu
   );
 }
 
+async function scenarioRunningSameOwnerActiveLease(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  const result = await assess(runningOwnedSnapshot(CLAIMANT_ID, ACTIVE_LEASE));
+
+  return expectScenario(
+    "running same-owner active lease returns already owned without renewal",
+    result.ok &&
+      result.status === "already_owned" &&
+      result.proposedOwnershipToken === "existing-token" &&
+      result.existingOwner === CLAIMANT_ID &&
+      result.proposedLeaseExpiresAt === ACTIVE_LEASE &&
+      result.existingLeaseExpiresAt === ACTIVE_LEASE,
+    JSON.stringify(result),
+  );
+}
+
+async function scenarioRunningExpiredLeaseBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  const result = await assess(runningOwnedSnapshot(CLAIMANT_ID, EXPIRED_LEASE));
+
+  return expectScenario(
+    "running expired lease blocks without reclaim",
+    result.status === "blocked" &&
+      hasIssue(result, "expired_lease_reclaimable") &&
+      result.proposedOwnershipToken === null &&
+      result.proposedLeaseExpiresAt === null,
+    JSON.stringify(result),
+  );
+}
+
+async function scenarioRunningMissingStartedAtBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectIssue(
+    "running missing started timestamp blocks",
+    runningOwnedSnapshot(CLAIMANT_ID, ACTIVE_LEASE, {}, { startedAt: null }),
+    "session_timestamp_present",
+    "blocked",
+  );
+}
 async function scenarioSameOwnerSupabaseTimestampActiveLease(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
   const supabaseLease = "2026-01-01T12:05:00.000+00:00";
   const result = await assess(ownedSnapshot(CLAIMANT_ID, supabaseLease));
@@ -476,6 +515,24 @@ function ownedSnapshot(
   });
 }
 
+function runningOwnedSnapshot(
+  owner: string,
+  leaseExpiresAt: string,
+  itemCompleteness: Parameters<typeof buildClaimSnapshot>[0]["itemCompleteness"] = {},
+  sessionPatch: NonNullable<Parameters<typeof buildClaimSnapshot>[0]["session"]> = {},
+): DeploymentActivationExecutionClaimSnapshot {
+  return snapshot({
+    session: {
+      executionStatus: "running",
+      executionOwner: owner,
+      ownershipToken: "existing-token",
+      leaseExpiresAt,
+      startedAt: CLAIMED_AT,
+      ...sessionPatch,
+    },
+    itemCompleteness,
+  });
+}
 function hasIssue(
   result: DeploymentActivationExecutionClaimResult,
   code: DeploymentActivationExecutionClaimIssueCode,

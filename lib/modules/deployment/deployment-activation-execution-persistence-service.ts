@@ -427,6 +427,14 @@ function compareSession(
     ) {
       issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Prepared execution session has ownership evidence." }));
     }
+
+    if (
+      session.startedAt !== null ||
+      session.completedAt !== null ||
+      session.failedAt !== null
+    ) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Prepared execution session has execution lifecycle timestamps." }));
+    }
   } else if (session.executionStatus === "claimed") {
     if (
       !session.executionOwner ||
@@ -435,16 +443,32 @@ function compareSession(
     ) {
       issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Claimed execution session is missing ownership evidence." }));
     }
-  } else {
-    issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Existing execution session is not prepared or claim-owned without execution." }));
-  }
 
-  if (
-    session.startedAt !== null ||
-    session.completedAt !== null ||
-    session.failedAt !== null
-  ) {
-    issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Existing execution session has execution lifecycle timestamps." }));
+    if (
+      session.startedAt !== null ||
+      session.completedAt !== null ||
+      session.failedAt !== null
+    ) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Claimed execution session has execution lifecycle timestamps." }));
+    }
+  } else if (session.executionStatus === "running") {
+    if (
+      !session.executionOwner ||
+      !session.ownershipToken ||
+      !session.leaseExpiresAt
+    ) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Running execution session is missing ownership evidence." }));
+    }
+
+    if (session.startedAt === null) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Running execution session is missing started_at evidence." }));
+    }
+
+    if (session.completedAt !== null || session.failedAt !== null) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Running execution session has terminal lifecycle timestamps." }));
+    }
+  } else {
+    issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Existing execution session is not prepared, claim-owned, or compatible running evidence." }));
   }
 
   const fields: Array<keyof CreateDeploymentActivationExecutionSessionPayload> = [
