@@ -72,6 +72,14 @@ export interface ServerDeploymentActivationExecutionClaimResult {
   message: string;
 }
 
+const claimOwnershipTokens = new WeakMap<ServerDeploymentActivationExecutionClaimResult, string>();
+
+export function getServerDeploymentActivationExecutionClaimOwnershipToken(
+  result: ServerDeploymentActivationExecutionClaimResult | null | undefined,
+): string | null {
+  return result ? claimOwnershipTokens.get(result) ?? null : null;
+}
+
 export interface DeploymentActivationExecutionAtomicClaimRepository
   extends DeploymentActivationExecutionClaimRepository {
   claimFreshSession(
@@ -343,7 +351,7 @@ function mapAtomicSuccess(
         ? "already_owned"
         : "reclaimed";
 
-  return {
+  const mapped: ServerDeploymentActivationExecutionClaimResult = {
     ...baseResult(command, planKey),
     ok: true,
     status,
@@ -358,6 +366,12 @@ function mapAtomicSuccess(
     issues,
     message: successMessage(result.status),
   };
+
+  if (result.ownershipToken) {
+    claimOwnershipTokens.set(mapped, result.ownershipToken);
+  }
+
+  return mapped;
 }
 
 function successMessage(

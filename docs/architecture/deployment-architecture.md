@@ -957,3 +957,27 @@ The claimant identity for this setup runtime is the deterministic server-side id
 The action result and Complete page expose only token-safe evidence: status, session/execution/plan keys, claimant id, persisted owner id, lease expiration, mode/result, claim/reuse/reclaim/conflict counts, issues, warnings, and zero downstream execution counters. The runtime never exposes ownership tokens and never starts sessions, updates items, increments attempts, activates records, writes bindings, or changes `DeploymentEngine.execute()`.
 
 Execution persistence remains immutable evidence reuse only. A session already in `claimed` may be reused by persistence only if it is claim-owned but not started, completed, or failed, and its item rows remain untouched. Same-owner reuse is still decided by the claim stage; persistence never changes owner, token, lease, status, or item rows.
+
+## RC8 Slice 4A Execution Start Foundation
+
+The activation execution domain now includes a TypeScript-only start assessment boundary after atomic ownership claim. `DeploymentActivationExecutionStartService` consumes a read-only snapshot for a claimed session, its ownership evidence, lease expiration, lifecycle timestamps, session counters, and aggregate item integrity before producing start-readiness evidence.
+
+This stage is proposal-only. A `startable` result proposes `proposedExecutionStatus = running` and `proposedStartedAt`, but does not persist either value. `claimed` means exclusive ownership only; it is not a running session. A future atomic session-start repository must perform the durable transition from `claimed` to `running`. A running session still does not imply the first execution item has started.
+
+The start foundation requires matching clinic, deployment-run, session, execution key, claimant, and ownership token, plus an active lease. It blocks missing or mismatched ownership, expired or malformed leases, terminal lifecycle timestamps, item count drift, invalid item lifecycle, attempts, item execution timestamps, rollback timestamps, error evidence, duplicate item identities, and malformed dependency evidence. Same-owner running sessions with matching token and active lease return `already_started` evidence only. The repository contract is read-only and exposes no insert, update, start, heartbeat, renewal, rollback, or item mutation methods.
+
+## RC8 Slice 4B - Supabase Execution-Start Boundary
+
+The execution-start boundary is a server-only Supabase persistence contract for transitioning a claimed prepared activation execution session into `running`. It follows the existing activation preparation and claim boundaries: repository reads gather the start snapshot and item integrity evidence, while `public.start_deployment_activation_execution_session` performs the only mutation in this slice.
+
+The atomic start function updates only `public.deployment_activation_execution_sessions.execution_status` and `started_at` after verifying clinic/run/session identity, same owner/token ownership, active lease, ready preparation state, claimed lifecycle, session counters, item readiness, duplicate item identity, dependency shape, and the single ready root item. It does not start items, increment attempts, activate entities, bind hardware, finalize deployment runs, renew leases, rotate ownership tokens, heartbeat, or perform rollback.
+
+Access remains service-role only. The runtime is not wired in this slice; the next runtime slice may compose the repository after claim evidence without changing `DeploymentEngine.execute()`.
+
+## RC8 Slice 4C - Runtime Atomic Execution Start
+
+The setup runtime now composes execution-start assessment immediately after a successful activation execution ownership claim. Successful claim states (`claimed`, `already_owned`, and `reclaimed`) load a fresh start snapshot, run `DeploymentActivationExecutionStartService`, and route `startable` evidence to `public.start_deployment_activation_execution_session`.
+
+The runtime start boundary may transition only the durable execution session from `claimed` to `running` and set `started_at`. `already_started` reuses a same-owner running session without updating `started_at`, extending the lease, rotating tokens, or starting items. Blocked, conflicted, or errored claim evidence skips start as `not_attempted`.
+
+Ownership tokens remain server-only. The claim server retains the token in process memory for the immediately following start call and action/UI/support evidence exposes only claimant, session, execution key, lease expiration, start result, counts, issues, and messages. Claimed is not running; a running session is not an execution item start.

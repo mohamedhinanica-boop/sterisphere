@@ -1092,3 +1092,37 @@ The claim stage runs only when prepared execution persistence is complete and co
 A skipped, blocked, conflicted, or errored claim preserves all upstream durable evidence and starts no execution. Claimed means exclusive ownership only; no item starts, no attempts increment, no activation, binding, assignment finalization, rollback, worker, queue, polling, streaming, dashboard unlock, deployment finalization, or `DeploymentEngine.execute()` change is introduced.
 
 A subsequent Verify / Reuse may pass through activation execution persistence with an existing compatible `claimed` session. That pass-through is not a new claim and does not alter owner, token, lease, lifecycle timestamps, or items; it only allows the following claim assessment/RPC stage to return same-owner `already_owned`.
+
+## RC8 Slice 4A Execution Start Assessment Sequence
+
+The documented execution-control sequence now extends to:
+
+`prepared execution persistence -> atomic ownership claim -> execution-start assessment -> future atomic session start -> future item execution`
+
+Slice 4A adds only the TypeScript assessment for the `execution-start assessment` step. It reads a future repository snapshot and returns `startable`, `already_started`, `blocked`, `conflict`, or `error` evidence. `startable` proposes a future session-only transition to `running`; it does not write `execution_status`, set `started_at`, start items, increment attempts, activate records, bind hardware, finalize deployment, or execute rollback.
+
+The boundary keeps three concepts separate: `claimed` is exclusive ownership, `running` is a future session lifecycle transition, and first-item execution is a later item-level boundary. Same-owner running sessions may return `already_started` evidence when the token and lease still match, but no resume or item execution is performed.
+
+## RC8 Slice 4B - Execution Start Boundary
+
+The planned execution lifecycle now has a prepared Supabase start boundary after the atomic claim boundary:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Execution start assessment
+4. Atomic session start through `public.start_deployment_activation_execution_session`
+5. Future first-item execution start
+
+Step 4 is session-only. It transitions a claimed, ready, actively leased session to `running` and writes `started_at` only after item-integrity verification. It does not start the first item and is not wired into setup runtime in this slice.
+
+## RC8 Slice 4C - Runtime Start Sequence
+
+The runtime execution-control sequence is now:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Execution-start assessment
+4. Atomic execution-session start
+5. Future first-item execution start
+
+Step 4 runs only after a successful claim result (`claimed`, `already_owned`, or `reclaimed`). Claim `blocked`, `conflict`, `error`, or `not_attempted` leaves execution start as `not_attempted`. Start `started` means the session row is running; start `already_started` means the same owner/token running session was reused. Neither state starts the first execution item.

@@ -1441,3 +1441,33 @@ The setup path uses stable claimant id `sterisphere-setup-runtime-deployment-exe
 Claimed means exclusive ownership only. It does not mean running: no `started_at` is set, no execution item is claimed or started, no attempts increment, no activation occurs, no hardware binding is written, no rollback executes, and deployment runs are not finalized. Ownership tokens remain server-only and are not returned in Setup Complete evidence or support mail.
 
 Verify / Reuse after a successful atomic claim treats a compatible `claimed` session as reusable immutable persistence evidence when owner, token, and lease are present, lifecycle timestamps remain null, and all items remain ready/pending with zero attempts and no execution, rollback, or error evidence. Persistence does not downgrade the session to `prepared`, renew the lease, rotate the token, or mutate items; the downstream claim stage returns same-owner `already_owned`.
+
+## RC8 Slice 4A Execution Start Foundation
+
+RC8 Slice 4A extends the planned execution-control chain with an assessment-only start foundation:
+
+`prepared execution persistence -> atomic ownership claim -> execution-start assessment -> future atomic session start -> future item execution`
+
+The new TypeScript service and repository interface assess whether a claimed activation execution session may safely be proposed for a future `running` transition. The snapshot contract includes session identity, owner/token/lease evidence, preparation and execution lifecycle status, start/completion/failure timestamps, session counters, and aggregate item-integrity evidence.
+
+Startability requires a same-owner, same-token, actively leased `claimed` session with no lifecycle timestamps and untouched ready/pending items. Exactly one root item must be ready, no root item may be pending, the first sequence must be `1`, the first item must be `ready`, and all attempts, item timestamps, rollback timestamps, errors, duplicate keys, duplicate sequences, invalid statuses, and malformed dependencies must be absent.
+
+This slice creates no Supabase repository, SQL, runtime wiring, setup UI, support mail changes, session updates, item updates, attempts, activation, binding, finalization, rollback, heartbeat, workers, queues, polling, streaming, or `DeploymentEngine.execute()` changes. `claimed` is ownership evidence only, `running` session start remains a future atomic mutation, and running the session remains separate from starting the first execution item.
+
+## RC8 Slice 4B - Execution Start Persistence Boundary
+
+`public.start_deployment_activation_execution_session` is the durable boundary for starting a claimed activation execution session. The checked-in SQL source is `docs/architecture/supabase_deployment_activation_execution_start.sql`; the read-only live verification script is `docs/architecture/supabase_deployment_activation_execution_start_preflight.sql`.
+
+The persistence mutation is intentionally narrow: a successful call sets the session to `running` and records `started_at`. It requires the caller to present the current clinic/run/session/execution identity, owner, ownership token, lease timestamp, proposed start timestamp, and expected item count. The function performs compare-and-set ownership checks plus item-integrity checks before mutating the session row.
+
+No execution item rows are mutated by this boundary. Attempts, item timestamps, rollback evidence, activation writes, hardware bindings, deployment run finalization, lease renewal, token rotation, heartbeat, and background execution remain out of scope.
+
+## RC8 Slice 4C - Runtime Start Persistence
+
+Runtime deployment now appends the atomic session-start boundary after ownership claim:
+
+`prepared execution persistence -> atomic ownership claim -> execution-start assessment -> atomic execution-session start`
+
+The only new durable mutation is the existing Supabase start RPC updating `public.deployment_activation_execution_sessions.execution_status` to `running` and setting `started_at`. The runtime does not mutate `public.deployment_activation_execution_items`, increment attempts, set item timestamps, renew leases, rotate tokens, activate entities, bind hardware, finalize assignments, finalize deployment runs, or execute rollback.
+
+Start evidence is returned in `deploymentActivationExecutionStart` with start status, session id, execution key, plan key, claimant, started timestamp, lease expiration, start result, started/reused/conflict counts, blockers, warnings, issues, and zero downstream item/activation/binding counters. The ownership token is never serialized into setup action results, UI, support mail, issues, messages, or logs.
