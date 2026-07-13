@@ -139,6 +139,22 @@ select
     having count(*) > 1
   ) as passed;
 
+
+select
+  'claim_function_duplicate_queries_are_qualified' as check_name,
+  pg_get_functiondef(
+    'public.claim_deployment_activation_execution_session(text,uuid,text,uuid,text,text,text,timestamptz,timestamptz,integer,text,text,timestamptz)'::regprocedure
+  ) like '%duplicate_item.session_id = v_session.id%'
+  and pg_get_functiondef(
+    'public.claim_deployment_activation_execution_session(text,uuid,text,uuid,text,text,text,timestamptz,timestamptz,integer,text,text,timestamptz)'::regprocedure
+  ) like '%duplicate_plan_item.session_id = v_session.id%'
+  and pg_get_functiondef(
+    'public.claim_deployment_activation_execution_session(text,uuid,text,uuid,text,text,text,timestamptz,timestamptz,integer,text,text,timestamptz)'::regprocedure
+  ) like '%duplicate_sequence.session_id = v_session.id%'
+  and pg_get_functiondef(
+    'public.claim_deployment_activation_execution_session(text,uuid,text,uuid,text,text,text,timestamptz,timestamptz,integer,text,text,timestamptz)'::regprocedure
+  ) not like '%where session_id = v_session.id%' as passed;
+
 select
   'lease_state_distribution' as check_name,
   jsonb_build_object(

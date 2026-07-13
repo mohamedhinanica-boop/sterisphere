@@ -175,30 +175,30 @@ begin
     (
       select count(*)::integer
       from (
-        select execution_item_key
-        from public.deployment_activation_execution_items
-        where session_id = v_session.id
-        group by execution_item_key
+        select duplicate_item.execution_item_key
+        from public.deployment_activation_execution_items duplicate_item
+        where duplicate_item.session_id = v_session.id
+        group by duplicate_item.execution_item_key
         having count(*) > 1
       ) d
     ) as duplicate_execution_item_key_count,
     (
       select count(*)::integer
       from (
-        select plan_item_key
-        from public.deployment_activation_execution_items
-        where session_id = v_session.id
-        group by plan_item_key
+        select duplicate_plan_item.plan_item_key
+        from public.deployment_activation_execution_items duplicate_plan_item
+        where duplicate_plan_item.session_id = v_session.id
+        group by duplicate_plan_item.plan_item_key
         having count(*) > 1
       ) d
     ) as duplicate_plan_item_key_count,
     (
       select count(*)::integer
       from (
-        select sequence
-        from public.deployment_activation_execution_items
-        where session_id = v_session.id
-        group by sequence
+        select duplicate_sequence.sequence
+        from public.deployment_activation_execution_items duplicate_sequence
+        where duplicate_sequence.session_id = v_session.id
+        group by duplicate_sequence.sequence
         having count(*) > 1
       ) d
     ) as duplicate_sequence_count,
