@@ -419,8 +419,32 @@ function compareSession(
 ): DeploymentActivationExecutionPersistenceIssue[] {
   const issues: DeploymentActivationExecutionPersistenceIssue[] = [];
 
-  if (session.executionStatus !== "prepared") {
-    issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Existing execution session is not prepared." }));
+  if (session.executionStatus === "prepared") {
+    if (
+      session.executionOwner !== null ||
+      session.ownershipToken !== null ||
+      session.leaseExpiresAt !== null
+    ) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Prepared execution session has ownership evidence." }));
+    }
+  } else if (session.executionStatus === "claimed") {
+    if (
+      !session.executionOwner ||
+      !session.ownershipToken ||
+      !session.leaseExpiresAt
+    ) {
+      issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Claimed execution session is missing ownership evidence." }));
+    }
+  } else {
+    issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Existing execution session is not prepared or claim-owned without execution." }));
+  }
+
+  if (
+    session.startedAt !== null ||
+    session.completedAt !== null ||
+    session.failedAt !== null
+  ) {
+    issues.push(issue({ code: "session_state_conflict", executionKey: payload.executionKey, message: "Existing execution session has execution lifecycle timestamps." }));
   }
 
   const fields: Array<keyof CreateDeploymentActivationExecutionSessionPayload> = [
@@ -452,7 +476,6 @@ function compareSession(
 
   return issues.sort(compareIssues);
 }
-
 function compareItem(
   payload: CreateDeploymentActivationExecutionItemPayload,
   item: DeploymentActivationExecutionItemRecord,
@@ -461,6 +484,16 @@ function compareItem(
 
   if (!["ready", "pending"].includes(item.executionStatus)) {
     issues.push(issue({ code: "item_state_conflict", executionKey: payload.executionKey, executionItemKey: payload.executionItemKey, planItemKey: payload.planItemKey, message: "Existing execution item is no longer pre-execution." }));
+  }
+
+  if (
+    item.startedAt !== null ||
+    item.completedAt !== null ||
+    item.rolledBackAt !== null ||
+    item.errorCode !== null ||
+    item.errorMessage !== null
+  ) {
+    issues.push(issue({ code: "item_state_conflict", executionKey: payload.executionKey, executionItemKey: payload.executionItemKey, planItemKey: payload.planItemKey, message: "Existing execution item has execution, rollback, or error evidence." }));
   }
 
   const fields: Array<keyof CreateDeploymentActivationExecutionItemPayload> = [

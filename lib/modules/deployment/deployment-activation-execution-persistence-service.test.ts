@@ -41,6 +41,16 @@ export async function runDeploymentActivationExecutionPersistenceServiceHarness(
     await scenarioFreshSessionCreation(),
     await scenarioFreshItemCreation(),
     await scenarioCompatibleFullRetryReuse(),
+    await scenarioCompatibleClaimedSessionReuse(),
+    await scenarioClaimedSessionMissingOwnerConflict(),
+    await scenarioClaimedSessionMissingTokenConflict(),
+    await scenarioClaimedSessionMissingLeaseConflict(),
+    await scenarioClaimedSessionStartedConflict(),
+    await scenarioClaimedSessionCompletedConflict(),
+    await scenarioClaimedSessionFailedConflict(),
+    await scenarioClaimedSessionItemAttemptConflict(),
+    await scenarioClaimedSessionItemTimestampConflict(),
+    await scenarioClaimedSessionImmutableDriftConflict(),
     await scenarioPartialExistingItemReuseCreate(),
     await scenarioDeterministicSessionIdentity(),
     await scenarioDeterministicItemOrdering(),
@@ -119,6 +129,71 @@ async function scenarioCompatibleFullRetryReuse(): Promise<DeploymentActivationE
   );
 }
 
+async function scenarioCompatibleClaimedSessionReuse(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  const claimedSession = claimSession(seeded.session);
+  const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
+    sessions: [claimedSession],
+    items: seeded.items,
+  });
+  const beforeSession = JSON.stringify(repository.sessions[0]);
+  const beforeItems = JSON.stringify(repository.items);
+  const result = await persist(repository);
+  const afterSession = repository.sessions[0];
+
+  return expectScenario(
+    "compatible claimed session reuses immutable evidence without downgrade",
+    result.status === "reused" &&
+      result.sessionReused === 1 &&
+      result.itemsReused === preparation().executionItems.length &&
+      result.itemsCreated === 0 &&
+      repository.calls.createPreparedSession === 0 &&
+      repository.calls.createPreparedItem === 0 &&
+      afterSession.executionStatus === "claimed" &&
+      afterSession.executionOwner === "setup-runtime-owner" &&
+      afterSession.ownershipToken === "server-secret-token" &&
+      afterSession.leaseExpiresAt === "2026-01-01T12:05:00.000Z" &&
+      JSON.stringify(afterSession) === beforeSession &&
+      JSON.stringify(repository.items) === beforeItems,
+    JSON.stringify({ result, afterSession }),
+  );
+}
+
+async function scenarioClaimedSessionMissingOwnerConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session missing owner blocks reuse", { executionOwner: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioClaimedSessionMissingTokenConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session missing token blocks reuse", { ownershipToken: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioClaimedSessionMissingLeaseConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session missing lease blocks reuse", { leaseExpiresAt: null }, undefined, "session_state_conflict");
+}
+
+async function scenarioClaimedSessionStartedConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session with started timestamp blocks reuse", { startedAt: "2026-01-01T12:01:00.000Z" }, undefined, "session_state_conflict");
+}
+
+async function scenarioClaimedSessionCompletedConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session with completed timestamp blocks reuse", { completedAt: "2026-01-01T12:02:00.000Z" }, undefined, "session_state_conflict");
+}
+
+async function scenarioClaimedSessionFailedConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session with failed timestamp blocks reuse", { failedAt: "2026-01-01T12:03:00.000Z" }, undefined, "session_state_conflict");
+}
+
+async function scenarioClaimedSessionItemAttemptConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session item attempt blocks reuse", {}, { attemptCount: 1 }, "immutable_evidence_conflict");
+}
+
+async function scenarioClaimedSessionItemTimestampConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session item execution evidence blocks reuse", {}, { startedAt: "2026-01-01T12:01:00.000Z" }, "item_state_conflict");
+}
+
+async function scenarioClaimedSessionImmutableDriftConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectClaimedConflict("claimed session immutable drift blocks reuse", { planKey: "activation-plan-drift" }, undefined, "immutable_evidence_conflict");
+}
 async function scenarioPartialExistingItemReuseCreate(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
   const existing = seedRecords();
   const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
@@ -366,6 +441,30 @@ async function expectIssue(
   );
 }
 
+async function expectClaimedConflict(
+  name: string,
+  sessionPatch: Partial<DeploymentActivationExecutionSessionRecord>,
+  itemPatch: Partial<DeploymentActivationExecutionItemRecord> | undefined,
+  expectedCode: DeploymentActivationExecutionPersistenceIssueCode,
+): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
+    sessions: [{ ...claimSession(seeded.session), ...sessionPatch }],
+    items: [{ ...seeded.items[0], ...itemPatch }, ...seeded.items.slice(1)],
+  });
+  const before = JSON.stringify({ sessions: repository.sessions, items: repository.items });
+  const result = await persist(repository);
+
+  return expectScenario(
+    name,
+    result.status === "conflict" &&
+      hasIssue(result, expectedCode) &&
+      JSON.stringify({ sessions: repository.sessions, items: repository.items }) === before &&
+      repository.calls.createPreparedSession === 0 &&
+      repository.calls.createPreparedItem === 0,
+    JSON.stringify(result.issues),
+  );
+}
 async function expectConflict(
   name: string,
   input: {
@@ -450,6 +549,20 @@ function seedRecords(
   return { session, items };
 }
 
+function claimSession(
+  session: DeploymentActivationExecutionSessionRecord,
+): DeploymentActivationExecutionSessionRecord {
+  return {
+    ...session,
+    executionStatus: "claimed",
+    executionOwner: "setup-runtime-owner",
+    ownershipToken: "server-secret-token",
+    leaseExpiresAt: "2026-01-01T12:05:00.000Z",
+    startedAt: null,
+    completedAt: null,
+    failedAt: null,
+  };
+}
 function preparation(
   input: Partial<DeploymentActivationExecutionResult> = {},
 ): DeploymentActivationExecutionResult {

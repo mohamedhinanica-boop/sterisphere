@@ -42,6 +42,7 @@ export async function runDeploymentActivationExecutionClaimServerHarness(): Prom
   const scenarios = [
     await scenarioFreshClaim(),
     await scenarioSameOwnerReuse(),
+    await scenarioSameOwnerReuseAfterPersistenceReuse(),
     await scenarioConflictingClaimant(),
     await scenarioExpiredReclaim(),
     await scenarioSkippedBlockedPersistence(),
@@ -98,6 +99,33 @@ async function scenarioSameOwnerReuse(): Promise<DeploymentActivationExecutionCl
   );
 }
 
+async function scenarioSameOwnerReuseAfterPersistenceReuse(): Promise<DeploymentActivationExecutionClaimServerHarnessScenario> {
+  const repository = new InMemoryAtomicClaimRepository({
+    snapshot: ownedSnapshot(SETUP_RUNTIME_ACTIVATION_EXECUTION_CLAIMANT_ID, ACTIVE_LEASE),
+  });
+  const result = await claim(repository, {
+    persistence: persistence({
+      status: "reused",
+      sessionCreated: 0,
+      sessionReused: 1,
+      itemsCreated: 0,
+      itemsReused: 3,
+    }),
+    tokenFactory: () => "replacement-token-that-must-not-be-used",
+  });
+
+  return expectScenario(
+    "same-owner claim runs after persistence reuses claimed session",
+    result.ok &&
+      result.status === "already_owned" &&
+      result.claimMode === "same_owner" &&
+      result.sessionReused === 1 &&
+      repository.calls.confirmSameOwnerClaim === 1 &&
+      repository.snapshot.session?.ownershipToken === "existing-secret-token" &&
+      repository.snapshot.session?.leaseExpiresAt === ACTIVE_LEASE,
+    JSON.stringify({ result, snapshot: repository.snapshot.session }),
+  );
+}
 async function scenarioConflictingClaimant(): Promise<DeploymentActivationExecutionClaimServerHarnessScenario> {
   const repository = new InMemoryAtomicClaimRepository({
     snapshot: ownedSnapshot("other-executor", ACTIVE_LEASE),
