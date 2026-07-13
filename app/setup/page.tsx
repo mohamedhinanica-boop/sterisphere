@@ -143,6 +143,43 @@ function createEmptyActivationExecutionPersistenceEvidence(input: {
     message: input.message ?? "Activation execution persistence was not attempted.",
   } as const;
 }
+function createEmptyActivationExecutionClaimEvidence(input: {
+  status?: "error" | "not_attempted";
+  message?: string;
+} = {}) {
+  return {
+    ok: false,
+    status: input.status ?? "not_attempted",
+    sessionId: null,
+    executionKey: null,
+    planKey: null,
+    claimantId: null,
+    persistedOwnerId: null,
+    leaseExpiresAt: null,
+    claimMode: null,
+    ownershipResult: null,
+    sessionClaimed: 0,
+    sessionReused: 0,
+    sessionReclaimed: 0,
+    conflicts: 0,
+    blockers: 0,
+    warnings: 0,
+    issues: [],
+    downstream: {
+      sessionsClaimed: 0,
+      sessionsStarted: 0,
+      itemsClaimed: 0,
+      itemsStarted: 0,
+      itemsSucceeded: 0,
+      itemsFailed: 0,
+      itemsRolledBack: 0,
+      entitiesActivated: 0,
+      bindingsWritten: 0,
+      deploymentRunsFinalized: 0,
+    },
+    message: input.message ?? "Activation execution claim was not attempted.",
+  } as const;
+}
 const deploymentProgressByStep: Record<SetupStepId, number> = {
   WELCOME: 0,
   CLINIC_PROFILE: 0,
@@ -952,6 +989,7 @@ export default function ClinicSetupPage() {
         },
         deploymentActivationExecution: createEmptyActivationExecutionEvidence(),
         deploymentActivationExecutionPersistence: createEmptyActivationExecutionPersistenceEvidence(),
+        deploymentActivationExecutionClaim: createEmptyActivationExecutionClaimEvidence(),
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -1149,6 +1187,11 @@ export default function ClinicSetupPage() {
           status: "error",
           message:
             "Activation execution persistence was not completed. No execution session or item rows were persisted.",
+        }),
+        deploymentActivationExecutionClaim: createEmptyActivationExecutionClaimEvidence({
+          status: "error",
+          message:
+            "Activation execution claim was not completed. No ownership claim or activation began.",
         }),
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
@@ -1443,6 +1486,7 @@ const deploymentExecutionStageLabels = [
   "Generating controlled activation plan",
   "Preparing activation execution",
   "Persisting prepared activation execution evidence",
+  "Claiming activation execution session",
   "Finalizing deployment evidence",
 ] as const;
 
@@ -1492,6 +1536,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationExecution ?? null;
   const deploymentActivationExecutionPersistence =
     deploymentRunResult?.deploymentActivationExecutionPersistence ?? null;
+  const deploymentActivationExecutionClaim =
+    deploymentRunResult?.deploymentActivationExecutionClaim ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2569,7 +2615,129 @@ function CompleteStep({
                 </div>
               ) : null}
             </div>
-          </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Activation Execution Claim: {deploymentActivationExecutionClaim?.status ?? "not_attempted"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationExecutionClaim?.message ??
+                  "Activation execution ownership claim will run after prepared execution persistence completes."}
+              </p>
+              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
+                <p>Claimant: {deploymentActivationExecutionClaim?.claimantId ?? "not assigned"}</p>
+                <p>Session ID: {deploymentActivationExecutionClaim?.sessionId ?? "not claimed"}</p>
+                <p>Execution key: {deploymentActivationExecutionClaim?.executionKey ?? "not prepared"}</p>
+                <p>Plan key: {deploymentActivationExecutionClaim?.planKey ?? "not generated"}</p>
+                <p>Lease expires: {deploymentActivationExecutionClaim?.leaseExpiresAt ?? "no lease"}</p>
+              </div>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Mode
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.claimMode ?? "none"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Result
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.ownershipResult ?? "none"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Claimed
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.sessionClaimed ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Reused
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.sessionReused ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Reclaimed
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.sessionReclaimed ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Conflicts
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.conflicts ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Blockers
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.blockers ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
+                    Warnings
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold">
+                    {deploymentActivationExecutionClaim?.warnings ?? 0}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">
+                  Ownership Only
+                </p>
+                <p className="mt-2">
+                  {deploymentActivationExecutionClaim?.status === "already_owned"
+                    ? "Existing same-owner claim was reused and the lease was not extended."
+                    : deploymentActivationExecutionClaim?.ok
+                      ? "Execution session is exclusively owned by the deployment executor."
+                      : "No execution began because the claim is skipped, blocked, conflicted, or errored."}
+                </p>
+                <p className="mt-1">
+                  Downstream execution counters: sessions started {deploymentActivationExecutionClaim?.downstream.sessionsStarted ?? 0}, items claimed {deploymentActivationExecutionClaim?.downstream.itemsClaimed ?? 0}, items started {deploymentActivationExecutionClaim?.downstream.itemsStarted ?? 0}, activated entities {deploymentActivationExecutionClaim?.downstream.entitiesActivated ?? 0}.
+                </p>
+              </div>
+              {deploymentActivationExecutionClaim?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
+                    Claim Issues
+                  </p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationExecutionClaim.issues.slice(0, 5).map((issue) => (
+                      <li
+                        key={`${issue.sessionId ?? "none"}-${issue.executionKey ?? "none"}-${issue.code}`}
+                        className="break-words"
+                      >
+                        <span className="font-semibold">
+                          {issue.severity}: {issue.code}
+                        </span>{" "}
+                        {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationExecutionClaim.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationExecutionClaim.issues.length - 5} more execution-claim issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+           </div>
           </div>
           <p className="mt-4 font-semibold">
             Clinic configuration is still simulated and is not activated.
@@ -2590,7 +2758,7 @@ function CompleteStep({
             execution preparation produces pre-execution evidence, and
             public.deployment_activation_execution_sessions plus
             public.deployment_activation_execution_items may persist that prepared
-            evidence only. No session is claimed, no item starts, no hardware
+            evidence only. A prepared session may be claimed for exclusive ownership, but claimed does not mean running; no item starts, no hardware
             bindings are written, no devices activate, and no users, packs,
             cycles, traces, audit logs, rollback work, or deployment finalization
             occurs.
@@ -2729,6 +2897,19 @@ function buildDeploymentSupportHref(
       `Activation execution persistence warnings: ${result?.deploymentActivationExecutionPersistence.warnings ?? 0}`,
       `Activation execution persistence issues: ${result?.deploymentActivationExecutionPersistence.issues.map((issue) => `${issue.severity}:${issue.executionKey ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Activation execution persistence message: ${result?.deploymentActivationExecutionPersistence.message ?? "No activation-execution-persistence response yet."}`,
+      `Activation execution claim status: ${result?.deploymentActivationExecutionClaim.status ?? "not attempted"}`,
+      `Activation execution claim claimant: ${result?.deploymentActivationExecutionClaim.claimantId ?? "not assigned"}`,
+      `Activation execution claim lease expiration: ${result?.deploymentActivationExecutionClaim.leaseExpiresAt ?? "no lease"}`,
+      `Activation execution claim session ID: ${result?.deploymentActivationExecutionClaim.sessionId ?? "not claimed"}`,
+      `Activation execution claim execution key: ${result?.deploymentActivationExecutionClaim.executionKey ?? "not prepared"}`,
+      `Activation execution claim plan key: ${result?.deploymentActivationExecutionClaim.planKey ?? "not generated"}`,
+      `Activation execution claim mode: ${result?.deploymentActivationExecutionClaim.claimMode ?? "none"}`,
+      `Activation execution claim counts: claimed ${result?.deploymentActivationExecutionClaim.sessionClaimed ?? 0}, reused ${result?.deploymentActivationExecutionClaim.sessionReused ?? 0}, reclaimed ${result?.deploymentActivationExecutionClaim.sessionReclaimed ?? 0}, conflicts ${result?.deploymentActivationExecutionClaim.conflicts ?? 0}`,
+      `Activation execution claim blockers: ${result?.deploymentActivationExecutionClaim.blockers ?? 0}`,
+      `Activation execution claim warnings: ${result?.deploymentActivationExecutionClaim.warnings ?? 0}`,
+      `Activation execution claim issues: ${result?.deploymentActivationExecutionClaim.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Activation execution claim message: ${result?.deploymentActivationExecutionClaim.message ?? "No activation-execution-claim response yet."}`,
+      "Activation execution claim note: ownership only; no activation or item execution began.",
       "Activation execution persistence note: prepared evidence only; no activation, ownership claim, lease, attempt, binding, rollback, or finalization began.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,

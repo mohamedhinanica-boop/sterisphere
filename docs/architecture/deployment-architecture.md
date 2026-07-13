@@ -947,3 +947,11 @@ The claim architecture now separates policy assessment from database mutation. `
 The RPC locks the target session row with `FOR UPDATE`, rechecks session identity, ready/prepared evidence, zero blockers, lease duration, item completeness, ready/pending-only item lifecycle, zero attempts, null execution/rollback timestamps, null errors, and duplicate-free item identities before updating ownership. The only successful fresh/reclaim mutation is owner/token/lease plus `execution_status = claimed`; it does not set `started_at`, update items, increment attempts, activate records, bind hardware, finalize assignments, finalize deployment runs, or run rollback.
 
 RLS remains enabled and no anon or broad authenticated policies are added. The function has a fixed search path and execution is intended for trusted service-role server code only. The RPC result may return the ownership token to server-side code for future executor flow, but messages and issue evidence remain token-sanitized.
+
+## RC8 Slice 3C Runtime Atomic Claim Wiring
+
+Setup completion now wires the activation execution ownership boundary after prepared execution persistence. `claimActivationExecutionForServerDeployment` is server-only and uses the Supabase claim repository plus `DeploymentActivationExecutionClaimService` to assess the current durable snapshot before performing a single atomic RPC claim.
+
+The claimant identity for this setup runtime is the deterministic server-side id `sterisphere-setup-runtime-deployment-executor`. Because Verify / Reuse uses the same id, an active same-owner lease returns `already_owned` and the existing token and lease are preserved. The runtime lease duration is fixed at 300 seconds; this slice does not renew leases or add heartbeat behavior.
+
+The action result and Complete page expose only token-safe evidence: status, session/execution/plan keys, claimant id, persisted owner id, lease expiration, mode/result, claim/reuse/reclaim/conflict counts, issues, warnings, and zero downstream execution counters. The runtime never exposes ownership tokens and never starts sessions, updates items, increments attempts, activates records, writes bindings, or changes `DeploymentEngine.execute()`.

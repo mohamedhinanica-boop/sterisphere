@@ -1427,3 +1427,15 @@ The persistence plan now includes the future order:
 Slice 3B adds the Supabase snapshot adapter, atomic claim RPC migration, and read-only preflight SQL. The repository never falls back to read-then-update; ownership writes must go through the RPC so the database can lock the row and re-check compare-and-set predicates. Fresh claim, same-owner idempotent check, and expired reclaim are explicit modes, not generic lifecycle updates.
 
 The session ownership shape allows `claimed` sessions with owner/token/lease and null start/completion/failure timestamps while preserving `prepared` sessions as unowned. Supporting indexes cover claim lookup, lease scans, owner/lease inspection, and item status ordering. No setup runtime wiring, item execution, activation, binding, rollback, heartbeat, lease renewal, worker, polling, streaming, or deployment finalization is introduced.
+
+## RC8 Slice 3C Runtime Atomic Claim Wiring
+
+The runtime persistence chain now appends `activation_execution_claim` immediately after successful `activation_execution_persistence`:
+
+`activation_execution_persistence -> activation_execution_claim_assessment -> atomic_activation_execution_claim -> stop`
+
+The setup runtime composes `DeploymentActivationExecutionClaimService` with `SupabaseDeploymentActivationExecutionClaimRepository`. It first reads the durable prepared session and item-completeness snapshot, assesses claim safety, and then calls only the atomic RPC for `fresh`, `same_owner`, or `expired_reclaim` ownership. There is no read-then-update fallback.
+
+The setup path uses stable claimant id `sterisphere-setup-runtime-deployment-executor` so Verify / Reuse requests from the same setup runtime reuse active ownership instead of conflicting. The lease duration is fixed at 300 seconds, within the existing 30-900 second claim bounds. Same-owner reuse does not renew or extend the lease. Expired reclaim is allowed only when the assessed prepared evidence remains untouched and the RPC compare-and-set still matches the previous owner, token, and lease.
+
+Claimed means exclusive ownership only. It does not mean running: no `started_at` is set, no execution item is claimed or started, no attempts increment, no activation occurs, no hardware binding is written, no rollback executes, and deployment runs are not finalized. Ownership tokens remain server-only and are not returned in Setup Complete evidence or support mail.

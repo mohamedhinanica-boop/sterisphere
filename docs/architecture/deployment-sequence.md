@@ -1080,3 +1080,13 @@ The future sequence now extends the ownership boundary as:
 Claim assessment remains the policy layer. The atomic Supabase RPC is the compare-and-set mutation boundary that locks the prepared execution session row, rechecks critical lifecycle and item-completeness predicates, and writes ownership only when the row still matches the assessed state. `claimed` means exclusive ownership only; it does not mean running, does not start any item, and does not authorize activation by itself.
 
 Fresh claims require an unowned `prepared` session. Same-owner checks are idempotent and do not extend the lease or issue a new token. Active competing leases return conflict. Expired reclaim requires untouched execution evidence plus stale-owner/token/lease compare-and-set values. The next slice may wire server composition for claim assessment plus atomic claim, still without starting execution items.
+
+## RC8 Slice 3C Runtime Atomic Activation Execution Claim Sequence
+
+Setup completion now appends the ownership claim boundary after prepared execution persistence:
+
+`deployment_run -> clinic_root -> clinic_settings -> provider_shells -> sterilizer_shells -> workstation_shells -> hardware_shells -> assignment_target_validation -> hardware_assignments -> planned_assignment_resolution -> deployment_activation_readiness -> controlled_activation_plan -> controlled_activation_execution_preparation -> activation_execution_persistence -> activation_execution_claim_assessment -> atomic_activation_execution_claim -> stop`
+
+The claim stage runs only when prepared execution persistence is complete and compatible. Fresh unowned sessions are atomically claimed. Verify / Reuse with the stable setup claimant reuses same-owner active ownership without replacing the token or extending the lease. Expired reclaim uses stale owner/token/lease evidence as compare-and-set inputs and succeeds only if session and item evidence remain untouched.
+
+A skipped, blocked, conflicted, or errored claim preserves all upstream durable evidence and starts no execution. Claimed means exclusive ownership only; no item starts, no attempts increment, no activation, binding, assignment finalization, rollback, worker, queue, polling, streaming, dashboard unlock, deployment finalization, or `DeploymentEngine.execute()` change is introduced.
