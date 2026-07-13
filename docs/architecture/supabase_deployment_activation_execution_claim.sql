@@ -66,7 +66,7 @@ create or replace function public.claim_deployment_activation_execution_session(
   p_claimant_id text,
   p_proposed_ownership_token text,
   p_claimed_at timestamptz,
-  p_proposed_lease_expires_at timestamptz,
+  p_lease_expires_at timestamptz,
   p_expected_item_count integer,
   p_expected_previous_owner text default null,
   p_expected_previous_ownership_token text default null,
@@ -119,7 +119,7 @@ begin
     return;
   end if;
 
-  v_duration_seconds := extract(epoch from (p_proposed_lease_expires_at - p_claimed_at));
+  v_duration_seconds := extract(epoch from (p_lease_expires_at - p_claimed_at));
 
   if v_duration_seconds < 30 or v_duration_seconds > 900 then
     return query select
@@ -285,7 +285,7 @@ begin
       update public.deployment_activation_execution_sessions
       set execution_owner = p_claimant_id,
           ownership_token = p_proposed_ownership_token,
-          lease_expires_at = p_proposed_lease_expires_at,
+          lease_expires_at = p_lease_expires_at,
           execution_status = 'claimed'
       where id = v_session.id
       returning * into v_session;
@@ -319,7 +319,7 @@ begin
       update public.deployment_activation_execution_sessions
       set execution_owner = p_claimant_id,
           ownership_token = p_proposed_ownership_token,
-          lease_expires_at = p_proposed_lease_expires_at,
+          lease_expires_at = p_lease_expires_at,
           execution_status = 'claimed'
       where id = v_session.id
       returning * into v_session;

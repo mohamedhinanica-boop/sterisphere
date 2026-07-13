@@ -318,7 +318,7 @@ export function atomicClaimRpcPayload(
     p_claimant_id: command.claimantId,
     p_proposed_ownership_token: command.proposedOwnershipToken,
     p_claimed_at: command.claimRequestedAt,
-    p_proposed_lease_expires_at: command.proposedLeaseExpiresAt,
+    p_lease_expires_at: command.proposedLeaseExpiresAt,
     p_expected_item_count: command.expectedItemCount,
     p_expected_previous_owner: command.expectedPreviousOwner ?? null,
     p_expected_previous_ownership_token:
