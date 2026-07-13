@@ -57,6 +57,11 @@ export async function runDeploymentActivationExecutionClaimServiceHarness(): Pro
     await scenarioNoReadyItemBlocks(),
     await scenarioMultipleReadyRootsBlock(),
     await scenarioSameOwnerActiveLease(),
+    await scenarioSameOwnerSupabaseTimestampActiveLease(),
+    await scenarioClaimedMissingOwnerBlocks(),
+    await scenarioClaimedMissingTokenBlocks(),
+    await scenarioClaimedMissingLeaseBlocks(),
+    await scenarioClaimedMalformedLeaseBlocks(),
     await scenarioOtherOwnerActiveLease(),
     await scenarioExpiredLeaseReclaimable(),
     await scenarioExpiredLeaseWithAttemptsBlocks(),
@@ -196,9 +201,42 @@ async function scenarioSameOwnerActiveLease(): Promise<DeploymentActivationExecu
       result.status === "already_owned" &&
       result.proposedOwnershipToken === "existing-token" &&
       result.existingOwner === CLAIMANT_ID &&
-      result.proposedLeaseExpiresAt === ACTIVE_LEASE,
+      result.proposedLeaseExpiresAt === ACTIVE_LEASE &&
+      result.existingLeaseExpiresAt === ACTIVE_LEASE &&
+      !result.message.includes("existing-token") &&
+      result.issues.every((issue) => !issue.message.includes("existing-token")),
     JSON.stringify(result),
   );
+}
+
+async function scenarioSameOwnerSupabaseTimestampActiveLease(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  const supabaseLease = "2026-01-01T12:05:00.000+00:00";
+  const result = await assess(ownedSnapshot(CLAIMANT_ID, supabaseLease));
+
+  return expectScenario(
+    "same-owner active lease accepts Supabase timestamptz string",
+    result.ok &&
+      result.status === "already_owned" &&
+      result.proposedLeaseExpiresAt === supabaseLease &&
+      result.existingLeaseExpiresAt === supabaseLease,
+    JSON.stringify(result),
+  );
+}
+
+async function scenarioClaimedMissingOwnerBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectIssue("claimed missing owner blocks", snapshot({ session: { executionStatus: "claimed", executionOwner: null, ownershipToken: "existing-token", leaseExpiresAt: ACTIVE_LEASE } }), "ownership_shape_inconsistent", "conflict");
+}
+
+async function scenarioClaimedMissingTokenBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectIssue("claimed missing token blocks", snapshot({ session: { executionStatus: "claimed", executionOwner: CLAIMANT_ID, ownershipToken: null, leaseExpiresAt: ACTIVE_LEASE } }), "ownership_shape_inconsistent", "conflict");
+}
+
+async function scenarioClaimedMissingLeaseBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectIssue("claimed missing lease blocks", snapshot({ session: { executionStatus: "claimed", executionOwner: CLAIMANT_ID, ownershipToken: "existing-token", leaseExpiresAt: null } }), "ownership_shape_inconsistent", "conflict");
+}
+
+async function scenarioClaimedMalformedLeaseBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectIssue("claimed malformed lease blocks", snapshot({ session: { executionStatus: "claimed", executionOwner: CLAIMANT_ID, ownershipToken: "existing-token", leaseExpiresAt: "not-a-date" } }), "ownership_shape_inconsistent", "conflict");
 }
 
 async function scenarioOtherOwnerActiveLease(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
@@ -429,6 +467,7 @@ function ownedSnapshot(
 ): DeploymentActivationExecutionClaimSnapshot {
   return snapshot({
     session: {
+      executionStatus: "claimed",
       executionOwner: owner,
       ownershipToken: "existing-token",
       leaseExpiresAt,

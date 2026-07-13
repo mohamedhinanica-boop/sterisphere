@@ -103,17 +103,17 @@ export class DeploymentActivationExecutionClaimService {
             sessionId: command.sessionId,
             executionKey: command.executionKey,
             message:
-              "Prepared activation execution session was not found.",
+              "Activation execution session was not found.",
           }),
         ],
         message:
-          "Activation execution claim assessment found no prepared session to claim.",
+          "Activation execution claim assessment found no execution session to claim.",
       });
     }
 
     const issues = [
       ...validateIdentity(command, session),
-      ...validatePreparedLifecycle(session),
+      ...validateClaimLifecycle(session),
       ...validateItemCompleteness(command, session, itemCompleteness),
     ];
     const ownershipShapeIssues = validateOwnershipShape(session);
@@ -127,7 +127,7 @@ export class DeploymentActivationExecutionClaimService {
         itemCompleteness,
         issues,
         message:
-          "Activation execution claim assessment blocked ownership because prepared evidence is not claim-safe.",
+          "Activation execution claim assessment blocked ownership because execution evidence is not claim-safe.",
       });
     }
 
@@ -151,7 +151,7 @@ export class DeploymentActivationExecutionClaimService {
         ),
         issues: standardWarnings(command, session),
         message:
-          "Prepared activation execution session is claimable. No ownership was persisted.",
+          "Activation execution session is claimable. No ownership was persisted.",
       });
     }
 
@@ -166,7 +166,7 @@ export class DeploymentActivationExecutionClaimService {
         proposedLeaseExpiresAt: session.leaseExpiresAt,
         issues: standardWarnings(command, session),
         message:
-          "Prepared activation execution session already has an active lease for this claimant. No renewal was persisted.",
+          "Activation execution session already has an active lease for this claimant. No renewal was persisted.",
       });
     }
 
@@ -183,7 +183,7 @@ export class DeploymentActivationExecutionClaimService {
             sessionId: session.id,
             executionKey: session.executionKey,
             message:
-              "Prepared activation execution session has an active lease owned by another executor.",
+              "Activation execution session has an active lease owned by another executor.",
           }),
         ],
         message:
@@ -213,12 +213,12 @@ export class DeploymentActivationExecutionClaimService {
           sessionId: session.id,
           executionKey: session.executionKey,
           message:
-            "Existing lease is expired and prepared evidence remains untouched; reclaim is proposal-only.",
+            "Existing lease is expired and execution evidence remains untouched; reclaim is proposal-only.",
         }),
         ...standardWarnings(command, session),
       ],
       message:
-        "Prepared activation execution session has an expired lease and untouched evidence, so a future atomic reclaim may be safe.",
+        "Activation execution session has an expired lease and untouched evidence, so a future atomic reclaim may be safe.",
     });
   }
 }
@@ -290,64 +290,63 @@ function validateIdentity(
     session.clinicId !== command.clinicId,
     "clinic_identity_mismatch",
     command,
-    "Prepared session clinic does not match the claim request.",
+    "Execution session clinic does not match the claim request.",
   );
   addIdentityIssue(
     issues,
     session.deploymentRunId !== command.deploymentRunId,
     "deployment_run_identity_mismatch",
     command,
-    "Prepared session deployment run does not match the claim request.",
+    "Execution session deployment run does not match the claim request.",
   );
   addIdentityIssue(
     issues,
     session.id !== command.sessionId,
     "session_identity_mismatch",
     command,
-    "Prepared session id does not match the claim request.",
+    "Execution session id does not match the claim request.",
   );
   addIdentityIssue(
     issues,
     session.executionKey !== command.executionKey,
     "execution_key_mismatch",
     command,
-    "Prepared session execution key does not match the claim request.",
+    "Execution session execution key does not match the claim request.",
   );
   addIdentityIssue(
     issues,
     session.planKey !== command.planKey,
     "plan_key_mismatch",
     command,
-    "Prepared session plan key does not match the claim request.",
+    "Execution session plan key does not match the claim request.",
   );
 
   return issues;
 }
 
-function validatePreparedLifecycle(
+function validateClaimLifecycle(
   session: DeploymentActivationExecutionClaimSessionSnapshot,
 ): DeploymentActivationExecutionClaimIssue[] {
   const issues: DeploymentActivationExecutionClaimIssue[] = [];
 
   if (session.preparationStatus !== "ready") {
-    issues.push(blocker("preparation_not_ready", session, "Prepared session preparation status is not ready."));
+    issues.push(blocker("preparation_not_ready", session, "Execution session preparation status is not ready."));
   }
 
-  if (session.executionStatus !== "prepared") {
-    issues.push(blocker("execution_status_not_claimable", session, "Prepared session execution status is not claimable."));
+  if (!["prepared", "claimed"].includes(session.executionStatus)) {
+    issues.push(blocker("execution_status_not_claimable", session, "Execution session lifecycle status is not claimable."));
   }
 
   if (session.blockers > 0 || session.itemsBlocked > 0) {
-    issues.push(blocker("session_blockers_present", session, "Prepared session has blockers or blocked items."));
+    issues.push(blocker("session_blockers_present", session, "Execution session has blockers or blocked items."));
   }
 
   if (session.startedAt || session.completedAt || session.failedAt) {
-    issues.push(blocker("session_timestamp_present", session, "Prepared session has execution lifecycle timestamps."));
+    issues.push(blocker("session_timestamp_present", session, "Execution session has execution lifecycle timestamps."));
   }
 
   return issues;
 }
-
 function validateOwnershipShape(
   session: DeploymentActivationExecutionClaimSessionSnapshot,
 ): DeploymentActivationExecutionClaimIssue[] {
@@ -358,12 +357,37 @@ function validateOwnershipShape(
   ];
   const presentCount = ownershipFields.filter((value) => value !== null).length;
 
-  if (presentCount !== 0 && presentCount !== ownershipFields.length) {
+  if (session.executionStatus === "prepared" && presentCount !== 0) {
     return [
       blocker(
         "ownership_shape_inconsistent",
         session,
-        "Prepared session ownership fields are partially populated.",
+        "Prepared execution session must not have ownership evidence.",
+      ),
+    ];
+  }
+
+  if (session.executionStatus === "claimed" && presentCount !== ownershipFields.length) {
+    return [
+      blocker(
+        "ownership_shape_inconsistent",
+        session,
+        "Claimed execution session requires owner, token, and lease evidence.",
+      ),
+    ];
+  }
+
+  if (
+    session.executionStatus !== "prepared" &&
+    session.executionStatus !== "claimed" &&
+    presentCount !== 0 &&
+    presentCount !== ownershipFields.length
+  ) {
+    return [
+      blocker(
+        "ownership_shape_inconsistent",
+        session,
+        "Execution session ownership fields are partially populated.",
       ),
     ];
   }
@@ -373,14 +397,13 @@ function validateOwnershipShape(
       blocker(
         "ownership_shape_inconsistent",
         session,
-        "Prepared session lease expiration is malformed.",
+        "Execution session lease expiration is malformed.",
       ),
     ];
   }
 
   return [];
 }
-
 function validateItemCompleteness(
   command: DeploymentActivationExecutionClaimCommand,
   session: DeploymentActivationExecutionClaimSessionSnapshot,
@@ -394,7 +417,7 @@ function validateItemCompleteness(
     session.itemsRequested !== command.expectedItemCount ||
     items.readyItemCount + items.pendingItemCount !== session.itemsRequested
   ) {
-    issues.push(blocker("incomplete_item_set", session, "Durable execution item count does not match prepared session evidence."));
+    issues.push(blocker("incomplete_item_set", session, "Durable execution item count does not match execution session evidence."));
   }
 
   if (
@@ -410,7 +433,7 @@ function validateItemCompleteness(
     items.runningOrTerminalItemCount > 0 ||
     items.blockedItemCount > 0
   ) {
-    issues.push(blocker("invalid_item_lifecycle", session, "Execution items are not all ready or pending prepared items."));
+    issues.push(blocker("invalid_item_lifecycle", session, "Execution items are not all ready or pending pre-execution items."));
   }
 
   if (items.itemsWithAttempts > 0) {
@@ -437,7 +460,7 @@ function validateItemCompleteness(
     items.pendingExecutableWithoutSatisfiedDependencies > 0 ||
     items.dependencyIntegrityIssueCount > 0
   ) {
-    issues.push(blocker("dependency_integrity_invalid", session, "Prepared execution dependency readiness is not claim-safe."));
+    issues.push(blocker("dependency_integrity_invalid", session, "Execution dependency readiness is not claim-safe."));
   }
 
   return issues;
@@ -604,9 +627,7 @@ function hasBlocker(
 }
 
 function isValidIsoDate(value: string): boolean {
-  const timestamp = Date.parse(value);
-
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+  return Number.isFinite(Date.parse(value));
 }
 
 function addSeconds(value: string, seconds: number): string {

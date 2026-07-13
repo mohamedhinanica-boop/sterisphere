@@ -494,6 +494,7 @@ function ownedSnapshot(
 ): DeploymentActivationExecutionClaimSnapshot {
   return buildClaimSnapshot({
     session: {
+      executionStatus: "claimed",
       executionOwner: owner,
       ownershipToken: "existing-secret-token",
       leaseExpiresAt,
