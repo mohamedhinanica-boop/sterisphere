@@ -43,6 +43,7 @@ export async function runDeploymentActivationExecutionStartServerHarness(): Prom
   const scenarios = [
     await scenarioFreshClaimedSessionStarts(),
     await scenarioSameOwnerRunningAlreadyStarted(),
+    await scenarioSameOwnerRunningOneItemAlreadyStarted(),
     await scenarioReclaimedClaimCanStart(),
     await scenarioBlockedClaimSkipsStart(),
     await scenarioClaimConflictSkipsStart(),
@@ -109,6 +110,31 @@ async function scenarioSameOwnerRunningAlreadyStarted(): Promise<DeploymentActiv
   );
 }
 
+async function scenarioSameOwnerRunningOneItemAlreadyStarted(): Promise<DeploymentActivationExecutionStartServerHarnessScenario> {
+  const repository = new FakeAtomicStartRepository({
+    snapshot: snapshot({
+      session: {
+        executionStatus: "running",
+        startedAt: ORIGINAL_STARTED_AT,
+      },
+      itemIntegrity: runningOneItemIntegrity(),
+    }),
+  });
+  const result = await start(repository, claim("already_owned"));
+
+  return expectScenario(
+    "same-owner running session with one item returns already-started",
+    result.ok &&
+      result.status === "already_started" &&
+      result.reusedCount === 1 &&
+      result.startedAt === ORIGINAL_STARTED_AT &&
+      result.leaseExpiresAt === ACTIVE_LEASE &&
+      repository.atomicCalls.length === 0 &&
+      repository.calls.itemMutations === 0 &&
+      !JSON.stringify(result).includes(OWNERSHIP_TOKEN),
+    JSON.stringify({ result, calls: repository.calls }),
+  );
+}
 async function scenarioReclaimedClaimCanStart(): Promise<DeploymentActivationExecutionStartServerHarnessScenario> {
   const repository = new FakeAtomicStartRepository({ snapshot: snapshot() });
   const result = await start(repository, claim("reclaimed"));
@@ -449,6 +475,31 @@ function snapshot(
   });
 }
 
+function runningOneItemIntegrity(): NonNullable<Parameters<typeof buildStartSnapshot>[0]["itemIntegrity"]> {
+  return {
+    readyItemCount: 0,
+    pendingItemCount: 2,
+    runningItemCount: 1,
+    terminalItemCount: 0,
+    invalidStatusCount: 1,
+    runningItemsWithAttemptOne: 1,
+    runningItemsWithValidStartedAt: 1,
+    runningItemsWithCompletionEvidence: 0,
+    pendingItemsWithAttempts: 0,
+    pendingItemsWithExecutionTimestamps: 0,
+    pendingItemsWithRollbackTimestamps: 0,
+    pendingItemsWithErrors: 0,
+    attemptedItemCount: 1,
+    itemExecutionTimestampCount: 1,
+    rollbackTimestampCount: 0,
+    errorEvidenceCount: 0,
+    readyRootCount: 0,
+    pendingRootCount: 0,
+    malformedDependencyCount: 0,
+    firstSequence: 1,
+    firstItemStatus: "running",
+  };
+}
 function atomicResult(
   input: Partial<DeploymentActivationExecutionAtomicStartResult> = {},
 ): DeploymentActivationExecutionAtomicStartResult {

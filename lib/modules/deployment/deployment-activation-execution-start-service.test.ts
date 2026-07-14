@@ -53,6 +53,19 @@ export async function runDeploymentActivationExecutionStartServiceHarness(): Pro
     await scenarioExpiredLease(),
     await scenarioMalformedLeaseTimestamp(),
     await scenarioAlreadyStartedBySameOwner(),
+    await scenarioRunningOneItemAlreadyStarted(),
+    await scenarioRunningOneItemCompletenessUsesRunningAndPending(),
+    await scenarioRunningTwoItemsBlock(),
+    await scenarioRunningAttemptZeroBlocks(),
+    await scenarioRunningAttemptGreaterThanOneBlocks(),
+    await scenarioRunningItemMissingStartedAtBlocks(),
+    await scenarioRunningItemCompletionBlocks(),
+    await scenarioRunningItemRollbackBlocks(),
+    await scenarioRunningItemErrorBlocks(),
+    await scenarioRunningPendingItemAttemptBlocks(),
+    await scenarioRunningPendingItemTimestampBlocks(),
+    await scenarioRunningPendingItemLifecycleDriftBlocks(),
+    await scenarioRunningMalformedDependencyBlocks(),
     await scenarioRunningUnderAnotherOwner(),
     await scenarioCompletedSession(),
     await scenarioFailedSession(),
@@ -328,6 +341,62 @@ async function scenarioNoRepositoryMutationMethodsInvoked(): Promise<DeploymentA
   );
 }
 
+function runningOneItemSnapshot(
+  itemIntegrity: Parameters<typeof buildStartSnapshot>[0]["itemIntegrity"] = {},
+  session: NonNullable<Parameters<typeof buildStartSnapshot>[0]["session"]> = {},
+): DeploymentActivationExecutionStartSnapshot {
+  return snapshot({
+    session: {
+      executionStatus: "running",
+      startedAt: STARTED_AT,
+      ...session,
+    },
+    itemIntegrity: runningOneItemIntegrity(itemIntegrity),
+  });
+}
+
+function runningOneItemIntegrity(
+  input: Parameters<typeof buildStartSnapshot>[0]["itemIntegrity"] = {},
+): NonNullable<Parameters<typeof buildStartSnapshot>[0]["itemIntegrity"]> {
+  return {
+    readyItemCount: 0,
+    pendingItemCount: 2,
+    runningItemCount: 1,
+    terminalItemCount: 0,
+    invalidStatusCount: 1,
+    runningItemsWithAttemptOne: 1,
+    runningItemsWithValidStartedAt: 1,
+    runningItemsWithCompletionEvidence: 0,
+    pendingItemsWithAttempts: 0,
+    pendingItemsWithExecutionTimestamps: 0,
+    pendingItemsWithRollbackTimestamps: 0,
+    pendingItemsWithErrors: 0,
+    attemptedItemCount: 1,
+    itemExecutionTimestampCount: 1,
+    rollbackTimestampCount: 0,
+    errorEvidenceCount: 0,
+    readyRootCount: 0,
+    pendingRootCount: 0,
+    malformedDependencyCount: 0,
+    firstSequence: 1,
+    firstItemStatus: "running",
+    ...input,
+  };
+}
+
+async function expectRunningOneItemIssue(
+  name: string,
+  itemIntegrity: Parameters<typeof buildStartSnapshot>[0]["itemIntegrity"],
+  expectedCode: DeploymentActivationExecutionStartIssueCode,
+): Promise<DeploymentActivationExecutionStartServiceHarnessScenario> {
+  const result = await assess(runningOneItemSnapshot(itemIntegrity));
+
+  return expectScenario(
+    name,
+    result.status === "blocked" && hasIssue(result, expectedCode),
+    JSON.stringify(result),
+  );
+}
 async function expectIssue(
   name: string,
   startSnapshot: DeploymentActivationExecutionStartSnapshot,

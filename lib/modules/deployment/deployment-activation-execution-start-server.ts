@@ -134,7 +134,7 @@ export async function startActivationExecutionWithRepository(
         warnings: warningCount(publicIssues),
         issues: publicIssues,
         message:
-          "Existing running execution session was reused. No activation item has started.",
+          "Existing running execution session was reused. Existing item lifecycle evidence was preserved without starting another item.",
       };
     }
 
@@ -331,7 +331,7 @@ function mapAtomicResult(
       warnings: warningCount(assessmentIssues),
       issues: assessmentIssues,
       message:
-        "Existing running execution session was reused. No activation item has started.",
+        "Existing running execution session was reused. Existing item lifecycle evidence was preserved without starting another item.",
     };
   }
 

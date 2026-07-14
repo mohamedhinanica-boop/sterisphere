@@ -225,14 +225,43 @@ export function aggregateStartItems(
 ): DeploymentActivationExecutionStartItemIntegritySnapshot {
   const readyItems = items.filter((item) => item.execution_status === "ready");
   const pendingItems = items.filter((item) => item.execution_status === "pending");
+  const runningItems = items.filter((item) => item.execution_status === "running");
+  const terminalItems = items.filter((item) => isTerminalStatus(item.execution_status));
   const firstItem = [...items].sort(compareItems)[0] ?? null;
 
   return {
     durableItemCount: items.length,
     readyItemCount: readyItems.length,
     pendingItemCount: pendingItems.length,
+    runningItemCount: runningItems.length,
+    terminalItemCount: terminalItems.length,
     invalidStatusCount: items.filter(
       (item) => !["ready", "pending"].includes(item.execution_status),
+    ).length,
+    runningItemsWithAttemptOne: runningItems.filter(
+      (item) => item.attempt_count === 1,
+    ).length,
+    runningItemsWithValidStartedAt: runningItems.filter(
+      (item) => item.started_at !== null && isValidTimestamp(item.started_at),
+    ).length,
+    runningItemsWithCompletionEvidence: runningItems.filter(
+      (item) =>
+        item.completed_at !== null ||
+        item.rolled_back_at !== null ||
+        item.error_code !== null ||
+        item.error_message !== null,
+    ).length,
+    pendingItemsWithAttempts: pendingItems.filter(
+      (item) => item.attempt_count > 0,
+    ).length,
+    pendingItemsWithExecutionTimestamps: pendingItems.filter(
+      (item) => item.started_at !== null || item.completed_at !== null,
+    ).length,
+    pendingItemsWithRollbackTimestamps: pendingItems.filter(
+      (item) => item.rolled_back_at !== null,
+    ).length,
+    pendingItemsWithErrors: pendingItems.filter(
+      (item) => item.error_code !== null || item.error_message !== null,
     ).length,
     attemptedItemCount: items.filter((item) => item.attempt_count > 0).length,
     itemExecutionTimestampCount: items.filter(
@@ -262,7 +291,6 @@ export function aggregateStartItems(
     firstItemStatus: firstItem ? classifyItemStatus(firstItem.execution_status) : null,
   };
 }
-
 export function atomicStartRpcPayload(
   command: DeploymentActivationExecutionAtomicStartCommand,
 ): Record<string, unknown> {
@@ -332,6 +360,13 @@ function readAtomicStartStatus(
   );
 }
 
+function isTerminalStatus(status: string): boolean {
+  return ["succeeded", "failed", "skipped", "rollback_pending", "rolled_back"].includes(status);
+}
+
+function isValidTimestamp(value: string): boolean {
+  return Number.isFinite(Date.parse(value));
+}
 function classifyItemStatus(
   status: string,
 ): DeploymentActivationExecutionStartItemIntegritySnapshot["firstItemStatus"] {

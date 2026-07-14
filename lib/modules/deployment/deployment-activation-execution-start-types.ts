@@ -1,4 +1,4 @@
-export type DeploymentActivationExecutionStartStatus =
+﻿export type DeploymentActivationExecutionStartStatus =
   | "startable"
   | "already_started"
   | "blocked"
@@ -76,7 +76,16 @@ export interface DeploymentActivationExecutionStartItemIntegritySnapshot {
   durableItemCount: number;
   readyItemCount: number;
   pendingItemCount: number;
+  runningItemCount: number;
+  terminalItemCount: number;
   invalidStatusCount: number;
+  runningItemsWithAttemptOne: number;
+  runningItemsWithValidStartedAt: number;
+  runningItemsWithCompletionEvidence: number;
+  pendingItemsWithAttempts: number;
+  pendingItemsWithExecutionTimestamps: number;
+  pendingItemsWithRollbackTimestamps: number;
+  pendingItemsWithErrors: number;
   attemptedItemCount: number;
   itemExecutionTimestampCount: number;
   rollbackTimestampCount: number;
@@ -141,7 +150,16 @@ export function emptyStartItemIntegrity(): DeploymentActivationExecutionStartIte
     durableItemCount: 0,
     readyItemCount: 0,
     pendingItemCount: 0,
+    runningItemCount: 0,
+    terminalItemCount: 0,
     invalidStatusCount: 0,
+    runningItemsWithAttemptOne: 0,
+    runningItemsWithValidStartedAt: 0,
+    runningItemsWithCompletionEvidence: 0,
+    pendingItemsWithAttempts: 0,
+    pendingItemsWithExecutionTimestamps: 0,
+    pendingItemsWithRollbackTimestamps: 0,
+    pendingItemsWithErrors: 0,
     attemptedItemCount: 0,
     itemExecutionTimestampCount: 0,
     rollbackTimestampCount: 0,
