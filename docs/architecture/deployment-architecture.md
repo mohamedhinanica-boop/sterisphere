@@ -1005,3 +1005,27 @@ Setup completion now composes `DeploymentActivationExecutionItemStartService` wi
 The ownership token handoff remains server-only and follows the claim-to-session-start pattern. The token is read from the in-process claim evidence for assessment and RPC compare-and-set, but action results, UI evidence, support mail, messages, and issues expose only token-safe claimant/session/item evidence.
 
 A successful fresh pass atomically marks exactly one deterministic execution item `running`, increments its attempt count to 1, and records the item `started_at`. Verify / Reuse with that same running item returns `already_started` without RPC mutation. This boundary does not execute activation actions, unlock dependencies, activate records, bind hardware, renew leases, rotate tokens, finalize deployment, run rollback, start workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 6A - Clinic Activation Action Foundation
+
+The activation execution domain now includes a TypeScript-only clinic activation assessment boundary for the currently running clinic execution item. DeploymentClinicActivationService consumes a read-only snapshot of same-owner running session evidence, the running clinic activation item, and durable clinic state before returning token-safe activation_ready, already_activated, blocked, conflict, not-found, or error evidence.
+
+Clinic activation eligibility requires matching clinic/run/session/item identities, a running session with same owner, same token, active lease, start evidence, and no terminal timestamps. The candidate item must be sequence 1, entity type clinic, action activate, running with attempt count 1, started, dependency-free, and free of completion, rollback, or error evidence. Durable clinic state must be setup-draft planned, inactive, owned by the deployment run, not archived/deleted, and canonically equal to the item's expected current state.
+
+This foundation supports exactly the existing activation target patch { deploymentStatus: active }. It proposes the canonical target state by applying that patch to the canonical current clinic state. already_activated is evidence-only reuse when the durable clinic state already equals the exact proposed target and the session/item lifecycle remains compatible. The service never mutates the clinic, completes an item, unlocks dependencies, activates shells, writes bindings, finalizes deployment, persists Supabase data, exposes ownership tokens, or changes runtime wiring.
+
+## RC8 Slice 6B - Supabase Clinic Activation Boundary
+
+Clinic activation now has a server-only Supabase repository and checked-in atomic SQL source for `public.activate_deployment_clinic`. The repository implements the Slice 6A read-only snapshot contract and exposes one explicit RPC method for atomic clinic activation; it does not expose generic insert, update, upsert, delete, patch, save, item-completion, dependency-unlock, shell-activation, hardware-binding, or finalization methods.
+
+The durable target mapping for the supported activation patch `{ deploymentStatus: active }` is `public.clinics.deployment_status = 'active'`. The existing `public.clinics.deployed_at` column is written only on the first successful activation as the activation timestamp. Existing activation reuse returns `already_activated` without rewriting `deployed_at`.
+
+The SQL function locks the execution session, execution item, and clinic row in that order. It rechecks same owner, same token, expected lease, running session lifecycle, running sequence-1 clinic item lifecycle, expected item start/attempt evidence, exact item expected/target state evidence, deployment-run clinic link, and current clinic state before mutating the clinic. It leaves the execution session and item rows running and does not activate providers, sterilizers, workstations, hardware, bindings, dependencies, rollback, or deployment finalization.
+
+## RC8 Slice 6C - Runtime Atomic Clinic Activation
+
+Setup completion now composes `DeploymentClinicActivationService` with `SupabaseDeploymentClinicActivationRepository` immediately after successful activation execution item start. The stage runs only when item start returns `started` or `already_started`; skipped, blocked, conflicted, not-found, or errored item-start evidence leaves clinic activation as `not_attempted` and does not load a snapshot or call the RPC.
+
+The ownership token handoff remains server-only and follows the claim, session-start, and item-start pattern. Runtime evidence exposes claimant, clinic/run/session/item identities, current and target clinic state, deployed timestamp, result counts, issues, and downstream zero counters, but never exposes the ownership token.
+
+This is the first runtime activation write, and it is deliberately narrow. A successful fresh pass may update only `public.clinics.deployment_status` to `active` and set `public.clinics.deployed_at` through `public.activate_deployment_clinic`. `already_activated` reuses the existing active clinic state without rewriting it. The execution item remains running; the runtime does not mark it succeeded, unlock dependencies, activate shells or hardware, write bindings, finalize deployment, renew leases, rotate tokens, run rollback, add workers, or change `DeploymentEngine.execute()`.

@@ -220,7 +220,46 @@ function createEmptyActivationExecutionItemStartEvidence(input: {
     },
     message: input.message ?? "Activation execution item start was not attempted.",
   } as const;
-}function createEmptyActivationExecutionStartEvidence(input: {
+}
+function createEmptyClinicActivationEvidence(input: {
+  status?: "error" | "not_attempted";
+  message?: string;
+} = {}) {
+  return {
+    ok: false,
+    status: input.status ?? "not_attempted",
+    claimantId: null,
+    clinicId: null,
+    deploymentRunId: null,
+    sessionId: null,
+    executionKey: null,
+    itemId: null,
+    executionItemKey: null,
+    planItemKey: null,
+    currentClinicState: null,
+    targetClinicState: null,
+    deployedAt: null,
+    activationResult: null,
+    activatedCount: 0,
+    reusedCount: 0,
+    conflicts: 0,
+    blockers: 0,
+    warnings: 0,
+    issues: [],
+    downstream: {
+      itemsSucceeded: 0,
+      dependenciesUnlocked: 0,
+      providersActivated: 0,
+      sterilizersActivated: 0,
+      workstationsActivated: 0,
+      hardwareActivated: 0,
+      bindingsWritten: 0,
+      deploymentFinalized: 0,
+    },
+    message: input.message ?? "Clinic activation was not attempted.",
+  } as const;
+}
+function createEmptyActivationExecutionStartEvidence(input: {
   status?: "error" | "not_attempted";
   message?: string;
 } = {}) {
@@ -253,6 +292,12 @@ function createEmptyActivationExecutionItemStartEvidence(input: {
     },
     message: input.message ?? "Activation execution start was not attempted.",
   } as const;
+}
+function readDeploymentStatus(
+  state: Record<string, unknown> | null | undefined,
+): string {
+  const status = state?.deploymentStatus ?? state?.deployment_status;
+  return typeof status === "string" && status.trim() ? status : "unknown";
 }
 const deploymentProgressByStep: Record<SetupStepId, number> = {
   WELCOME: 0,
@@ -1066,6 +1111,7 @@ export default function ClinicSetupPage() {
         deploymentActivationExecutionClaim: createEmptyActivationExecutionClaimEvidence(),
         deploymentActivationExecutionStart: createEmptyActivationExecutionStartEvidence(),
         deploymentActivationExecutionItemStart: createEmptyActivationExecutionItemStartEvidence(),
+                deploymentClinicActivation: createEmptyClinicActivationEvidence(),
         message:
           "Review must be confirmed before a deployment run can be persisted.",
       });
@@ -1275,6 +1321,7 @@ export default function ClinicSetupPage() {
             "Activation execution start was not completed. No execution item, activation, or binding began.",
         }),
         deploymentActivationExecutionItemStart: createEmptyActivationExecutionItemStartEvidence(),
+                deploymentClinicActivation: createEmptyClinicActivationEvidence(),
         message:
           "Deployment runtime persistence failed safely. No downstream records were created.",
       });
@@ -1625,6 +1672,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationExecutionStart ?? null;
   const deploymentActivationExecutionItemStart =
     deploymentRunResult?.deploymentActivationExecutionItemStart ?? null;
+  const deploymentClinicActivation =
+    deploymentRunResult?.deploymentClinicActivation ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -3017,10 +3066,95 @@ function CompleteStep({
                   ) : null}
                 </div>
               ) : null}
-            </div>           </div>
+            </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Clinic Activation: {deploymentClinicActivation?.status ?? "not_attempted"}
+              </p>
+              <p className="mt-1">
+                {deploymentClinicActivation?.message ??
+                  "Clinic activation runs only after the first execution item is running."}
+              </p>
+              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
+                <p>Claimant: {deploymentClinicActivation?.claimantId ?? "not assigned"}</p>
+                <p>Clinic ID: {deploymentClinicActivation?.clinicId ?? "not available"}</p>
+                <p>Deployment run key: {deploymentClinicActivation?.deploymentRunId ?? "not persisted"}</p>
+                <p>Session ID: {deploymentClinicActivation?.sessionId ?? "not started"}</p>
+                <p>Execution key: {deploymentClinicActivation?.executionKey ?? "not prepared"}</p>
+                <p>Item ID: {deploymentClinicActivation?.itemId ?? "not started"}</p>
+                <p>Item key: {deploymentClinicActivation?.executionItemKey ?? "not started"}</p>
+                <p>Plan item key: {deploymentClinicActivation?.planItemKey ?? "not selected"}</p>
+                <p>Deployed at: {deploymentClinicActivation?.deployedAt ?? "not activated"}</p>
+              </div>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Result</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.activationResult ?? "none"}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Current Status</dt>
+                  <dd className="mt-1 text-base font-semibold">{readDeploymentStatus(deploymentClinicActivation?.currentClinicState)}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Target Status</dt>
+                  <dd className="mt-1 text-base font-semibold">{readDeploymentStatus(deploymentClinicActivation?.targetClinicState)}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Activated</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.activatedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.reusedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.conflicts ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.blockers ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.warnings ?? 0}</dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">Clinic Row Only</p>
+                <p className="mt-2">
+                  {deploymentClinicActivation?.status === "already_activated"
+                    ? "The existing active clinic deployment state was reused. The execution item remains running and no dependent item was unlocked."
+                    : deploymentClinicActivation?.status === "activated"
+                      ? "The clinic deployment state is active. The execution item is still running and no dependent item has been unlocked."
+                      : "Clinic activation was not applied because the stage is skipped, blocked, conflicted, missing, or errored."}
+                </p>
+                <p className="mt-1">
+                  Downstream counters: items succeeded {deploymentClinicActivation?.downstream.itemsSucceeded ?? 0}, dependencies unlocked {deploymentClinicActivation?.downstream.dependenciesUnlocked ?? 0}, bindings written {deploymentClinicActivation?.downstream.bindingsWritten ?? 0}, finalized {deploymentClinicActivation?.downstream.deploymentFinalized ?? 0}.
+                </p>
+              </div>
+              {deploymentClinicActivation?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Clinic Activation Issues</p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentClinicActivation.issues.slice(0, 5).map((issue) => (
+                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
+                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
+                        {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentClinicActivation.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentClinicActivation.issues.length - 5} more clinic-activation issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>          </div>
           </div>
           <p className="mt-4 font-semibold">
-            Clinic configuration is still simulated and is not activated.
+            Clinic deployment status may now be active, but the execution item is still running and no dependent item has been unlocked.
           </p>
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
@@ -3038,7 +3172,7 @@ function CompleteStep({
             execution preparation produces pre-execution evidence, and
             public.deployment_activation_execution_sessions plus
             public.deployment_activation_execution_items may persist that prepared
-            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running; its activation action is not executed. Claimed does not mean running, and a running item does not mean activation completed; no hardware
+            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked active for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and an active clinic row does not unlock dependent work; no hardware
             bindings are written, no devices activate, and no users, packs,
             cycles, traces, audit logs, rollback work, or deployment finalization
             occurs.
@@ -3223,6 +3357,25 @@ function buildDeploymentSupportHref(
       `Activation execution item start issues: ${result?.deploymentActivationExecutionItemStart.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Activation execution item start message: ${result?.deploymentActivationExecutionItemStart.message ?? "No activation-execution-item-start response yet."}`,
       "Activation execution item start note: no activation action, entity mutation, hardware binding, dependency progression, rollback, or finalization occurred.",
+      `Clinic activation status: ${result?.deploymentClinicActivation.status ?? "not attempted"}`,
+      `Clinic activation claimant: ${result?.deploymentClinicActivation.claimantId ?? "not assigned"}`,
+      `Clinic activation clinic ID: ${result?.deploymentClinicActivation.clinicId ?? "not available"}`,
+      `Clinic activation deployment run key: ${result?.deploymentClinicActivation.deploymentRunId ?? "not persisted"}`,
+      `Clinic activation session ID: ${result?.deploymentClinicActivation.sessionId ?? "not started"}`,
+      `Clinic activation execution key: ${result?.deploymentClinicActivation.executionKey ?? "not prepared"}`,
+      `Clinic activation item ID: ${result?.deploymentClinicActivation.itemId ?? "not started"}`,
+      `Clinic activation item key: ${result?.deploymentClinicActivation.executionItemKey ?? "not started"}`,
+      `Clinic activation plan item key: ${result?.deploymentClinicActivation.planItemKey ?? "not selected"}`,
+      `Clinic activation current deployment status: ${readDeploymentStatus(result?.deploymentClinicActivation.currentClinicState)}`,
+      `Clinic activation target deployment status: ${readDeploymentStatus(result?.deploymentClinicActivation.targetClinicState)}`,
+      `Clinic activation deployed at: ${result?.deploymentClinicActivation.deployedAt ?? "not activated"}`,
+      `Clinic activation result: ${result?.deploymentClinicActivation.activationResult ?? "none"}`,
+      `Clinic activation counts: activated ${result?.deploymentClinicActivation.activatedCount ?? 0}, reused ${result?.deploymentClinicActivation.reusedCount ?? 0}, conflicts ${result?.deploymentClinicActivation.conflicts ?? 0}`,
+      `Clinic activation blockers: ${result?.deploymentClinicActivation.blockers ?? 0}`,
+      `Clinic activation warnings: ${result?.deploymentClinicActivation.warnings ?? 0}`,
+      `Clinic activation issues: ${result?.deploymentClinicActivation.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Clinic activation message: ${result?.deploymentClinicActivation.message ?? "No clinic-activation response yet."}`,
+      "Clinic activation note: the clinic row may now be active, but the execution item has not completed and no downstream activation, binding, dependency unlock, rollback, or finalization occurred.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,

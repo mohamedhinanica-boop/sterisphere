@@ -1507,3 +1507,39 @@ The runtime deployment chain now appends the item-start boundary after atomic ex
 The stage uses one server timestamp for assessment and the proposed item `started_at`. It starts only the selected item through the atomic RPC, never through direct update/upsert fallback. `already_started` is idempotent reuse evidence and does not issue a second RPC mutation, rotate ownership, renew lease, change the item timestamp, or start another item.
 
 The boundary remains item-start only. It does not execute the activation action, mark items succeeded or failed, unlock dependent items, mutate clinic/provider/sterilizer/workstation/hardware rows, write bindings, register agents, finalize deployment runs, rollback, add workers/queues/polling/streaming, or modify `DeploymentEngine.execute()`.
+
+## RC8 Slice 6A - Clinic Activation Action Foundation
+
+RC8 Slice 6A extends the execution-control plan with an assessment-only clinic activation action boundary:
+
+prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> atomic execution item start -> clinic_activation_action_assessment -> future atomic clinic activation
+
+The TypeScript foundation defines token-safe command, snapshot, repository, service, result, issue, downstream-counter, and in-memory test repository contracts. The snapshot includes the running session ownership/lease evidence, the running sequence-1 clinic activation item, and durable clinic state. The repository interface is read-only and exists only to load evidence for a future Supabase implementation.
+
+Clinic activation readiness requires a same-owner, same-token, actively leased running session, a running clinic activation item with attempt count 1 and no dependencies, and a durable clinic row whose canonical current state matches the item expected current state. The only supported target patch is { deploymentStatus: active }; already-active reuse is allowed only when durable clinic state equals the exact proposed target and no lifecycle conflicts exist.
+
+This slice creates no SQL, migration, Supabase repository, runtime wiring, setup UI, support mail changes, clinic updates, item completion, dependency progression, shell activation, hardware binding, deployment finalization, rollback execution, workers, queues, polling, streaming, activation buttons, or DeploymentEngine.execute() changes. Ownership tokens remain input-only sensitive values and are not exposed in results, issues, messages, or tests.
+
+## RC8 Slice 6B - Clinic Activation Persistence Boundary
+
+RC8 Slice 6B adds the Supabase persistence boundary for the future clinic activation action stage:
+
+`atomic execution item start -> clinic_activation_action_assessment -> atomic_clinic_activation -> future item completion`
+
+The repository can load the Slice 6A snapshot from `public.deployment_activation_execution_sessions`, `public.deployment_activation_execution_items`, `public.clinics`, and the `public.deployment_runs` clinic link. The atomic RPC payload includes clinic/run/session/item identity, claimant, ownership token, expected lease, expected item start/attempt evidence, expected current clinic state, target state, and proposed activation timestamp. Returned evidence is token-safe.
+
+The only supported durable mutation is `public.clinics.deployment_status` from `draft` to `active`, with `public.clinics.deployed_at` set to the proposed activation timestamp. No schema migration is introduced. The current clinic schema does not expose first-class `active`, `provisioning_source`, `provisioning_status`, `archived_at`, or `deleted_at`; the repository maps Slice 6A logical planning evidence from `deployment_status` and the deployment-run link, and the preflight records that schema assumption.
+
+This slice does not wire setup runtime, mark the execution item succeeded, unlock dependencies, update sessions/items, activate provider/sterilizer/workstation/hardware shells, bind hardware, finalize deployment, rollback, renew leases, rotate tokens, heartbeat, add workers/queues/polling/streaming, or modify `DeploymentEngine.execute()`.
+
+## RC8 Slice 6C - Runtime Atomic Clinic Activation Wiring
+
+The runtime deployment chain now appends the clinic activation boundary after atomic execution item start:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> atomic execution item start -> atomic clinic activation -> future item completion`
+
+`deploymentClinicActivation` evidence includes status, claimant, clinic id, deployment run key, session id, execution key, item id, execution item key, plan item key, current and target clinic states, deployed timestamp, activation result, activated/reused/conflict counts, blockers, warnings, issues, and downstream zero counters. Setup Complete and support mail report this evidence without ownership tokens.
+
+The stage uses one server timestamp for assessment and the proposed clinic `deployed_at`. It calls `public.activate_deployment_clinic` only after a successful item-start result and a ready clinic-activation assessment. `already_activated` is idempotent reuse evidence and does not rewrite `deployed_at`, renew ownership, rotate tokens, complete the item, or unlock another item.
+
+The boundary remains clinic-row only. It does not mark the execution item succeeded or failed, unlock dependent items, mutate provider/sterilizer/workstation/hardware rows, write hardware bindings, register agents, finalize deployment runs, rollback, add workers/queues/polling/streaming/buttons, or modify `DeploymentEngine.execute()`.
