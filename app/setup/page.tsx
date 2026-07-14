@@ -2670,7 +2670,7 @@ function CompleteStep({
                   Prepared Only
                 </p>
                 <p className="mt-2">
-                  Session status remains prepared. Item statuses remain ready or pending. No owner, lease, attempts, execution timestamps, activation, binding, rollback, or deployment finalization is started here.
+                  Prepared evidence is created or reused without mutation. Verify/Reuse may pass through a compatible claimed or running session with one already-running item, but this stage never starts, resets, activates, binds, rolls back, or finalizes anything.
                 </p>
                 <p className="mt-1">
                   Downstream execution counters: claimed {deploymentActivationExecutionPersistence?.downstream.itemsClaimed ?? 0}, started {deploymentActivationExecutionPersistence?.downstream.itemsStarted ?? 0}, succeeded {deploymentActivationExecutionPersistence?.downstream.itemsSucceeded ?? 0}, failed {deploymentActivationExecutionPersistence?.downstream.itemsFailed ?? 0}.
@@ -3223,7 +3223,7 @@ function buildDeploymentSupportHref(
       `Activation execution item start issues: ${result?.deploymentActivationExecutionItemStart.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Activation execution item start message: ${result?.deploymentActivationExecutionItemStart.message ?? "No activation-execution-item-start response yet."}`,
       "Activation execution item start note: no activation action, entity mutation, hardware binding, dependency progression, rollback, or finalization occurred.",
-      "Activation execution persistence note: prepared evidence only; no activation, ownership claim, lease, attempt, binding, rollback, or finalization began.",
+      "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
       `Clinic settings message: ${result?.clinicSettings.message ?? "No clinic-settings response yet."}`,

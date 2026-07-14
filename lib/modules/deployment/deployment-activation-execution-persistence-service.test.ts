@@ -43,6 +43,22 @@ export async function runDeploymentActivationExecutionPersistenceServiceHarness(
     await scenarioCompatibleFullRetryReuse(),
     await scenarioCompatibleClaimedSessionReuse(),
     await scenarioCompatibleRunningSessionReuse(),
+    await scenarioRunningReadyToRunningLifecycleReuse(),
+    await scenarioWrongRunningItemConflict(),
+    await scenarioTwoRunningItemsConflict(),
+    await scenarioRunningAttemptZeroConflict(),
+    await scenarioRunningAttemptGreaterThanOneConflict(),
+    await scenarioRunningMissingStartedAtConflict(),
+    await scenarioRunningCompletedItemConflict(),
+    await scenarioRunningRollbackEvidenceConflict(),
+    await scenarioRunningErrorEvidenceConflict(),
+    await scenarioRunningOtherItemAttemptConflict(),
+    await scenarioRunningOtherItemTimestampConflict(),
+    await scenarioRunningOtherItemNonPendingConflict(),
+    await scenarioRunningExpectedCurrentStateDriftConflict(),
+    await scenarioRunningTargetStateDriftConflict(),
+    await scenarioRunningDependencyDriftConflict(),
+    await scenarioRunningRollbackBehaviorDriftConflict(),
     await scenarioRunningSessionMissingOwnerConflict(),
     await scenarioRunningSessionMissingTokenConflict(),
     await scenarioRunningSessionMissingLeaseConflict(),
@@ -176,7 +192,7 @@ async function scenarioCompatibleRunningSessionReuse(): Promise<DeploymentActiva
   const runningSession = runSession(seeded.session);
   const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
     sessions: [runningSession],
-    items: seeded.items,
+    items: runningItems(seeded.items),
   });
   const beforeSession = JSON.stringify(repository.sessions[0]);
   const beforeItems = JSON.stringify(repository.items);
@@ -202,6 +218,103 @@ async function scenarioCompatibleRunningSessionReuse(): Promise<DeploymentActiva
   );
 }
 
+async function scenarioRunningReadyToRunningLifecycleReuse(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
+    sessions: [runSession(seeded.session)],
+    items: runningItems(seeded.items),
+  });
+  const result = await persist(repository);
+  const running = repository.items[0];
+
+  return expectScenario(
+    "planned ready/0/null maps to durable running/1/startedAt",
+    result.status === "reused" &&
+      result.itemsReused === preparation().executionItems.length &&
+      running.executionStatus === "running" &&
+      running.attemptCount === 1 &&
+      running.startedAt === "2026-01-01T12:01:30.000Z",
+    JSON.stringify({ result, running }),
+  );
+}
+
+async function scenarioWrongRunningItemConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  return expectRunningItemsConflict(
+    "wrong running item conflicts",
+    [
+      { ...seeded.items[0], executionStatus: "pending" },
+      { ...seeded.items[1], executionStatus: "running", attemptCount: 1, startedAt: "2026-01-01T12:01:30.000Z" },
+      seeded.items[2],
+    ],
+    "item_state_conflict",
+  );
+}
+
+async function scenarioTwoRunningItemsConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  return expectRunningItemsConflict(
+    "two running items conflict",
+    [
+      ...runningItems(seeded.items).slice(0, 1),
+      { ...seeded.items[1], executionStatus: "running", attemptCount: 1, startedAt: "2026-01-01T12:02:00.000Z" },
+      seeded.items[2],
+    ],
+    "item_state_conflict",
+  );
+}
+
+async function scenarioRunningAttemptZeroConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running attempt 0 conflicts", patchRunningItem({ attemptCount: 0 }), "item_state_conflict");
+}
+
+async function scenarioRunningAttemptGreaterThanOneConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running attempt greater than 1 conflicts", patchRunningItem({ attemptCount: 2 }), "item_state_conflict");
+}
+
+async function scenarioRunningMissingStartedAtConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running missing startedAt conflicts", patchRunningItem({ startedAt: null }), "item_state_conflict");
+}
+
+async function scenarioRunningCompletedItemConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running completed item conflicts", patchRunningItem({ completedAt: "2026-01-01T12:03:00.000Z" }), "item_state_conflict");
+}
+
+async function scenarioRunningRollbackEvidenceConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running rollback evidence conflicts", patchRunningItem({ rolledBackAt: "2026-01-01T12:03:00.000Z" }), "item_state_conflict");
+}
+
+async function scenarioRunningErrorEvidenceConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running error evidence conflicts", patchRunningItem({ errorCode: "item_error", errorMessage: "Item failed." }), "item_state_conflict");
+}
+
+async function scenarioRunningOtherItemAttemptConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("another item attempted conflicts", patchOtherItem({ attemptCount: 1 }), "item_state_conflict");
+}
+
+async function scenarioRunningOtherItemTimestampConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("another item timestamped conflicts", patchOtherItem({ startedAt: "2026-01-01T12:03:00.000Z" }), "item_state_conflict");
+}
+
+async function scenarioRunningOtherItemNonPendingConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("another item non-pending conflicts", patchOtherItem({ executionStatus: "ready" }), "item_state_conflict");
+}
+
+async function scenarioRunningExpectedCurrentStateDriftConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running expectedCurrentState drift conflicts", patchRunningItem({ expectedCurrentState: { active: true } }), "immutable_evidence_conflict");
+}
+
+async function scenarioRunningTargetStateDriftConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running targetState drift conflicts", patchRunningItem({ targetState: { active: false } }), "immutable_evidence_conflict");
+}
+
+async function scenarioRunningDependencyDriftConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running dependency drift conflicts", patchRunningItem({ dependencyKeys: ["other"] }), "immutable_evidence_conflict");
+}
+
+async function scenarioRunningRollbackBehaviorDriftConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  return expectRunningItemsConflict("running rollback behavior drift conflicts", patchRunningItem({ reversible: false, rollbackAction: null, rollbackStatus: "not_supported" }), "immutable_evidence_conflict");
+}
 async function scenarioRunningSessionMissingOwnerConflict(): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
   return expectRunningConflict("running session missing owner blocks reuse", { executionOwner: null }, undefined, "session_state_conflict");
 }
@@ -575,6 +688,82 @@ async function expectRunningConflict(
     JSON.stringify(result.issues),
   );
 }
+async function expectRunningItemsConflict(
+  name: string,
+  items: readonly DeploymentActivationExecutionItemRecord[],
+  expectedCode: DeploymentActivationExecutionPersistenceIssueCode,
+): Promise<DeploymentActivationExecutionPersistenceServiceHarnessScenario> {
+  const seeded = seedRecords();
+  const repository = new InMemoryDeploymentActivationExecutionPersistenceTestRepository({
+    sessions: [runSession(seeded.session)],
+    items,
+  });
+  const before = JSON.stringify({
+    sessions: repository.sessions,
+    items: repository.items,
+  });
+  const result = await persist(repository);
+
+  return expectScenario(
+    name,
+    result.status === "conflict" &&
+      hasIssue(result, expectedCode) &&
+      JSON.stringify({
+        sessions: repository.sessions,
+        items: repository.items,
+      }) === before &&
+      repository.calls.createPreparedSession === 0 &&
+      repository.calls.createPreparedItem === 0,
+    JSON.stringify(result.issues),
+  );
+}
+
+function runningItems(
+  items: readonly DeploymentActivationExecutionItemRecord[],
+): readonly DeploymentActivationExecutionItemRecord[] {
+  return items.map((item, index) => {
+    if (index === 0) {
+      return {
+        ...item,
+        executionStatus: "running",
+        attemptCount: 1,
+        startedAt: "2026-01-01T12:01:30.000Z",
+        completedAt: null,
+        rolledBackAt: null,
+        errorCode: null,
+        errorMessage: null,
+      };
+    }
+
+    return {
+      ...item,
+      executionStatus: "pending",
+      attemptCount: 0,
+      startedAt: null,
+      completedAt: null,
+      rolledBackAt: null,
+      errorCode: null,
+      errorMessage: null,
+    };
+  });
+}
+
+function patchRunningItem(
+  patch: Partial<DeploymentActivationExecutionItemRecord>,
+): readonly DeploymentActivationExecutionItemRecord[] {
+  return runningItems(seedRecords().items).map((item, index) =>
+    index === 0 ? { ...item, ...patch } : item,
+  );
+}
+
+function patchOtherItem(
+  patch: Partial<DeploymentActivationExecutionItemRecord>,
+): readonly DeploymentActivationExecutionItemRecord[] {
+  return runningItems(seedRecords().items).map((item, index) =>
+    index === 1 ? { ...item, ...patch } : item,
+  );
+}
+
 async function expectConflict(
   name: string,
   input: {

@@ -32,6 +32,10 @@ const SUPPORTED_ACTIONS = new Set<DeploymentActivationPlanAction>([
 
 const PRE_EXECUTION_ITEM_STATUSES = new Set(["ready", "pending"]);
 
+interface ItemCompatibilityOptions {
+  allowStartedFirstItemReuse?: boolean;
+}
+
 export class DeploymentActivationExecutionPersistenceService {
   constructor(
     private readonly repository: DeploymentActivationExecutionPersistenceRepository,
@@ -195,6 +199,12 @@ export class DeploymentActivationExecutionPersistenceService {
     const duplicateExistingItemKeys = findDuplicates(
       existingItems.map((item) => item.executionItemKey),
     );
+    const duplicateExistingPlanItemKeys = findDuplicates(
+      existingItems.map((item) => item.planItemKey),
+    );
+    const duplicateExistingSequences = findDuplicates(
+      existingItems.map((item) => String(item.sequence)),
+    );
 
     for (const duplicateKey of duplicateExistingItemKeys) {
       issues.push(
@@ -209,7 +219,49 @@ export class DeploymentActivationExecutionPersistenceService {
       itemsConflicted += 1;
     }
 
-    if (duplicateExistingItemKeys.size === 0) {
+    for (const duplicateKey of duplicateExistingPlanItemKeys) {
+      issues.push(
+        issue({
+          code: "item_identity_conflict",
+          executionKey: session.executionKey,
+          planItemKey: duplicateKey,
+          message:
+            "Duplicate durable plan item keys prevent deterministic persistence.",
+        }),
+      );
+      itemsConflicted += 1;
+    }
+
+    for (const duplicateSequence of duplicateExistingSequences) {
+      issues.push(
+        issue({
+          code: "item_identity_conflict",
+          executionKey: session.executionKey,
+          message:
+            `Duplicate durable execution item sequence ${duplicateSequence} prevents deterministic persistence.`,
+        }),
+      );
+      itemsConflicted += 1;
+    }
+
+    const runningReuse = session.executionStatus === "running"
+      ? assessRunningItemReuse(
+          preparation.executionItems,
+          existingItems,
+          session.executionKey,
+        )
+      : null;
+
+    if (runningReuse) {
+      issues.push(...runningReuse.issues);
+      itemsConflicted += runningReuse.issues.length;
+    }
+
+    if (
+      duplicateExistingItemKeys.size === 0 &&
+      duplicateExistingPlanItemKeys.size === 0 &&
+      duplicateExistingSequences.size === 0
+    ) {
       for (const item of [...preparation.executionItems].sort(compareItems)) {
         const payload = buildItemPayloadFromPreparationItem({
           sessionId: session.id,
@@ -225,7 +277,10 @@ export class DeploymentActivationExecutionPersistenceService {
         });
 
         if (existing) {
-          const compatibility = compareItem(payload, existing);
+          const compatibility = compareItem(payload, existing, {
+            allowStartedFirstItemReuse:
+              runningReuse?.expectedRunningExecutionItemKey === payload.executionItemKey,
+          });
 
           if (compatibility.length > 0) {
             issues.push(...compatibility);
@@ -234,6 +289,21 @@ export class DeploymentActivationExecutionPersistenceService {
           }
 
           itemsReused += 1;
+          continue;
+        }
+
+        if (session.executionStatus === "running") {
+          issues.push(
+            issue({
+              code: "item_identity_conflict",
+              executionKey: session.executionKey,
+              executionItemKey: payload.executionItemKey,
+              planItemKey: payload.planItemKey,
+              message:
+                "Running execution session is missing expected durable item evidence.",
+            }),
+          );
+          itemsConflicted += 1;
           continue;
         }
 
@@ -256,7 +326,6 @@ export class DeploymentActivationExecutionPersistenceService {
         itemsCreated += 1;
       }
     }
-
     if (issues.some((current) => current.severity === "blocker")) {
       return result({
         status: "conflict",
@@ -500,18 +569,195 @@ function compareSession(
 
   return issues.sort(compareIssues);
 }
+function assessRunningItemReuse(
+  preparationItems: readonly DeploymentActivationExecutionItem[],
+  existingItems: readonly DeploymentActivationExecutionItemRecord[],
+  executionKey: string,
+): {
+  expectedRunningExecutionItemKey: string | null;
+  issues: readonly DeploymentActivationExecutionPersistenceIssue[];
+} {
+  const issues: DeploymentActivationExecutionPersistenceIssue[] = [];
+  const orderedPreparation = [...preparationItems].sort(compareItems);
+  const expectedRunningItem = orderedPreparation[0] ?? null;
+  const runningItems = existingItems.filter(
+    (item) => item.executionStatus === "running",
+  );
+
+  if (existingItems.length !== preparationItems.length) {
+    issues.push(
+      issue({
+        code: "item_count_mismatch",
+        executionKey,
+        message:
+          "Running execution session item count does not match prepared evidence.",
+      }),
+    );
+  }
+
+  if (runningItems.length !== 1) {
+    issues.push(
+      issue({
+        code: "item_state_conflict",
+        executionKey,
+        executionItemKey: runningItems[0]?.executionItemKey ?? null,
+        planItemKey: runningItems[0]?.planItemKey ?? null,
+        message:
+          "Running execution session must contain exactly one running item for reuse.",
+      }),
+    );
+  }
+
+  const runningItem = runningItems[0] ?? null;
+
+  if (
+    expectedRunningItem &&
+    runningItem &&
+    runningItem.executionItemKey !== expectedRunningItem.executionItemKey
+  ) {
+    issues.push(
+      issue({
+        code: "item_state_conflict",
+        executionKey,
+        executionItemKey: runningItem.executionItemKey,
+        planItemKey: runningItem.planItemKey,
+        message:
+          "Running execution item is not the deterministic first prepared item.",
+      }),
+    );
+  }
+
+  for (const item of existingItems) {
+    const isRunningCandidate =
+      expectedRunningItem !== null &&
+      item.executionItemKey === expectedRunningItem.executionItemKey;
+
+    if (isRunningCandidate) {
+      if (item.executionStatus !== "running") {
+        issues.push(
+          issue({
+            code: "item_state_conflict",
+            executionKey,
+            executionItemKey: item.executionItemKey,
+            planItemKey: item.planItemKey,
+            message:
+              "Expected first execution item is not running for reuse.",
+          }),
+        );
+      }
+
+      if (item.attemptCount !== 1) {
+        issues.push(
+          issue({
+            code: "item_state_conflict",
+            executionKey,
+            executionItemKey: item.executionItemKey,
+            planItemKey: item.planItemKey,
+            message:
+              "Running execution item must have exactly one attempt for reuse.",
+          }),
+        );
+      }
+
+      if (!item.startedAt || !isValidTimestamp(item.startedAt)) {
+        issues.push(
+          issue({
+            code: "item_state_conflict",
+            executionKey,
+            executionItemKey: item.executionItemKey,
+            planItemKey: item.planItemKey,
+            message:
+              "Running execution item must have valid started_at evidence for reuse.",
+          }),
+        );
+      }
+
+      if (
+        item.completedAt !== null ||
+        item.rolledBackAt !== null ||
+        item.errorCode !== null ||
+        item.errorMessage !== null
+      ) {
+        issues.push(
+          issue({
+            code: "item_state_conflict",
+            executionKey,
+            executionItemKey: item.executionItemKey,
+            planItemKey: item.planItemKey,
+            message:
+              "Running execution item has completion, rollback, or error evidence.",
+          }),
+        );
+      }
+
+      continue;
+    }
+
+    if (item.executionStatus !== "pending") {
+      issues.push(
+        issue({
+          code: "item_state_conflict",
+          executionKey,
+          executionItemKey: item.executionItemKey,
+          planItemKey: item.planItemKey,
+          message:
+            "Non-running execution items must remain pending for running-session reuse.",
+        }),
+      );
+    }
+
+    if (
+      item.attemptCount !== 0 ||
+      item.startedAt !== null ||
+      item.completedAt !== null ||
+      item.rolledBackAt !== null ||
+      item.errorCode !== null ||
+      item.errorMessage !== null
+    ) {
+      issues.push(
+        issue({
+          code: "item_state_conflict",
+          executionKey,
+          executionItemKey: item.executionItemKey,
+          planItemKey: item.planItemKey,
+          message:
+            "Non-running execution item has attempt, execution, rollback, or error evidence.",
+        }),
+      );
+    }
+  }
+
+  return {
+    expectedRunningExecutionItemKey: expectedRunningItem?.executionItemKey ?? null,
+    issues: issues.sort(compareIssues),
+  };
+}
 function compareItem(
   payload: CreateDeploymentActivationExecutionItemPayload,
   item: DeploymentActivationExecutionItemRecord,
+  options: ItemCompatibilityOptions = {},
 ): DeploymentActivationExecutionPersistenceIssue[] {
   const issues: DeploymentActivationExecutionPersistenceIssue[] = [];
+  const allowStartedFirstItemReuse =
+    options.allowStartedFirstItemReuse === true &&
+    payload.executionStatus === "ready" &&
+    payload.attemptCount === 0 &&
+    payload.startedAt === null &&
+    item.executionStatus === "running" &&
+    item.attemptCount === 1 &&
+    item.startedAt !== null &&
+    isValidTimestamp(item.startedAt) &&
+    item.completedAt === null &&
+    item.rolledBackAt === null &&
+    item.errorCode === null &&
+    item.errorMessage === null;
 
-  if (!["ready", "pending"].includes(item.executionStatus)) {
+  if (!allowStartedFirstItemReuse && !["ready", "pending"].includes(item.executionStatus)) {
     issues.push(issue({ code: "item_state_conflict", executionKey: payload.executionKey, executionItemKey: payload.executionItemKey, planItemKey: payload.planItemKey, message: "Existing execution item is no longer pre-execution." }));
   }
 
   if (
-    item.startedAt !== null ||
+    (!allowStartedFirstItemReuse && item.startedAt !== null) ||
     item.completedAt !== null ||
     item.rolledBackAt !== null ||
     item.errorCode !== null ||
@@ -541,6 +787,13 @@ function compareItem(
   ];
 
   for (const field of fields) {
+    if (
+      allowStartedFirstItemReuse &&
+      (field === "executionStatus" || field === "attemptCount")
+    ) {
+      continue;
+    }
+
     if (item[field] !== payload[field]) {
       const code =
         field === "action"
@@ -708,6 +961,10 @@ function statesEqual(
   right: Record<string, unknown>,
 ): boolean {
   return compareActivationCurrentStates(left, right).equivalent;
+}
+
+function isValidTimestamp(value: string): boolean {
+  return Number.isFinite(Date.parse(value));
 }
 
 function sameJson(left: unknown, right: unknown): boolean {
