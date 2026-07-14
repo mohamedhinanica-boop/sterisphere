@@ -264,6 +264,8 @@ export function aggregateClaimItems(
   );
   const readyItems = items.filter((item) => item.execution_status === "ready");
   const pendingItems = items.filter((item) => item.execution_status === "pending");
+  const runningItems = items.filter((item) => item.execution_status === "running");
+  const terminalItems = items.filter((item) => isTerminalStatus(item.execution_status));
   const firstItem = [...items].sort(compareItems)[0] ?? null;
 
   return {
@@ -274,10 +276,35 @@ export function aggregateClaimItems(
     invalidPreparedItemCount: items.filter(
       (item) => !["ready", "pending"].includes(item.execution_status),
     ).length,
-    runningOrTerminalItemCount: items.filter((item) =>
-      ["running", "succeeded", "failed", "skipped", "rollback_pending", "rolled_back"].includes(
-        item.execution_status,
-      ),
+    runningOrTerminalItemCount: items.filter(
+      (item) => item.execution_status === "running" || isTerminalStatus(item.execution_status),
+    ).length,
+    runningItemCount: runningItems.length,
+    terminalItemCount: terminalItems.length,
+    runningItemsWithAttemptOne: runningItems.filter(
+      (item) => item.attempt_count === 1,
+    ).length,
+    runningItemsWithValidStartedAt: runningItems.filter(
+      (item) => item.started_at !== null && isValidTimestamp(item.started_at),
+    ).length,
+    runningItemsWithCompletionEvidence: runningItems.filter(
+      (item) =>
+        item.completed_at !== null ||
+        item.rolled_back_at !== null ||
+        item.error_code !== null ||
+        item.error_message !== null,
+    ).length,
+    pendingItemsWithAttempts: pendingItems.filter(
+      (item) => item.attempt_count > 0,
+    ).length,
+    pendingItemsWithExecutionTimestamps: pendingItems.filter(
+      (item) => item.started_at !== null || item.completed_at !== null,
+    ).length,
+    pendingItemsWithRollbackTimestamps: pendingItems.filter(
+      (item) => item.rolled_back_at !== null,
+    ).length,
+    pendingItemsWithErrors: pendingItems.filter(
+      (item) => item.error_code !== null || item.error_message !== null,
     ).length,
     itemsWithAttempts: items.filter((item) => item.attempt_count > 0).length,
     itemsWithExecutionTimestamps: items.filter(
@@ -305,7 +332,6 @@ export function aggregateClaimItems(
     ).length,
   };
 }
-
 export function atomicClaimRpcPayload(
   command: DeploymentActivationExecutionAtomicClaimCommand,
 ): Record<string, unknown> {
@@ -382,6 +408,13 @@ function readAtomicStatus(
   );
 }
 
+function isTerminalStatus(status: string): boolean {
+  return ["succeeded", "failed", "skipped", "rollback_pending", "rolled_back"].includes(status);
+}
+
+function isValidTimestamp(value: string): boolean {
+  return Number.isFinite(Date.parse(value));
+}
 function classifyItemStatus(
   status: string,
 ): DeploymentActivationExecutionClaimItemCompletenessSnapshot["firstExecutableStatus"] {

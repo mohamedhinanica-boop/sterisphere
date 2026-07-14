@@ -408,7 +408,7 @@ function mapRunningSameOwnerReuse(
     warnings: warningCount,
     issues,
     message:
-      "Existing running execution-session ownership was reused and the lease was not extended. No activation item has started.",
+      "Existing running execution-session ownership was reused and the lease was not extended. Existing item lifecycle evidence was preserved without starting another item.",
   };
 
   if (session?.ownershipToken) {

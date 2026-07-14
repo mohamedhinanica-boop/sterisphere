@@ -1,4 +1,4 @@
-export type DeploymentActivationExecutionClaimStatus =
+﻿export type DeploymentActivationExecutionClaimStatus =
   | "claimable"
   | "already_owned"
   | "lease_expired_reclaimable"
@@ -84,6 +84,15 @@ export interface DeploymentActivationExecutionClaimItemCompletenessSnapshot {
   duplicateSequenceCount: number;
   invalidPreparedItemCount: number;
   runningOrTerminalItemCount: number;
+  runningItemCount: number;
+  terminalItemCount: number;
+  runningItemsWithAttemptOne: number;
+  runningItemsWithValidStartedAt: number;
+  runningItemsWithCompletionEvidence: number;
+  pendingItemsWithAttempts: number;
+  pendingItemsWithExecutionTimestamps: number;
+  pendingItemsWithRollbackTimestamps: number;
+  pendingItemsWithErrors: number;
   itemsWithAttempts: number;
   itemsWithExecutionTimestamps: number;
   itemsWithRollbackTimestamps: number;
@@ -209,6 +218,15 @@ export function emptyClaimItemCompleteness(): DeploymentActivationExecutionClaim
     duplicateSequenceCount: 0,
     invalidPreparedItemCount: 0,
     runningOrTerminalItemCount: 0,
+    runningItemCount: 0,
+    terminalItemCount: 0,
+    runningItemsWithAttemptOne: 0,
+    runningItemsWithValidStartedAt: 0,
+    runningItemsWithCompletionEvidence: 0,
+    pendingItemsWithAttempts: 0,
+    pendingItemsWithExecutionTimestamps: 0,
+    pendingItemsWithRollbackTimestamps: 0,
+    pendingItemsWithErrors: 0,
     itemsWithAttempts: 0,
     itemsWithExecutionTimestamps: 0,
     itemsWithRollbackTimestamps: 0,

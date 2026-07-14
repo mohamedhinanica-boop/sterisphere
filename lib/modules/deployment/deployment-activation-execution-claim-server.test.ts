@@ -43,6 +43,7 @@ export async function runDeploymentActivationExecutionClaimServerHarness(): Prom
     await scenarioFreshClaim(),
     await scenarioSameOwnerReuse(),
     await scenarioSameOwnerReuseAfterPersistenceReuse(),
+    await scenarioRunningSameOwnerOneItemReuseSkipsAtomicClaim(),
     await scenarioConflictingClaimant(),
     await scenarioExpiredReclaim(),
     await scenarioSkippedBlockedPersistence(),
@@ -124,6 +125,37 @@ async function scenarioSameOwnerReuseAfterPersistenceReuse(): Promise<Deployment
       repository.snapshot.session?.ownershipToken === "existing-secret-token" &&
       repository.snapshot.session?.leaseExpiresAt === ACTIVE_LEASE,
     JSON.stringify({ result, snapshot: repository.snapshot.session }),
+  );
+}
+async function scenarioRunningSameOwnerOneItemReuseSkipsAtomicClaim(): Promise<DeploymentActivationExecutionClaimServerHarnessScenario> {
+  const repository = new InMemoryAtomicClaimRepository({
+    snapshot: runningOwnedSnapshot(SETUP_RUNTIME_ACTIVATION_EXECUTION_CLAIMANT_ID, ACTIVE_LEASE),
+  });
+  const before = JSON.stringify(repository.snapshot);
+  const result = await claim(repository, {
+    persistence: persistence({
+      status: "reused",
+      sessionCreated: 0,
+      sessionReused: 1,
+      itemsCreated: 0,
+      itemsReused: 3,
+    }),
+    tokenFactory: () => "replacement-token-that-must-not-be-used",
+  });
+
+  return expectScenario(
+    "running same-owner one-item reuse skips atomic claim",
+    result.ok &&
+      result.status === "already_owned" &&
+      result.claimMode === "same_owner" &&
+      result.sessionReused === 1 &&
+      repository.atomicCallCount === 0 &&
+      repository.itemUpdateCallCount === 0 &&
+      repository.snapshot.session?.ownershipToken === "existing-secret-token" &&
+      repository.snapshot.session?.leaseExpiresAt === ACTIVE_LEASE &&
+      JSON.stringify(repository.snapshot) === before &&
+      !JSON.stringify(result).includes("existing-secret-token"),
+    JSON.stringify({ result, snapshot: repository.snapshot }),
   );
 }
 async function scenarioConflictingClaimant(): Promise<DeploymentActivationExecutionClaimServerHarnessScenario> {
@@ -502,6 +534,44 @@ function ownedSnapshot(
   });
 }
 
+function runningOwnedSnapshot(
+  owner: string,
+  leaseExpiresAt: string,
+): DeploymentActivationExecutionClaimSnapshot {
+  return buildClaimSnapshot({
+    session: {
+      executionStatus: "running",
+      executionOwner: owner,
+      ownershipToken: "existing-secret-token",
+      leaseExpiresAt,
+      startedAt: CLAIMED_AT,
+    },
+    itemCompleteness: {
+      invalidPreparedItemCount: 1,
+      runningOrTerminalItemCount: 1,
+      runningItemCount: 1,
+      terminalItemCount: 0,
+      runningItemsWithAttemptOne: 1,
+      runningItemsWithValidStartedAt: 1,
+      runningItemsWithCompletionEvidence: 0,
+      pendingItemsWithAttempts: 0,
+      pendingItemsWithExecutionTimestamps: 0,
+      pendingItemsWithRollbackTimestamps: 0,
+      pendingItemsWithErrors: 0,
+      itemsWithAttempts: 1,
+      itemsWithExecutionTimestamps: 1,
+      itemsWithRollbackTimestamps: 0,
+      itemsWithErrors: 0,
+      readyItemCount: 0,
+      pendingItemCount: 2,
+      blockedItemCount: 0,
+      firstExecutableStatus: "running",
+      readyRootItemCount: 0,
+      pendingExecutableWithoutSatisfiedDependencies: 0,
+      dependencyIntegrityIssueCount: 0,
+    },
+  });
+}
 function cloneSnapshot(
   snapshot: DeploymentActivationExecutionClaimSnapshot,
 ): DeploymentActivationExecutionClaimSnapshot {

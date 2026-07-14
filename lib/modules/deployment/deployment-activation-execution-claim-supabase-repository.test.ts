@@ -34,6 +34,7 @@ export async function runDeploymentActivationExecutionClaimSupabaseRepositoryHar
   const scenarios = [
     scenarioSessionRowMapping(),
     scenarioItemAggregation(),
+    scenarioOneRunningItemAggregation(),
     await scenarioSnapshotReadDeterministicOrdering(),
     scenarioDuplicateAmbiguousSessionDetection(),
     await scenarioMissingSessionSnapshot(),
@@ -84,6 +85,36 @@ function scenarioItemAggregation(): DeploymentActivationExecutionClaimSupabaseRe
   );
 }
 
+function scenarioOneRunningItemAggregation(): DeploymentActivationExecutionClaimSupabaseRepositoryHarnessScenario {
+  const aggregation = aggregateClaimItems([
+    itemRow({
+      sequence: 1,
+      execution_item_key: "a",
+      execution_status: "running",
+      attempt_count: 1,
+      started_at: "2026-01-01T12:01:30.000Z",
+      dependency_keys: [],
+    }),
+    itemRow({ sequence: 2, execution_item_key: "b", execution_status: "pending", dependency_keys: ["a"] }),
+    itemRow({ sequence: 3, execution_item_key: "c", execution_status: "pending", dependency_keys: ["b"] }),
+  ]);
+
+  return expectScenario(
+    "one running item aggregation distinguishes lifecycle evidence",
+    aggregation.durableItemCount === 3 &&
+      aggregation.runningItemCount === 1 &&
+      aggregation.pendingItemCount === 2 &&
+      aggregation.readyItemCount === 0 &&
+      aggregation.runningItemsWithAttemptOne === 1 &&
+      aggregation.runningItemsWithValidStartedAt === 1 &&
+      aggregation.itemsWithAttempts === 1 &&
+      aggregation.itemsWithExecutionTimestamps === 1 &&
+      aggregation.pendingItemsWithAttempts === 0 &&
+      aggregation.pendingItemsWithExecutionTimestamps === 0 &&
+      aggregation.firstExecutableStatus === "running",
+    JSON.stringify(aggregation),
+  );
+}
 async function scenarioSnapshotReadDeterministicOrdering(): Promise<DeploymentActivationExecutionClaimSupabaseRepositoryHarnessScenario> {
   const client = new MockSupabaseClient({
     deployment_activation_execution_sessions: [sessionRow()],

@@ -442,12 +442,7 @@ function validateItemCompleteness(
 ): DeploymentActivationExecutionClaimIssue[] {
   const issues: DeploymentActivationExecutionClaimIssue[] = [];
 
-  if (
-    items.durableItemCount !== session.itemsRequested ||
-    items.durableItemCount !== command.expectedItemCount ||
-    session.itemsRequested !== command.expectedItemCount ||
-    items.readyItemCount + items.pendingItemCount !== session.itemsRequested
-  ) {
+  if (!hasCompleteItemCount(command, session, items)) {
     issues.push(blocker("incomplete_item_set", session, "Durable execution item count does not match execution session evidence."));
   }
 
@@ -459,44 +454,224 @@ function validateItemCompleteness(
     issues.push(blocker("duplicate_item_identity", session, "Duplicate durable execution item identities prevent claiming."));
   }
 
-  if (
-    items.invalidPreparedItemCount > 0 ||
-    items.runningOrTerminalItemCount > 0 ||
-    items.blockedItemCount > 0
-  ) {
-    issues.push(blocker("invalid_item_lifecycle", session, "Execution items are not all ready or pending pre-execution items."));
+  if (issues.length === 0 && isStrictPreExecutionItemSet(session, items)) {
+    return [];
   }
 
-  if (items.itemsWithAttempts > 0) {
-    issues.push(blocker("attempt_evidence_present", session, "Execution items already have attempt evidence."));
+  if (issues.length === 0 && session.executionStatus === "running" && isCompatibleRunningItemSet(session, items)) {
+    return [];
   }
 
-  if (items.itemsWithExecutionTimestamps > 0) {
-    issues.push(blocker("execution_timestamp_present", session, "Execution items already have execution timestamps."));
+  if (!hasCompleteLifecyclePartition(session, items)) {
+    issues.push(blocker("incomplete_item_set", session, "Durable execution item lifecycle counts do not match execution session evidence."));
   }
 
-  if (items.itemsWithRollbackTimestamps > 0) {
+  if (hasInvalidLifecycleEvidence(session, items)) {
+    issues.push(blocker("invalid_item_lifecycle", session, lifecycleMessage(session)));
+  }
+
+  if (hasUnexpectedAttemptEvidence(session, items)) {
+    issues.push(blocker("attempt_evidence_present", session, "Execution item attempt evidence is not claim-safe for this lifecycle."));
+  }
+
+  if (hasUnexpectedExecutionTimestampEvidence(session, items)) {
+    issues.push(blocker("execution_timestamp_present", session, "Execution item timestamp evidence is not claim-safe for this lifecycle."));
+  }
+
+  if (hasUnexpectedRollbackTimestampEvidence(session, items)) {
     issues.push(blocker("rollback_timestamp_present", session, "Execution items already have rollback timestamps."));
   }
 
-  if (items.itemsWithErrors > 0) {
+  if (hasUnexpectedItemErrorEvidence(session, items)) {
     issues.push(blocker("item_error_present", session, "Execution items already have error evidence."));
   }
 
-  if (
+  if (hasDependencyIntegrityIssue(session, items)) {
+    issues.push(blocker("dependency_integrity_invalid", session, dependencyMessage(session)));
+  }
+
+  return issues;
+}
+
+function hasCompleteItemCount(
+  command: DeploymentActivationExecutionClaimCommand,
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  return (
+    items.durableItemCount === session.itemsRequested &&
+    items.durableItemCount === command.expectedItemCount &&
+    session.itemsRequested === command.expectedItemCount
+  );
+}
+
+function isStrictPreExecutionItemSet(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  return (
+    items.readyItemCount + items.pendingItemCount === session.itemsRequested &&
+    items.invalidPreparedItemCount === 0 &&
+    items.runningOrTerminalItemCount === 0 &&
+    items.blockedItemCount === 0 &&
+    items.itemsWithAttempts === 0 &&
+    items.itemsWithExecutionTimestamps === 0 &&
+    items.itemsWithRollbackTimestamps === 0 &&
+    items.itemsWithErrors === 0 &&
+    items.readyItemCount >= 1 &&
+    items.readyRootItemCount === 1 &&
+    items.firstExecutableStatus === "ready" &&
+    items.firstExecutableSequence !== null &&
+    items.pendingExecutableWithoutSatisfiedDependencies === 0 &&
+    items.dependencyIntegrityIssueCount === 0
+  );
+}
+
+function isCompatibleRunningItemSet(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  return (
+    items.runningItemCount === 1 &&
+    items.terminalItemCount === 0 &&
+    items.readyItemCount === 0 &&
+    items.pendingItemCount === session.itemsRequested - 1 &&
+    items.blockedItemCount === 0 &&
+    items.firstExecutableStatus === "running" &&
+    items.firstExecutableSequence !== null &&
+    items.runningItemsWithAttemptOne === 1 &&
+    items.runningItemsWithValidStartedAt === 1 &&
+    items.runningItemsWithCompletionEvidence === 0 &&
+    items.itemsWithAttempts === 1 &&
+    items.itemsWithExecutionTimestamps === 1 &&
+    items.itemsWithRollbackTimestamps === 0 &&
+    items.itemsWithErrors === 0 &&
+    items.pendingItemsWithAttempts === 0 &&
+    items.pendingItemsWithExecutionTimestamps === 0 &&
+    items.pendingItemsWithRollbackTimestamps === 0 &&
+    items.pendingItemsWithErrors === 0 &&
+    items.dependencyIntegrityIssueCount === 0
+  );
+}
+
+function hasCompleteLifecyclePartition(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return items.readyItemCount + items.pendingItemCount + items.runningItemCount === session.itemsRequested;
+  }
+
+  return items.readyItemCount + items.pendingItemCount === session.itemsRequested;
+}
+
+function hasInvalidLifecycleEvidence(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return (
+      items.runningItemCount !== 1 ||
+      items.terminalItemCount > 0 ||
+      items.readyItemCount > 0 ||
+      items.blockedItemCount > 0 ||
+      items.firstExecutableStatus !== "running"
+    );
+  }
+
+  return (
+    items.invalidPreparedItemCount > 0 ||
+    items.runningOrTerminalItemCount > 0 ||
+    items.blockedItemCount > 0
+  );
+}
+
+function hasUnexpectedAttemptEvidence(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return (
+      items.runningItemsWithAttemptOne !== 1 ||
+      items.itemsWithAttempts !== 1 ||
+      items.pendingItemsWithAttempts > 0
+    );
+  }
+
+  return items.itemsWithAttempts > 0;
+}
+
+function hasUnexpectedExecutionTimestampEvidence(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return (
+      items.runningItemsWithValidStartedAt !== 1 ||
+      items.runningItemsWithCompletionEvidence > 0 ||
+      items.itemsWithExecutionTimestamps !== 1 ||
+      items.pendingItemsWithExecutionTimestamps > 0
+    );
+  }
+
+  return items.itemsWithExecutionTimestamps > 0;
+}
+
+function hasUnexpectedRollbackTimestampEvidence(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return items.itemsWithRollbackTimestamps > 0 || items.pendingItemsWithRollbackTimestamps > 0;
+  }
+
+  return items.itemsWithRollbackTimestamps > 0;
+}
+
+function hasUnexpectedItemErrorEvidence(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return items.itemsWithErrors > 0 || items.pendingItemsWithErrors > 0;
+  }
+
+  return items.itemsWithErrors > 0;
+}
+
+function hasDependencyIntegrityIssue(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+  items: DeploymentActivationExecutionClaimItemCompletenessSnapshot,
+): boolean {
+  if (session.executionStatus === "running") {
+    return items.dependencyIntegrityIssueCount > 0;
+  }
+
+  return (
     items.readyItemCount < 1 ||
     items.readyRootItemCount !== 1 ||
     items.firstExecutableStatus !== "ready" ||
     items.firstExecutableSequence === null ||
     items.pendingExecutableWithoutSatisfiedDependencies > 0 ||
     items.dependencyIntegrityIssueCount > 0
-  ) {
-    issues.push(blocker("dependency_integrity_invalid", session, "Execution dependency readiness is not claim-safe."));
-  }
-
-  return issues;
+  );
 }
 
+function lifecycleMessage(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+): string {
+  return session.executionStatus === "running"
+    ? "Running execution session item lifecycle is not compatible with same-owner reuse."
+    : "Execution items are not all ready or pending pre-execution items.";
+}
+
+function dependencyMessage(
+  session: DeploymentActivationExecutionClaimSessionSnapshot,
+): string {
+  return session.executionStatus === "running"
+    ? "Running execution session item dependency evidence is malformed."
+    : "Execution dependency readiness is not claim-safe.";
+}
 type LeaseState =
   | "unowned"
   | "active-same-owner"

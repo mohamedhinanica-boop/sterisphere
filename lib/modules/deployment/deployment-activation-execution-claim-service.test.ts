@@ -58,6 +58,19 @@ export async function runDeploymentActivationExecutionClaimServiceHarness(): Pro
     await scenarioMultipleReadyRootsBlock(),
     await scenarioSameOwnerActiveLease(),
     await scenarioRunningSameOwnerActiveLease(),
+    await scenarioRunningSameOwnerOneItemStartedActiveLease(),
+    await scenarioRunningOneItemCompletenessUsesRunningAndPending(),
+    await scenarioRunningSecondItemBlocks(),
+    await scenarioRunningAttemptZeroBlocks(),
+    await scenarioRunningAttemptGreaterThanOneBlocks(),
+    await scenarioRunningItemMissingStartedAtBlocks(),
+    await scenarioRunningItemCompletionBlocks(),
+    await scenarioRunningItemRollbackBlocks(),
+    await scenarioRunningItemErrorBlocks(),
+    await scenarioRunningPendingItemAttemptBlocks(),
+    await scenarioRunningPendingItemTimestampBlocks(),
+    await scenarioRunningPendingItemNonPendingBlocks(),
+    await scenarioRunningMalformedDependencyBlocks(),
     await scenarioRunningExpiredLeaseBlocks(),
     await scenarioRunningMissingStartedAtBlocks(),
     await scenarioSameOwnerSupabaseTimestampActiveLease(),
@@ -227,6 +240,79 @@ async function scenarioRunningSameOwnerActiveLease(): Promise<DeploymentActivati
   );
 }
 
+async function scenarioRunningSameOwnerOneItemStartedActiveLease(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  const result = await assess(runningOwnedSnapshot(CLAIMANT_ID, ACTIVE_LEASE, runningOneItemCompleteness()));
+
+  return expectScenario(
+    "running same-owner with one started item returns already owned",
+    result.ok &&
+      result.status === "already_owned" &&
+      result.proposedOwnershipToken === "existing-token" &&
+      result.proposedLeaseExpiresAt === ACTIVE_LEASE &&
+      !hasIssue(result, "attempt_evidence_present") &&
+      !hasIssue(result, "execution_timestamp_present") &&
+      !hasIssue(result, "invalid_item_lifecycle") &&
+      !hasIssue(result, "incomplete_item_set") &&
+      !hasIssue(result, "dependency_integrity_invalid"),
+    JSON.stringify(result),
+  );
+}
+
+async function scenarioRunningOneItemCompletenessUsesRunningAndPending(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  const result = await assess(runningOwnedSnapshot(CLAIMANT_ID, ACTIVE_LEASE, runningOneItemCompleteness()));
+
+  return expectScenario(
+    "one-running-item completeness uses running plus pending",
+    result.status === "already_owned" &&
+      result.itemCompleteness.runningItemCount + result.itemCompleteness.pendingItemCount === 3 &&
+      result.itemCompleteness.readyItemCount === 0,
+    JSON.stringify(result.itemCompleteness),
+  );
+}
+
+async function scenarioRunningSecondItemBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("second running item blocks", { runningItemCount: 2, pendingItemCount: 1, runningItemsWithAttemptOne: 2, runningItemsWithValidStartedAt: 2, itemsWithAttempts: 2, itemsWithExecutionTimestamps: 2 }, "invalid_item_lifecycle");
+}
+
+async function scenarioRunningAttemptZeroBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running item attempt 0 blocks", { runningItemsWithAttemptOne: 0, itemsWithAttempts: 0 }, "attempt_evidence_present");
+}
+
+async function scenarioRunningAttemptGreaterThanOneBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running item attempt greater than 1 blocks", { runningItemsWithAttemptOne: 0 }, "attempt_evidence_present");
+}
+
+async function scenarioRunningItemMissingStartedAtBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running item missing startedAt blocks", { runningItemsWithValidStartedAt: 0, itemsWithExecutionTimestamps: 0 }, "execution_timestamp_present");
+}
+
+async function scenarioRunningItemCompletionBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running item completion evidence blocks", { runningItemsWithCompletionEvidence: 1, itemsWithExecutionTimestamps: 2 }, "execution_timestamp_present");
+}
+
+async function scenarioRunningItemRollbackBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running item rollback evidence blocks", { runningItemsWithCompletionEvidence: 1, itemsWithRollbackTimestamps: 1 }, "rollback_timestamp_present");
+}
+
+async function scenarioRunningItemErrorBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running item error evidence blocks", { runningItemsWithCompletionEvidence: 1, itemsWithErrors: 1 }, "item_error_present");
+}
+
+async function scenarioRunningPendingItemAttemptBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("pending item attempt blocks", { pendingItemsWithAttempts: 1, itemsWithAttempts: 2 }, "attempt_evidence_present");
+}
+
+async function scenarioRunningPendingItemTimestampBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("pending item timestamp blocks", { pendingItemsWithExecutionTimestamps: 1, itemsWithExecutionTimestamps: 2 }, "execution_timestamp_present");
+}
+
+async function scenarioRunningPendingItemNonPendingBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("pending item non-pending lifecycle blocks", { pendingItemCount: 1, readyItemCount: 1 }, "invalid_item_lifecycle");
+}
+
+async function scenarioRunningMalformedDependencyBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  return expectRunningOneItemIssue("running malformed dependency evidence blocks", { dependencyIntegrityIssueCount: 1 }, "dependency_integrity_invalid");
+}
 async function scenarioRunningExpiredLeaseBlocks(): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
   const result = await assess(runningOwnedSnapshot(CLAIMANT_ID, EXPIRED_LEASE));
 
@@ -426,6 +512,51 @@ async function scenarioDownstreamCountersRemainZero(): Promise<DeploymentActivat
   );
 }
 
+function runningOneItemCompleteness(
+  input: Parameters<typeof buildClaimSnapshot>[0]["itemCompleteness"] = {},
+): NonNullable<Parameters<typeof buildClaimSnapshot>[0]["itemCompleteness"]> {
+  return {
+    invalidPreparedItemCount: 1,
+    runningOrTerminalItemCount: 1,
+    runningItemCount: 1,
+    terminalItemCount: 0,
+    runningItemsWithAttemptOne: 1,
+    runningItemsWithValidStartedAt: 1,
+    runningItemsWithCompletionEvidence: 0,
+    pendingItemsWithAttempts: 0,
+    pendingItemsWithExecutionTimestamps: 0,
+    pendingItemsWithRollbackTimestamps: 0,
+    pendingItemsWithErrors: 0,
+    itemsWithAttempts: 1,
+    itemsWithExecutionTimestamps: 1,
+    itemsWithRollbackTimestamps: 0,
+    itemsWithErrors: 0,
+    readyItemCount: 0,
+    pendingItemCount: 2,
+    blockedItemCount: 0,
+    firstExecutableStatus: "running",
+    readyRootItemCount: 0,
+    pendingExecutableWithoutSatisfiedDependencies: 0,
+    dependencyIntegrityIssueCount: 0,
+    ...input,
+  };
+}
+
+async function expectRunningOneItemIssue(
+  name: string,
+  itemCompleteness: Parameters<typeof buildClaimSnapshot>[0]["itemCompleteness"],
+  expectedCode: DeploymentActivationExecutionClaimIssueCode,
+): Promise<DeploymentActivationExecutionClaimServiceHarnessScenario> {
+  const result = await assess(
+    runningOwnedSnapshot(CLAIMANT_ID, ACTIVE_LEASE, runningOneItemCompleteness(itemCompleteness)),
+  );
+
+  return expectScenario(
+    name,
+    result.status === "blocked" && hasIssue(result, expectedCode),
+    JSON.stringify(result),
+  );
+}
 async function expectIssue(
   name: string,
   claimSnapshot: DeploymentActivationExecutionClaimSnapshot,
