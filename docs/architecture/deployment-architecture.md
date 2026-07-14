@@ -981,3 +981,27 @@ The setup runtime now composes execution-start assessment immediately after a su
 The runtime start boundary may transition only the durable execution session from `claimed` to `running` and set `started_at`. `already_started` reuses a same-owner running session without updating `started_at`, extending the lease, rotating tokens, or starting items. Blocked, conflicted, or errored claim evidence skips start as `not_attempted`.
 
 Ownership tokens remain server-only. The claim server retains the token in process memory for the immediately following start call and action/UI/support evidence exposes only claimant, session, execution key, lease expiration, start result, counts, issues, and messages. Claimed is not running; a running session is not an execution item start.
+
+## RC8 Slice 5A - Execution Item Start Foundation
+
+The activation execution domain now includes a TypeScript-only item-start assessment boundary after a running execution session exists. `DeploymentActivationExecutionItemStartService` consumes a read-only snapshot containing session ownership/lifecycle evidence, one deterministic candidate item, and aggregate item integrity counters before returning token-safe item-start readiness evidence.
+
+This boundary keeps session start and item start separate. `startable` means exactly one deterministic ready item may be proposed for a future atomic item-start mutation; it does not set item `started_at`, increment attempts, execute activation actions, unlock dependents, activate records, bind hardware, finalize deployment, or run rollback. `already_started` is allowed only for one running item that belongs to the same session and still has valid same-owner, same-token, active-lease session evidence.
+
+Dependency validation allows the first item to have no dependencies and models future item progression by requiring candidate dependencies to be satisfied by prior succeeded plan-item keys. The repository contract is read-only and exposes only snapshot loading; no Supabase adapter, SQL, runtime wiring, UI, support mail, workers, queues, polling, streaming, or `DeploymentEngine.execute()` change is introduced.
+
+## RC8 Slice 5B - Atomic Execution Item Start Boundary
+
+The execution item-start boundary now has a server-only Supabase repository and checked-in SQL source for `public.start_deployment_activation_execution_item`. The repository loads the Slice 5A read-only snapshot from durable execution sessions/items, derives deterministic aggregate item evidence, selects the next ready or single running candidate item, and maps token-safe RPC results.
+
+The atomic SQL function locks the running execution session and selected execution item with `FOR UPDATE`, rechecks same-owner token and lease compare-and-set evidence, validates item identity and deterministic next-item integrity, then mutates only the selected item from `ready` to `running` by incrementing `attempt_count` from 0 to 1 and setting `started_at`. It does not mutate the session, renew leases, rotate tokens, execute activation actions, unlock dependent items, activate records, bind hardware, finalize deployment, or run rollback.
+
+Idempotent reuse returns `already_started` only for the same selected running item with attempt count 1, start evidence, matching ownership, active lease, and no completion, rollback, error, or second-running-item evidence. Function execution remains service-role only with a fixed search path and no anon or broad authenticated policies.
+
+## RC8 Slice 5C - Runtime Atomic Execution Item Start
+
+Setup completion now composes `DeploymentActivationExecutionItemStartService` with `SupabaseDeploymentActivationExecutionItemStartRepository` immediately after successful atomic execution-session start. The stage runs only when session start returns `started` or `already_started`; skipped, blocked, conflicted, not-found, or errored session-start evidence leaves item start as `not_attempted`.
+
+The ownership token handoff remains server-only and follows the claim-to-session-start pattern. The token is read from the in-process claim evidence for assessment and RPC compare-and-set, but action results, UI evidence, support mail, messages, and issues expose only token-safe claimant/session/item evidence.
+
+A successful fresh pass atomically marks exactly one deterministic execution item `running`, increments its attempt count to 1, and records the item `started_at`. Verify / Reuse with that same running item returns `already_started` without RPC mutation. This boundary does not execute activation actions, unlock dependencies, activate records, bind hardware, renew leases, rotate tokens, finalize deployment, run rollback, start workers, or change `DeploymentEngine.execute()`.

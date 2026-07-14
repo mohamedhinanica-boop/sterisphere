@@ -1126,3 +1126,47 @@ The runtime execution-control sequence is now:
 5. Future first-item execution start
 
 Step 4 runs only after a successful claim result (`claimed`, `already_owned`, or `reclaimed`). Claim `blocked`, `conflict`, `error`, or `not_attempted` leaves execution start as `not_attempted`. Start `started` means the session row is running; start `already_started` means the same owner/token running session was reused. Neither state starts the first execution item.
+
+## RC8 Slice 5A - Execution Item Start Assessment Sequence
+
+The documented execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Execution item-start assessment
+5. Future atomic execution item start
+6. Future activation action execution
+
+Slice 5A adds only the TypeScript assessment for step 4. It reads a future repository snapshot and returns `startable`, `already_started`, `blocked`, `conflict`, `not_found`, or `error` evidence. `startable` proposes the next deterministic ready item but performs no item mutation, attempt increment, activation, hardware binding, dependency unlock, deployment finalization, rollback, runtime registration, UI update, worker, queue, polling, streaming, or `DeploymentEngine.execute()` change.
+
+The boundary preserves the lifecycle separation: `claimed` means ownership, `running` means the execution session has started, and item start is a later item-level boundary. A single already-running item may be reported as `already_started` only when the same owner/token/lease session evidence is still valid and the item belongs to the same session.
+
+## RC8 Slice 5B - Atomic Execution Item Start Boundary Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Execution item-start assessment
+5. Atomic execution item start through `public.start_deployment_activation_execution_item`
+6. Future activation action execution
+
+Slice 5B adds the repository and SQL boundary for step 5 only. The atomic RPC may transition exactly one selected item from `ready` to `running`, increment its attempt count from 0 to 1, and set its start timestamp after locking the session and item and rechecking ownership, lease, item identity, item-integrity, duplicate, and dependency evidence.
+
+No runtime setup action is wired in this slice. The boundary does not activate any entity, bind hardware, unlock dependents, mark items succeeded or failed, complete the session, finalize deployment, renew leases, rotate tokens, heartbeat, rollback, add workers, add queues, poll, stream, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 5C - Runtime Atomic Execution Item Start Sequence
+
+Setup completion now extends the live execution-control sequence to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic execution item start
+5. Future activation action execution
+
+Step 4 runs only when step 3 returns `started` or `already_started`. It loads the item-start snapshot, assesses same-owner active-lease item-start safety, and calls `public.start_deployment_activation_execution_item` only for a `startable` item. `already_started` returns reuse evidence without a second RPC mutation.
+
+The setup response and Complete page show item-start evidence separately from session-start evidence. `started` means the first execution item is running under exclusive ownership; it does not mean the item action executed. No dependency progression, entity activation, binding write, rollback, finalization, background worker, polling, streaming, activation button, or `DeploymentEngine.execute()` change is introduced.

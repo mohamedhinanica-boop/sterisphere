@@ -1471,3 +1471,39 @@ Runtime deployment now appends the atomic session-start boundary after ownership
 The only new durable mutation is the existing Supabase start RPC updating `public.deployment_activation_execution_sessions.execution_status` to `running` and setting `started_at`. The runtime does not mutate `public.deployment_activation_execution_items`, increment attempts, set item timestamps, renew leases, rotate tokens, activate entities, bind hardware, finalize assignments, finalize deployment runs, or execute rollback.
 
 Start evidence is returned in `deploymentActivationExecutionStart` with start status, session id, execution key, plan key, claimant, started timestamp, lease expiration, start result, started/reused/conflict counts, blockers, warnings, issues, and zero downstream item/activation/binding counters. The ownership token is never serialized into setup action results, UI, support mail, issues, messages, or logs.
+
+## RC8 Slice 5A - Execution Item Start Foundation
+
+RC8 Slice 5A extends the planned execution-control chain with an assessment-only item-start boundary:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> execution_item_start_assessment -> future atomic item start -> future activation action execution`
+
+The TypeScript foundation defines token-safe command, snapshot, repository, service, result, issue, downstream-counter, and in-memory test repository contracts. The snapshot includes running session identity/ownership/lease/start evidence, a deterministic candidate item, and aggregate item-integrity counters for ready, pending, running, succeeded, failed, blocked, attempted, timestamped, rollback, error, duplicate, and dependency evidence.
+
+Item startability requires a same-owner, same-token, actively leased running session with started evidence and no terminal session timestamps. A candidate is startable only when exactly one item is ready, the candidate is that ready item, attempts and timestamps are absent, item identities are unique, dependency arrays are valid, and dependencies are empty for the first item or satisfied by prior succeeded plan-item keys for future progression. A single already-running item returns `already_started` evidence without proposing a second item.
+
+This slice creates no SQL, migration, Supabase repository, runtime wiring, setup UI, support mail changes, session updates, item updates, attempt increments, activation writes, hardware bindings, dependency progression writes, deployment finalization, rollback execution, workers, queues, polling, streaming, activation buttons, or `DeploymentEngine.execute()` changes.
+
+## RC8 Slice 5B - Atomic Execution Item Start Repository and SQL
+
+RC8 Slice 5B adds the first durable item-level execution mutation boundary after a running execution session:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> execution_item_start_assessment -> atomic_execution_item_start -> future activation action execution`
+
+`SupabaseDeploymentActivationExecutionItemStartRepository` implements the Slice 5A read-only snapshot contract and exposes one explicit RPC method for `public.start_deployment_activation_execution_item`. Snapshot loading reads the matching execution session and all items in deterministic sequence order, maps candidate item evidence, derives aggregate counts, and derives succeeded dependency keys for future dependency progression checks.
+
+The SQL function updates only `public.deployment_activation_execution_items` for the selected item: `execution_status = running`, `attempt_count = attempt_count + 1`, and `started_at = p_proposed_started_at`. It performs compare-and-set checks for session identity, owner, ownership token, lease expiration, item identity, expected sequence/action/entity, expected attempt count, item set integrity, duplicate identities, dependency JSON shape, and deterministic first-ready item selection. It starts no activation action, changes no session row, unlocks no dependent item, and writes no operational entity state.
+
+The checked-in preflight script verifies the table/column surface, exact RPC signature, fixed search path, execute privileges, absence of anon/authenticated policies, qualified nested item queries, duplicate item identities, lifecycle counts, malformed dependency JSON, orphan items, and unsafe running/attempt/timestamp/error/rollback evidence. Live application remains manual and is not performed by this code slice.
+
+## RC8 Slice 5C - Runtime Atomic Execution Item Start Wiring
+
+The runtime deployment chain now appends the item-start boundary after atomic execution-session start:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> atomic execution item start -> future activation action execution`
+
+`deploymentActivationExecutionItemStart` evidence includes status, claimant, session and execution keys, item identity, plan item key, sequence, entity/action identity, item execution status, attempt count, item started timestamp, lease expiration, dependency count, reversibility, started/reused/conflict counts, blockers, warnings, issues, and downstream zero counters.
+
+The stage uses one server timestamp for assessment and the proposed item `started_at`. It starts only the selected item through the atomic RPC, never through direct update/upsert fallback. `already_started` is idempotent reuse evidence and does not issue a second RPC mutation, rotate ownership, renew lease, change the item timestamp, or start another item.
+
+The boundary remains item-start only. It does not execute the activation action, mark items succeeded or failed, unlock dependent items, mutate clinic/provider/sterilizer/workstation/hardware rows, write bindings, register agents, finalize deployment runs, rollback, add workers/queues/polling/streaming, or modify `DeploymentEngine.execute()`.
