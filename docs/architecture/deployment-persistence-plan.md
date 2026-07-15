@@ -1587,3 +1587,15 @@ The planned execution-control chain now adds an atomic persistence boundary afte
 The RPC is a compare-and-set pending-to-ready boundary. It may mutate only `public.deployment_activation_execution_items.execution_status` for the selected deterministic next item, changing `pending` to `ready`. It preserves ownership evidence, lease evidence, dependency arrays, attempts, started/completed/rollback/error evidence, session rows, and all other execution items. `already_progressed` is idempotent reuse when the selected next item is already ready and otherwise untouched.
 
 The checked-in SQL revokes execute from `public`, `anon`, and `authenticated`, then grants execute only to `service_role`. The preflight verifies required columns, exact function signature, execute privileges, duplicate item identities, malformed dependency evidence, ready/running ambiguity, pending-item mutation evidence, and succeeded-item completion evidence. Live application remains manual and this slice does not wire setup runtime, UI, support mail, next-item start, provider activation, shell activation, hardware binding, session completion, rollback, workers, polling, streaming, or `DeploymentEngine.execute()`.
+
+## RC8 Slice 8C - Runtime Atomic Dependency Progression Wiring
+
+The runtime deployment chain now appends atomic dependency progression after item completion:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> atomic execution item start -> atomic clinic activation -> atomic execution item completion -> atomic dependency progression -> future next-item start`
+
+`deploymentActivationExecutionDependencyProgression` evidence includes status, claimant, clinic/run/session/execution identity, completed predecessor item identity, deterministic next item identity, before/after next-item status, progressed/reused/conflict counts, blockers, warnings, issues, message, and downstream zero counters. Setup Complete and support mail report this evidence without ownership tokens.
+
+The stage uses the existing same-owner claim token handoff and the item-completion timestamp as the proposed progression time. It calls `public.progress_deployment_activation_execution_dependency` only after successful item completion and a fresh `progressable` assessment. `already_progressed` is idempotent reuse evidence and does not rewrite item status, renew ownership, rotate tokens, start the next item, write attempts or timestamps, or activate any entity.
+
+The boundary remains pending-to-ready only. It does not unlock or start provider activation beyond marking the deterministic next item ready, mutate provider/sterilizer/workstation/hardware rows, write hardware bindings, complete the execution session, finalize deployment runs, rollback, add workers/queues/polling/streaming/buttons, or modify `DeploymentEngine.execute()`.

@@ -67,6 +67,9 @@ import {
 import {
   completeActivationExecutionItemForServerDeployment,
 } from "@/lib/modules/deployment/deployment-activation-execution-item-completion-server";
+import {
+  progressActivationExecutionDependencyForServerDeployment,
+} from "@/lib/modules/deployment/deployment-activation-execution-dependency-progression-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
@@ -100,6 +103,9 @@ import type {
 import type {
   DeploymentActivationExecutionItemCompletionIssue,
 } from "@/lib/modules/deployment/deployment-activation-execution-item-completion-types";
+import type {
+  DeploymentActivationExecutionDependencyProgressionIssue,
+} from "@/lib/modules/deployment/deployment-activation-execution-dependency-progression-types";
 import type {
   DeploymentPlannedAssignmentResolutionIssue,
   DeploymentPlannedAssignmentResolvedRecord,
@@ -663,6 +669,68 @@ export interface DeploymentActivationExecutionItemCompletionActionResult {
   message: string;
 }
 
+
+export type DeploymentActivationExecutionDependencyProgressionActionStatus =
+  | "progressed"
+  | "already_progressed"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error"
+  | "not_attempted";
+
+export interface DeploymentActivationExecutionDependencyProgressionActionResult {
+  ok: boolean;
+  status: DeploymentActivationExecutionDependencyProgressionActionStatus;
+  claimantId: string | null;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  completedItemId: string | null;
+  completedExecutionItemKey: string | null;
+  completedPlanItemKey: string | null;
+  completedSequence: number | null;
+  completedStartedAt: string | null;
+  completedCompletedAt: string | null;
+  completedAttemptCount: number;
+  nextItemId: string | null;
+  nextExecutionItemKey: string | null;
+  nextPlanItemKey: string | null;
+  nextSequence: number | null;
+  nextEntityType: string | null;
+  nextEntityId: string | null;
+  nextAction: string | null;
+  nextAttemptCount: number;
+  statusBefore: string | null;
+  statusAfter: string | null;
+  progressionResult:
+    | "progressed"
+    | "already_progressed"
+    | "blocked"
+    | "conflict"
+    | "not_found"
+    | "error"
+    | null;
+  issueCode: string | null;
+  progressedCount: 0 | 1;
+  reusedCount: 0 | 1;
+  conflicts: number;
+  blockers: number;
+  warnings: number;
+  issues: readonly DeploymentActivationExecutionDependencyProgressionIssue[];
+  downstream: {
+    itemsReadied: 0;
+    itemsStarted: 0;
+    itemsSucceeded: 0;
+    entitiesActivated: 0;
+    bindingsWritten: 0;
+    sessionsCompleted: 0;
+    deploymentsFinalized: 0;
+    rollbacksExecuted: 0;
+  };
+  message: string;
+}
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -688,6 +756,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentActivationExecutionItemStart: DeploymentActivationExecutionItemStartActionResult;
   deploymentClinicActivation: DeploymentClinicActivationActionResult;
   deploymentActivationExecutionItemCompletion?: DeploymentActivationExecutionItemCompletionActionResult;
+  deploymentActivationExecutionDependencyProgression?: DeploymentActivationExecutionDependencyProgressionActionResult;
   message: string;
 }
 
@@ -1022,6 +1091,52 @@ const DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED: DeploymentA
   message: "Activation execution item completion was not attempted.",
 };
 
+
+const DEPLOYMENT_ACTIVATION_EXECUTION_DEPENDENCY_PROGRESSION_NOT_ATTEMPTED: DeploymentActivationExecutionDependencyProgressionActionResult = {
+  ok: false,
+  status: "not_attempted",
+  claimantId: null,
+  clinicId: null,
+  deploymentRunId: null,
+  sessionId: null,
+  executionKey: null,
+  completedItemId: null,
+  completedExecutionItemKey: null,
+  completedPlanItemKey: null,
+  completedSequence: null,
+  completedStartedAt: null,
+  completedCompletedAt: null,
+  completedAttemptCount: 0,
+  nextItemId: null,
+  nextExecutionItemKey: null,
+  nextPlanItemKey: null,
+  nextSequence: null,
+  nextEntityType: null,
+  nextEntityId: null,
+  nextAction: null,
+  nextAttemptCount: 0,
+  statusBefore: null,
+  statusAfter: null,
+  progressionResult: null,
+  issueCode: null,
+  progressedCount: 0,
+  reusedCount: 0,
+  conflicts: 0,
+  blockers: 0,
+  warnings: 0,
+  issues: [],
+  downstream: {
+    itemsReadied: 0,
+    itemsStarted: 0,
+    itemsSucceeded: 0,
+    entitiesActivated: 0,
+    bindingsWritten: 0,
+    sessionsCompleted: 0,
+    deploymentsFinalized: 0,
+    rollbacksExecuted: 0,
+  },
+  message: "Activation execution dependency progression was not attempted.",
+};
 const DEPLOYMENT_ACTIVATION_EXECUTION_CLAIM_NOT_ATTEMPTED: DeploymentActivationExecutionClaimActionResult = {
   ok: false,
   status: "not_attempted",
@@ -2106,6 +2221,15 @@ export async function persistDeploymentRunAction(
           itemCompletionRequestedAt: persistedAt,
         })
       : null;
+    const deploymentActivationExecutionDependencyProgression = deploymentActivationExecutionItemCompletion?.ok
+      ? await progressActivationExecutionDependencyForServerDeployment(client, {
+          clinicId,
+          deploymentRunId: result.deploymentRun.deploymentRunId,
+          deploymentActivationExecutionClaim,
+          deploymentActivationExecutionItemCompletion,
+          dependencyProgressionRequestedAt: persistedAt,
+        })
+      : null;
 
     return {
       ok:
@@ -2117,7 +2241,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionStart?.ok) &&
         Boolean(deploymentActivationExecutionItemStart?.ok) &&
         Boolean(deploymentClinicActivation?.ok) &&
-        Boolean(deploymentActivationExecutionItemCompletion?.ok),
+        Boolean(deploymentActivationExecutionItemCompletion?.ok) &&
+        Boolean(deploymentActivationExecutionDependencyProgression?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2331,7 +2456,27 @@ export async function persistDeploymentRunAction(
             message:
               "Activation execution item completion was skipped because clinic activation did not complete successfully.",
           },
-      message: deploymentActivationExecutionItemCompletion?.ok
+      deploymentActivationExecutionDependencyProgression: deploymentActivationExecutionDependencyProgression
+        ? mapDeploymentActivationExecutionDependencyProgressionActionResult(
+            deploymentActivationExecutionDependencyProgression,
+          )
+        : {
+            ...DEPLOYMENT_ACTIVATION_EXECUTION_DEPENDENCY_PROGRESSION_NOT_ATTEMPTED,
+            clinicId,
+            deploymentRunId: result.deploymentRun.deploymentRunId,
+            sessionId: deploymentActivationExecutionItemCompletion?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? null,
+            executionKey: deploymentActivationExecutionItemCompletion?.executionKey ?? deploymentClinicActivation?.executionKey ?? deploymentActivationExecutionClaim?.executionKey ?? null,
+            claimantId: deploymentActivationExecutionItemCompletion?.claimantId ?? deploymentClinicActivation?.claimantId ?? deploymentActivationExecutionClaim?.claimantId ?? null,
+            completedItemId: deploymentActivationExecutionItemCompletion?.itemId ?? null,
+            completedExecutionItemKey: deploymentActivationExecutionItemCompletion?.executionItemKey ?? null,
+            completedPlanItemKey: deploymentActivationExecutionItemCompletion?.planItemKey ?? null,
+            completedSequence: deploymentActivationExecutionItemCompletion?.sequence ?? null,
+            completedStartedAt: deploymentActivationExecutionItemCompletion?.startedAt ?? null,
+            completedCompletedAt: deploymentActivationExecutionItemCompletion?.completedAt ?? null,
+            completedAttemptCount: deploymentActivationExecutionItemCompletion?.attemptCount ?? 0,
+            message:
+              "Activation execution dependency progression was skipped because item completion did not complete successfully.",
+          },      message: deploymentActivationExecutionItemCompletion?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, execution item start, clinic activation, and item completion are complete. Dependent unlock, binding, rollback, and finalization remain unavailable."
         : deploymentClinicActivation?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, execution item start, and clinic activation are complete, but item completion is blocked. No dependent unlock, binding, rollback, or finalization occurred."
@@ -2660,6 +2805,55 @@ function mapDeploymentActivationExecutionItemStartActionResult(
     warnings: result.warnings,
     issues: result.issues,
     downstream: result.downstream,
+    message: result.message,
+  };
+}
+function mapDeploymentActivationExecutionDependencyProgressionActionResult(
+  result: Awaited<ReturnType<typeof progressActivationExecutionDependencyForServerDeployment>>,
+): DeploymentActivationExecutionDependencyProgressionActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    claimantId: result.claimantId,
+    clinicId: result.clinicId,
+    deploymentRunId: result.deploymentRunId,
+    sessionId: result.sessionId,
+    executionKey: result.executionKey,
+    completedItemId: result.completedItemId,
+    completedExecutionItemKey: result.completedExecutionItemKey,
+    completedPlanItemKey: result.completedPlanItemKey,
+    completedSequence: result.completedSequence,
+    completedStartedAt: result.completedStartedAt,
+    completedCompletedAt: result.completedCompletedAt,
+    completedAttemptCount: result.completedAttemptCount,
+    nextItemId: result.nextItemId,
+    nextExecutionItemKey: result.nextExecutionItemKey,
+    nextPlanItemKey: result.nextPlanItemKey,
+    nextSequence: result.nextSequence,
+    nextEntityType: result.nextEntityType,
+    nextEntityId: result.nextEntityId,
+    nextAction: result.nextAction,
+    nextAttemptCount: result.nextAttemptCount,
+    statusBefore: result.statusBefore,
+    statusAfter: result.statusAfter,
+    progressionResult: result.progressionResult,
+    issueCode: result.issueCode,
+    progressedCount: result.progressedCount,
+    reusedCount: result.reusedCount,
+    conflicts: result.conflicts,
+    blockers: result.blockers,
+    warnings: result.warnings,
+    issues: result.issues,
+    downstream: {
+      itemsReadied: result.downstream.itemsReadied,
+      itemsStarted: result.downstream.itemsStarted,
+      itemsSucceeded: result.downstream.itemsSucceeded,
+      entitiesActivated: result.downstream.entitiesActivated,
+      bindingsWritten: result.downstream.bindingsWritten,
+      sessionsCompleted: result.downstream.sessionsCompleted,
+      deploymentsFinalized: result.downstream.deploymentsFinalized,
+      rollbacksExecuted: result.downstream.rollbacksExecuted,
+    },
     message: result.message,
   };
 }

@@ -173,6 +173,9 @@ export interface DeploymentActivationExecutionDependencyProgressionResult {
   completedExecutionItemKey: string | null;
   completedPlanItemKey: string | null;
   completedSequence: number | null;
+  completedStartedAt: string | null;
+  completedCompletedAt: string | null;
+  completedAttemptCount: number;
   nextItemId: string | null;
   nextExecutionItemKey: string | null;
   nextPlanItemKey: string | null;
@@ -180,6 +183,7 @@ export interface DeploymentActivationExecutionDependencyProgressionResult {
   nextEntityType: string | null;
   nextEntityId: string | null;
   nextAction: string | null;
+  nextAttemptCount: number;
   currentNextItemStatus: string | null;
   proposedNextItemStatus: "ready" | null;
   dependencyKeys: readonly string[];
@@ -281,6 +285,9 @@ export interface DeploymentActivationExecutionAtomicDependencyProgressionResult 
   completedExecutionItemKey: string | null;
   completedPlanItemKey: string | null;
   completedSequence: number | null;
+  completedStartedAt: string | null;
+  completedCompletedAt: string | null;
+  completedAttemptCount: number;
   nextItemId: string | null;
   nextExecutionItemKey: string | null;
   nextPlanItemKey: string | null;

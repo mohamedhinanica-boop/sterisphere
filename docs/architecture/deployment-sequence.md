@@ -1283,3 +1283,20 @@ The planned execution-control sequence now extends to:
 Slice 8B adds the repository and SQL boundary for step 8 only. The future runtime will call it only after a successful dependency progression assessment. A fresh progression can mark exactly one deterministic next item `ready`; `already_progressed` reports deterministic reuse when that item is already ready.
 
 No setup action is wired in this slice. It does not start the next item, activate providers or downstream entities, increment attempts, write item timestamps, mutate dependencies, complete sessions, finalize deployment, rollback, add workers, poll, stream, modify UI, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 8C - Runtime Atomic Dependency Progression Sequence
+
+Setup completion now extends the live execution-control sequence to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic execution item start
+5. Atomic clinic activation
+6. Atomic activation execution item completion
+7. Atomic dependency progression
+8. Future next-item start
+
+Step 7 runs only after item completion returns `completed` or `already_completed`. It loads the dependency-progression snapshot, reassesses same-owner active-lease dependency safety, and calls `public.progress_deployment_activation_execution_dependency` only for `progressable` evidence. `already_progressed` returns reuse evidence without a second RPC mutation.
+
+A successful fresh pass updates only the deterministic next execution item from `pending` to `ready`. It does not start that item, increment attempts, write item execution timestamps, activate providers or downstream entities, bind hardware, complete the execution session, renew leases, rotate tokens, finalize deployment, rollback, add workers, poll, stream, or change `DeploymentEngine.execute()`.

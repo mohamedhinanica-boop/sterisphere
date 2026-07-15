@@ -525,6 +525,9 @@ function buildResult(input: {
     completedExecutionItemKey: completedItem?.executionItemKey ?? null,
     completedPlanItemKey: completedItem?.planItemKey ?? null,
     completedSequence: completedItem?.sequence ?? null,
+    completedStartedAt: completedItem?.startedAt ?? null,
+    completedCompletedAt: completedItem?.completedAt ?? null,
+    completedAttemptCount: completedItem?.attemptCount ?? 0,
     nextItemId: nextItem?.itemId ?? null,
     nextExecutionItemKey: nextItem?.executionItemKey ?? null,
     nextPlanItemKey: nextItem?.planItemKey ?? null,
@@ -532,6 +535,7 @@ function buildResult(input: {
     nextEntityType: nextItem?.entityType ?? null,
     nextEntityId: nextItem?.entityId ?? null,
     nextAction: nextItem?.action ?? null,
+    nextAttemptCount: nextItem?.attemptCount ?? 0,
     currentNextItemStatus: nextItem?.executionStatus ?? null,
     proposedNextItemStatus:
       input.status === "progressable" || input.status === "already_progressed"

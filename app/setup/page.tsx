@@ -1701,6 +1701,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationExecutionItemStart ?? null;
   const deploymentClinicActivation =
     deploymentRunResult?.deploymentClinicActivation ?? null;
+  const deploymentActivationExecutionDependencyProgression =
+    deploymentRunResult?.deploymentActivationExecutionDependencyProgression ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -3183,10 +3185,91 @@ function CompleteStep({
                   ) : null}
                 </div>
               ) : null}
-            </div>          </div>
+            </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Activation Execution Dependency Progression: {deploymentActivationExecutionDependencyProgression?.status ?? "not_attempted"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationExecutionDependencyProgression?.message ??
+                  "Dependency progression runs only after the clinic activation item is completed."}
+              </p>
+              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
+                <p>Claimant: {deploymentActivationExecutionDependencyProgression?.claimantId ?? "not assigned"}</p>
+                <p>Session ID: {deploymentActivationExecutionDependencyProgression?.sessionId ?? "not running"}</p>
+                <p>Execution key: {deploymentActivationExecutionDependencyProgression?.executionKey ?? "not prepared"}</p>
+                <p>Completed item: {deploymentActivationExecutionDependencyProgression?.completedExecutionItemKey ?? "none"}</p>
+                <p>Completed sequence: {deploymentActivationExecutionDependencyProgression?.completedSequence ?? "none"}</p>
+                <p>Next item: {deploymentActivationExecutionDependencyProgression?.nextExecutionItemKey ?? "none"}</p>
+                <p>Next sequence: {deploymentActivationExecutionDependencyProgression?.nextSequence ?? "none"}</p>
+                <p>Next entity: {deploymentActivationExecutionDependencyProgression?.nextEntityType ?? "none"} / {deploymentActivationExecutionDependencyProgression?.nextEntityId ?? "none"}</p>
+                <p>Next action: {deploymentActivationExecutionDependencyProgression?.nextAction ?? "none"}</p>
+              </div>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Before</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.statusBefore ?? "none"}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">After</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.statusAfter ?? "none"}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Progressed</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.progressedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.reusedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.conflicts ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.blockers ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.warnings ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Next Attempts</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.nextAttemptCount ?? 0}</dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">Ready Only</p>
+                <p className="mt-2">
+                  One deterministic next item may now be ready. The next item has not started, no provider or other entity has been activated by this stage, no attempt count or execution timestamp was written, and the execution session remains running.
+                </p>
+                <p className="mt-1">
+                  Downstream counters: items started {deploymentActivationExecutionDependencyProgression?.downstream.itemsStarted ?? 0}, items succeeded {deploymentActivationExecutionDependencyProgression?.downstream.itemsSucceeded ?? 0}, activated entities {deploymentActivationExecutionDependencyProgression?.downstream.entitiesActivated ?? 0}, bindings written {deploymentActivationExecutionDependencyProgression?.downstream.bindingsWritten ?? 0}, finalized {deploymentActivationExecutionDependencyProgression?.downstream.deploymentsFinalized ?? 0}.
+                </p>
+              </div>
+              {deploymentActivationExecutionDependencyProgression?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Dependency Progression Issues</p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationExecutionDependencyProgression.issues.slice(0, 5).map((issue) => (
+                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
+                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
+                        {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationExecutionDependencyProgression.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationExecutionDependencyProgression.issues.length - 5} more dependency-progression issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
           <p className="mt-4 font-semibold">
-            Clinic deployment status may now be deployed, but the execution item is still running and no dependent item has been unlocked.
+            Clinic deployment status may now be deployed, the clinic execution item may be completed, and one deterministic dependent item may be ready, but no dependent item has started or activated an entity.
           </p>
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
@@ -3204,7 +3287,7 @@ function CompleteStep({
             execution preparation produces pre-execution evidence, and
             public.deployment_activation_execution_sessions plus
             public.deployment_activation_execution_items may persist that prepared
-            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row does not unlock dependent work; no hardware
+            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row alone does not unlock dependent work; after item completion, dependency progression may mark one deterministic next item ready, but no next item is started and no hardware
             bindings are written, no devices activate, and no users, packs,
             cycles, traces, audit logs, rollback work, or deployment finalization
             occurs.
@@ -3236,6 +3319,7 @@ function CompleteStep({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -3409,6 +3493,21 @@ function buildDeploymentSupportHref(
       `Clinic activation diagnostics: ${result?.deploymentClinicActivation.issues.map((issue) => `${issue.code}: ${formatClinicActivationDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
       `Clinic activation message: ${result?.deploymentClinicActivation.message ?? "No clinic-activation response yet."}`,
       "Clinic activation note: the clinic row may now be active, but the execution item has not completed and no downstream activation, binding, dependency unlock, rollback, or finalization occurred.",
+      `Dependency progression status: ${result?.deploymentActivationExecutionDependencyProgression?.status ?? "not attempted"}`,
+      `Dependency progression claimant: ${result?.deploymentActivationExecutionDependencyProgression?.claimantId ?? "not assigned"}`,
+      `Dependency progression session ID: ${result?.deploymentActivationExecutionDependencyProgression?.sessionId ?? "not running"}`,
+      `Dependency progression execution key: ${result?.deploymentActivationExecutionDependencyProgression?.executionKey ?? "not prepared"}`,
+      `Dependency progression completed item: ${result?.deploymentActivationExecutionDependencyProgression?.completedSequence ?? "none"}:${result?.deploymentActivationExecutionDependencyProgression?.completedExecutionItemKey ?? "none"}:${result?.deploymentActivationExecutionDependencyProgression?.completedPlanItemKey ?? "none"}`,
+      `Dependency progression next item: ${result?.deploymentActivationExecutionDependencyProgression?.nextSequence ?? "none"}:${result?.deploymentActivationExecutionDependencyProgression?.nextExecutionItemKey ?? "none"}:${result?.deploymentActivationExecutionDependencyProgression?.nextPlanItemKey ?? "none"}`,
+      `Dependency progression next entity: ${result?.deploymentActivationExecutionDependencyProgression?.nextEntityType ?? "none"}:${result?.deploymentActivationExecutionDependencyProgression?.nextEntityId ?? "none"}`,
+      `Dependency progression next action: ${result?.deploymentActivationExecutionDependencyProgression?.nextAction ?? "none"}`,
+      `Dependency progression before/after: ${result?.deploymentActivationExecutionDependencyProgression?.statusBefore ?? "none"} -> ${result?.deploymentActivationExecutionDependencyProgression?.statusAfter ?? "none"}`,
+      `Dependency progression counts: progressed ${result?.deploymentActivationExecutionDependencyProgression?.progressedCount ?? 0}, reused ${result?.deploymentActivationExecutionDependencyProgression?.reusedCount ?? 0}, conflicts ${result?.deploymentActivationExecutionDependencyProgression?.conflicts ?? 0}`,
+      `Dependency progression blockers: ${result?.deploymentActivationExecutionDependencyProgression?.blockers ?? 0}`,
+      `Dependency progression warnings: ${result?.deploymentActivationExecutionDependencyProgression?.warnings ?? 0}`,
+      `Dependency progression issues: ${result?.deploymentActivationExecutionDependencyProgression?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Dependency progression message: ${result?.deploymentActivationExecutionDependencyProgression?.message ?? "No dependency-progression response yet."}`,
+      "Dependency progression note: the next item was not started, no attempt count or execution timestamp was written, and no entity was activated.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
@@ -4233,7 +4332,7 @@ function PoliciesStep({
                   {policies.packExpiration === "clinic-defined" && (
                     <p className="mt-2 text-xs leading-5 text-slate-600">
                       Custom expiration rules are configured after deployment
-                      in Settings → Sterilization Policies.
+                      in Settings â†’ Sterilization Policies.
                     </p>
                   )}
                 </div>
@@ -4260,7 +4359,7 @@ function PoliciesStep({
               <p className="font-bold">Deployment note</p>
               <p className="mt-1">
                 Advanced policy settings are managed after deployment in{" "}
-                <strong>Settings → Sterilization Policies</strong>.
+                <strong>Settings â†’ Sterilization Policies</strong>.
               </p>
             </div>
             <p className="mt-4 text-xs leading-5 text-blue-700">
@@ -4656,7 +4755,7 @@ function SterilizerPreviewCard({
               <option key={workstation.id} value={workstation.id}>
                 {workstation.name}
                 {workstation.type === "Sterilization"
-                  ? " — Sterilization"
+                  ? " â€” Sterilization"
                   : ""}
               </option>
             ))}
@@ -4895,7 +4994,7 @@ function ProvidersStep({
             <p className="mt-2 text-sm leading-6 text-blue-900">
               Provider profiles are intentionally kept simple during
               deployment. After deployment, complete provider information from
-              <strong> Settings → Providers</strong>.
+              <strong> Settings â†’ Providers</strong>.
             </p>
             <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">
               Provider Settings stores
@@ -5048,9 +5147,9 @@ function WorkstationsStep({
                   Based on your clinic profile, SteriSphere recommends:
                 </p>
                 <ul className="mt-2 space-y-1 text-sm text-blue-950">
-                  <li>• 1 Reception Desk</li>
-                  <li>• 1 Sterilization Room</li>
-                  <li>• 6 Treatment Rooms</li>
+                  <li>â€¢ 1 Reception Desk</li>
+                  <li>â€¢ 1 Sterilization Room</li>
+                  <li>â€¢ 6 Treatment Rooms</li>
                 </ul>
                 <p className="mt-3 text-xs text-blue-700">
                   Placeholder guidance for deployment planning.
@@ -5601,7 +5700,7 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
         </p>
         <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-slate-100">
           <Clock3 className="h-4 w-4" />
-          Estimated setup time: 10–15 minutes
+          Estimated setup time: 10â€“15 minutes
         </div>
       </div>
 
