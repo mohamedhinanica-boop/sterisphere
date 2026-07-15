@@ -1,4 +1,6 @@
 import type {
+  DeploymentActivationExecutionAtomicNextItemStartCommand,
+  DeploymentActivationExecutionAtomicNextItemStartResult,
   DeploymentActivationExecutionNextItemStartSnapshot,
 } from "./deployment-activation-execution-next-item-start-types";
 
@@ -13,4 +15,8 @@ export interface DeploymentActivationExecutionNextItemStartRepository {
   loadNextItemStartSnapshot(
     query: DeploymentActivationExecutionNextItemStartSnapshotQuery,
   ): Promise<DeploymentActivationExecutionNextItemStartSnapshot>;
+
+  startNextItemAtomically(
+    command: DeploymentActivationExecutionAtomicNextItemStartCommand,
+  ): Promise<DeploymentActivationExecutionAtomicNextItemStartResult>;
 }

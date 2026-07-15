@@ -1611,3 +1611,15 @@ The new TypeScript boundary defines next-item start command, snapshot, repositor
 The assessment requires a running ready-prepared execution session with same-owner, same-token, active-lease evidence. It verifies that sequence 1 and any lower prefix items are succeeded, exactly one deterministic next item is ready, all dependencies resolve by `planItemKey` to unique prior succeeded items, all later items remain pending and untouched, and no duplicate item identities exist. `already_started` is reuse evidence only for a compatible single running candidate; ownership tokens are input-only and never returned in result evidence, messages, issues, or tests.
 
 No SQL, migration, Supabase repository, runtime wiring, setup UI, support mail, ready-to-running mutation, attempt increment, `started_at` write, provider activation, dependency progression, lease renewal, token rotation, rollback, worker, queue, polling, streaming, or `DeploymentEngine.execute()` change is introduced in this slice.
+
+## RC8 Slice 9B - Atomic Next Execution Item Start Repository and SQL
+
+The planned execution-control chain now adds an atomic persistence boundary after next-item start assessment:
+
+`atomic dependency progression -> next_item_start_assessment -> atomic next-item start -> future entity activation`
+
+`SupabaseDeploymentActivationExecutionNextItemStartRepository` implements deterministic snapshot loading and one explicit RPC method for `public.start_deployment_activation_execution_next_item`. Snapshot loading reads only execution sessions and execution items, orders items by `sequence ASC, execution_item_key ASC`, maps dependency keys without token exposure, and reports aggregate counts for ready/running/pending/succeeded status, duplicates, attempts, timestamps, rollback, errors, succeeded prefix, and later-item drift.
+
+The RPC is a compare-and-set ready-to-running boundary. It may mutate only the selected deterministic `public.deployment_activation_execution_items` row by changing `execution_status` to `running`, incrementing `attempt_count` from 0 to 1, and setting `started_at` to the proposed start timestamp. It preserves session ownership, lease evidence, dependency arrays, expected/target state, entity rows, provider rows, all other execution items, and deployment-run evidence. `already_started` is idempotent reuse when the same selected item is already running with compatible immutable evidence.
+
+The checked-in SQL revokes execute from `public`, `anon`, and `authenticated`, then grants execute only to `service_role`. The preflight verifies required columns, exact function signature, fixed search path, execute privileges, absence of client policies, dependency JSON shape, duplicate item identities, item-count mismatches, ready/running ambiguity, lifecycle drift, completion evidence, and source assertions that only the selected execution item is updated. Live application remains manual and this slice does not wire setup runtime, UI, support mail, provider activation, shell activation, hardware binding, session completion, rollback, workers, polling, streaming, or `DeploymentEngine.execute()`.

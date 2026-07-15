@@ -1318,3 +1318,22 @@ The planned execution-control sequence now extends to:
 Slice 9A implements step 8 as read-only TypeScript. It assesses whether the single deterministic ready item, currently expected to be sequence 2 provider shell activation after sequence 1 succeeds, can safely be proposed for a future ready-to-running transition. It also returns `already_started` evidence when the same deterministic item is already running with compatible ownership, lease, attempt, timestamp, and downstream item integrity evidence.
 
 No runtime order changes are made in this slice. It does not update item status, increment attempts, write `started_at`, activate providers or other entities, progress dependencies, complete the execution session, create SQL, add a Supabase repository, wire setup actions, modify UI/support mail, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 9B - Atomic Next Execution Item Start Boundary Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic sequence-1 execution item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Next execution-item start assessment
+9. Atomic next execution-item start SQL boundary
+10. Future entity activation
+
+Slice 9B adds the repository and SQL boundary for step 9 only. The future runtime will call it only after a successful next-item start assessment. A fresh start can transition exactly one deterministic next item from `ready` to `running`, increment its attempt count once, and write its `started_at`. `already_started` reports deterministic reuse when that same item is already running with compatible ownership, lease, attempt, timestamp, dependency, and item-integrity evidence.
+
+No setup action is wired in this slice. It does not activate providers or downstream entities, complete the item, progress another dependency, mutate sessions, renew leases, rotate tokens, finalize deployment, rollback, add workers, poll, stream, modify UI/support mail, or change `DeploymentEngine.execute()`.

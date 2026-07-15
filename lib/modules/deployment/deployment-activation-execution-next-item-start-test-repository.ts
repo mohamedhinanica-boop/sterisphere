@@ -3,6 +3,8 @@ import type {
 } from "./deployment-activation-execution-next-item-start-repository";
 import {
   cloneNextItemStartSnapshot,
+  type DeploymentActivationExecutionAtomicNextItemStartCommand,
+  type DeploymentActivationExecutionAtomicNextItemStartResult,
   type DeploymentActivationExecutionNextItemStartAggregateSnapshot,
   type DeploymentActivationExecutionNextItemStartItemSnapshot,
   type DeploymentActivationExecutionNextItemStartSessionSnapshot,
@@ -68,6 +70,12 @@ export class InMemoryDeploymentActivationExecutionNextItemStartTestRepository
     return cloneNextItemStartSnapshot(this.snapshot);
   }
 
+
+  async startNextItemAtomically(
+    _command: DeploymentActivationExecutionAtomicNextItemStartCommand,
+  ): Promise<DeploymentActivationExecutionAtomicNextItemStartResult> {
+    throw new Error("Atomic next-item start is not implemented by the in-memory assessment repository.");
+  }
   get downstreamWriteCount(): number {
     return (
       this.calls.forbiddenInsertWrites +

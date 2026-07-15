@@ -239,3 +239,51 @@ export function cloneNextItemStartItem(
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
+export type DeploymentActivationExecutionAtomicNextItemStartStatus =
+  | "started"
+  | "already_started"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error";
+
+export interface DeploymentActivationExecutionAtomicNextItemStartCommand {
+  clinicId: string;
+  deploymentRunKey: string;
+  sessionId: string;
+  executionKey: string;
+  claimantId: string;
+  ownershipToken: string;
+  expectedLeaseExpiresAt: string;
+  itemId: string;
+  executionItemKey: string;
+  planItemKey: string;
+  expectedSequence: number;
+  expectedEntityType: string;
+  expectedEntityId: string | null;
+  expectedAction: string;
+  expectedAttemptCount: number;
+  expectedDependencyKeys: readonly string[];
+  proposedStartedAt: string;
+}
+
+export interface DeploymentActivationExecutionAtomicNextItemStartResult {
+  ok: boolean;
+  status: DeploymentActivationExecutionAtomicNextItemStartStatus;
+  clinicId: string | null;
+  deploymentRunKey: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  itemId: string | null;
+  executionItemKey: string | null;
+  planItemKey: string | null;
+  sequence: number | null;
+  entityType: string | null;
+  entityId: string | null;
+  action: string | null;
+  attemptCount: number;
+  startedAt: string | null;
+  leaseExpiresAt: string | null;
+  issueCode: string | null;
+  message: string;
+}
