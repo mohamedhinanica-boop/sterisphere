@@ -1633,3 +1633,13 @@ After dependency progression readies one deterministic item, runtime next-item s
 Provider shell activation persistence is intentionally narrower than provider shell provisioning. The planned activation RPC may update only the selected deployment-created provider shell in `public.providers` after same-owner active-lease execution evidence and running provider-shell item evidence have been rechecked atomically.
 
 The supported durable target is `{ deploymentProviderKey, provisioningSource: setup_draft, provisioningStatus: active, active: true }`. The existing provider schema already supports the `active` provisioning status, so no table or column migration is introduced by this slice. Execution sessions, execution items, clinics, dependency rows, ownership evidence, leases, and downstream bindings remain untouched.
+
+## RC8 Slice 10C - Runtime Provider Shell Activation Wiring
+
+The runtime deployment chain now appends provider shell activation after next-item start:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> atomic execution item start -> atomic clinic activation -> atomic execution item completion -> atomic dependency progression -> atomic next-item start -> atomic provider shell activation -> future provider item completion`
+
+`deploymentProviderShellActivation` evidence includes status, claimant, clinic/run/session/execution identity, selected provider item identity, provider id/key, before/after provisioning source/status and active flag, activated/reused/conflict counts, blockers, warnings, issues, message, and downstream zero counters. Setup Complete and support mail report this evidence without ownership tokens.
+
+The server composition uses the existing same-owner claim token handoff and the next-item start timestamp as the proposed provider activation time. It calls `public.activate_deployment_provider_shell` only after next-item start succeeds and a fresh provider-shell activation assessment returns `activatable`. `already_activated` is idempotent reuse evidence and does not rewrite provider state, renew ownership, rotate tokens, complete the item, progress another dependency, write hardware bindings, or finalize deployment.

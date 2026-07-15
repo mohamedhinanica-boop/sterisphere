@@ -347,6 +347,33 @@ function formatDependencyProgressionDiagnostics(
     `exception.message=${diagnostics.exceptionMessage ?? "none"}`,
   ].filter(Boolean).join("; ");
 }
+function formatProviderShellActivationDiagnostics(
+  diagnostics: {
+    layer?: string | null;
+    rpcAttempted?: boolean | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    errorDetails?: string | null;
+    errorHint?: string | null;
+    exceptionType?: string | null;
+    exceptionMessage?: string | null;
+  } | null | undefined,
+): string {
+  if (!diagnostics) {
+    return "none";
+  }
+
+  return [
+    `layer=${diagnostics.layer ?? "unknown"}`,
+    `rpcAttempted=${diagnostics.rpcAttempted === true ? "true" : "false"}`,
+    `error.code=${diagnostics.errorCode ?? "none"}`,
+    `error.message=${diagnostics.errorMessage ?? "none"}`,
+    `error.details=${diagnostics.errorDetails ?? "none"}`,
+    `error.hint=${diagnostics.errorHint ?? "none"}`,
+    `exception.type=${diagnostics.exceptionType ?? "none"}`,
+    `exception.message=${diagnostics.exceptionMessage ?? "none"}`,
+  ].filter(Boolean).join("; ");
+}
 function readDeploymentStatus(
   state: Record<string, unknown> | null | undefined,
 ): string {
@@ -1733,6 +1760,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationExecutionDependencyProgression ?? null;
   const deploymentActivationExecutionNextItemStart =
     deploymentRunResult?.deploymentActivationExecutionNextItemStart ?? null;
+  const deploymentProviderShellActivation =
+    deploymentRunResult?.deploymentProviderShellActivation ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -3378,9 +3407,89 @@ function CompleteStep({
                 </div>
               ) : null}
             </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Provider Shell Activation: {deploymentProviderShellActivation?.status ?? "not_attempted"}
+              </p>
+              <p className="mt-1">
+                {deploymentProviderShellActivation?.message ??
+                  "Provider shell activation runs only when the deterministic running item targets a provider shell activation."}
+              </p>
+              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
+                <p>Claimant: {deploymentProviderShellActivation?.claimantId ?? "not assigned"}</p>
+                <p>Session ID: {deploymentProviderShellActivation?.sessionId ?? "not running"}</p>
+                <p>Execution key: {deploymentProviderShellActivation?.executionKey ?? "not prepared"}</p>
+                <p>Plan key: {deploymentProviderShellActivation?.planKey ?? "not generated"}</p>
+                <p>Item ID: {deploymentProviderShellActivation?.itemId ?? "not started"}</p>
+                <p>Item key: {deploymentProviderShellActivation?.executionItemKey ?? "not started"}</p>
+                <p>Plan item key: {deploymentProviderShellActivation?.planItemKey ?? "not selected"}</p>
+                <p>Sequence: {deploymentProviderShellActivation?.sequence ?? "none"}</p>
+                <p>Provider ID: {deploymentProviderShellActivation?.providerId ?? "not activated"}</p>
+                <p>Provider key: {deploymentProviderShellActivation?.deploymentProviderKey ?? "none"}</p>
+                <p>Activated at: {deploymentProviderShellActivation?.activatedAt ?? "not activated"}</p>
+              </div>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Before</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.provisioningStatusBefore ?? "none"} / {String(deploymentProviderShellActivation?.activeBefore ?? "none")}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">After</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.provisioningStatusAfter ?? "none"} / {String(deploymentProviderShellActivation?.activeAfter ?? "none")}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Activated</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.activatedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.reusedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.conflicts ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.blockers ?? 0}</dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">Provider Shell Only</p>
+                <p className="mt-2">
+                  This stage may activate one planned provider shell for the currently running provider item. It does not complete the provider execution item, progress dependencies, bind hardware, activate other entities, roll back, or finalize deployment.
+                </p>
+                <p className="mt-1">
+                  Downstream counters: items completed {deploymentProviderShellActivation?.downstream.itemsCompleted ?? 0}, dependencies progressed {deploymentProviderShellActivation?.downstream.dependenciesProgressed ?? 0}, bindings written {deploymentProviderShellActivation?.downstream.bindingsWritten ?? 0}, sessions completed {deploymentProviderShellActivation?.downstream.sessionsCompleted ?? 0}, rollbacks {deploymentProviderShellActivation?.downstream.rollbacksExecuted ?? 0}, finalized {deploymentProviderShellActivation?.downstream.deploymentFinalized ?? 0}.
+                </p>
+              </div>
+              {deploymentProviderShellActivation?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Provider Shell Activation Issues</p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentProviderShellActivation.issues.slice(0, 5).map((issue) => (
+                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.deploymentProviderKey ?? "none"}-${issue.code}`} className="break-words">
+                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
+                        {issue.message}
+                        {issue.diagnostics ? (
+                          <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
+                            {formatProviderShellActivationDiagnostics(issue.diagnostics)}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentProviderShellActivation.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentProviderShellActivation.issues.length - 5} more provider-shell activation issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
           <p className="mt-4 font-semibold">
-            Clinic deployment status may now be deployed, the clinic execution item may be completed, and one deterministic dependent item may be running, but no dependent entity has been activated and no second item has completed.
+            Clinic deployment status may now be deployed, the clinic execution item may be completed, one deterministic dependent item may be running, and a provider shell may be active only when that running item targets provider activation. No provider execution item has completed and no later dependency has progressed.
           </p>
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
@@ -3398,7 +3507,7 @@ function CompleteStep({
             execution preparation produces pre-execution evidence, and
             public.deployment_activation_execution_sessions plus
             public.deployment_activation_execution_items may persist that prepared
-            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row alone does not unlock dependent work; after item completion, dependency progression may mark one deterministic next item ready, and next-item start may atomically mark that single item running only. No provider or other entity is activated, no second item is completed, no further dependency is progressed, and no hardware
+            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row alone does not unlock dependent work; after item completion, dependency progression may mark one deterministic next item ready, and next-item start may atomically mark that single item running only. Only the selected provider shell may be activated by the provider-shell activation stage; no provider execution item is completed, no other entity is activated, no further dependency is progressed, and no hardware
             bindings are written, no devices activate, and no users, packs,
             cycles, traces, audit logs, rollback work, or deployment finalization
             occurs.
@@ -3639,6 +3748,23 @@ function buildDeploymentSupportHref(
       `Next-item start issues: ${result?.deploymentActivationExecutionNextItemStart?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
       `Next-item start message: ${result?.deploymentActivationExecutionNextItemStart?.message ?? "No next-item-start response yet."}`,
       "Next-item start note: one deterministic item may be running, but no provider/entity activation, item completion, dependency progression, session lifecycle update, binding, rollback, or finalization occurred.",
+      `Provider shell activation status: ${result?.deploymentProviderShellActivation?.status ?? "not attempted"}`,
+      `Provider shell activation claimant: ${result?.deploymentProviderShellActivation?.claimantId ?? "not assigned"}`,
+      `Provider shell activation session ID: ${result?.deploymentProviderShellActivation?.sessionId ?? "not running"}`,
+      `Provider shell activation execution key: ${result?.deploymentProviderShellActivation?.executionKey ?? "not prepared"}`,
+      `Provider shell activation plan key: ${result?.deploymentProviderShellActivation?.planKey ?? "not generated"}`,
+      `Provider shell activation item: ${result?.deploymentProviderShellActivation?.sequence ?? "none"}:${result?.deploymentProviderShellActivation?.executionItemKey ?? "none"}:${result?.deploymentProviderShellActivation?.planItemKey ?? "none"}`,
+      `Provider shell activation provider: ${result?.deploymentProviderShellActivation?.providerId ?? "none"}:${result?.deploymentProviderShellActivation?.deploymentProviderKey ?? "none"}`,
+      `Provider shell activation state before/after: ${result?.deploymentProviderShellActivation?.provisioningStatusBefore ?? "none"}/${String(result?.deploymentProviderShellActivation?.activeBefore ?? "none")} -> ${result?.deploymentProviderShellActivation?.provisioningStatusAfter ?? "none"}/${String(result?.deploymentProviderShellActivation?.activeAfter ?? "none")}`,
+      `Provider shell activation activated at: ${result?.deploymentProviderShellActivation?.activatedAt ?? "not activated"}`,
+      `Provider shell activation result: ${result?.deploymentProviderShellActivation?.result ?? "none"}`,
+      `Provider shell activation counts: activated ${result?.deploymentProviderShellActivation?.activatedCount ?? 0}, reused ${result?.deploymentProviderShellActivation?.reusedCount ?? 0}, conflicts ${result?.deploymentProviderShellActivation?.conflicts ?? 0}`,
+      `Provider shell activation blockers: ${result?.deploymentProviderShellActivation?.blockers ?? 0}`,
+      `Provider shell activation warnings: ${result?.deploymentProviderShellActivation?.warnings ?? 0}`,
+      `Provider shell activation issues: ${result?.deploymentProviderShellActivation?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.deploymentProviderKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Provider shell activation diagnostics: ${result?.deploymentProviderShellActivation?.issues.map((issue) => `${issue.code}: ${formatProviderShellActivationDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
+      `Provider shell activation message: ${result?.deploymentProviderShellActivation?.message ?? "No provider-shell activation response yet."}`,
+      "Provider shell activation note: a selected provider shell may now be active, but no provider item completion, further dependency progression, hardware binding, rollback, or finalization occurred.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
@@ -4463,7 +4589,7 @@ function PoliciesStep({
                   {policies.packExpiration === "clinic-defined" && (
                     <p className="mt-2 text-xs leading-5 text-slate-600">
                       Custom expiration rules are configured after deployment
-                      in Settings â†’ Sterilization Policies.
+                      in Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Sterilization Policies.
                     </p>
                   )}
                 </div>
@@ -4490,7 +4616,7 @@ function PoliciesStep({
               <p className="font-bold">Deployment note</p>
               <p className="mt-1">
                 Advanced policy settings are managed after deployment in{" "}
-                <strong>Settings â†’ Sterilization Policies</strong>.
+                <strong>Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Sterilization Policies</strong>.
               </p>
             </div>
             <p className="mt-4 text-xs leading-5 text-blue-700">
@@ -4886,7 +5012,7 @@ function SterilizerPreviewCard({
               <option key={workstation.id} value={workstation.id}>
                 {workstation.name}
                 {workstation.type === "Sterilization"
-                  ? " â€” Sterilization"
+                  ? " ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Sterilization"
                   : ""}
               </option>
             ))}
@@ -5125,7 +5251,7 @@ function ProvidersStep({
             <p className="mt-2 text-sm leading-6 text-blue-900">
               Provider profiles are intentionally kept simple during
               deployment. After deployment, complete provider information from
-              <strong> Settings â†’ Providers</strong>.
+              <strong> Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Providers</strong>.
             </p>
             <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">
               Provider Settings stores
@@ -5278,9 +5404,9 @@ function WorkstationsStep({
                   Based on your clinic profile, SteriSphere recommends:
                 </p>
                 <ul className="mt-2 space-y-1 text-sm text-blue-950">
-                  <li>â€¢ 1 Reception Desk</li>
-                  <li>â€¢ 1 Sterilization Room</li>
-                  <li>â€¢ 6 Treatment Rooms</li>
+                  <li>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ 1 Reception Desk</li>
+                  <li>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ 1 Sterilization Room</li>
+                  <li>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ 6 Treatment Rooms</li>
                 </ul>
                 <p className="mt-3 text-xs text-blue-700">
                   Placeholder guidance for deployment planning.
@@ -5831,7 +5957,7 @@ function WelcomeCard({ onStart }: { onStart: () => void }) {
         </p>
         <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-slate-100">
           <Clock3 className="h-4 w-4" />
-          Estimated setup time: 10â€“15 minutes
+          Estimated setup time: 10ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ15 minutes
         </div>
       </div>
 

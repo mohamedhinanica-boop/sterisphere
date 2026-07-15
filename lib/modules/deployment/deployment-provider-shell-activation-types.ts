@@ -160,6 +160,18 @@ export interface DeploymentProviderShellActivationIssue {
   providerId: string | null;
   deploymentProviderKey: string | null;
   sequence: number | null;
+  diagnostics?: DeploymentProviderShellActivationIssueDiagnostics | null;
+}
+
+export interface DeploymentProviderShellActivationIssueDiagnostics {
+  layer?: string | null;
+  rpcAttempted?: boolean | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  errorDetails?: string | null;
+  errorHint?: string | null;
+  exceptionType?: string | null;
+  exceptionMessage?: string | null;
 }
 
 export interface DeploymentProviderShellActivationDownstreamCounts {

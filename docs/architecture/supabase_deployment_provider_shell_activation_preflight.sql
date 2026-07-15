@@ -89,34 +89,95 @@ with required_tables as (
       having count(*) > 1
     ) as passed
 ), source as (
-  select pg_get_functiondef('public.activate_deployment_provider_shell(uuid,text,uuid,text,text,text,timestamptz,uuid,text,text,integer,text,text,text,timestamptz,integer,uuid,text,jsonb,jsonb,timestamptz)'::regprocedure) as body
+  select lower(regexp_replace(pg_get_functiondef('public.activate_deployment_provider_shell(uuid,text,uuid,text,text,text,timestamptz,uuid,text,text,integer,text,text,text,timestamptz,integer,uuid,text,jsonb,jsonb,timestamptz)'::regprocedure), '\s+', ' ', 'g')) as body
+), source_diagnostics as (
+  select
+    body ~ '(^|[^a-z_])update\s+public\.providers\s+update_provider([^a-z_]|$)' as updates_providers,
+    regexp_count(body, '(^|[^a-z_])update\s+public\.providers\s+update_provider([^a-z_]|$)') = 1 as updates_selected_provider_once,
+    body ~ 'where\s+update_provider\.id\s*=\s*v_provider\.id' as constrains_provider_id,
+    body ~ 'and\s+update_provider\.clinic_id\s*=\s*p_clinic_id' as constrains_clinic_id,
+    body ~ 'and\s+update_provider\.deployment_provider_key\s*=\s*p_expected_provider_key' as constrains_provider_key,
+    body ~ 'set\s+active\s*=\s*true' as writes_active_true,
+    body ~ 'provisioning_status\s*=\s*''active''' as writes_provisioning_status_active,
+    body ~ 'updated_at\s*=\s*p_proposed_activated_at' as writes_updated_at,
+    body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_items([^a-z_]|$)' as does_not_update_execution_items,
+    body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_sessions([^a-z_]|$)' as does_not_update_execution_sessions,
+    body !~ '(^|[^a-z_])update\s+public\.clinics([^a-z_]|$)' as does_not_update_clinics,
+    regexp_count(body, '(^|[^a-z_])update\s+public\.') = 1 as does_not_update_other_tables,
+    body !~ '(^|[^a-z_])update\s+[^;]*lease_expires_at\s*=' as does_not_write_lease,
+    body !~ '(^|[^a-z_])update\s+[^;]*ownership_token\s*=' as does_not_write_token,
+    body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_items[^;]*(completed_at\s*=|execution_status\s*=\s*''succeeded'')' as does_not_complete_item,
+    body !~ '(^|[^a-z_])update\s+[^;]*(dependency|execution_status\s*=\s*''ready'')' as does_not_progress_dependency,
+    body !~ '(^|[^a-z_])insert\s+into([^a-z_]|$)' as does_not_insert,
+    body !~ '(^|[^a-z_])delete\s+from([^a-z_]|$)' as does_not_delete
+  from source
 ), source_checks as (
   select 'function_updates_only_providers' as check_name,
-    body ilike '%update public.providers update_provider%'
-    and body not ilike '%update public.deployment_activation_execution_items%'
-    and body not ilike '%update public.deployment_activation_execution_sessions%'
-    and body not ilike '%update public.clinics%'
-    and body not ilike '%lease_expires_at =%'
-    and body not ilike '%ownership_token =%'
-    and body not ilike '%completed_at =%'
-    and body not ilike '%execution_status =%succeeded%'
-    and body not ilike '%execution_status =%ready%'
-    as passed
-  from source
+    updates_providers
+    and updates_selected_provider_once
+    and constrains_provider_id
+    and constrains_clinic_id
+    and constrains_provider_key
+    and writes_active_true
+    and writes_provisioning_status_active
+    and writes_updated_at
+    and does_not_update_execution_items
+    and does_not_update_execution_sessions
+    and does_not_update_clinics
+    and does_not_update_other_tables
+    and does_not_write_lease
+    and does_not_write_token
+    and does_not_complete_item
+    and does_not_progress_dependency
+    and does_not_insert
+    and does_not_delete as passed,
+    jsonb_build_object(
+      'updates_providers', updates_providers,
+      'updates_selected_provider_once', updates_selected_provider_once,
+      'constrains_provider_id', constrains_provider_id,
+      'constrains_clinic_id', constrains_clinic_id,
+      'constrains_provider_key', constrains_provider_key,
+      'writes_active_true', writes_active_true,
+      'writes_provisioning_status_active', writes_provisioning_status_active,
+      'writes_updated_at', writes_updated_at,
+      'does_not_update_execution_items', does_not_update_execution_items,
+      'does_not_update_execution_sessions', does_not_update_execution_sessions,
+      'does_not_update_clinics', does_not_update_clinics,
+      'does_not_update_other_tables', does_not_update_other_tables,
+      'does_not_write_lease', does_not_write_lease,
+      'does_not_write_token', does_not_write_token,
+      'does_not_complete_item', does_not_complete_item,
+      'does_not_progress_dependency', does_not_progress_dependency
+    ) as details
+  from source_diagnostics
   union all
   select 'function_updates_selected_provider_once',
-    regexp_count(lower(body), 'update public\.providers') = 1
-    and body ilike '%where update_provider.id = v_provider.id%'
-    and body ilike '%and update_provider.clinic_id = p_clinic_id%'
-    and body ilike '%and update_provider.deployment_provider_key = p_expected_provider_key%'
-  from source
+    updates_selected_provider_once
+    and constrains_provider_id
+    and constrains_clinic_id
+    and constrains_provider_key,
+    jsonb_build_object(
+      'updates_selected_provider_once', updates_selected_provider_once,
+      'constrains_provider_id', constrains_provider_id,
+      'constrains_clinic_id', constrains_clinic_id,
+      'constrains_provider_key', constrains_provider_key
+    )
+  from source_diagnostics
   union all
   select 'function_writes_supported_target_fields',
-    body ilike '%set active = true%'
-    and body ilike '%provisioning_status = ''active''%'
-    and body not ilike '%insert into%'
-    and body not ilike '%delete from%'
-  from source
+    writes_active_true
+    and writes_provisioning_status_active
+    and writes_updated_at
+    and does_not_insert
+    and does_not_delete,
+    jsonb_build_object(
+      'writes_active_true', writes_active_true,
+      'writes_provisioning_status_active', writes_provisioning_status_active,
+      'writes_updated_at', writes_updated_at,
+      'does_not_insert', does_not_insert,
+      'does_not_delete', does_not_delete
+    )
+  from source_diagnostics
 )
 select check_name, passed, null::jsonb as details from required_tables
 union all select check_name, passed, null::jsonb from required_provider_columns
@@ -128,5 +189,5 @@ union all select check_name, passed, null::jsonb from provider_lifecycle_assumpt
 union all select check_name, passed, null::jsonb from active_incompatible
 union all select check_name, passed, details from running_item_integrity
 union all select check_name, passed, null::jsonb from duplicate_item_identities
-union all select check_name, passed, null::jsonb from source_checks
+union all select check_name, passed, details from source_checks
 order by check_name;

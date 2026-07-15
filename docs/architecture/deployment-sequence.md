@@ -1380,3 +1380,22 @@ The planned execution-control sequence now extends to:
 Slice 10B adds the repository and SQL boundary for step 10 only. No setup action is wired in this slice. A successful fresh provider activation may update exactly one selected `public.providers` row to `active = true` and `provisioning_status = 'active'`; `already_activated` reports compatible reuse without rewriting provider state.
 
 This slice does not complete the running provider execution item, progress dependencies, start another item, mutate sessions, renew leases, rotate tokens, activate any other shell or hardware, bind hardware, finalize deployment, rollback, modify UI/support mail, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 10C - Runtime Provider Shell Activation Sequence
+
+Setup completion now extends the live execution-control sequence to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic first execution-item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Atomic next execution-item start
+9. Atomic provider shell activation
+10. Future provider item completion and next dependency progression
+
+Step 9 runs only when step 8 returns `started` or `already_started` for a `provider_shell` `activate` item. It loads the provider-shell activation snapshot, reassesses same-owner active-lease provider activation safety, and calls `public.activate_deployment_provider_shell` only for `activatable` evidence. `already_activated` returns reuse evidence without rewriting provider state.
+
+A successful fresh pass may update only the selected provider shell to `active = true` with `provisioning_status = active`. It does not complete the running provider execution item, unlock dependencies, start another item, activate other entities, bind hardware, renew leases, rotate tokens, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.

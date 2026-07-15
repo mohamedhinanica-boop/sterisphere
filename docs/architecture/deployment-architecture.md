@@ -1105,3 +1105,11 @@ The provider-shell activation assessment boundary now has a server-only Supabase
 The supported provider target state is the existing deployment-shell lifecycle shape `{ deploymentProviderKey, provisioningSource: setup_draft, provisioningStatus: active, active: true }`. Fresh activation may update only the selected `public.providers` row from inactive setup-draft placeholder/planned state to active setup-draft active state. `already_activated` reuses the same provider row when it already equals the target state and the session/item evidence remains compatible.
 
 The SQL source is `docs/architecture/supabase_deployment_provider_shell_activation.sql`, with read-only verification in `docs/architecture/supabase_deployment_provider_shell_activation_preflight.sql`. The RPC locks the execution session first, the running execution item second, and the selected provider row third. It does not update execution sessions, execution items, clinics, other providers, dependencies, leases, ownership tokens, completion evidence, rollback evidence, hardware bindings, or deployment finalization.
+
+## RC8 Slice 10C - Runtime Provider Shell Activation
+
+Setup completion now composes `DeploymentProviderShellActivationService` with `SupabaseDeploymentProviderShellActivationRepository` immediately after successful next-item start. The stage runs only when next-item start returns `started` or `already_started` for a running `provider_shell` `activate` item; other running entity/action pairs return deterministic `not_attempted` evidence.
+
+Fresh activation calls `public.activate_deployment_provider_shell` exactly once after a fresh provider-shell activation assessment returns `activatable`. `already_activated` reuses compatible provider state without RPC mutation. Evidence remains token-safe and reports provider identity, before/after active/provisioning state, activated/reused/conflict counts, diagnostic issues, and downstream zero counters.
+
+This runtime boundary may activate only the selected provider shell. It does not complete the provider execution item, progress another dependency, start later items, mutate sessions, renew leases, rotate ownership tokens, activate sterilizers/workstations/hardware, bind hardware, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.
