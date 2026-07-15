@@ -1337,3 +1337,7 @@ The planned execution-control sequence now extends to:
 Slice 9B adds the repository and SQL boundary for step 9 only. The future runtime will call it only after a successful next-item start assessment. A fresh start can transition exactly one deterministic next item from `ready` to `running`, increment its attempt count once, and write its `started_at`. `already_started` reports deterministic reuse when that same item is already running with compatible ownership, lease, attempt, timestamp, dependency, and item-integrity evidence.
 
 No setup action is wired in this slice. It does not activate providers or downstream entities, complete the item, progress another dependency, mutate sessions, renew leases, rotate tokens, finalize deployment, rollback, add workers, poll, stream, modify UI/support mail, or change `DeploymentEngine.execute()`.
+
+### RC8 Slice 9C - Runtime Next Item Start
+
+The runtime sequence now appends ctivation_execution_next_item_start immediately after successful dependency progression. The stage may atomically transition one deterministic ready execution item to running, preserving the running session, owner, token, and lease evidence. It does not activate the provider/entity, complete the item, progress another dependency, finalize the session, renew leases, rotate tokens, or invoke DeploymentEngine.execute().

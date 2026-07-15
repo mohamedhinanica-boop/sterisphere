@@ -206,21 +206,54 @@ with next_item_start_function_body as (
   select regexp_replace(pg_get_functiondef(proc.oid), '\s+', ' ', 'g') as function_body
   from pg_proc proc
   where proc.oid = to_regprocedure('public.start_deployment_activation_execution_next_item(uuid,text,uuid,text,text,text,timestamptz,uuid,text,text,integer,text,text,text,integer,text[],timestamptz)')
+), mutation_boundary_conditions as (
+  select
+    function_body ~* 'update\s+public\.deployment_activation_execution_items\s+update_item' as updates_execution_items,
+    function_body ~* 'update\s+public\.deployment_activation_execution_items\s+update_item\s+set\s+execution_status\s*=\s*''running''' as writes_running_status,
+    function_body ~* 'attempt_count\s*=\s*update_item\.attempt_count\s*\+\s*1' as increments_attempt_once,
+    function_body ~* 'started_at\s*=\s*p_proposed_started_at' as writes_started_at,
+    function_body ~* 'where\s+update_item\.id\s*=\s*v_item\.id' as constrains_selected_item_id,
+    function_body ~* 'and\s+update_item\.session_id\s*=\s*v_session\.id' as constrains_selected_session,
+    function_body !~* 'update\s+public\.deployment_activation_execution_sessions\b' as does_not_update_sessions,
+    function_body !~* 'update\s+public\.providers\b' as does_not_update_providers,
+    function_body !~* 'update\s+public\.clinics\b' as does_not_update_clinics,
+    function_body !~* 'update\s+public\.[^;]+set[^;]*lease_expires_at\s*=' as does_not_write_lease,
+    function_body !~* 'update\s+public\.[^;]+set[^;]*ownership_token\s*=' as does_not_write_token,
+    function_body !~* 'update\s+public\.[^;]+set[^;]*completed_at\s*=' as does_not_write_completed_at,
+    function_body !~* 'update\s+public\.[^;]+set[^;]*execution_status\s*=\s*''succeeded''' as does_not_write_succeeded
+  from next_item_start_function_body
 )
 select
   'next_item_start_function_mutation_boundary' as check_name,
-  exists (
-    select 1
-    from next_item_start_function_body
-    where function_body like '%update public.deployment_activation_execution_items update_item%'
-      and function_body like '%set execution_status = ''running''%'
-      and function_body like '%attempt_count = update_item.attempt_count + 1%'
-      and function_body like '%started_at = p_proposed_started_at%'
-      and function_body not like '%update public.deployment_activation_execution_sessions%'
-      and function_body not like '%update public.providers%'
-      and function_body not like '%update public.clinics%'
-      and function_body not like '%lease_expires_at =%'
-      and function_body not like '%ownership_token =%'
-      and function_body not like '%completed_at =%'
-      and function_body not like '%execution_status = ''succeeded''%'
-  ) as passed;
+  coalesce(
+    updates_execution_items
+    and writes_running_status
+    and increments_attempt_once
+    and writes_started_at
+    and constrains_selected_item_id
+    and constrains_selected_session
+    and does_not_update_sessions
+    and does_not_update_providers
+    and does_not_update_clinics
+    and does_not_write_lease
+    and does_not_write_token
+    and does_not_write_completed_at
+    and does_not_write_succeeded,
+    false
+  ) as passed,
+  jsonb_build_object(
+    'updates_execution_items', coalesce(updates_execution_items, false),
+    'writes_running_status', coalesce(writes_running_status, false),
+    'increments_attempt_once', coalesce(increments_attempt_once, false),
+    'writes_started_at', coalesce(writes_started_at, false),
+    'constrains_selected_item_id', coalesce(constrains_selected_item_id, false),
+    'constrains_selected_session', coalesce(constrains_selected_session, false),
+    'does_not_update_sessions', coalesce(does_not_update_sessions, false),
+    'does_not_update_providers', coalesce(does_not_update_providers, false),
+    'does_not_update_clinics', coalesce(does_not_update_clinics, false),
+    'does_not_write_lease', coalesce(does_not_write_lease, false),
+    'does_not_write_token', coalesce(does_not_write_token, false),
+    'does_not_write_completed_at', coalesce(does_not_write_completed_at, false),
+    'does_not_write_succeeded', coalesce(does_not_write_succeeded, false)
+  ) as details
+from mutation_boundary_conditions;

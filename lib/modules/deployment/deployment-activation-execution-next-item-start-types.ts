@@ -178,6 +178,7 @@ export interface DeploymentActivationExecutionNextItemStartResult {
   entityType: string | null;
   entityId: string | null;
   action: string | null;
+  dependencyKeys: readonly string[];
   attemptCount: number;
   itemStartedAt: string | null;
   leaseExpiresAt: string | null;

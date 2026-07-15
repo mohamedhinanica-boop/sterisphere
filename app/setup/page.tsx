@@ -1671,6 +1671,7 @@ const deploymentExecutionStageLabels = [
   "Persisting prepared activation execution evidence",
   "Claiming activation execution session",
   "Starting activation execution session",
+  "Starting next activation execution item",
   "Finalizing deployment evidence",
 ] as const;
 
@@ -1730,6 +1731,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentClinicActivation ?? null;
   const deploymentActivationExecutionDependencyProgression =
     deploymentRunResult?.deploymentActivationExecutionDependencyProgression ?? null;
+  const deploymentActivationExecutionNextItemStart =
+    deploymentRunResult?.deploymentActivationExecutionNextItemStart ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -3299,9 +3302,85 @@ function CompleteStep({
                 </div>
               ) : null}
             </div>
+            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
+              <p className="font-bold">
+                Activation Execution Next Item Start: {deploymentActivationExecutionNextItemStart?.status ?? "not_attempted"}
+              </p>
+              <p className="mt-1">
+                {deploymentActivationExecutionNextItemStart?.message ??
+                  "Next-item start runs only after dependency progression safely readies the deterministic next item."}
+              </p>
+              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
+                <p>Claimant: {deploymentActivationExecutionNextItemStart?.claimantId ?? "not assigned"}</p>
+                <p>Session ID: {deploymentActivationExecutionNextItemStart?.sessionId ?? "not running"}</p>
+                <p>Execution key: {deploymentActivationExecutionNextItemStart?.executionKey ?? "not prepared"}</p>
+                <p>Plan key: {deploymentActivationExecutionNextItemStart?.planKey ?? "not generated"}</p>
+                <p>Item ID: {deploymentActivationExecutionNextItemStart?.itemId ?? "not started"}</p>
+                <p>Item key: {deploymentActivationExecutionNextItemStart?.executionItemKey ?? "not started"}</p>
+                <p>Plan item key: {deploymentActivationExecutionNextItemStart?.planItemKey ?? "not selected"}</p>
+                <p>Sequence: {deploymentActivationExecutionNextItemStart?.sequence ?? "none"}</p>
+                <p>Entity: {deploymentActivationExecutionNextItemStart?.entityType ?? "none"} / {deploymentActivationExecutionNextItemStart?.entityId ?? "none"}</p>
+                <p>Action: {deploymentActivationExecutionNextItemStart?.action ?? "none"}</p>
+                <p>Started at: {deploymentActivationExecutionNextItemStart?.startedAt ?? "not running"}</p>
+                <p>Lease expires: {deploymentActivationExecutionNextItemStart?.leaseExpiresAt ?? "no lease"}</p>
+              </div>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Attempt</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.attemptCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Started</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.startedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.reusedCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.conflicts ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.blockers ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
+                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.warnings ?? 0}</dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
+                <p className="font-semibold uppercase tracking-[0.08em]">Running Item Only</p>
+                <p className="mt-2">
+                  One deterministic next item may now be running. The provider or other entity has not been activated, the item has not completed, no dependency was progressed by this stage, no session lifecycle field was changed, and the session remains running.
+                </p>
+                <p className="mt-1">
+                  Downstream counters: items succeeded {deploymentActivationExecutionNextItemStart?.downstream.itemsSucceeded ?? 0}, activated entities {deploymentActivationExecutionNextItemStart?.downstream.entitiesActivated ?? 0}, bindings written {deploymentActivationExecutionNextItemStart?.downstream.bindingsWritten ?? 0}, items completed {deploymentActivationExecutionNextItemStart?.downstream.itemsCompleted ?? 0}, dependencies progressed {deploymentActivationExecutionNextItemStart?.downstream.dependenciesProgressed ?? 0}, finalized {deploymentActivationExecutionNextItemStart?.downstream.finalized ?? 0}.
+                </p>
+              </div>
+              {deploymentActivationExecutionNextItemStart?.issues.length ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Next Item Start Issues</p>
+                  <ul className="mt-2 space-y-2 text-xs">
+                    {deploymentActivationExecutionNextItemStart.issues.slice(0, 5).map((issue) => (
+                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
+                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
+                        {issue.message}
+                      </li>
+                    ))}
+                  </ul>
+                  {deploymentActivationExecutionNextItemStart.issues.length > 5 ? (
+                    <p className="mt-2 text-xs font-semibold">
+                      {deploymentActivationExecutionNextItemStart.issues.length - 5} more next-item start issues are included in support evidence.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
           <p className="mt-4 font-semibold">
-            Clinic deployment status may now be deployed, the clinic execution item may be completed, and one deterministic dependent item may be ready, but no dependent item has started or activated an entity.
+            Clinic deployment status may now be deployed, the clinic execution item may be completed, and one deterministic dependent item may be running, but no dependent entity has been activated and no second item has completed.
           </p>
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
@@ -3319,7 +3398,7 @@ function CompleteStep({
             execution preparation produces pre-execution evidence, and
             public.deployment_activation_execution_sessions plus
             public.deployment_activation_execution_items may persist that prepared
-            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row alone does not unlock dependent work; after item completion, dependency progression may mark one deterministic next item ready, but no next item is started and no hardware
+            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row alone does not unlock dependent work; after item completion, dependency progression may mark one deterministic next item ready, and next-item start may atomically mark that single item running only. No provider or other entity is activated, no second item is completed, no further dependency is progressed, and no hardware
             bindings are written, no devices activate, and no users, packs,
             cycles, traces, audit logs, rollback work, or deployment finalization
             occurs.
@@ -3541,6 +3620,25 @@ function buildDeploymentSupportHref(
       `Dependency progression diagnostics: ${result?.deploymentActivationExecutionDependencyProgression?.issues.map((issue) => `${issue.code}: ${formatDependencyProgressionDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
       `Dependency progression message: ${result?.deploymentActivationExecutionDependencyProgression?.message ?? "No dependency-progression response yet."}`,
       "Dependency progression note: the next item was not started, no attempt count or execution timestamp was written, and no entity was activated.",
+      `Next-item start status: ${result?.deploymentActivationExecutionNextItemStart?.status ?? "not attempted"}`,
+      `Next-item start claimant: ${result?.deploymentActivationExecutionNextItemStart?.claimantId ?? "not assigned"}`,
+      `Next-item start session ID: ${result?.deploymentActivationExecutionNextItemStart?.sessionId ?? "not running"}`,
+      `Next-item start execution key: ${result?.deploymentActivationExecutionNextItemStart?.executionKey ?? "not prepared"}`,
+      `Next-item start plan key: ${result?.deploymentActivationExecutionNextItemStart?.planKey ?? "not generated"}`,
+      `Next-item start item ID: ${result?.deploymentActivationExecutionNextItemStart?.itemId ?? "not started"}`,
+      `Next-item start item key: ${result?.deploymentActivationExecutionNextItemStart?.executionItemKey ?? "not started"}`,
+      `Next-item start plan item key: ${result?.deploymentActivationExecutionNextItemStart?.planItemKey ?? "not selected"}`,
+      `Next-item start sequence/entity/action: ${result?.deploymentActivationExecutionNextItemStart?.sequence ?? "none"}:${result?.deploymentActivationExecutionNextItemStart?.entityType ?? "none"}:${result?.deploymentActivationExecutionNextItemStart?.entityId ?? "none"}:${result?.deploymentActivationExecutionNextItemStart?.action ?? "none"}`,
+      `Next-item start attempt count: ${result?.deploymentActivationExecutionNextItemStart?.attemptCount ?? 0}`,
+      `Next-item start started at: ${result?.deploymentActivationExecutionNextItemStart?.startedAt ?? "not running"}`,
+      `Next-item start lease expiration: ${result?.deploymentActivationExecutionNextItemStart?.leaseExpiresAt ?? "no lease"}`,
+      `Next-item start result: ${result?.deploymentActivationExecutionNextItemStart?.result ?? "none"}`,
+      `Next-item start counts: started ${result?.deploymentActivationExecutionNextItemStart?.startedCount ?? 0}, reused ${result?.deploymentActivationExecutionNextItemStart?.reusedCount ?? 0}, conflicts ${result?.deploymentActivationExecutionNextItemStart?.conflicts ?? 0}`,
+      `Next-item start blockers: ${result?.deploymentActivationExecutionNextItemStart?.blockers ?? 0}`,
+      `Next-item start warnings: ${result?.deploymentActivationExecutionNextItemStart?.warnings ?? 0}`,
+      `Next-item start issues: ${result?.deploymentActivationExecutionNextItemStart?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Next-item start message: ${result?.deploymentActivationExecutionNextItemStart?.message ?? "No next-item-start response yet."}`,
+      "Next-item start note: one deterministic item may be running, but no provider/entity activation, item completion, dependency progression, session lifecycle update, binding, rollback, or finalization occurred.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,

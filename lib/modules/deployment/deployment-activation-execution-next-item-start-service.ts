@@ -516,6 +516,7 @@ function buildResult(input: {
     entityType: candidate?.entityType ?? null,
     entityId: candidate?.entityId ?? null,
     action: candidate?.action ?? null,
+    dependencyKeys: candidate?.dependencyKeys ? [...candidate.dependencyKeys] : [],
     attemptCount: candidate?.attemptCount ?? 0,
     itemStartedAt: candidate?.startedAt ?? null,
     leaseExpiresAt: session?.leaseExpiresAt ?? null,
