@@ -1543,3 +1543,11 @@ The runtime deployment chain now appends the clinic activation boundary after at
 The stage uses one server timestamp for assessment and the proposed clinic `deployed_at`. It calls `public.activate_deployment_clinic` only after a successful item-start result and a ready clinic-activation assessment. `already_activated` is idempotent reuse evidence and does not rewrite `deployed_at`, renew ownership, rotate tokens, complete the item, or unlock another item.
 
 The boundary remains clinic-row only. It does not mark the execution item succeeded or failed, unlock dependent items, mutate provider/sterilizer/workstation/hardware rows, write hardware bindings, register agents, finalize deployment runs, rollback, add workers/queues/polling/streaming/buttons, or modify `DeploymentEngine.execute()`.
+
+## RC8 Slice 7A - Activation Execution Item Completion Assessment Boundary
+
+RC8 Slice 7A creates the item-completion foundation without SQL, Supabase persistence, setup runtime wiring, UI changes, or execution mutation. It introduces item-completion types, a read-only repository interface, an assessment service, an in-memory test repository, and compile-checked harness coverage under `lib/modules/deployment/`.
+
+The assessment reads session evidence, the current clinic activation item, durable clinic state, and aggregate item-integrity counters. `completable` requires a running same-owner session with a valid lease, exactly one running sequence-1 clinic activate item, attempt count 1, valid item start evidence, no rollback or error evidence, empty dependencies, durable clinic state `deploymentStatus = deployed`, non-null deployed timestamp, exact target-state equality, no duplicate item identities, and no execution evidence on unrelated items.
+
+`already_completed` allows idempotent reuse when the same clinic activation item is already `succeeded`, started and completed timestamps are present, attempt count remains 1, durable clinic evidence still matches, and all downstream items remain untouched. Warning issues document only future boundaries: atomic completion persistence, dependency progression, and rollback execution remain unavailable.

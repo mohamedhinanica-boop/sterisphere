@@ -1216,3 +1216,19 @@ Setup completion now extends the live execution-control sequence to:
 Step 5 runs only when step 4 returns `started` or `already_started`. It loads the clinic activation snapshot, assesses same-owner active-lease clinic activation safety, and calls `public.activate_deployment_clinic` only for `activation_ready`. `already_activated` returns reuse evidence without a second clinic mutation.
 
 The setup response and Complete page show clinic activation separately from item start. `activated` means the clinic row deployment status is deployed, but the sequence-1 execution item is still running. It does not mean item completion, dependency progression, shell activation, hardware binding, rollback, deployment finalization, background execution, polling, streaming, activation buttons, or `DeploymentEngine.execute()` changes.
+
+## RC8 Slice 7A - Activation Execution Item Completion Foundation Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic execution item start
+5. Atomic clinic activation
+6. Activation execution item completion assessment
+7. Future atomic item completion and dependency progression
+
+Slice 7A implements step 6 as read-only TypeScript. It assesses whether the sequence-1 clinic activation item may be completed after the clinic row has already reached `deployment_status = deployed` with `deployed_at`. The service returns `completable`, `already_completed`, `blocked`, `conflict`, `not_found`, or `error` evidence and keeps all downstream counters at zero.
+
+No runtime order changes are made in this slice. It does not update the execution item, write `completed_at`, unlock dependent items, activate downstream entities, bind hardware, finalize deployment, create SQL, add a Supabase repository, wire setup actions, or change `DeploymentEngine.execute()`.
