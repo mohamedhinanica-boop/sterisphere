@@ -1300,3 +1300,21 @@ Setup completion now extends the live execution-control sequence to:
 Step 7 runs only after item completion returns `completed` or `already_completed`. It loads the dependency-progression snapshot, reassesses same-owner active-lease dependency safety, and calls `public.progress_deployment_activation_execution_dependency` only for `progressable` evidence. `already_progressed` returns reuse evidence without a second RPC mutation.
 
 A successful fresh pass updates only the deterministic next execution item from `pending` to `ready`. It does not start that item, increment attempts, write item execution timestamps, activate providers or downstream entities, bind hardware, complete the execution session, renew leases, rotate tokens, finalize deployment, rollback, add workers, poll, stream, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 9A - Next Execution Item Start Assessment Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic sequence-1 execution item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Next execution-item start assessment foundation
+9. Future atomic next-item start
+
+Slice 9A implements step 8 as read-only TypeScript. It assesses whether the single deterministic ready item, currently expected to be sequence 2 provider shell activation after sequence 1 succeeds, can safely be proposed for a future ready-to-running transition. It also returns `already_started` evidence when the same deterministic item is already running with compatible ownership, lease, attempt, timestamp, and downstream item integrity evidence.
+
+No runtime order changes are made in this slice. It does not update item status, increment attempts, write `started_at`, activate providers or other entities, progress dependencies, complete the execution session, create SQL, add a Supabase repository, wire setup actions, modify UI/support mail, or change `DeploymentEngine.execute()`.

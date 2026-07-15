@@ -1599,3 +1599,15 @@ The runtime deployment chain now appends atomic dependency progression after ite
 The stage uses the existing same-owner claim token handoff and the item-completion timestamp as the proposed progression time. It calls `public.progress_deployment_activation_execution_dependency` only after successful item completion and a fresh `progressable` assessment. `already_progressed` is idempotent reuse evidence and does not rewrite item status, renew ownership, rotate tokens, start the next item, write attempts or timestamps, or activate any entity.
 
 The boundary remains pending-to-ready only. It does not unlock or start provider activation beyond marking the deterministic next item ready, mutate provider/sterilizer/workstation/hardware rows, write hardware bindings, complete the execution session, finalize deployment runs, rollback, add workers/queues/polling/streaming/buttons, or modify `DeploymentEngine.execute()`.
+
+## RC8 Slice 9A - Next Execution Item Start Assessment Boundary
+
+The planned execution-control chain now adds a read-only foundation after runtime dependency progression:
+
+`atomic clinic activation -> atomic execution item completion -> atomic dependency progression -> next_item_start_assessment -> future atomic ready-to-running transition`
+
+The new TypeScript boundary defines next-item start command, snapshot, repository, service, result, issue, downstream-counter, and in-memory harness contracts. The repository interface exposes only `loadNextItemStartSnapshot`; it has no insert, update, upsert, patch, save, delete, start, attempt, timestamp, activation, dependency progression, session mutation, rollback, or finalization methods.
+
+The assessment requires a running ready-prepared execution session with same-owner, same-token, active-lease evidence. It verifies that sequence 1 and any lower prefix items are succeeded, exactly one deterministic next item is ready, all dependencies resolve by `planItemKey` to unique prior succeeded items, all later items remain pending and untouched, and no duplicate item identities exist. `already_started` is reuse evidence only for a compatible single running candidate; ownership tokens are input-only and never returned in result evidence, messages, issues, or tests.
+
+No SQL, migration, Supabase repository, runtime wiring, setup UI, support mail, ready-to-running mutation, attempt increment, `started_at` write, provider activation, dependency progression, lease renewal, token rotation, rollback, worker, queue, polling, streaming, or `DeploymentEngine.execute()` change is introduced in this slice.
