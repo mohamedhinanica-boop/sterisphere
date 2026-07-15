@@ -215,7 +215,7 @@ begin
     return;
   end if;
 
-  if coalesce(v_next.dependency_keys, array[]::text[]) is distinct from coalesce(p_expected_dependency_keys, array[]::text[]) then
+  if coalesce(v_next.dependency_keys, '[]'::jsonb) is distinct from to_jsonb(coalesce(p_expected_dependency_keys, array[]::text[])) then
     return query select
       'blocked'::text, v_session.clinic_id, v_session.deployment_run_key, v_session.id, v_session.execution_key,
       v_completed.id, v_completed.execution_item_key, v_completed.plan_item_key, v_completed.sequence,

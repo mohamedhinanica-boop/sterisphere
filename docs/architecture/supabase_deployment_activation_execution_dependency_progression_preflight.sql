@@ -56,6 +56,58 @@ select
        and pg_get_function_identity_arguments(proc.oid) = 'p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_completed_item_id uuid, p_completed_execution_item_key text, p_completed_plan_item_key text, p_completed_sequence integer, p_completed_started_at timestamp with time zone, p_completed_completed_at timestamp with time zone, p_completed_attempt_count integer, p_next_item_id uuid, p_next_execution_item_key text, p_next_plan_item_key text, p_next_sequence integer, p_next_entity_type text, p_next_entity_id text, p_next_action text, p_expected_next_status text, p_expected_next_attempt_count integer, p_expected_dependency_keys text[], p_progressed_at timestamp with time zone'
   ) as passed;
 
+
+with dependency_progression_function_body as (
+  select regexp_replace(proc.prosrc, '\s+', ' ', 'g') as function_body
+    from pg_proc proc
+    join pg_namespace namespace on namespace.oid = proc.pronamespace
+   where namespace.nspname = 'public'
+     and proc.proname = 'progress_deployment_activation_execution_dependency'
+     and pg_get_function_identity_arguments(proc.oid) = 'p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_completed_item_id uuid, p_completed_execution_item_key text, p_completed_plan_item_key text, p_completed_sequence integer, p_completed_started_at timestamp with time zone, p_completed_completed_at timestamp with time zone, p_completed_attempt_count integer, p_next_item_id uuid, p_next_execution_item_key text, p_next_plan_item_key text, p_next_sequence integer, p_next_entity_type text, p_next_entity_id text, p_next_action text, p_expected_next_status text, p_expected_next_attempt_count integer, p_expected_dependency_keys text[], p_progressed_at timestamp with time zone'
+)
+select
+  'dependency_keys_jsonb_normalization' as check_name,
+  exists (
+    select 1
+      from dependency_progression_function_body
+     where function_body like '%coalesce(v_next.dependency_keys, ''[]''::jsonb)%'
+       and function_body like '%to_jsonb(coalesce(p_expected_dependency_keys, array[]::text[]))%'
+  ) as passed;
+
+with dependency_progression_function_body as (
+  select regexp_replace(proc.prosrc, '\s+', ' ', 'g') as function_body
+    from pg_proc proc
+    join pg_namespace namespace on namespace.oid = proc.pronamespace
+   where namespace.nspname = 'public'
+     and proc.proname = 'progress_deployment_activation_execution_dependency'
+     and pg_get_function_identity_arguments(proc.oid) = 'p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_completed_item_id uuid, p_completed_execution_item_key text, p_completed_plan_item_key text, p_completed_sequence integer, p_completed_started_at timestamp with time zone, p_completed_completed_at timestamp with time zone, p_completed_attempt_count integer, p_next_item_id uuid, p_next_execution_item_key text, p_next_plan_item_key text, p_next_sequence integer, p_next_entity_type text, p_next_entity_id text, p_next_action text, p_expected_next_status text, p_expected_next_attempt_count integer, p_expected_dependency_keys text[], p_progressed_at timestamp with time zone'
+)
+select
+  'dependency_keys_no_text_array_jsonb_fallback' as check_name,
+  not exists (
+    select 1
+      from dependency_progression_function_body
+     where function_body like '%coalesce(v_next.dependency_keys, array[]::text[])%'
+        or function_body like '%coalesce(v_next.dependency_keys, ''{}''::text[])%'
+  ) as passed;
+
+with dependency_progression_function_body as (
+  select regexp_replace(proc.prosrc, '\s+', ' ', 'g') as function_body
+    from pg_proc proc
+    join pg_namespace namespace on namespace.oid = proc.pronamespace
+   where namespace.nspname = 'public'
+     and proc.proname = 'progress_deployment_activation_execution_dependency'
+     and pg_get_function_identity_arguments(proc.oid) = 'p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_completed_item_id uuid, p_completed_execution_item_key text, p_completed_plan_item_key text, p_completed_sequence integer, p_completed_started_at timestamp with time zone, p_completed_completed_at timestamp with time zone, p_completed_attempt_count integer, p_next_item_id uuid, p_next_execution_item_key text, p_next_plan_item_key text, p_next_sequence integer, p_next_entity_type text, p_next_entity_id text, p_next_action text, p_expected_next_status text, p_expected_next_attempt_count integer, p_expected_dependency_keys text[], p_progressed_at timestamp with time zone'
+)
+select
+  'dependency_keys_jsonb_array_elements_text_contract' as check_name,
+  exists (
+    select 1
+      from dependency_progression_function_body
+     where function_body not ilike '%jsonb_array_elements_text%'
+        or function_body ~* 'jsonb_array_elements_text\s*\(\s*coalesce\s*\([^)]*dependency_keys[^)]*''\[\]''::jsonb'
+  ) as passed;
+
 select
   'dependency_progression_function_privileges' as check_name,
   has_function_privilege('service_role', 'public.progress_deployment_activation_execution_dependency(uuid, text, uuid, text, text, text, timestamptz, uuid, text, text, integer, timestamptz, timestamptz, integer, uuid, text, text, integer, text, text, text, text, integer, text[], timestamptz)', 'execute') as service_role_can_execute,
