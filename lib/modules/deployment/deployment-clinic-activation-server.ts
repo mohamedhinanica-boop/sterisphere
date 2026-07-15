@@ -154,7 +154,7 @@ export async function activateClinicWithRepository(
         issues: publicIssues,
         deployedAt: stableSnapshot.clinic?.deployedAt ?? null,
         message:
-          "The existing active clinic deployment state was reused. The execution item remains running and no dependent item was unlocked.",
+          "The existing deployed clinic deployment state was reused. The execution item remains running and no dependent item was unlocked.",
       };
     }
 
@@ -350,7 +350,7 @@ function buildAtomicCommand(
       expectedItemStartedAt: command.expectedItemStartedAt,
       expectedAttemptCount: 1,
       expectedCurrentState: cloneRecord(assessment.currentClinicState),
-      targetState: { deploymentStatus: "active" },
+      targetState: { deploymentStatus: "deployed" },
       proposedActivatedAt: command.assessmentTimestamp,
     },
   };
@@ -375,7 +375,7 @@ function mapAtomicResult(
       warnings: warningCount(assessmentIssues),
       issues: assessmentIssues,
       message:
-        "The clinic deployment state is active. The execution item is still running and no dependent item has been unlocked.",
+        "The clinic deployment state is deployed. The execution item is still running and no dependent item has been unlocked.",
     };
   }
 
@@ -392,7 +392,7 @@ function mapAtomicResult(
       warnings: warningCount(assessmentIssues),
       issues: assessmentIssues,
       message:
-        "The existing active clinic deployment state was reused. The execution item remains running and no dependent item was unlocked.",
+        "The existing deployed clinic deployment state was reused. The execution item remains running and no dependent item was unlocked.",
     };
   }
 

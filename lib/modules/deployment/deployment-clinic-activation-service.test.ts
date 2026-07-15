@@ -111,7 +111,7 @@ async function scenarioActivationReady(): Promise<DeploymentClinicActivationServ
     result.ok &&
       result.status === "activation_ready" &&
       result.currentClinicState?.deploymentStatus === "draft" &&
-      result.proposedClinicState?.deploymentStatus === "active" &&
+      result.proposedClinicState?.deploymentStatus === "deployed" &&
       result.warnings === 4 &&
       result.downstream.clinicsActivated === 0,
     JSON.stringify(result),
@@ -121,10 +121,10 @@ async function scenarioActivationReady(): Promise<DeploymentClinicActivationServ
 async function scenarioAlreadyActivated(): Promise<DeploymentClinicActivationServiceHarnessScenario> {
   const result = await assess(snapshot({
     clinic: {
-      deploymentStatus: "active",
+      deploymentStatus: "deployed",
       active: true,
       provisioningStatus: "active",
-      currentState: { clinic_id: CLINIC_ID, deployment_status: "active" },
+      currentState: { clinic_id: CLINIC_ID, deployment_status: "deployed" },
     },
   }));
 
@@ -326,7 +326,7 @@ async function scenarioCanonicalStateComparison(): Promise<DeploymentClinicActiv
   const result = await assess(snapshot({
     item: {
       expectedCurrentState: { deploymentStatus: "draft", clinicId: CLINIC_ID },
-      targetState: { deployment_status: "active" },
+      targetState: { deployment_status: "deployed" },
     },
     clinic: {
       currentState: { clinic_id: CLINIC_ID, deployment_status: "draft" },
@@ -337,7 +337,7 @@ async function scenarioCanonicalStateComparison(): Promise<DeploymentClinicActiv
     "canonical state comparison accepts snake and camel case",
     result.status === "activation_ready" &&
       result.currentClinicState?.clinicId === CLINIC_ID &&
-      result.proposedClinicState?.deploymentStatus === "active",
+      result.proposedClinicState?.deploymentStatus === "deployed",
     JSON.stringify(result),
   );
 }

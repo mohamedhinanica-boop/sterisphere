@@ -121,7 +121,7 @@ export function buildClinicActivationSnapshot(input: {
               deployment_status: "draft",
               clinic_id: "clinic-activation-0001",
             },
-            targetState: { deploymentStatus: "active" },
+            targetState: { deploymentStatus: "deployed" },
             ...input.item,
           },
     clinic:

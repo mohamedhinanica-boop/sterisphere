@@ -133,7 +133,7 @@ export function buildItemStartSnapshot(input: {
             reversible: true,
             rollbackAction: "restore clinic",
             expectedCurrentState: { deploymentStatus: "draft" },
-            targetState: { deploymentStatus: "active" },
+            targetState: { deploymentStatus: "deployed" },
             ...input.candidateItem,
           },
     aggregate: {

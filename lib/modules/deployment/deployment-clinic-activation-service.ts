@@ -23,7 +23,7 @@ import {
 } from "./deployment-clinic-activation-types";
 
 const SUPPORTED_TARGET_PATCH = canonicalizeActivationCurrentState({
-  deploymentStatus: "active",
+  deploymentStatus: "deployed",
 });
 
 export class DeploymentClinicActivationService {
@@ -348,8 +348,8 @@ function validateClinic(
     ) {
       issues.push(blocker("clinic_provisioning_incompatible", command, "Clinic provisioning evidence is not setup-draft planned."));
     }
-  } else if (clinic.active !== true && clinic.deploymentStatus !== "active") {
-    issues.push(blocker("clinic_already_active_conflict", command, "Clinic current state matches the target without compatible active evidence."));
+  } else if (clinic.active !== true && clinic.deploymentStatus !== "deployed") {
+    issues.push(blocker("clinic_already_deployed_conflict", command, "Clinic current state matches the target without compatible deployed evidence."));
   }
 
   if (item.expectedCurrentState) {
@@ -368,7 +368,7 @@ function validateClinic(
   }
 
   if (clinic.active === true && !alreadyMatchesTarget) {
-    issues.push(blocker("clinic_already_active_conflict", command, "Clinic is active but does not match the planned target state."));
+    issues.push(blocker("clinic_already_deployed_conflict", command, "Clinic is deployed but does not match the planned target state."));
   }
 
   return issues;
@@ -391,7 +391,7 @@ function buildProposedClinicState(
 ): Record<string, unknown> {
   return canonicalizeActivationCurrentState({
     ...cloneRecord(currentClinicState),
-    deploymentStatus: "active",
+    deploymentStatus: "deployed",
   });
 }
 
@@ -482,7 +482,7 @@ function statusForIssues(
       "session_owned_by_another_executor",
       "ownership_token_mismatch",
       "clinic_deployment_ownership_mismatch",
-      "clinic_already_active_conflict",
+      "clinic_already_deployed_conflict",
     ].includes(current.code),
   )
     ? "conflict"

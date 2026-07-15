@@ -135,11 +135,11 @@ from (
 ) status_counts;
 
 select
-  'clinic_activation_active_without_deployed_at' as check_name,
+  'clinic_activation_deployed_without_deployed_at' as check_name,
   count(*) = 0 as passed,
   coalesce(jsonb_agg(jsonb_build_object('clinic_id', clinic.id, 'deployment_status', clinic.deployment_status, 'deployed_at', clinic.deployed_at) order by clinic.id), '[]'::jsonb) as details
 from public.clinics clinic
-where clinic.deployment_status = 'active'
+where clinic.deployment_status = 'deployed'
   and clinic.deployed_at is null;
 
 select
@@ -186,7 +186,7 @@ where item.sequence = 1
     or item.error_message is not null
     or jsonb_typeof(item.dependency_keys) <> 'array'
     or jsonb_array_length(item.dependency_keys) <> 0
-    or item.target_state not in ('{"deploymentStatus":"active"}'::jsonb, '{"deployment_status":"active"}'::jsonb)
+    or item.target_state not in ('{"deploymentStatus":"deployed"}'::jsonb, '{"deployment_status":"deployed"}'::jsonb)
   );
 
 with duplicate_clinic_activation_items as (
@@ -208,13 +208,30 @@ select
   'clinic_activation_exact_target_state_counts' as check_name,
   true as passed,
   jsonb_build_object(
-    'camel_target_items', count(*) filter (where item.target_state = '{"deploymentStatus":"active"}'::jsonb),
-    'snake_target_items', count(*) filter (where item.target_state = '{"deployment_status":"active"}'::jsonb),
-    'other_target_items', count(*) filter (where item.entity_type = 'clinic' and item.action = 'activate' and item.target_state not in ('{"deploymentStatus":"active"}'::jsonb, '{"deployment_status":"active"}'::jsonb))
+    'camel_deployed_target_items', count(*) filter (where item.target_state = '{"deploymentStatus":"deployed"}'::jsonb),
+    'snake_deployed_target_items', count(*) filter (where item.target_state = '{"deployment_status":"deployed"}'::jsonb),
+    'stale_camel_active_target_items', count(*) filter (where item.target_state = '{"deploymentStatus":"active"}'::jsonb),
+    'stale_snake_active_target_items', count(*) filter (where item.target_state = '{"deployment_status":"active"}'::jsonb),
+    'other_target_items', count(*) filter (where item.entity_type = 'clinic' and item.action = 'activate' and item.target_state not in ('{"deploymentStatus":"deployed"}'::jsonb, '{"deployment_status":"deployed"}'::jsonb, '{"deploymentStatus":"active"}'::jsonb, '{"deployment_status":"active"}'::jsonb))
   ) as details
 from public.deployment_activation_execution_items item
 where item.entity_type = 'clinic'
   and item.action = 'activate';
+
+select
+  'clinic_activation_no_stale_active_target_state' as check_name,
+  count(*) = 0 as passed,
+  coalesce(jsonb_agg(jsonb_build_object(
+    'item_id', item.id,
+    'session_id', item.session_id,
+    'execution_item_key', item.execution_item_key,
+    'plan_item_key', item.plan_item_key,
+    'target_state', item.target_state
+  ) order by item.session_id, item.sequence), '[]'::jsonb) as details
+from public.deployment_activation_execution_items item
+where item.entity_type = 'clinic'
+  and item.action = 'activate'
+  and item.target_state in ('{"deploymentStatus":"active"}'::jsonb, '{"deployment_status":"active"}'::jsonb);
 
 /*
 Manual verification plan for disposable execution evidence only:

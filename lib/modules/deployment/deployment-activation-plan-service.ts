@@ -629,7 +629,7 @@ function buildPlanItems(input: {
         clinicId: input.snapshot.clinic?.id ?? input.clinicId,
         deploymentStatus: "draft",
       }),
-      targetState: { deploymentStatus: "active" },
+      targetState: { deploymentStatus: "deployed" },
       dependencyKeys: [],
       reversible: true,
       rollbackAction: "restore clinic deployment status to draft before operational activity starts",

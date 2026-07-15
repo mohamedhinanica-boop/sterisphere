@@ -576,7 +576,7 @@ function basePlanItems(): DeploymentActivationPlanItem[] {
         clinicId: CLINIC_ID,
         deploymentStatus: "draft",
       }),
-      targetState: { deploymentStatus: "active" },
+      targetState: { deploymentStatus: "deployed" },
       dependencyKeys: [],
       reversible: true,
       rollbackAction: "restore clinic deployment status",

@@ -270,7 +270,7 @@ function executionItem(
         : { deploymentStatus: "deployed" },
     targetState:
       sequence === 1
-        ? { deploymentStatus: "active" }
+        ? { deploymentStatus: "deployed" }
         : { deploymentStatus: "activated" },
     dependencyKeys,
     executionStatus: dependencyKeys.length === 0 ? "ready" : "pending",

@@ -226,7 +226,7 @@ function scenarioExpectedCurrentStatePayload(): DeploymentClinicActivationSupaba
 
 function scenarioTargetStatePayload(): DeploymentClinicActivationSupabaseRepositoryHarnessScenario {
   const payload = clinicActivationRpcPayload(command());
-  return expectScenario("target state payload", (payload.p_target_state as Record<string, unknown>).deploymentStatus === "active", JSON.stringify(redactPayload(payload)));
+  return expectScenario("target state payload", (payload.p_target_state as Record<string, unknown>).deploymentStatus === "deployed", JSON.stringify(redactPayload(payload)));
 }
 
 function scenarioActivationTimestampPayload(): DeploymentClinicActivationSupabaseRepositoryHarnessScenario {
@@ -385,7 +385,7 @@ function command(input: Partial<DeploymentClinicActivationAtomicCommand> = {}): 
     expectedItemStartedAt: ITEM_STARTED_AT,
     expectedAttemptCount: 1,
     expectedCurrentState: { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    targetState: { deploymentStatus: "active" },
+    targetState: { deploymentStatus: "deployed" },
     proposedActivatedAt: ACTIVATED_AT,
     ...input,
   };
@@ -439,7 +439,7 @@ function itemRow(input: Partial<ClinicActivationItemRow> = {}): ClinicActivation
     reversible: input.reversible ?? true,
     rollback_action: input.rollback_action ?? "restore clinic deployment status to draft",
     expected_current_state: input.expected_current_state ?? { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    target_state: input.target_state ?? { deploymentStatus: "active" },
+    target_state: input.target_state ?? { deploymentStatus: "deployed" },
   };
 }
 
@@ -475,7 +475,7 @@ function baseRpcRow() {
     execution_item_key: EXECUTION_ITEM_KEY,
     plan_item_key: PLAN_ITEM_KEY,
     clinic_state_before: { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    clinic_state_after: { clinicId: CLINIC_ID, deploymentStatus: "active" },
+    clinic_state_after: { clinicId: CLINIC_ID, deploymentStatus: "deployed" },
     activated_at: ACTIVATED_AT,
     issue_code: null,
     message: "Clinic deployment status was activated. Execution item remains running.",

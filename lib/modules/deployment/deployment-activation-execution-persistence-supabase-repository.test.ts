@@ -1,4 +1,4 @@
-﻿import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CreateDeploymentActivationExecutionItemPayload,
   CreateDeploymentActivationExecutionSessionPayload,
@@ -149,14 +149,14 @@ function scenarioRollbackBoundaryMapping(): DeploymentActivationExecutionPersist
 function scenarioJsonStateDependencyMapping(): DeploymentActivationExecutionPersistenceSupabaseRepositoryHarnessScenario {
   const record = mapItemRow(itemRow({
     expected_current_state: { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    target_state: { deploymentStatus: "active" },
+    target_state: { deploymentStatus: "deployed" },
     dependency_keys: [`${PLAN_KEY}:clinic`],
   }));
 
   return expectScenario(
     "JSON state/dependency mapping",
     record.expectedCurrentState.clinicId === CLINIC_ID &&
-      record.targetState.deploymentStatus === "active" &&
+      record.targetState.deploymentStatus === "deployed" &&
       record.dependencyKeys[0] === `${PLAN_KEY}:clinic`,
     JSON.stringify(record),
   );
@@ -347,7 +347,7 @@ function itemPayload(
     deploymentKey: null,
     action: "activate",
     expectedCurrentState: { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    targetState: { deploymentStatus: "active" },
+    targetState: { deploymentStatus: "deployed" },
     dependencyKeys: [],
     executionStatus,
     attemptCount: 0,
@@ -427,7 +427,7 @@ function itemRow(
     deployment_key: input.deployment_key ?? null,
     action: input.action ?? "activate",
     expected_current_state: input.expected_current_state ?? { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    target_state: input.target_state ?? { deploymentStatus: "active" },
+    target_state: input.target_state ?? { deploymentStatus: "deployed" },
     dependency_keys: input.dependency_keys ?? [],
     execution_status: input.execution_status ?? "ready",
     attempt_count: input.attempt_count ?? 0,

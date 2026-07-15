@@ -3151,9 +3151,9 @@ function CompleteStep({
                 <p className="font-semibold uppercase tracking-[0.08em]">Clinic Row Only</p>
                 <p className="mt-2">
                   {deploymentClinicActivation?.status === "already_activated"
-                    ? "The existing active clinic deployment state was reused. The execution item remains running and no dependent item was unlocked."
+                    ? "The existing deployed clinic deployment state was reused. The execution item remains running and no dependent item was unlocked."
                     : deploymentClinicActivation?.status === "activated"
-                      ? "The clinic deployment state is active. The execution item is still running and no dependent item has been unlocked."
+                      ? "The clinic deployment state is deployed. The execution item is still running and no dependent item has been unlocked."
                       : "Clinic activation was not applied because the stage is skipped, blocked, conflicted, missing, or errored."}
                 </p>
                 <p className="mt-1">
@@ -3186,7 +3186,7 @@ function CompleteStep({
             </div>          </div>
           </div>
           <p className="mt-4 font-semibold">
-            Clinic deployment status may now be active, but the execution item is still running and no dependent item has been unlocked.
+            Clinic deployment status may now be deployed, but the execution item is still running and no dependent item has been unlocked.
           </p>
           <p className="mt-1">
             Only public.clinics, public.clinic_settings, public.providers
@@ -3204,7 +3204,7 @@ function CompleteStep({
             execution preparation produces pre-execution evidence, and
             public.deployment_activation_execution_sessions plus
             public.deployment_activation_execution_items may persist that prepared
-            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked active for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and an active clinic row does not unlock dependent work; no hardware
+            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row does not unlock dependent work; no hardware
             bindings are written, no devices activate, and no users, packs,
             cycles, traces, audit logs, rollback work, or deployment finalization
             occurs.

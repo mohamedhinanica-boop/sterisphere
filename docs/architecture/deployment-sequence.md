@@ -1182,7 +1182,7 @@ The documented execution-control sequence now extends to:
 5. Clinic activation action assessment
 6. Future atomic clinic activation
 
-Slice 6A adds only the TypeScript assessment for step 5. It answers whether the currently running sequence-1 clinic activation item may safely propose the clinic transition from canonical draft state to { deploymentStatus: active }. The assessment checks session ownership, token, lease, lifecycle timestamps, item identity/lifecycle, dependency absence, clinic deployment ownership, planned inactive provisioning evidence, archival/deletion state, and canonical expected-current-state equality.
+Slice 6A adds only the TypeScript assessment for step 5. It answers whether the currently running sequence-1 clinic activation item may safely propose the clinic transition from canonical draft state to { deploymentStatus: deployed }. The assessment checks session ownership, token, lease, lifecycle timestamps, item identity/lifecycle, dependency absence, clinic deployment ownership, planned inactive provisioning evidence, archival/deletion state, and canonical expected-current-state equality.
 
 activation_ready is proposal evidence only. already_activated is deterministic reuse evidence only. Neither status activates the clinic, marks the item succeeded, unlocks dependencies, starts another item, mutates shells, writes bindings, finalizes deployment, performs rollback, adds runtime wiring, creates SQL, or changes DeploymentEngine.execute().
 
@@ -1198,7 +1198,7 @@ The planned execution-control sequence now extends to:
 6. Atomic clinic activation through `public.activate_deployment_clinic`
 7. Future item completion and dependency progression
 
-Slice 6B adds the repository and SQL boundary for step 6 only. The SQL may mutate only the clinic activation fields corresponding to `{ deploymentStatus: active }`: `clinics.deployment_status` and, on first activation only, `clinics.deployed_at`. It does not complete the running clinic item, unlock the next item, mutate the execution session, activate downstream shells or hardware, write bindings, finalize deployment, rollback, or change runtime ordering.
+Slice 6B adds the repository and SQL boundary for step 6 only. The SQL may mutate only the clinic activation fields corresponding to `{ deploymentStatus: deployed }`: `clinics.deployment_status` and, on first activation only, `clinics.deployed_at`. It does not complete the running clinic item, unlock the next item, mutate the execution session, activate downstream shells or hardware, write bindings, finalize deployment, rollback, or change runtime ordering.
 
 No setup action is wired in this slice. Runtime will need a later slice to call the 6A assessment and then this atomic RPC while preserving token secrecy and all compare-and-set evidence.
 
@@ -1215,4 +1215,4 @@ Setup completion now extends the live execution-control sequence to:
 
 Step 5 runs only when step 4 returns `started` or `already_started`. It loads the clinic activation snapshot, assesses same-owner active-lease clinic activation safety, and calls `public.activate_deployment_clinic` only for `activation_ready`. `already_activated` returns reuse evidence without a second clinic mutation.
 
-The setup response and Complete page show clinic activation separately from item start. `activated` means the clinic row deployment status is active, but the sequence-1 execution item is still running. It does not mean item completion, dependency progression, shell activation, hardware binding, rollback, deployment finalization, background execution, polling, streaming, activation buttons, or `DeploymentEngine.execute()` changes.
+The setup response and Complete page show clinic activation separately from item start. `activated` means the clinic row deployment status is deployed, but the sequence-1 execution item is still running. It does not mean item completion, dependency progression, shell activation, hardware binding, rollback, deployment finalization, background execution, polling, streaming, activation buttons, or `DeploymentEngine.execute()` changes.

@@ -1,4 +1,4 @@
-﻿import {
+import {
   buildClinicActivationCurrentState,
   buildDeploymentRunActivationCurrentState,
   buildProviderShellActivationCurrentState,
@@ -928,7 +928,7 @@ function baseExecutionItems(input: {
   const runPlanKey = `${planKey}:deployment_run`;
 
   return [
-    executionItem(input.executionKey, clinicPlanKey, 1, "clinic", input.clinicId, null, "activate", buildClinicActivationCurrentState({ clinicId: input.clinicId, deploymentStatus: "draft" }), { deploymentStatus: "active" }, [], true, "restore clinic"),
+    executionItem(input.executionKey, clinicPlanKey, 1, "clinic", input.clinicId, null, "activate", buildClinicActivationCurrentState({ clinicId: input.clinicId, deploymentStatus: "draft" }), { deploymentStatus: "deployed" }, [], true, "restore clinic"),
     executionItem(input.executionKey, providerPlanKey, 2, "provider_shell", "provider-row-001", "provider-001", "activate", buildProviderShellActivationCurrentState({ id: "provider-row-001", clinicId: input.clinicId, deploymentProviderKey: "provider-001", provisioningSource: "setup_draft", provisioningStatus: "placeholder", active: false }), { provisioningStatus: "active", active: true }, [clinicPlanKey], true, "restore provider"),
     executionItem(input.executionKey, runPlanKey, 3, "deployment_run", null, input.deploymentRunId, "finalize", buildDeploymentRunActivationCurrentState({ deploymentRunId: input.deploymentRunId, clinicId: input.clinicId, lifecycleState: "completed", deploymentStatus: "deployed" }), { deploymentStatus: "activated" }, [clinicPlanKey, providerPlanKey], false, null),
   ];

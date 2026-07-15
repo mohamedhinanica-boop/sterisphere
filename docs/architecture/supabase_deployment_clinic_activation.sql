@@ -211,8 +211,8 @@ begin
     return;
   end if;
 
-  if v_target_deployment_status <> 'active'
-    or p_target_state not in ('{"deploymentStatus":"active"}'::jsonb, '{"deployment_status":"active"}'::jsonb)
+  if v_target_deployment_status <> 'deployed'
+    or p_target_state not in ('{"deploymentStatus":"deployed"}'::jsonb, '{"deployment_status":"deployed"}'::jsonb)
   then
     return query select 'blocked'::text, v_clinic.id, p_deployment_run_key, v_session.id, v_session.execution_key,
       v_item.id, v_item.execution_item_key, v_item.plan_item_key, v_state_before, v_state_before, v_clinic.deployed_at,
@@ -220,11 +220,11 @@ begin
     return;
   end if;
 
-  if v_clinic.deployment_status = 'active' then
+  if v_clinic.deployment_status = 'deployed' then
     if v_clinic.deployed_at is null then
       return query select 'conflict'::text, v_clinic.id, p_deployment_run_key, v_session.id, v_session.execution_key,
         v_item.id, v_item.execution_item_key, v_item.plan_item_key, v_state_before, v_state_before, v_clinic.deployed_at,
-        'already_active_incompatible'::text, 'Clinic is active without durable activation timestamp evidence.'::text;
+        'already_deployed_incompatible'::text, 'Clinic is deployed without durable activation timestamp evidence.'::text;
       return;
     end if;
 
@@ -246,7 +246,7 @@ begin
   end if;
 
   update public.clinics update_clinic
-  set deployment_status = 'active',
+  set deployment_status = 'deployed',
       deployed_at = p_proposed_activated_at
   where update_clinic.id = v_clinic.id
   returning * into v_clinic;
@@ -255,7 +255,7 @@ begin
 
   return query select 'activated'::text, v_clinic.id, p_deployment_run_key, v_session.id, v_session.execution_key,
     v_item.id, v_item.execution_item_key, v_item.plan_item_key, v_state_before, v_state_after, v_clinic.deployed_at,
-    null::text, 'Clinic deployment status was activated. Execution item remains running.'::text;
+    null::text, 'Clinic deployment status was deployed. Execution item remains running.'::text;
 end;
 $$;
 

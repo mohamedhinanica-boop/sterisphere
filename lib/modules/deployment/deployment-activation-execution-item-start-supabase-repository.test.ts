@@ -462,7 +462,7 @@ function itemRow(input: Partial<ItemStartItemRow> = {}): ItemStartItemRow {
     reversible: input.reversible ?? true,
     rollback_action: input.rollback_action ?? "restore clinic",
     expected_current_state: input.expected_current_state ?? { deploymentStatus: "draft" },
-    target_state: input.target_state ?? { deploymentStatus: "active" },
+    target_state: input.target_state ?? { deploymentStatus: "deployed" },
   };
 }
 

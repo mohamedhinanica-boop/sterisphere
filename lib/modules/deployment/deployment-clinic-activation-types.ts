@@ -45,7 +45,7 @@ export type DeploymentClinicActivationIssueCode =
   | "clinic_provisioning_incompatible"
   | "clinic_deployment_ownership_mismatch"
   | "clinic_state_mismatch"
-  | "clinic_already_active_conflict"
+  | "clinic_already_deployed_conflict"
   | "activation_persistence_unimplemented"
   | "item_completion_unimplemented"
   | "dependency_progression_unimplemented"

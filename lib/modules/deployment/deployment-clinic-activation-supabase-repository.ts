@@ -341,7 +341,7 @@ export function mapClinicActivationClinicRow(
     deploymentRunId: runLink?.deployment_run_id ?? null,
     deploymentStatus,
     deployedAt: row.deployed_at,
-    active: deploymentStatus === "active",
+    active: deploymentStatus === "deployed",
     provisioningSource: deploymentStatus === "draft" ? "setup_draft" : null,
     provisioningStatus: deploymentStatus === "draft" ? "planned" : deploymentStatus,
     archivedAt: null,

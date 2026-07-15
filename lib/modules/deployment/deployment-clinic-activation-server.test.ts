@@ -122,7 +122,7 @@ async function scenarioAlreadyStartedActivation(): Promise<DeploymentClinicActiv
 
 async function scenarioAlreadyActivatedReuse(): Promise<DeploymentClinicActivationServerHarnessScenario> {
   const deployedAt = "2026-01-01T12:00:45.000Z";
-  const repository = repositoryHarness({ snapshot: snapshot({ clinic: { deploymentStatus: "active", deployedAt, active: true, provisioningStatus: "active", currentState: { clinicId: CLINIC_ID, deploymentStatus: "active" } } }) });
+  const repository = repositoryHarness({ snapshot: snapshot({ clinic: { deploymentStatus: "deployed", deployedAt, active: true, provisioningStatus: "deployed", currentState: { clinicId: CLINIC_ID, deploymentStatus: "deployed" } } }) });
   const result = await activate(repository);
 
   return expectScenario(
@@ -289,7 +289,7 @@ async function scenarioActivatedCounts(): Promise<DeploymentClinicActivationServ
 }
 
 async function scenarioReuseCounts(): Promise<DeploymentClinicActivationServerHarnessScenario> {
-  const result = await activate(repositoryHarness({ snapshot: snapshot({ clinic: { deploymentStatus: "active", deployedAt: ACTIVATION_TIME, active: true, provisioningStatus: "active", currentState: { clinicId: CLINIC_ID, deploymentStatus: "active" } } }) }));
+  const result = await activate(repositoryHarness({ snapshot: snapshot({ clinic: { deploymentStatus: "deployed", deployedAt: ACTIVATION_TIME, active: true, provisioningStatus: "deployed", currentState: { clinicId: CLINIC_ID, deploymentStatus: "deployed" } } }) }));
   return expectScenario("reuse counts", result.activatedCount === 0 && result.reusedCount === 1 && result.conflicts === 0, JSON.stringify(redact(result)));
 }
 
@@ -338,7 +338,7 @@ async function scenarioNoSnapshotOnSkippedPrerequisite(): Promise<DeploymentClin
 }
 
 async function scenarioNoRpcOnAlreadyActivated(): Promise<DeploymentClinicActivationServerHarnessScenario> {
-  const repository = repositoryHarness({ snapshot: snapshot({ clinic: { deploymentStatus: "active", deployedAt: ACTIVATION_TIME, active: true, provisioningStatus: "active", currentState: { clinicId: CLINIC_ID, deploymentStatus: "active" } } }) });
+  const repository = repositoryHarness({ snapshot: snapshot({ clinic: { deploymentStatus: "deployed", deployedAt: ACTIVATION_TIME, active: true, provisioningStatus: "deployed", currentState: { clinicId: CLINIC_ID, deploymentStatus: "deployed" } } }) });
   await activate(repository);
 
   return expectScenario("already activated reuse does not call RPC", repository.loadCalls === 1 && repository.atomicCalls.length === 0, JSON.stringify(repository.stats));
@@ -377,7 +377,7 @@ async function scenarioPreservesItemEvidence(): Promise<DeploymentClinicActivati
 
 async function scenarioPreservesClinicStates(): Promise<DeploymentClinicActivationServerHarnessScenario> {
   const result = await activate(repositoryHarness());
-  return expectScenario("clinic before/after states are returned", result.currentClinicState?.deploymentStatus === "draft" && result.targetClinicState?.deploymentStatus === "active", JSON.stringify(redact(result)));
+  return expectScenario("clinic before/after states are returned", result.currentClinicState?.deploymentStatus === "draft" && result.targetClinicState?.deploymentStatus === "deployed", JSON.stringify(redact(result)));
 }
 
 async function scenarioClinicCurrentStateConflict(): Promise<DeploymentClinicActivationServerHarnessScenario> {
@@ -635,7 +635,7 @@ function atomicResult(
     executionItemKey: EXECUTION_ITEM_KEY,
     planItemKey: PLAN_ITEM_KEY,
     clinicStateBefore: { clinicId: CLINIC_ID, deploymentStatus: "draft" },
-    clinicStateAfter: { clinicId: CLINIC_ID, deploymentStatus: "active" },
+    clinicStateAfter: { clinicId: CLINIC_ID, deploymentStatus: "deployed" },
     activatedAt: ACTIVATION_TIME,
     issueCode: null,
     message: "Clinic deployment status was activated. Execution item remains running.",
