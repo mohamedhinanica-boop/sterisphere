@@ -3,6 +3,9 @@ import {
   type DeploymentClinicActivationAtomicRepository,
 } from "./deployment-clinic-activation-server";
 import {
+  DeploymentClinicActivationRepositoryError,
+} from "./deployment-clinic-activation-supabase-repository";
+import {
   buildClinicActivationSnapshot,
 } from "./deployment-clinic-activation-test-repository";
 import {
@@ -62,6 +65,7 @@ export async function runDeploymentClinicActivationServerHarness(): Promise<Depl
     await scenarioAtomicNotFound(),
     await scenarioAtomicError(),
     await scenarioAtomicThrow(),
+    await scenarioRepositoryDiagnosticsSurface(),
     await scenarioUsesSingleTimestamp(),
     await scenarioExpectedItemStartedAtCarried(),
     await scenarioActivatedCounts(),
@@ -227,6 +231,35 @@ async function scenarioAtomicThrow(): Promise<DeploymentClinicActivationServerHa
   );
 }
 
+async function scenarioRepositoryDiagnosticsSurface(): Promise<DeploymentClinicActivationServerHarnessScenario> {
+  const repository = repositoryHarness({
+    throwOnAtomicError: new DeploymentClinicActivationRepositoryError(
+      "Clinic activation repository query failed.",
+      "PGRST202",
+      {
+        layer: "rpc",
+        errorCode: "PGRST202",
+        errorMessage: "Could not find the function public.activate_deployment_clinic.",
+        errorDetails: "Searched for the function with the supplied argument names.",
+        errorHint: "Check the RPC signature.",
+      },
+    ),
+  });
+  const result = await activate(repository);
+  const diagnosticIssue = result.issues.find((issue) => issue.code === "repository_error");
+
+  return expectScenario(
+    "repository diagnostics surface through existing repository_error issue",
+    !result.ok &&
+      result.status === "error" &&
+      diagnosticIssue?.diagnostics?.layer === "rpc" &&
+      diagnosticIssue.diagnostics.errorCode === "PGRST202" &&
+      diagnosticIssue.diagnostics.errorMessage === "Could not find the function public.activate_deployment_clinic." &&
+      diagnosticIssue.diagnostics.errorDetails === "Searched for the function with the supplied argument names." &&
+      diagnosticIssue.diagnostics.errorHint === "Check the RPC signature.",
+    JSON.stringify(redact(result)),
+  );
+}
 async function scenarioUsesSingleTimestamp(): Promise<DeploymentClinicActivationServerHarnessScenario> {
   const repository = repositoryHarness();
   const result = await activate(repository);
@@ -430,6 +463,7 @@ function repositoryHarness(input: {
   atomicResult?: DeploymentClinicActivationAtomicResult;
   throwOnLoad?: boolean;
   throwOnAtomic?: boolean;
+  throwOnAtomicError?: Error;
 } = {}): MockClinicActivationRepository {
   return new MockClinicActivationRepository(input);
 }
@@ -442,17 +476,20 @@ class MockClinicActivationRepository implements DeploymentClinicActivationAtomic
   private readonly result: DeploymentClinicActivationAtomicResult;
   private readonly throwOnLoad: boolean;
   private readonly throwOnAtomic: boolean;
+  private readonly throwOnAtomicError: Error | null;
 
   constructor(input: {
     snapshot?: DeploymentClinicActivationSnapshot;
     atomicResult?: DeploymentClinicActivationAtomicResult;
     throwOnLoad?: boolean;
     throwOnAtomic?: boolean;
+    throwOnAtomicError?: Error;
   } = {}) {
     this.snapshot = cloneClinicActivationSnapshot(input.snapshot ?? snapshot());
     this.result = input.atomicResult ?? atomicResult();
     this.throwOnLoad = input.throwOnLoad ?? false;
     this.throwOnAtomic = input.throwOnAtomic ?? false;
+    this.throwOnAtomicError = input.throwOnAtomicError ?? null;
   }
 
   get stats(): Record<string, unknown> {
@@ -481,6 +518,10 @@ class MockClinicActivationRepository implements DeploymentClinicActivationAtomic
       expectedCurrentState: cloneRecord(command.expectedCurrentState),
       targetState: cloneRecord(command.targetState),
     });
+
+    if (this.throwOnAtomicError) {
+      throw this.throwOnAtomicError;
+    }
 
     if (this.throwOnAtomic) {
       throw new Error("atomic clinic activation failed");

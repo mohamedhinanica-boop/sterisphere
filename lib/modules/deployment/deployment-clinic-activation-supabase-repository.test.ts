@@ -284,13 +284,28 @@ async function scenarioMultipleRpcRows(): Promise<DeploymentClinicActivationSupa
 }
 
 async function scenarioSupabaseErrorSanitization(): Promise<DeploymentClinicActivationSupabaseRepositoryHarnessScenario> {
-  const repository = new SupabaseDeploymentClinicActivationRepository(new MockSupabaseClient({}, {}, { message: `database failed ${OWNERSHIP_TOKEN}`, code: "PGRST000" }) as unknown as SupabaseClient);
+  const repository = new SupabaseDeploymentClinicActivationRepository(new MockSupabaseClient({}, {}, {
+    message: `database failed ${OWNERSHIP_TOKEN}`,
+    code: "PGRST000",
+    details: `RPC details include ${OWNERSHIP_TOKEN} function body context.`,
+    hint: "Check activate_deployment_clinic input evidence.",
+  }) as unknown as SupabaseClient);
   try {
-    await repository.loadClinicActivationSnapshot(query());
+    await repository.activateClinicAtomically(command());
   } catch (error) {
-    return expectScenario("Supabase error sanitization", error instanceof Error && !error.message.includes(OWNERSHIP_TOKEN), String(error));
+    const repositoryError = error as { diagnostics?: Record<string, unknown> };
+    return expectScenario(
+      "Supabase RPC error diagnostics are preserved with ownership-token redaction",
+      error instanceof Error &&
+        !error.message.includes(OWNERSHIP_TOKEN) &&
+        repositoryError.diagnostics?.errorCode === "PGRST000" &&
+        repositoryError.diagnostics?.errorMessage === "database failed [redacted]" &&
+        repositoryError.diagnostics?.errorDetails === "RPC details include [redacted] function body context." &&
+        repositoryError.diagnostics?.errorHint === "Check activate_deployment_clinic input evidence.",
+      JSON.stringify(repositoryError.diagnostics),
+    );
   }
-  return expectScenario("Supabase error sanitization", false, "error not thrown");
+  return expectScenario("Supabase RPC error diagnostics are preserved with ownership-token redaction", false, "error not thrown");
 }
 
 function scenarioTokenRedaction(): DeploymentClinicActivationSupabaseRepositoryHarnessScenario {
@@ -482,14 +497,14 @@ class MockSupabaseClient {
   constructor(
     readonly tableRows: Record<string, unknown[]> = {},
     readonly rpcResults: Record<string, unknown> = {},
-    readonly error: { message: string; code?: string } | null = null,
+    readonly error: { message: string; code?: string; details?: string | null; hint?: string | null } | null = null,
   ) {}
 
   from(table: string): MockQuery {
     return new MockQuery(this, table);
   }
 
-  async rpc(name: string, payload: Record<string, unknown>): Promise<{ data: unknown; error: { message: string; code?: string } | null }> {
+  async rpc(name: string, payload: Record<string, unknown>): Promise<{ data: unknown; error: { message: string; code?: string; details?: string | null; hint?: string | null } | null }> {
     this.rpcCalls.push({ name, payload });
     return { data: this.rpcResults[name] ?? null, error: this.error };
   }
@@ -508,13 +523,13 @@ class MockQuery {
   limit(count: number): this { this.limitCount = count; return this; }
 
   then<TResult1 = { data: unknown[]; error: { message: string; code?: string } | null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: unknown[]; error: { message: string; code?: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?: ((value: { data: unknown[]; error: { message: string; code?: string; details?: string | null; hint?: string | null } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return Promise.resolve(this.executeMany()).then(onfulfilled, onrejected);
   }
 
-  private executeMany(): { data: unknown[]; error: { message: string; code?: string } | null } {
+  private executeMany(): { data: unknown[]; error: { message: string; code?: string; details?: string | null; hint?: string | null } | null } {
     this.client.calls.push({ table: this.table, operation: "select" });
 
     if (this.client.error) {

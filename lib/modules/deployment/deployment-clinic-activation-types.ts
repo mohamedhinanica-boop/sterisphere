@@ -121,6 +121,17 @@ export interface DeploymentClinicActivationSnapshot {
   clinic: DeploymentClinicActivationClinicSnapshot | null;
 }
 
+export interface DeploymentClinicActivationIssueDiagnostics {
+  layer: "repository" | "rpc" | "response_mapping" | "unknown";
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  errorDetails?: string | null;
+  errorHint?: string | null;
+  exceptionType?: string | null;
+  exceptionMessage?: string | null;
+  stack?: string | null;
+}
+
 export interface DeploymentClinicActivationIssue {
   code: DeploymentClinicActivationIssueCode;
   severity: DeploymentClinicActivationIssueSeverity;
@@ -129,6 +140,7 @@ export interface DeploymentClinicActivationIssue {
   executionItemKey: string | null;
   planItemKey: string | null;
   message: string;
+  diagnostics?: DeploymentClinicActivationIssueDiagnostics | null;
 }
 
 export interface DeploymentClinicActivationDownstreamCounts {

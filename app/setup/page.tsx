@@ -293,6 +293,33 @@ function createEmptyActivationExecutionStartEvidence(input: {
     message: input.message ?? "Activation execution start was not attempted.",
   } as const;
 }
+function formatClinicActivationDiagnostics(
+  diagnostics: {
+    layer?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    errorDetails?: string | null;
+    errorHint?: string | null;
+    exceptionType?: string | null;
+    exceptionMessage?: string | null;
+    stack?: string | null;
+  } | null | undefined,
+): string {
+  if (!diagnostics) {
+    return "none";
+  }
+
+  return [
+    `layer=${diagnostics.layer ?? "unknown"}`,
+    `error.code=${diagnostics.errorCode ?? "none"}`,
+    `error.message=${diagnostics.errorMessage ?? "none"}`,
+    `error.details=${diagnostics.errorDetails ?? "none"}`,
+    `error.hint=${diagnostics.errorHint ?? "none"}`,
+    `exception.type=${diagnostics.exceptionType ?? "none"}`,
+    `exception.message=${diagnostics.exceptionMessage ?? "none"}`,
+    diagnostics.stack ? `stack=${diagnostics.stack}` : null,
+  ].filter(Boolean).join("; ");
+}
 function readDeploymentStatus(
   state: Record<string, unknown> | null | undefined,
 ): string {
@@ -3141,6 +3168,11 @@ function CompleteStep({
                       <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
                         <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
                         {issue.message}
+                        {issue.diagnostics ? (
+                          <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
+                            {formatClinicActivationDiagnostics(issue.diagnostics)}
+                          </span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -3374,6 +3406,7 @@ function buildDeploymentSupportHref(
       `Clinic activation blockers: ${result?.deploymentClinicActivation.blockers ?? 0}`,
       `Clinic activation warnings: ${result?.deploymentClinicActivation.warnings ?? 0}`,
       `Clinic activation issues: ${result?.deploymentClinicActivation.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Clinic activation diagnostics: ${result?.deploymentClinicActivation.issues.map((issue) => `${issue.code}: ${formatClinicActivationDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
       `Clinic activation message: ${result?.deploymentClinicActivation.message ?? "No clinic-activation response yet."}`,
       "Clinic activation note: the clinic row may now be active, but the execution item has not completed and no downstream activation, binding, dependency unlock, rollback, or finalization occurred.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",

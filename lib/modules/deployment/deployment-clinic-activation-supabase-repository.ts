@@ -10,6 +10,7 @@ import type {
   DeploymentClinicActivationClinicSnapshot,
   DeploymentClinicActivationItemSnapshot,
   DeploymentClinicActivationSessionSnapshot,
+  DeploymentClinicActivationIssueDiagnostics,
   DeploymentClinicActivationSnapshot,
 } from "./deployment-clinic-activation-types";
 
@@ -127,15 +128,27 @@ type ClinicActivationRpcRow = {
 interface SupabaseErrorLike {
   code?: string;
   message: string;
+  details?: string | null;
+  hint?: string | null;
 }
 
 export class DeploymentClinicActivationRepositoryError extends Error {
   readonly code: string | null;
+  readonly diagnostics: DeploymentClinicActivationIssueDiagnostics;
 
-  constructor(message: string, code: string | null = null) {
+  constructor(
+    message: string,
+    code: string | null = null,
+    diagnostics: DeploymentClinicActivationIssueDiagnostics = {
+      layer: "repository",
+      errorCode: code,
+      errorMessage: message,
+    },
+  ) {
     super(message);
     this.name = "DeploymentClinicActivationRepositoryError";
     this.code = code;
+    this.diagnostics = diagnostics;
   }
 }
 
@@ -174,7 +187,7 @@ export class SupabaseDeploymentClinicActivationRepository
     const { data, error } = await this.client.rpc(CLINIC_ACTIVATION_RPC_NAME, payload);
 
     if (error) {
-      throw toRepositoryError(error);
+      throw toRepositoryError(error, command.ownershipToken);
     }
 
     return mapClinicActivationRpcResult(readSingleRpcRow(data));
@@ -391,6 +404,12 @@ function readSingleRpcRow(data: unknown): ClinicActivationRpcRow {
   if (rows.length !== 1) {
     throw new DeploymentClinicActivationRepositoryError(
       "Ambiguous clinic activation RPC response.",
+      null,
+      {
+        layer: "response_mapping",
+        exceptionType: "DeploymentClinicActivationRepositoryError",
+        exceptionMessage: "Ambiguous clinic activation RPC response.",
+      },
     );
   }
 
@@ -399,6 +418,12 @@ function readSingleRpcRow(data: unknown): ClinicActivationRpcRow {
   if (!row || typeof row !== "object" || Array.isArray(row)) {
     throw new DeploymentClinicActivationRepositoryError(
       "Malformed clinic activation RPC response.",
+      null,
+      {
+        layer: "response_mapping",
+        exceptionType: "DeploymentClinicActivationRepositoryError",
+        exceptionMessage: "Malformed clinic activation RPC response.",
+      },
     );
   }
 
@@ -423,6 +448,12 @@ function readClinicActivationStatus(
 
   throw new DeploymentClinicActivationRepositoryError(
     "Malformed clinic activation RPC status.",
+    null,
+    {
+      layer: "response_mapping",
+      exceptionType: "DeploymentClinicActivationRepositoryError",
+      exceptionMessage: "Malformed clinic activation RPC status.",
+    },
   );
 }
 
@@ -430,6 +461,12 @@ export function assertAtMostOne(rows: readonly unknown[], label: string): void {
   if (rows.length > 1) {
     throw new DeploymentClinicActivationRepositoryError(
       `Ambiguous ${label} rows prevent deterministic clinic activation.`,
+      null,
+      {
+        layer: "response_mapping",
+        exceptionType: "DeploymentClinicActivationRepositoryError",
+        exceptionMessage: `Ambiguous ${label} rows prevent deterministic clinic activation.`,
+      },
     );
   }
 }
@@ -456,11 +493,29 @@ function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
 
+function redactSensitiveDiagnostic(
+  value: string | null,
+  sensitiveToken: string | null,
+): string | null {
+  if (!value || !sensitiveToken) {
+    return value;
+  }
+
+  return value.split(sensitiveToken).join("[redacted]");
+}
 function toRepositoryError(
   error: SupabaseErrorLike,
+  sensitiveToken: string | null = null,
 ): DeploymentClinicActivationRepositoryError {
   return new DeploymentClinicActivationRepositoryError(
     "Clinic activation repository query failed.",
     error.code ?? null,
+    {
+      layer: "rpc",
+      errorCode: error.code ?? null,
+      errorMessage: redactSensitiveDiagnostic(error.message, sensitiveToken),
+      errorDetails: redactSensitiveDiagnostic(error.details ?? null, sensitiveToken),
+      errorHint: redactSensitiveDiagnostic(error.hint ?? null, sensitiveToken),
+    },
   );
 }

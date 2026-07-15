@@ -16,6 +16,7 @@ import {
   DeploymentClinicActivationService,
 } from "./deployment-clinic-activation-service";
 import {
+  DeploymentClinicActivationRepositoryError,
   SupabaseDeploymentClinicActivationRepository,
 } from "./deployment-clinic-activation-supabase-repository";
 import {
@@ -26,6 +27,7 @@ import {
   type DeploymentClinicActivationCommand,
   type DeploymentClinicActivationDownstreamCounts,
   type DeploymentClinicActivationIssue,
+  type DeploymentClinicActivationIssueDiagnostics,
   type DeploymentClinicActivationResult,
   type DeploymentClinicActivationSnapshot,
 } from "./deployment-clinic-activation-types";
@@ -199,11 +201,13 @@ export async function activateClinicWithRepository(
       atomicResult,
       publicIssues,
     );
-  } catch {
+  } catch (error) {
     return safeError(
       activationCommand,
       null,
       "Clinic activation failed safely. No fallback mutation was attempted.",
+      [],
+      diagnosticsFromUnknownError(error),
     );
   }
 }
@@ -492,6 +496,7 @@ function safeError(
   assessment: DeploymentClinicActivationResult | null,
   message: string,
   issues: readonly DeploymentClinicActivationIssue[] = [],
+  diagnostics: DeploymentClinicActivationIssueDiagnostics | null = null,
 ): ServerDeploymentClinicActivationResult {
   const safeIssues = issues.length
     ? issues
@@ -502,7 +507,12 @@ function safeError(
           command.executionKey,
           assessment?.executionItemKey ?? command.executionItemKey,
           assessment?.planItemKey ?? command.planItemKey,
-          "Clinic activation repository failed safely.",
+          diagnostics?.errorMessage
+            ? `Clinic activation repository failed safely. ${diagnostics.errorMessage}`
+            : diagnostics?.exceptionMessage
+              ? `Clinic activation repository failed safely. ${diagnostics.exceptionMessage}`
+              : "Clinic activation repository failed safely.",
+          diagnostics,
         ),
       ];
 
@@ -516,6 +526,27 @@ function safeError(
   };
 }
 
+function diagnosticsFromUnknownError(
+  error: unknown,
+): DeploymentClinicActivationIssueDiagnostics {
+  if (error instanceof DeploymentClinicActivationRepositoryError) {
+    return error.diagnostics;
+  }
+
+  if (error instanceof Error) {
+    return {
+      layer: "unknown",
+      exceptionType: error.name || error.constructor.name || "Error",
+      exceptionMessage: error.message,
+    };
+  }
+
+  return {
+    layer: "unknown",
+    exceptionType: typeof error,
+    exceptionMessage: String(error),
+  };
+}
 function filterRuntimeIssues(
   issues: readonly DeploymentClinicActivationIssue[],
 ): DeploymentClinicActivationIssue[] {
@@ -539,6 +570,7 @@ function issue(
   executionItemKey: string | null,
   planItemKey: string | null,
   message: string,
+  diagnostics: DeploymentClinicActivationIssueDiagnostics | null = null,
 ): DeploymentClinicActivationIssue {
   return {
     code,
@@ -548,6 +580,7 @@ function issue(
     executionItemKey,
     planItemKey,
     message,
+    diagnostics,
   };
 }
 
