@@ -1341,3 +1341,22 @@ No setup action is wired in this slice. It does not activate providers or downst
 ### RC8 Slice 9C - Runtime Next Item Start
 
 The runtime sequence now appends ctivation_execution_next_item_start immediately after successful dependency progression. The stage may atomically transition one deterministic ready execution item to running, preserving the running session, owner, token, and lease evidence. It does not activate the provider/entity, complete the item, progress another dependency, finalize the session, renew leases, rotate tokens, or invoke DeploymentEngine.execute().
+
+## RC8 Slice 10A - Provider Shell Activation Assessment Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic sequence-1 execution item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Atomic next execution-item start
+9. Provider shell activation assessment foundation
+10. Future atomic provider shell activation
+
+Slice 10A implements step 9 as read-only TypeScript. It assesses whether the single currently running provider-shell activation item can safely propose a future provider shell activation, or whether the provider is already activated with compatible evidence. The assessment checks same-owner active-lease session evidence, running item identity and lifecycle, clean prior succeeded prefix, later-item immutability, duplicate-free execution identities, same-clinic provider identity, setup-draft placeholder semantics, inactive planned/placeholder provider state, and already-active reuse state.
+
+No runtime order changes are made in this slice. It does not update provider rows, complete the running item, progress dependencies, start later items, bind hardware, create SQL, add a Supabase repository, wire setup actions, modify UI/support mail, perform rollback, add workers, or change `DeploymentEngine.execute()`.

@@ -1089,3 +1089,11 @@ A successful fresh mutation updates only `public.deployment_activation_execution
 ### RC8 Slice 9C - Next Item Start Boundary
 
 Next-item start is a server-only runtime composition over DeploymentActivationExecutionNextItemStartService and SupabaseDeploymentActivationExecutionNextItemStartRepository. It runs only after dependency progression returns progressed or lready_progressed, reuses compatible already-running evidence without RPC, and otherwise calls the atomic next-item start RPC exactly once for a startable ready item. Evidence remains token-safe and reports downstream activation, completion, binding, rollback, and finalization counters as zero.
+
+## RC8 Slice 10A - Provider Shell Activation Assessment Foundation
+
+The activation execution domain now includes a TypeScript-only provider shell activation assessment boundary for the currently running provider-shell execution item. `DeploymentProviderShellActivationService` consumes a read-only snapshot of the running execution session, ordered execution items, one provider shell candidate, and aggregate integrity evidence before returning token-safe `activatable`, `already_activated`, `blocked`, `conflict`, `not_found`, or `error` evidence.
+
+Eligibility requires a ready, running execution session with same-owner evidence, matching ownership token, active lease, valid start evidence, and no terminal lifecycle timestamps. Item evidence must show exactly one running provider-shell activate item, a clean contiguous succeeded prefix, no duplicate item identities, no rollback/completion/error evidence on the running item, and no later execution drift. The provider shell must be same-clinic, deployment-keyed to the running item, setup-draft sourced, placeholder and inactive for fresh activation, or already active with compatible activation evidence for deterministic reuse.
+
+This foundation is read-only. It does not activate providers, update `public.providers`, complete execution items, progress dependencies, start later items, bind hardware, persist Supabase data, create SQL, wire setup actions, change UI or support email, run rollback, add workers, renew leases, rotate tokens, expose ownership tokens, or change `DeploymentEngine.execute()`.
