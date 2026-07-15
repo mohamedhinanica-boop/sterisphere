@@ -1248,3 +1248,20 @@ Setup completion now extends the live execution-control sequence to:
 Step 6 runs only after clinic activation returns `activated` or `already_activated`. It loads the item-completion snapshot, reassesses the same-owner active-lease sequence-1 clinic activation item, and calls `public.complete_deployment_activation_execution_item` only for a `completable` item. `already_completed` returns reuse evidence without rewriting `completed_at`, ownership, lease, started timestamp, or attempt count.
 
 A successful fresh pass updates only the running clinic execution item to `execution_status = succeeded` and writes `completed_at`. It does not unlock dependencies, start provider activation, mutate later items, complete the execution session, renew leases, rotate tokens, activate shells or hardware, write bindings, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 8A - Dependency Progression Assessment Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic execution item start
+5. Atomic clinic activation
+6. Atomic activation execution item completion
+7. Dependency progression assessment foundation
+8. Future atomic pending-to-ready transition
+
+Slice 8A adds only the TypeScript assessment for step 7. It reads a future repository snapshot for the running execution session and all durable execution items, verifies same-owner active-lease evidence, validates the contiguous succeeded prefix, and determines whether exactly one deterministic next pending item can be proposed for transition to ready.
+
+This slice does not write item status, mark any item ready, start the next item, activate providers, renew leases, rotate tokens, execute rollback, complete the session, finalize deployment, add workers, poll, stream, modify setup actions, or change `DeploymentEngine.execute()`.

@@ -1045,3 +1045,11 @@ The activation execution domain now includes a server-only Supabase persistence 
 The atomic RPC locks the execution session and selected item, rechecks owner, ownership token, expected lease, running session state, item identity, sequence, entity/action, started timestamp, attempt count, completion absence, rollback absence, error absence, item-count integrity, and duplicate-free item identities. The only successful mutation is `deployment_activation_execution_items.execution_status = 'succeeded'` plus `completed_at = proposed_completed_at` for that one item.
 
 Idempotent reuse returns `already_completed` when the same item is already succeeded with compatible immutable evidence. The boundary does not unlock dependent items, start provider activation, mutate later execution items, complete the session, renew leases, rotate tokens, activate providers, sterilizers, workstations, hardware, write bindings, finalize deployment runs, rollback, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 8A - Dependency Progression Assessment Foundation
+
+The activation execution domain now includes a read-only dependency progression assessment boundary after successful sequence-1 item completion. `DeploymentActivationExecutionDependencyProgressionService` consumes a snapshot of the running execution session and all execution items, then returns token-safe proposal evidence for whether the next deterministic item may become ready.
+
+Eligibility requires the session to be `preparationStatus = ready`, `executionStatus = running`, same-owner, same-token, actively leased, started, and free of terminal lifecycle evidence. Item evidence must show a contiguous succeeded prefix from sequence 1, exactly one next deterministic pending item, no ready/running ambiguity, no duplicate item identities, no later-item drift, and dependency keys that resolve by `planItemKey` to prior succeeded items only.
+
+`already_progressed` is evidence-only reuse when that same deterministic next item is already ready and untouched. The foundation never mutates execution items, starts the next item, activates providers or other entities, writes bindings, renews leases, rotates tokens, rolls back, completes sessions, finalizes deployment runs, or changes `DeploymentEngine.execute()`.

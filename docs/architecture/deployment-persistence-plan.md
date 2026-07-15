@@ -1563,3 +1563,15 @@ The runtime deployment chain now appends item completion after atomic clinic act
 The RPC compare-and-set requires the same clinic/run/session/execution identity, owner, ownership token, expected lease, item id, execution item key, plan item key, sequence 1, clinic activate action, expected started timestamp, expected attempt count, and null completion/rollback/error evidence. A successful mutation marks only that execution item `succeeded` and writes `completed_at`; `already_completed` reuses the prior succeeded item without rewriting timestamps or ownership evidence.
 
 This slice does not unlock dependencies, mark downstream items ready, start provider activation, complete or finalize the execution session, mutate the deployment run, activate provider/sterilizer/workstation/hardware shells, write hardware bindings, renew leases, rotate tokens, rollback, create UI changes, or modify `DeploymentEngine.execute()`.
+
+## RC8 Slice 8A - Dependency Progression Assessment Boundary
+
+The planned persistence chain now adds a read-only assessment boundary after item completion:
+
+`atomic clinic activation -> atomic execution item completion -> dependency_progression_assessment -> future atomic pending-to-ready transition`
+
+The new TypeScript foundation defines dependency progression command, snapshot, repository, service, result, issue, downstream-counter, and in-memory harness contracts. The repository interface exposes only `loadDependencyProgressionSnapshot`; it has no insert, update, upsert, patch, save, delete, ready, start, activation, rollback, or finalization methods.
+
+The assessment checks the active execution ownership boundary, contiguous succeeded prefix, deterministic next item, untouched pending/ready evidence, duplicate-free item identities, and dependency graph integrity using `planItemKey` dependency keys. Successful `progressable` and `already_progressed` results include only proposal/reuse evidence plus warnings for future persistence, next-item start, and rollback execution.
+
+No SQL, migration, Supabase repository, runtime wiring, setup UI, support email, pending-to-ready mutation, next-item start, provider activation, lease renewal, token rotation, rollback, worker, queue, polling, streaming, or `DeploymentEngine.execute()` change is introduced in this slice.
