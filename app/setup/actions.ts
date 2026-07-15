@@ -64,6 +64,9 @@ import {
 import {
   activateClinicForServerDeployment,
 } from "@/lib/modules/deployment/deployment-clinic-activation-server";
+import {
+  completeActivationExecutionItemForServerDeployment,
+} from "@/lib/modules/deployment/deployment-activation-execution-item-completion-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
@@ -94,6 +97,9 @@ import type {
 import type {
   DeploymentClinicActivationIssue,
 } from "@/lib/modules/deployment/deployment-clinic-activation-types";
+import type {
+  DeploymentActivationExecutionItemCompletionIssue,
+} from "@/lib/modules/deployment/deployment-activation-execution-item-completion-types";
 import type {
   DeploymentPlannedAssignmentResolutionIssue,
   DeploymentPlannedAssignmentResolvedRecord,
@@ -600,6 +606,63 @@ export interface DeploymentClinicActivationActionResult {
   };
   message: string;
 }
+
+export type DeploymentActivationExecutionItemCompletionActionStatus =
+  | "completed"
+  | "already_completed"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error"
+  | "not_attempted";
+
+export interface DeploymentActivationExecutionItemCompletionActionResult {
+  ok: boolean;
+  status: DeploymentActivationExecutionItemCompletionActionStatus;
+  claimantId: string | null;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  itemId: string | null;
+  executionItemKey: string | null;
+  planItemKey: string | null;
+  sequence: number | null;
+  entityType: string | null;
+  action: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  attemptCount: number;
+  executionStatusBefore: string | null;
+  executionStatusAfter: string | null;
+  completionResult:
+    | "completed"
+    | "already_completed"
+    | "blocked"
+    | "conflict"
+    | "not_found"
+    | "error"
+    | null;
+  issueCode: string | null;
+  completedCount: 0 | 1;
+  reusedCount: 0 | 1;
+  conflicts: number;
+  blockers: number;
+  warnings: number;
+  issues: readonly DeploymentActivationExecutionItemCompletionIssue[];
+  downstream: {
+    itemsCompleted: 0;
+    dependenciesUnlocked: 0;
+    providersActivated: 0;
+    sterilizersActivated: 0;
+    workstationsActivated: 0;
+    hardwareActivated: 0;
+    bindingsWritten: 0;
+    deploymentFinalized: 0;
+  };
+  message: string;
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -624,6 +687,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentActivationExecutionStart: DeploymentActivationExecutionStartActionResult;
   deploymentActivationExecutionItemStart: DeploymentActivationExecutionItemStartActionResult;
   deploymentClinicActivation: DeploymentClinicActivationActionResult;
+  deploymentActivationExecutionItemCompletion?: DeploymentActivationExecutionItemCompletionActionResult;
   message: string;
 }
 
@@ -917,6 +981,47 @@ const DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED: DeploymentClinicActivationActi
   },
   message: "Clinic activation was not attempted.",
 };
+
+const DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED: DeploymentActivationExecutionItemCompletionActionResult = {
+  ok: false,
+  status: "not_attempted",
+  claimantId: null,
+  clinicId: null,
+  deploymentRunId: null,
+  sessionId: null,
+  executionKey: null,
+  itemId: null,
+  executionItemKey: null,
+  planItemKey: null,
+  sequence: null,
+  entityType: null,
+  action: null,
+  startedAt: null,
+  completedAt: null,
+  attemptCount: 0,
+  executionStatusBefore: null,
+  executionStatusAfter: null,
+  completionResult: null,
+  issueCode: null,
+  completedCount: 0,
+  reusedCount: 0,
+  conflicts: 0,
+  blockers: 0,
+  warnings: 0,
+  issues: [],
+  downstream: {
+    itemsCompleted: 0,
+    dependenciesUnlocked: 0,
+    providersActivated: 0,
+    sterilizersActivated: 0,
+    workstationsActivated: 0,
+    hardwareActivated: 0,
+    bindingsWritten: 0,
+    deploymentFinalized: 0,
+  },
+  message: "Activation execution item completion was not attempted.",
+};
+
 const DEPLOYMENT_ACTIVATION_EXECUTION_CLAIM_NOT_ATTEMPTED: DeploymentActivationExecutionClaimActionResult = {
   ok: false,
   status: "not_attempted",
@@ -1012,6 +1117,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the reviewed draft is incomplete.",
     };
@@ -1042,6 +1148,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
       message:
         "Deployment run was not persisted because the setup session identity is missing.",
     };
@@ -1076,6 +1183,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
       message:
         "Deployment run persistence is not configured on the server.",
     };
@@ -1173,6 +1281,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "This deployment session already has a run for a different reviewed draft. No clinic data was created.",
       };
@@ -1203,6 +1312,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message: result.message,
       };
     }
@@ -1248,6 +1358,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run persisted, but clinic root persistence failed safely. The deployment_run remains durable evidence; no downstream records were created.",
       };
@@ -1285,6 +1396,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No downstream records were created.",
       };
@@ -1336,6 +1448,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run and clinic root persisted, but clinic settings provisioning failed safely. No rollback was performed.",
       };
@@ -1400,6 +1513,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, and clinic settings are durable, but provider shell provisioning failed safely. No downstream records were created.",
       };
@@ -1477,6 +1591,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, and provider shells are durable, but sterilizer shell provisioning failed safely. No downstream records were created.",
       };
@@ -1567,6 +1682,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, and sterilizer shells are durable, but workstation shell provisioning failed safely. No downstream records were created.",
       };
@@ -1671,6 +1787,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, and workstation shells are durable, but hardware shell provisioning failed safely. No downstream records were created.",
       };
@@ -1779,6 +1896,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           assignmentTargetValidation.status === "error"
             ? "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but assignment target validation failed safely. Hardware assignments were not persisted."
@@ -1898,6 +2016,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
         message:
           "Deployment run, clinic root, clinic settings, provider shells, sterilizer shells, workstation shells, and hardware shells are durable, but hardware assignment provisioning failed safely. No downstream records were created.",
       };
@@ -1978,6 +2097,16 @@ export async function persistDeploymentRunAction(
           activationRequestedAt: persistedAt,
         })
       : null;
+    const deploymentActivationExecutionItemCompletion = deploymentClinicActivation?.ok
+      ? await completeActivationExecutionItemForServerDeployment(client, {
+          clinicId,
+          deploymentRunId: result.deploymentRun.deploymentRunId,
+          deploymentActivationExecutionClaim,
+          deploymentClinicActivation,
+          itemCompletionRequestedAt: persistedAt,
+        })
+      : null;
+
     return {
       ok:
         plannedAssignmentResolution.ok &&
@@ -1987,7 +2116,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionPersistence?.ok) &&
         Boolean(deploymentActivationExecutionStart?.ok) &&
         Boolean(deploymentActivationExecutionItemStart?.ok) &&
-        Boolean(deploymentClinicActivation?.ok),
+        Boolean(deploymentClinicActivation?.ok) &&
+        Boolean(deploymentActivationExecutionItemCompletion?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2184,8 +2314,27 @@ export async function persistDeploymentRunAction(
             message:
               "Clinic activation was skipped because activation execution item start did not complete successfully.",
           },
-      message: deploymentClinicActivation?.ok
-        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, execution item start, and clinic activation are complete. The execution item remains running; no item completion, dependent unlock, binding, rollback, or finalization occurred."
+      deploymentActivationExecutionItemCompletion: deploymentActivationExecutionItemCompletion
+        ? mapDeploymentActivationExecutionItemCompletionActionResult(
+            deploymentActivationExecutionItemCompletion,
+          )
+        : {
+            ...DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
+            clinicId,
+            deploymentRunId: result.deploymentRun.deploymentRunId,
+            sessionId: deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? null,
+            executionKey: deploymentClinicActivation?.executionKey ?? deploymentActivationExecutionItemStart?.executionKey ?? deploymentActivationExecutionClaim?.executionKey ?? null,
+            claimantId: deploymentClinicActivation?.claimantId ?? deploymentActivationExecutionClaim?.claimantId ?? null,
+            itemId: deploymentClinicActivation?.itemId ?? deploymentActivationExecutionItemStart?.itemId ?? null,
+            executionItemKey: deploymentClinicActivation?.executionItemKey ?? deploymentActivationExecutionItemStart?.executionItemKey ?? null,
+            planItemKey: deploymentClinicActivation?.planItemKey ?? deploymentActivationExecutionItemStart?.planItemKey ?? null,
+            message:
+              "Activation execution item completion was skipped because clinic activation did not complete successfully.",
+          },
+      message: deploymentActivationExecutionItemCompletion?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, execution item start, clinic activation, and item completion are complete. Dependent unlock, binding, rollback, and finalization remain unavailable."
+        : deploymentClinicActivation?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, execution item start, and clinic activation are complete, but item completion is blocked. No dependent unlock, binding, rollback, or finalization occurred."
         : deploymentActivationExecutionItemStart?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, and execution item start are complete, but clinic activation is blocked. No item completion, dependency unlock, binding, rollback, or finalization occurred."
         : deploymentActivationExecutionStart?.ok
@@ -2297,6 +2446,7 @@ export async function persistDeploymentRunAction(
       deploymentActivationExecutionStart: DEPLOYMENT_ACTIVATION_EXECUTION_START_NOT_ATTEMPTED,
         deploymentActivationExecutionItemStart: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_START_NOT_ATTEMPTED,
         deploymentClinicActivation: DEPLOYMENT_CLINIC_ACTIVATION_NOT_ATTEMPTED,
+        deploymentActivationExecutionItemCompletion: DEPLOYMENT_ACTIVATION_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
       message:
         "Deployment runtime persistence failed safely. No downstream records were created.",
     };
@@ -2513,6 +2663,50 @@ function mapDeploymentActivationExecutionItemStartActionResult(
     message: result.message,
   };
 }
+function mapDeploymentActivationExecutionItemCompletionActionResult(
+  result: Awaited<ReturnType<typeof completeActivationExecutionItemForServerDeployment>>,
+): DeploymentActivationExecutionItemCompletionActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    claimantId: result.claimantId,
+    clinicId: result.clinicId,
+    deploymentRunId: result.deploymentRunId,
+    sessionId: result.sessionId,
+    executionKey: result.executionKey,
+    itemId: result.itemId,
+    executionItemKey: result.executionItemKey,
+    planItemKey: result.planItemKey,
+    sequence: result.sequence,
+    entityType: result.entityType,
+    action: result.action,
+    startedAt: result.startedAt,
+    completedAt: result.completedAt,
+    attemptCount: result.attemptCount,
+    executionStatusBefore: result.executionStatusBefore,
+    executionStatusAfter: result.executionStatusAfter,
+    completionResult: result.completionResult,
+    issueCode: result.issueCode,
+    completedCount: result.completedCount,
+    reusedCount: result.reusedCount,
+    conflicts: result.conflicts,
+    blockers: result.blockers,
+    warnings: result.warnings,
+    issues: result.issues,
+    downstream: {
+      itemsCompleted: result.downstream.itemsCompleted,
+      dependenciesUnlocked: result.downstream.dependenciesUnlocked,
+      providersActivated: result.downstream.providersActivated,
+      sterilizersActivated: result.downstream.sterilizersActivated,
+      workstationsActivated: result.downstream.workstationsActivated,
+      hardwareActivated: result.downstream.hardwareActivated,
+      bindingsWritten: result.downstream.bindingsWritten,
+      deploymentFinalized: result.downstream.deploymentFinalized,
+    },
+    message: result.message,
+  };
+}
+
 function mapDeploymentClinicActivationActionResult(
   result: Awaited<ReturnType<typeof activateClinicForServerDeployment>>,
 ): DeploymentClinicActivationActionResult {

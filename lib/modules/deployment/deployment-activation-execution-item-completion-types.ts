@@ -1,4 +1,4 @@
-﻿export type DeploymentActivationExecutionItemCompletionStatus =
+export type DeploymentActivationExecutionItemCompletionStatus =
   | "completable"
   | "already_completed"
   | "blocked"
@@ -60,8 +60,9 @@ export type DeploymentActivationExecutionItemCompletionIssueCode =
   | "duplicate_item_identity"
   | "unrelated_item_execution_evidence"
   | "completion_persistence_unavailable"
-  | "dependency_progression_unavailable"
-  | "rollback_execution_unavailable"
+  | "dependency_progression_unimplemented"
+  | "rollback_execution_unimplemented"
+  | "session_completion_unimplemented"
   | "repository_error";
 
 export interface DeploymentActivationExecutionItemCompletionCommand {
@@ -181,6 +182,8 @@ export interface DeploymentActivationExecutionItemCompletionResult {
   startedAt: string | null;
   existingCompletedAt: string | null;
   proposedCompletedAt: string | null;
+  leaseExpiresAt: string | null;
+  attemptCount: number;
   currentDurableState: Record<string, unknown> | null;
   targetState: Record<string, unknown> | null;
   blockers: number;
@@ -238,4 +241,54 @@ export function cloneItemCompletionSnapshot(
 
 export function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+export type DeploymentActivationExecutionAtomicItemCompletionStatus =
+  | "completed"
+  | "already_completed"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error";
+
+export interface DeploymentActivationExecutionAtomicItemCompletionCommand {
+  clinicId: string;
+  deploymentRunId: string;
+  sessionId: string;
+  executionKey: string;
+  claimantId: string;
+  ownershipToken: string;
+  expectedLeaseExpiresAt: string;
+  itemId: string;
+  executionItemKey: string;
+  planItemKey: string;
+  expectedSequence: number;
+  expectedEntityType: string;
+  expectedAction: string;
+  expectedStartedAt: string;
+  expectedAttemptCount: number;
+  proposedCompletedAt: string;
+}
+
+export interface DeploymentActivationExecutionAtomicItemCompletionResult {
+  ok: boolean;
+  status: DeploymentActivationExecutionAtomicItemCompletionStatus;
+  claimantId: string | null;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  itemId: string | null;
+  executionItemKey: string | null;
+  planItemKey: string | null;
+  sequence: number | null;
+  entityType: string | null;
+  action: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  attemptCount: number;
+  executionStatusBefore: string | null;
+  executionStatusAfter: string | null;
+  issueCode: string | null;
+  message: string;
 }

@@ -1551,3 +1551,15 @@ RC8 Slice 7A creates the item-completion foundation without SQL, Supabase persis
 The assessment reads session evidence, the current clinic activation item, durable clinic state, and aggregate item-integrity counters. `completable` requires a running same-owner session with a valid lease, exactly one running sequence-1 clinic activate item, attempt count 1, valid item start evidence, no rollback or error evidence, empty dependencies, durable clinic state `deploymentStatus = deployed`, non-null deployed timestamp, exact target-state equality, no duplicate item identities, and no execution evidence on unrelated items.
 
 `already_completed` allows idempotent reuse when the same clinic activation item is already `succeeded`, started and completed timestamps are present, attempt count remains 1, durable clinic evidence still matches, and all downstream items remain untouched. Warning issues document only future boundaries: atomic completion persistence, dependency progression, and rollback execution remain unavailable.
+
+## RC8 Slice 7B - Activation Execution Item Completion Persistence Boundary
+
+The runtime deployment chain now appends item completion after atomic clinic activation:
+
+`prepared execution persistence -> atomic ownership claim -> atomic execution-session start -> atomic execution item start -> atomic clinic activation -> atomic execution item completion -> future dependency progression`
+
+`SupabaseDeploymentActivationExecutionItemCompletionRepository` performs read-only snapshot loading plus one explicit RPC call to `public.complete_deployment_activation_execution_item`. The checked-in SQL source is `docs/architecture/supabase_deployment_activation_execution_item_completion.sql`, with read-only verification notes in `docs/architecture/supabase_deployment_activation_execution_item_completion_preflight.sql`.
+
+The RPC compare-and-set requires the same clinic/run/session/execution identity, owner, ownership token, expected lease, item id, execution item key, plan item key, sequence 1, clinic activate action, expected started timestamp, expected attempt count, and null completion/rollback/error evidence. A successful mutation marks only that execution item `succeeded` and writes `completed_at`; `already_completed` reuses the prior succeeded item without rewriting timestamps or ownership evidence.
+
+This slice does not unlock dependencies, mark downstream items ready, start provider activation, complete or finalize the execution session, mutate the deployment run, activate provider/sterilizer/workstation/hardware shells, write hardware bindings, renew leases, rotate tokens, rollback, create UI changes, or modify `DeploymentEngine.execute()`.

@@ -1,4 +1,4 @@
-﻿import {
+import {
   buildClinicActivationCurrentState,
   canonicalizeActivationCurrentState,
   compareActivationCurrentStates,
@@ -350,7 +350,13 @@ function validateClinic(
   }
 
   if (item.targetState && currentDurableState) {
-    const comparison = compareActivationCurrentStates(item.targetState, currentDurableState);
+    const targetComparisonState = canonicalizeActivationCurrentState({
+      deploymentStatus: clinic.deploymentStatus,
+    });
+    const comparison = compareActivationCurrentStates(
+      item.targetState,
+      targetComparisonState,
+    );
 
     if (!comparison.equivalent) {
       issues.push(blocker("clinic_target_state_mismatch", session, item, "Durable clinic state does not match the execution item target state."));
@@ -492,6 +498,8 @@ function buildResult(input: {
     existingCompletedAt: item?.completedAt ?? null,
     proposedCompletedAt:
       input.status === "completable" ? input.command.proposedCompletedAt : null,
+    leaseExpiresAt: input.snapshot.session?.leaseExpiresAt ?? null,
+    attemptCount: item?.attemptCount ?? 0,
     currentDurableState: input.currentDurableState
       ? cloneRecord(input.currentDurableState)
       : null,
@@ -510,8 +518,9 @@ function standardWarnings(
 ): DeploymentActivationExecutionItemCompletionIssue[] {
   return [
     issue("completion_persistence_unavailable", "warning", command, item, "Atomic item-completion persistence is not implemented in this slice."),
-    issue("dependency_progression_unavailable", "warning", command, item, "Dependency progression is not implemented in this slice."),
-    issue("rollback_execution_unavailable", "warning", command, item, "Rollback execution is not implemented in this slice."),
+    issue("dependency_progression_unimplemented", "warning", command, item, "Dependency progression is not implemented in this slice."),
+    issue("rollback_execution_unimplemented", "warning", command, item, "Rollback execution is not implemented in this slice."),
+    issue("session_completion_unimplemented", "warning", command, item, "Execution-session completion is not implemented in this slice."),
   ];
 }
 
