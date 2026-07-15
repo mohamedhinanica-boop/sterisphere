@@ -13,6 +13,7 @@ import {
   DeploymentActivationExecutionDependencyProgressionService,
 } from "./deployment-activation-execution-dependency-progression-service";
 import {
+  DeploymentActivationExecutionDependencyProgressionRepositoryError,
   SupabaseDeploymentActivationExecutionDependencyProgressionRepository,
 } from "./deployment-activation-execution-dependency-progression-supabase-repository";
 import {
@@ -21,6 +22,7 @@ import {
   type DeploymentActivationExecutionAtomicDependencyProgressionResult,
   type DeploymentActivationExecutionDependencyProgressionDownstreamCounts,
   type DeploymentActivationExecutionDependencyProgressionIssue,
+  type DeploymentActivationExecutionDependencyProgressionIssueDiagnostics,
   type DeploymentActivationExecutionDependencyProgressionResult,
   type DeploymentActivationExecutionDependencyProgressionSnapshot,
 } from "./deployment-activation-execution-dependency-progression-types";
@@ -130,6 +132,7 @@ export async function progressActivationExecutionDependencyWithRepository(
 
   const progressionCommand = prerequisite.progressionCommand;
   const expectedLeaseExpiresAt = prerequisite.expectedLeaseExpiresAt;
+  let latestAssessment: DeploymentActivationExecutionDependencyProgressionResult | null = null;
 
   try {
     const snapshot = await repository.loadDependencyProgressionSnapshot({
@@ -143,6 +146,7 @@ export async function progressActivationExecutionDependencyWithRepository(
       createStaticDependencyProgressionSnapshotRepository(stableSnapshot),
     );
     const assessment = await service.assessDependencyProgression(progressionCommand);
+    latestAssessment = assessment;
     const publicIssues = filterRuntimeIssues(assessment.issues);
 
     if (assessment.status === "already_progressed") {
@@ -208,11 +212,13 @@ export async function progressActivationExecutionDependencyWithRepository(
       atomicResult,
       publicIssues,
     );
-  } catch {
+  } catch (caught) {
     return safeError(
       progressionCommand,
-      null,
+      latestAssessment,
       "Activation execution dependency progression failed safely. No fallback mutation was attempted.",
+      [],
+      diagnosticsFromCaught(caught, progressionCommand.ownershipToken),
     );
   }
 }
@@ -556,6 +562,7 @@ function safeError(
   assessment: DeploymentActivationExecutionDependencyProgressionResult | null,
   message: string,
   issues: readonly DeploymentActivationExecutionDependencyProgressionIssue[] = [],
+  diagnostics?: DeploymentActivationExecutionDependencyProgressionIssueDiagnostics,
 ): ServerDeploymentActivationExecutionDependencyProgressionResult {
   const safeIssues = issues.length
     ? issues
@@ -567,6 +574,7 @@ function safeError(
           assessment?.nextExecutionItemKey ?? null,
           assessment?.nextPlanItemKey ?? null,
           "Activation execution dependency-progression repository failed safely.",
+                  diagnostics,
         ),
       ];
 
@@ -580,6 +588,52 @@ function safeError(
   };
 }
 
+function diagnosticsFromCaught(
+  caught: unknown,
+  sensitiveToken: string | null,
+): DeploymentActivationExecutionDependencyProgressionIssueDiagnostics {
+  if (caught instanceof DeploymentActivationExecutionDependencyProgressionRepositoryError) {
+    return {
+      layer: caught.layer,
+      code: sanitizeDiagnostic(caught.code, sensitiveToken),
+      message: sanitizeDiagnostic(caught.message, sensitiveToken),
+      details: sanitizeDiagnostic(caught.details, sensitiveToken),
+      hint: sanitizeDiagnostic(caught.hint, sensitiveToken),
+      exceptionType: null,
+      exceptionMessage: null,
+    };
+  }
+
+  if (caught instanceof Error) {
+    return {
+      layer: "server_boundary",
+      code: null,
+      message: null,
+      details: null,
+      hint: null,
+      exceptionType: caught.name || "Error",
+      exceptionMessage: sanitizeDiagnostic(caught.message, sensitiveToken),
+    };
+  }
+
+  return {
+    layer: "server_boundary",
+    code: null,
+    message: null,
+    details: null,
+    hint: null,
+    exceptionType: typeof caught,
+    exceptionMessage: sanitizeDiagnostic(String(caught), sensitiveToken),
+  };
+}
+
+function sanitizeDiagnostic(value: string | null, sensitiveToken: string | null): string | null {
+  if (!value) {
+    return value;
+  }
+
+  return sensitiveToken ? value.split(sensitiveToken).join("[redacted]") : value;
+}
 function filterRuntimeIssues(
   issues: readonly DeploymentActivationExecutionDependencyProgressionIssue[],
 ): DeploymentActivationExecutionDependencyProgressionIssue[] {
@@ -607,6 +661,7 @@ function issue(
   executionItemKey: string | null,
   planItemKey: string | null,
   message: string,
+  diagnostics?: DeploymentActivationExecutionDependencyProgressionIssueDiagnostics,
 ): DeploymentActivationExecutionDependencyProgressionIssue {
   return {
     code,
@@ -616,6 +671,7 @@ function issue(
     executionItemKey,
     planItemKey,
     message,
+      ...(diagnostics ? { diagnostics } : {}),
   };
 }
 

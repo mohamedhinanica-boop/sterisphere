@@ -136,6 +136,16 @@ export interface DeploymentActivationExecutionDependencyProgressionSnapshot {
   aggregate: DeploymentActivationExecutionDependencyProgressionAggregateSnapshot;
 }
 
+export interface DeploymentActivationExecutionDependencyProgressionIssueDiagnostics {
+  layer: string;
+  code: string | null;
+  message: string | null;
+  details: string | null;
+  hint: string | null;
+  exceptionType: string | null;
+  exceptionMessage: string | null;
+}
+
 export interface DeploymentActivationExecutionDependencyProgressionIssue {
   code: DeploymentActivationExecutionDependencyProgressionIssueCode;
   severity: DeploymentActivationExecutionDependencyProgressionIssueSeverity;
@@ -147,6 +157,7 @@ export interface DeploymentActivationExecutionDependencyProgressionIssue {
   entityType?: string | null;
   entityKey?: string | null;
   sequence?: number | null;
+  diagnostics?: DeploymentActivationExecutionDependencyProgressionIssueDiagnostics;
 }
 
 export interface DeploymentActivationExecutionDependencyProgressionDownstreamCounts {

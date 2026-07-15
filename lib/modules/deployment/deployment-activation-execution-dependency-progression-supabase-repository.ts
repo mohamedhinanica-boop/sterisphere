@@ -129,18 +129,21 @@ export class DeploymentActivationExecutionDependencyProgressionRepositoryError e
   readonly code: string | null;
   readonly details: string | null;
   readonly hint: string | null;
+  readonly layer: string;
 
   constructor(input: {
     message: string;
     code?: string | null;
     details?: string | null;
     hint?: string | null;
+    layer?: string;
   }) {
     super(input.message);
     this.name = "DeploymentActivationExecutionDependencyProgressionRepositoryError";
     this.code = input.code ?? null;
     this.details = input.details ?? null;
     this.hint = input.hint ?? null;
+    this.layer = input.layer ?? "repository";
   }
 }
 
@@ -181,10 +184,10 @@ export class SupabaseDeploymentActivationExecutionDependencyProgressionRepositor
     const { data, error } = await this.client.rpc(DEPENDENCY_PROGRESSION_RPC_NAME, payload);
 
     if (error) {
-      throw toRepositoryError(error, command.ownershipToken);
+      throw toRepositoryError(error, command.ownershipToken, "atomic_rpc");
     }
 
-    return mapDependencyProgressionRpcResult(readSingleRpcRow(data));
+    return mapDependencyProgressionRpcResult(readSingleRpcRow(data, "atomic_rpc_response_mapping"));
   }
 
   private async findSession(input: {
@@ -204,7 +207,7 @@ export class SupabaseDeploymentActivationExecutionDependencyProgressionRepositor
       .limit(2);
 
     if (error) {
-      throw toRepositoryError(error);
+      throw toRepositoryError(error, null, "snapshot_session_lookup");
     }
 
     const rows = (data ?? []) as unknown as DependencyProgressionSessionRow[];
@@ -222,7 +225,7 @@ export class SupabaseDeploymentActivationExecutionDependencyProgressionRepositor
       .order("execution_item_key", { ascending: true });
 
     if (error) {
-      throw toRepositoryError(error);
+      throw toRepositoryError(error, null, "snapshot_item_listing");
     }
 
     return (data ?? []) as unknown as DependencyProgressionItemRow[];
@@ -364,12 +367,13 @@ export function mapDependencyProgressionRpcResult(
   };
 }
 
-function readSingleRpcRow(data: unknown): DependencyProgressionRpcRow {
+function readSingleRpcRow(data: unknown, layer = "rpc_response_mapping"): DependencyProgressionRpcRow {
   const rows = Array.isArray(data) ? data : [data];
 
   if (rows.length !== 1) {
     throw new DeploymentActivationExecutionDependencyProgressionRepositoryError({
       message: "Ambiguous activation execution dependency-progression RPC response.",
+      layer,
     });
   }
 
@@ -378,6 +382,7 @@ function readSingleRpcRow(data: unknown): DependencyProgressionRpcRow {
   if (!row || typeof row !== "object" || Array.isArray(row)) {
     throw new DeploymentActivationExecutionDependencyProgressionRepositoryError({
       message: "Malformed activation execution dependency-progression RPC response.",
+      layer,
     });
   }
 
@@ -443,12 +448,14 @@ function duplicateCount(values: readonly string[]): number {
 function toRepositoryError(
   error: SupabaseErrorLike,
   sensitiveToken: string | null = null,
+  layer = "repository",
 ): DeploymentActivationExecutionDependencyProgressionRepositoryError {
   return new DeploymentActivationExecutionDependencyProgressionRepositoryError({
     message: sanitizeDiagnostic(error.message || "Activation execution dependency-progression repository query failed.", sensitiveToken) ?? "Activation execution dependency-progression repository query failed.",
     code: sanitizeDiagnostic(error.code ?? null, sensitiveToken),
     details: sanitizeDiagnostic(error.details ?? null, sensitiveToken),
     hint: sanitizeDiagnostic(error.hint ?? null, sensitiveToken),
+    layer,
   });
 }
 

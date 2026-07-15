@@ -320,6 +320,31 @@ function formatClinicActivationDiagnostics(
     diagnostics.stack ? `stack=${diagnostics.stack}` : null,
   ].filter(Boolean).join("; ");
 }
+function formatDependencyProgressionDiagnostics(
+  diagnostics: {
+    layer?: string | null;
+    code?: string | null;
+    message?: string | null;
+    details?: string | null;
+    hint?: string | null;
+    exceptionType?: string | null;
+    exceptionMessage?: string | null;
+  } | null | undefined,
+): string {
+  if (!diagnostics) {
+    return "none";
+  }
+
+  return [
+    `layer=${diagnostics.layer ?? "unknown"}`,
+    `error.code=${diagnostics.code ?? "none"}`,
+    `error.message=${diagnostics.message ?? "none"}`,
+    `error.details=${diagnostics.details ?? "none"}`,
+    `error.hint=${diagnostics.hint ?? "none"}`,
+    `exception.type=${diagnostics.exceptionType ?? "none"}`,
+    `exception.message=${diagnostics.exceptionMessage ?? "none"}`,
+  ].filter(Boolean).join("; ");
+}
 function readDeploymentStatus(
   state: Record<string, unknown> | null | undefined,
 ): string {
@@ -3506,6 +3531,7 @@ function buildDeploymentSupportHref(
       `Dependency progression blockers: ${result?.deploymentActivationExecutionDependencyProgression?.blockers ?? 0}`,
       `Dependency progression warnings: ${result?.deploymentActivationExecutionDependencyProgression?.warnings ?? 0}`,
       `Dependency progression issues: ${result?.deploymentActivationExecutionDependencyProgression?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Dependency progression diagnostics: ${result?.deploymentActivationExecutionDependencyProgression?.issues.map((issue) => `${issue.code}: ${formatDependencyProgressionDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
       `Dependency progression message: ${result?.deploymentActivationExecutionDependencyProgression?.message ?? "No dependency-progression response yet."}`,
       "Dependency progression note: the next item was not started, no attempt count or execution timestamp was written, and no entity was activated.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",

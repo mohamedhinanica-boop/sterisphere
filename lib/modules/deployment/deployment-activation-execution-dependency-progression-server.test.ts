@@ -13,6 +13,7 @@ import {
   type DeploymentActivationExecutionAtomicDependencyProgressionResult,
   type DeploymentActivationExecutionDependencyProgressionSnapshot,
 } from "./deployment-activation-execution-dependency-progression-types";
+import { DeploymentActivationExecutionDependencyProgressionRepositoryError } from "./deployment-activation-execution-dependency-progression-supabase-repository";
 import type {
   ServerDeploymentActivationExecutionClaimResult,
 } from "./deployment-activation-execution-claim-server";
@@ -68,6 +69,7 @@ export async function runDeploymentActivationExecutionDependencyProgressionServe
     await scenarioAtomicConflict(),
     await scenarioAtomicNotFound(),
     await scenarioAtomicError(),
+    await scenarioSupabaseDiagnostics(),
     await scenarioExpiredLease(),
     await scenarioMalformedLease(),
     await scenarioOwnerMismatch(),
@@ -223,7 +225,13 @@ async function scenarioAtomicError(): Promise<DeploymentActivationExecutionDepen
 
   return expectScenario(
     "atomic repository error",
-    !result.ok && result.status === "error" && result.blockers === 1 && repository.atomicCalls.length === 1,
+    !result.ok &&
+      result.status === "error" &&
+      result.blockers === 1 &&
+      result.completedExecutionItemKey === COMPLETED_EXECUTION_ITEM_KEY &&
+      result.completedSequence === 1 &&
+      result.issues.some((issue) => issue.diagnostics?.exceptionType === "Error") &&
+      repository.atomicCalls.length === 1,
     JSON.stringify(redact(result)),
   );
 }
@@ -244,6 +252,33 @@ async function expectAtomicStatus(
   );
 }
 
+async function scenarioSupabaseDiagnostics(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({
+    atomicError: new DeploymentActivationExecutionDependencyProgressionRepositoryError({
+      layer: "atomic_rpc",
+      code: "42702",
+      message: "column reference \"session_id\" is ambiguous",
+      details: "PL/pgSQL function progress_deployment_activation_execution_dependency line 1 at SQL statement",
+      hint: "Qualify the column reference.",
+    }),
+  });
+  const result = await progress(repository);
+  const diagnostic = result.issues.find((issue) => issue.code === "repository_error")?.diagnostics;
+
+  return expectScenario(
+    "safe supabase diagnostics",
+    !result.ok &&
+      result.status === "error" &&
+      result.completedExecutionItemKey === COMPLETED_EXECUTION_ITEM_KEY &&
+      diagnostic?.layer === "atomic_rpc" &&
+      diagnostic.code === "42702" &&
+      diagnostic.message === "column reference \"session_id\" is ambiguous" &&
+      diagnostic.details?.includes("PL/pgSQL") === true &&
+      diagnostic.hint === "Qualify the column reference." &&
+      !JSON.stringify(result).includes(OWNERSHIP_TOKEN),
+    JSON.stringify(redact(result)),
+  );
+}
 async function scenarioExpiredLease(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
   return expectAssessmentIssue("expired lease", snapshot({ session: { leaseExpiresAt: EXPIRED_LEASE } }), "blocked", "lease_expired");
 }
@@ -454,6 +489,7 @@ function repositoryHarness(input: {
   atomicResult?: DeploymentActivationExecutionAtomicDependencyProgressionResult;
   throwOnLoad?: boolean;
   throwOnAtomic?: boolean;
+  atomicError?: unknown;
 } = {}): MockDependencyProgressionRepository {
   return new MockDependencyProgressionRepository(input);
 }
@@ -466,17 +502,21 @@ class MockDependencyProgressionRepository implements DeploymentActivationExecuti
   private readonly atomicResultValue: DeploymentActivationExecutionAtomicDependencyProgressionResult;
   private readonly throwOnLoad: boolean;
   private readonly throwOnAtomic: boolean;
+  private readonly atomicError: unknown;
 
   constructor(input: {
     snapshot?: DeploymentActivationExecutionDependencyProgressionSnapshot;
     atomicResult?: DeploymentActivationExecutionAtomicDependencyProgressionResult;
     throwOnLoad?: boolean;
     throwOnAtomic?: boolean;
+    atomicError?: unknown;
+  atomicError?: unknown;
   } = {}) {
     this.snapshotValue = cloneDependencyProgressionSnapshot(input.snapshot ?? snapshot());
     this.atomicResultValue = input.atomicResult ?? atomicResult();
     this.throwOnLoad = input.throwOnLoad ?? false;
     this.throwOnAtomic = input.throwOnAtomic ?? false;
+    this.atomicError = input.atomicError;
   }
 
   async loadDependencyProgressionSnapshot(): Promise<DeploymentActivationExecutionDependencyProgressionSnapshot> {
@@ -495,7 +535,7 @@ class MockDependencyProgressionRepository implements DeploymentActivationExecuti
     this.atomicCalls.push({ ...command, expectedDependencyKeys: [...command.expectedDependencyKeys] });
 
     if (this.throwOnAtomic) {
-      throw new Error("atomic dependency progression failed");
+      throw this.atomicError ?? new Error("atomic dependency progression failed");
     }
 
     return { ...this.atomicResultValue };
