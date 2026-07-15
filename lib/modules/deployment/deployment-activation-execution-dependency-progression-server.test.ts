@@ -69,7 +69,11 @@ export async function runDeploymentActivationExecutionDependencyProgressionServe
     await scenarioAtomicConflict(),
     await scenarioAtomicNotFound(),
     await scenarioAtomicError(),
+    await scenarioSnapshotSessionDiagnostics(),
+    await scenarioSnapshotItemDiagnostics(),
     await scenarioSupabaseDiagnostics(),
+    await scenarioResponseMappingDiagnostics(),
+    await scenarioDiagnosticSerialization(),
     await scenarioExpiredLease(),
     await scenarioMalformedLease(),
     await scenarioOwnerMismatch(),
@@ -252,8 +256,60 @@ async function expectAtomicStatus(
   );
 }
 
+async function scenarioSnapshotSessionDiagnostics(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({
+    throwOnLoad: true,
+    loadError: new DeploymentActivationExecutionDependencyProgressionRepositoryError({
+      layer: "snapshot_session_lookup",
+      code: "PGRST100",
+      message: "session lookup failed",
+      details: "deployment_activation_execution_sessions lookup failed",
+      hint: "Check session visibility.",
+    }),
+  });
+  const result = await progress(repository);
+  const diagnostic = result.issues.find((issue) => issue.code === "repository_error")?.diagnostics;
+
+  return expectScenario(
+    "snapshot session diagnostics",
+    !result.ok &&
+      result.status === "error" &&
+      diagnostic?.layer === "snapshot_session_lookup" &&
+      diagnostic.rpcAttempted === false &&
+      diagnostic.errorCode === "PGRST100" &&
+      diagnostic.errorMessage === "session lookup failed",
+    JSON.stringify(redact(result)),
+  );
+}
+
+async function scenarioSnapshotItemDiagnostics(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({
+    throwOnLoad: true,
+    loadError: new DeploymentActivationExecutionDependencyProgressionRepositoryError({
+      layer: "snapshot_item_listing",
+      code: "PGRST101",
+      message: "item listing failed",
+      details: "deployment_activation_execution_items lookup failed",
+      hint: "Check item visibility.",
+    }),
+  });
+  const result = await progress(repository);
+  const diagnostic = result.issues.find((issue) => issue.code === "repository_error")?.diagnostics;
+
+  return expectScenario(
+    "snapshot item diagnostics",
+    !result.ok &&
+      result.status === "error" &&
+      diagnostic?.layer === "snapshot_item_listing" &&
+      diagnostic.rpcAttempted === false &&
+      diagnostic.errorCode === "PGRST101" &&
+      diagnostic.errorDetails === "deployment_activation_execution_items lookup failed",
+    JSON.stringify(redact(result)),
+  );
+}
 async function scenarioSupabaseDiagnostics(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
   const repository = repositoryHarness({
+    throwOnAtomic: true,
     atomicError: new DeploymentActivationExecutionDependencyProgressionRepositoryError({
       layer: "atomic_rpc",
       code: "42702",
@@ -271,12 +327,63 @@ async function scenarioSupabaseDiagnostics(): Promise<DeploymentActivationExecut
       result.status === "error" &&
       result.completedExecutionItemKey === COMPLETED_EXECUTION_ITEM_KEY &&
       diagnostic?.layer === "atomic_rpc" &&
-      diagnostic.code === "42702" &&
-      diagnostic.message === "column reference \"session_id\" is ambiguous" &&
-      diagnostic.details?.includes("PL/pgSQL") === true &&
-      diagnostic.hint === "Qualify the column reference." &&
+      diagnostic.rpcAttempted === true &&
+      diagnostic.errorCode === "42702" &&
+      diagnostic.errorMessage === "column reference \"session_id\" is ambiguous" &&
+      diagnostic.errorDetails?.includes("PL/pgSQL") === true &&
+      diagnostic.errorHint === "Qualify the column reference." &&
       !JSON.stringify(result).includes(OWNERSHIP_TOKEN),
     JSON.stringify(redact(result)),
+  );
+}
+async function scenarioResponseMappingDiagnostics(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({
+    throwOnAtomic: true,
+    atomicError: new DeploymentActivationExecutionDependencyProgressionRepositoryError({
+      layer: "atomic_rpc_response_mapping",
+      message: "Malformed activation execution dependency-progression RPC response.",
+    }),
+  });
+  const result = await progress(repository);
+  const diagnostic = result.issues.find((issue) => issue.code === "repository_error")?.diagnostics;
+
+  return expectScenario(
+    "response mapping diagnostics",
+    !result.ok &&
+      result.status === "error" &&
+      diagnostic?.layer === "atomic_rpc_response_mapping" &&
+      diagnostic.rpcAttempted === true &&
+      diagnostic.errorMessage === "Malformed activation execution dependency-progression RPC response.",
+    JSON.stringify(redact(result)),
+  );
+}
+
+async function scenarioDiagnosticSerialization(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({
+    throwOnAtomic: true,
+    atomicError: new DeploymentActivationExecutionDependencyProgressionRepositoryError({
+      layer: "atomic_rpc",
+      code: "42702",
+      message: `token ${OWNERSHIP_TOKEN} redacted`,
+      details: "RPC failed before mutation.",
+      hint: "Review function body.",
+    }),
+  });
+  const result = await progress(repository);
+  const serialized = JSON.stringify(result);
+  const parsed = JSON.parse(serialized) as Awaited<ReturnType<typeof progress>>;
+  const diagnostic = parsed.issues.find((issue) => issue.code === "repository_error")?.diagnostics;
+
+  return expectScenario(
+    "diagnostics survive action-result serialization",
+    diagnostic?.layer === "atomic_rpc" &&
+      diagnostic.rpcAttempted === true &&
+      diagnostic.errorCode === "42702" &&
+      diagnostic.errorMessage === "token [redacted] redacted" &&
+      diagnostic.errorDetails === "RPC failed before mutation." &&
+      diagnostic.errorHint === "Review function body." &&
+      !serialized.includes(OWNERSHIP_TOKEN),
+    serialized,
   );
 }
 async function scenarioExpiredLease(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
@@ -490,6 +597,7 @@ function repositoryHarness(input: {
   throwOnLoad?: boolean;
   throwOnAtomic?: boolean;
   atomicError?: unknown;
+  loadError?: unknown;
 } = {}): MockDependencyProgressionRepository {
   return new MockDependencyProgressionRepository(input);
 }
@@ -503,6 +611,7 @@ class MockDependencyProgressionRepository implements DeploymentActivationExecuti
   private readonly throwOnLoad: boolean;
   private readonly throwOnAtomic: boolean;
   private readonly atomicError: unknown;
+  private readonly loadError: unknown;
 
   constructor(input: {
     snapshot?: DeploymentActivationExecutionDependencyProgressionSnapshot;
@@ -510,20 +619,20 @@ class MockDependencyProgressionRepository implements DeploymentActivationExecuti
     throwOnLoad?: boolean;
     throwOnAtomic?: boolean;
     atomicError?: unknown;
-  atomicError?: unknown;
+    loadError?: unknown;
   } = {}) {
     this.snapshotValue = cloneDependencyProgressionSnapshot(input.snapshot ?? snapshot());
     this.atomicResultValue = input.atomicResult ?? atomicResult();
     this.throwOnLoad = input.throwOnLoad ?? false;
     this.throwOnAtomic = input.throwOnAtomic ?? false;
     this.atomicError = input.atomicError;
+    this.loadError = input.loadError;
   }
-
   async loadDependencyProgressionSnapshot(): Promise<DeploymentActivationExecutionDependencyProgressionSnapshot> {
     this.loadCalls += 1;
 
     if (this.throwOnLoad) {
-      throw new Error("dependency progression snapshot load failed");
+      throw this.loadError ?? new Error("dependency progression snapshot load failed");
     }
 
     return cloneDependencyProgressionSnapshot(this.snapshotValue);

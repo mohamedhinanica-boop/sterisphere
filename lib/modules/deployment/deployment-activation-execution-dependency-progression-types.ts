@@ -138,10 +138,11 @@ export interface DeploymentActivationExecutionDependencyProgressionSnapshot {
 
 export interface DeploymentActivationExecutionDependencyProgressionIssueDiagnostics {
   layer: string;
-  code: string | null;
-  message: string | null;
-  details: string | null;
-  hint: string | null;
+  rpcAttempted: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  errorDetails: string | null;
+  errorHint: string | null;
   exceptionType: string | null;
   exceptionMessage: string | null;
 }

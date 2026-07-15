@@ -323,10 +323,11 @@ function formatClinicActivationDiagnostics(
 function formatDependencyProgressionDiagnostics(
   diagnostics: {
     layer?: string | null;
-    code?: string | null;
-    message?: string | null;
-    details?: string | null;
-    hint?: string | null;
+    rpcAttempted?: boolean | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    errorDetails?: string | null;
+    errorHint?: string | null;
     exceptionType?: string | null;
     exceptionMessage?: string | null;
   } | null | undefined,
@@ -337,10 +338,11 @@ function formatDependencyProgressionDiagnostics(
 
   return [
     `layer=${diagnostics.layer ?? "unknown"}`,
-    `error.code=${diagnostics.code ?? "none"}`,
-    `error.message=${diagnostics.message ?? "none"}`,
-    `error.details=${diagnostics.details ?? "none"}`,
-    `error.hint=${diagnostics.hint ?? "none"}`,
+    `rpcAttempted=${diagnostics.rpcAttempted === true ? "true" : "false"}`,
+    `error.code=${diagnostics.errorCode ?? "none"}`,
+    `error.message=${diagnostics.errorMessage ?? "none"}`,
+    `error.details=${diagnostics.errorDetails ?? "none"}`,
+    `error.hint=${diagnostics.errorHint ?? "none"}`,
     `exception.type=${diagnostics.exceptionType ?? "none"}`,
     `exception.message=${diagnostics.exceptionMessage ?? "none"}`,
   ].filter(Boolean).join("; ");
@@ -3281,6 +3283,11 @@ function CompleteStep({
                       <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
                         <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
                         {issue.message}
+                        {issue.diagnostics ? (
+                          <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
+                            {formatDependencyProgressionDiagnostics(issue.diagnostics)}
+                          </span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

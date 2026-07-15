@@ -595,10 +595,11 @@ function diagnosticsFromCaught(
   if (caught instanceof DeploymentActivationExecutionDependencyProgressionRepositoryError) {
     return {
       layer: caught.layer,
-      code: sanitizeDiagnostic(caught.code, sensitiveToken),
-      message: sanitizeDiagnostic(caught.message, sensitiveToken),
-      details: sanitizeDiagnostic(caught.details, sensitiveToken),
-      hint: sanitizeDiagnostic(caught.hint, sensitiveToken),
+      rpcAttempted: rpcAttemptedForLayer(caught.layer),
+      errorCode: sanitizeDiagnostic(caught.code, sensitiveToken),
+      errorMessage: sanitizeDiagnostic(caught.message, sensitiveToken),
+      errorDetails: sanitizeDiagnostic(caught.details, sensitiveToken),
+      errorHint: sanitizeDiagnostic(caught.hint, sensitiveToken),
       exceptionType: null,
       exceptionMessage: null,
     };
@@ -607,10 +608,11 @@ function diagnosticsFromCaught(
   if (caught instanceof Error) {
     return {
       layer: "server_boundary",
-      code: null,
-      message: null,
-      details: null,
-      hint: null,
+      rpcAttempted: false,
+      errorCode: null,
+      errorMessage: null,
+      errorDetails: null,
+      errorHint: null,
       exceptionType: caught.name || "Error",
       exceptionMessage: sanitizeDiagnostic(caught.message, sensitiveToken),
     };
@@ -618,15 +620,19 @@ function diagnosticsFromCaught(
 
   return {
     layer: "server_boundary",
-    code: null,
-    message: null,
-    details: null,
-    hint: null,
+    rpcAttempted: false,
+    errorCode: null,
+    errorMessage: null,
+    errorDetails: null,
+    errorHint: null,
     exceptionType: typeof caught,
     exceptionMessage: sanitizeDiagnostic(String(caught), sensitiveToken),
   };
 }
 
+function rpcAttemptedForLayer(layer: string): boolean {
+  return layer === "atomic_rpc" || layer === "atomic_rpc_response_mapping";
+}
 function sanitizeDiagnostic(value: string | null, sensitiveToken: string | null): string | null {
   if (!value) {
     return value;
