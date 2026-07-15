@@ -3,6 +3,8 @@ import type {
 } from "./deployment-provider-shell-activation-repository";
 import {
   cloneProviderShellActivationSnapshot,
+  type DeploymentProviderShellActivationAtomicCommand,
+  type DeploymentProviderShellActivationAtomicResult,
   type DeploymentProviderShellActivationAggregateSnapshot,
   type DeploymentProviderShellActivationItemSnapshot,
   type DeploymentProviderShellActivationProviderSnapshot,
@@ -67,6 +69,11 @@ export class InMemoryDeploymentProviderShellActivationTestRepository
     return cloneProviderShellActivationSnapshot(this.snapshot);
   }
 
+  async activateProviderShellAtomically(
+    _command: DeploymentProviderShellActivationAtomicCommand,
+  ): Promise<DeploymentProviderShellActivationAtomicResult> {
+    throw new Error("Atomic provider shell activation is not implemented by the in-memory assessment repository.");
+  }
   get downstreamWriteCount(): number {
     return (
       this.calls.forbiddenInsertWrites +

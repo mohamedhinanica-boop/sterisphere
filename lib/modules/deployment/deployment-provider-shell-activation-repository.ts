@@ -1,4 +1,6 @@
 import type {
+  DeploymentProviderShellActivationAtomicCommand,
+  DeploymentProviderShellActivationAtomicResult,
   DeploymentProviderShellActivationSnapshot,
 } from "./deployment-provider-shell-activation-types";
 
@@ -13,4 +15,8 @@ export interface DeploymentProviderShellActivationRepository {
   loadProviderShellActivationSnapshot(
     query: DeploymentProviderShellActivationSnapshotQuery,
   ): Promise<DeploymentProviderShellActivationSnapshot>;
+
+  activateProviderShellAtomically(
+    command: DeploymentProviderShellActivationAtomicCommand,
+  ): Promise<DeploymentProviderShellActivationAtomicResult>;
 }

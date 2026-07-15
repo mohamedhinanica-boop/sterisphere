@@ -1360,3 +1360,23 @@ The planned execution-control sequence now extends to:
 Slice 10A implements step 9 as read-only TypeScript. It assesses whether the single currently running provider-shell activation item can safely propose a future provider shell activation, or whether the provider is already activated with compatible evidence. The assessment checks same-owner active-lease session evidence, running item identity and lifecycle, clean prior succeeded prefix, later-item immutability, duplicate-free execution identities, same-clinic provider identity, setup-draft placeholder semantics, inactive planned/placeholder provider state, and already-active reuse state.
 
 No runtime order changes are made in this slice. It does not update provider rows, complete the running item, progress dependencies, start later items, bind hardware, create SQL, add a Supabase repository, wire setup actions, modify UI/support mail, perform rollback, add workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 10B - Atomic Provider Shell Activation Boundary Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic sequence-1 execution item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Atomic next execution-item start
+9. Provider shell activation assessment
+10. Atomic provider shell activation SQL boundary
+11. Future provider item completion and dependency progression
+
+Slice 10B adds the repository and SQL boundary for step 10 only. No setup action is wired in this slice. A successful fresh provider activation may update exactly one selected `public.providers` row to `active = true` and `provisioning_status = 'active'`; `already_activated` reports compatible reuse without rewriting provider state.
+
+This slice does not complete the running provider execution item, progress dependencies, start another item, mutate sessions, renew leases, rotate tokens, activate any other shell or hardware, bind hardware, finalize deployment, rollback, modify UI/support mail, or change `DeploymentEngine.execute()`.

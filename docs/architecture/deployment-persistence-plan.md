@@ -1627,3 +1627,9 @@ The checked-in SQL revokes execute from `public`, `anon`, and `authenticated`, t
 ### RC8 Slice 9C - Execution Item Running Evidence
 
 After dependency progression readies one deterministic item, runtime next-item start may persist only the selected execution item's running evidence (execution_status = running, first attempt, and started_at). It does not persist provider activation, item completion, dependency progression beyond this item, session completion, deployment finalization, hardware binding, lease renewal, or token rotation.
+
+## RC8 Slice 10B - Provider Shell Activation Persistence Boundary
+
+Provider shell activation persistence is intentionally narrower than provider shell provisioning. The planned activation RPC may update only the selected deployment-created provider shell in `public.providers` after same-owner active-lease execution evidence and running provider-shell item evidence have been rechecked atomically.
+
+The supported durable target is `{ deploymentProviderKey, provisioningSource: setup_draft, provisioningStatus: active, active: true }`. The existing provider schema already supports the `active` provisioning status, so no table or column migration is introduced by this slice. Execution sessions, execution items, clinics, dependency rows, ownership evidence, leases, and downstream bindings remain untouched.

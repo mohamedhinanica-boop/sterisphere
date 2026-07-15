@@ -120,6 +120,9 @@ export interface DeploymentProviderShellActivationProviderSnapshot {
   placeholder: boolean | null;
   provisioningSource: string | null;
   provisioningStatus: string | null;
+  archivedAt?: string | null;
+  deletedAt?: string | null;
+  currentState?: Record<string, unknown> | null;
 }
 
 export interface DeploymentProviderShellActivationAggregateSnapshot {
@@ -248,6 +251,58 @@ export function cloneProviderShellActivationItem(
   };
 }
 
+
+export type DeploymentProviderShellActivationAtomicStatus =
+  | "activated"
+  | "already_activated"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error";
+
+export interface DeploymentProviderShellActivationAtomicCommand {
+  clinicId: string;
+  deploymentRunKey: string;
+  sessionId: string;
+  executionKey: string;
+  claimantId: string;
+  ownershipToken: string;
+  expectedLeaseExpiresAt: string;
+  itemId: string;
+  executionItemKey: string;
+  planItemKey: string;
+  expectedSequence: number;
+  expectedEntityType: "provider_shell";
+  expectedEntityId: string;
+  expectedAction: "activate";
+  expectedItemStartedAt: string;
+  expectedAttemptCount: number;
+  providerId: string;
+  expectedProviderKey: string;
+  expectedCurrentState: Record<string, unknown>;
+  targetState: Record<string, unknown>;
+  proposedActivatedAt: string;
+}
+
+export interface DeploymentProviderShellActivationAtomicResult {
+  ok: boolean;
+  status: DeploymentProviderShellActivationAtomicStatus;
+  clinicId: string | null;
+  deploymentRunKey: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  itemId: string | null;
+  executionItemKey: string | null;
+  planItemKey: string | null;
+  sequence: number | null;
+  providerId: string | null;
+  deploymentProviderKey: string | null;
+  providerStateBefore: Record<string, unknown> | null;
+  providerStateAfter: Record<string, unknown> | null;
+  activatedAt: string | null;
+  issueCode: string | null;
+  message: string;
+}
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
