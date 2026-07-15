@@ -124,6 +124,7 @@ export interface DeploymentActivationExecutionDependencyProgressionAggregateSnap
   timestampedItemCount: number;
   rollbackEvidenceCount: number;
   errorEvidenceCount: number;
+  malformedDependencyCount: number;
   duplicateExecutionItemKeyCount: number;
   duplicatePlanItemKeyCount: number;
   duplicateSequenceCount: number;
@@ -200,6 +201,7 @@ export function emptyDependencyProgressionAggregate(): DeploymentActivationExecu
     timestampedItemCount: 0,
     rollbackEvidenceCount: 0,
     errorEvidenceCount: 0,
+    malformedDependencyCount: 0,
     duplicateExecutionItemKeyCount: 0,
     duplicatePlanItemKeyCount: 0,
     duplicateSequenceCount: 0,
@@ -231,4 +233,63 @@ export function cloneDependencyProgressionItem(
 
 export function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+export type DeploymentActivationExecutionAtomicDependencyProgressionStatus =
+  | "progressed"
+  | "already_progressed"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error";
+
+export interface DeploymentActivationExecutionAtomicDependencyProgressionCommand {
+  clinicId: string;
+  deploymentRunKey: string;
+  sessionId: string;
+  executionKey: string;
+  claimantId: string;
+  ownershipToken: string;
+  expectedLeaseExpiresAt: string;
+  completedItemId: string;
+  completedExecutionItemKey: string;
+  completedPlanItemKey: string;
+  completedSequence: number;
+  completedStartedAt: string;
+  completedCompletedAt: string;
+  completedAttemptCount: number;
+  nextItemId: string;
+  nextExecutionItemKey: string;
+  nextPlanItemKey: string;
+  nextSequence: number;
+  nextEntityType: string;
+  nextEntityId: string | null;
+  nextAction: string;
+  expectedNextStatus: "pending" | "ready";
+  expectedNextAttemptCount: number;
+  expectedDependencyKeys: readonly string[];
+  progressedAt: string;
+}
+
+export interface DeploymentActivationExecutionAtomicDependencyProgressionResult {
+  ok: boolean;
+  status: DeploymentActivationExecutionAtomicDependencyProgressionStatus;
+  clinicId: string | null;
+  deploymentRunKey: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  completedItemId: string | null;
+  completedExecutionItemKey: string | null;
+  completedPlanItemKey: string | null;
+  completedSequence: number | null;
+  nextItemId: string | null;
+  nextExecutionItemKey: string | null;
+  nextPlanItemKey: string | null;
+  nextSequence: number | null;
+  nextEntityType: string | null;
+  nextEntityId: string | null;
+  nextAction: string | null;
+  nextStatusBefore: string | null;
+  nextStatusAfter: string | null;
+  issueCode: string | null;
+  message: string;
 }

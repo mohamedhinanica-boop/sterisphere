@@ -1575,3 +1575,15 @@ The new TypeScript foundation defines dependency progression command, snapshot, 
 The assessment checks the active execution ownership boundary, contiguous succeeded prefix, deterministic next item, untouched pending/ready evidence, duplicate-free item identities, and dependency graph integrity using `planItemKey` dependency keys. Successful `progressable` and `already_progressed` results include only proposal/reuse evidence plus warnings for future persistence, next-item start, and rollback execution.
 
 No SQL, migration, Supabase repository, runtime wiring, setup UI, support email, pending-to-ready mutation, next-item start, provider activation, lease renewal, token rotation, rollback, worker, queue, polling, streaming, or `DeploymentEngine.execute()` change is introduced in this slice.
+
+## RC8 Slice 8B - Atomic Dependency Progression Repository and SQL
+
+The planned execution-control chain now adds an atomic persistence boundary after dependency progression assessment:
+
+`atomic clinic activation -> atomic execution item completion -> dependency_progression_assessment -> atomic dependency progression -> future next-item start`
+
+`SupabaseDeploymentActivationExecutionDependencyProgressionRepository` implements deterministic snapshot loading and one explicit RPC method for `public.progress_deployment_activation_execution_dependency`. Snapshot loading reads only execution sessions and execution items, orders items by `sequence ASC, execution_item_key ASC`, maps dependency keys without token exposure, and reports aggregate counts for duplicates, lifecycle evidence, and malformed dependency arrays.
+
+The RPC is a compare-and-set pending-to-ready boundary. It may mutate only `public.deployment_activation_execution_items.execution_status` for the selected deterministic next item, changing `pending` to `ready`. It preserves ownership evidence, lease evidence, dependency arrays, attempts, started/completed/rollback/error evidence, session rows, and all other execution items. `already_progressed` is idempotent reuse when the selected next item is already ready and otherwise untouched.
+
+The checked-in SQL revokes execute from `public`, `anon`, and `authenticated`, then grants execute only to `service_role`. The preflight verifies required columns, exact function signature, execute privileges, duplicate item identities, malformed dependency evidence, ready/running ambiguity, pending-item mutation evidence, and succeeded-item completion evidence. Live application remains manual and this slice does not wire setup runtime, UI, support mail, next-item start, provider activation, shell activation, hardware binding, session completion, rollback, workers, polling, streaming, or `DeploymentEngine.execute()`.

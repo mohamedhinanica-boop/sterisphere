@@ -172,6 +172,7 @@ export function aggregateDependencyProgressionItems(
     timestampedItemCount: items.filter((item) => item.startedAt !== null || item.completedAt !== null).length,
     rollbackEvidenceCount: items.filter((item) => item.rolledBackAt !== null).length,
     errorEvidenceCount: items.filter((item) => item.errorCode !== null || item.errorMessage !== null).length,
+    malformedDependencyCount: 0,
     duplicateExecutionItemKeyCount: duplicateCount(items.map((item) => item.executionItemKey)),
     duplicatePlanItemKeyCount: duplicateCount(items.map((item) => item.planItemKey)),
     duplicateSequenceCount: duplicateCount(items.map((item) => String(item.sequence))),

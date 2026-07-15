@@ -1265,3 +1265,21 @@ The planned execution-control sequence now extends to:
 Slice 8A adds only the TypeScript assessment for step 7. It reads a future repository snapshot for the running execution session and all durable execution items, verifies same-owner active-lease evidence, validates the contiguous succeeded prefix, and determines whether exactly one deterministic next pending item can be proposed for transition to ready.
 
 This slice does not write item status, mark any item ready, start the next item, activate providers, renew leases, rotate tokens, execute rollback, complete the session, finalize deployment, add workers, poll, stream, modify setup actions, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 8B - Atomic Dependency Progression Boundary Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic execution item start
+5. Atomic clinic activation
+6. Atomic activation execution item completion
+7. Dependency progression assessment
+8. Atomic dependency progression SQL boundary
+9. Future next-item start
+
+Slice 8B adds the repository and SQL boundary for step 8 only. The future runtime will call it only after a successful dependency progression assessment. A fresh progression can mark exactly one deterministic next item `ready`; `already_progressed` reports deterministic reuse when that item is already ready.
+
+No setup action is wired in this slice. It does not start the next item, activate providers or downstream entities, increment attempts, write item timestamps, mutate dependencies, complete sessions, finalize deployment, rollback, add workers, poll, stream, modify UI, or change `DeploymentEngine.execute()`.

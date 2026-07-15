@@ -273,6 +273,10 @@ function validateAggregate(
     issues.push(blocker("later_item_drift", session, null, "Execution item error evidence exists."));
   }
 
+  if (aggregate.malformedDependencyCount > 0) {
+    issues.push(blocker("dependency_keys_malformed", session, null, "Execution item dependency key evidence is malformed."));
+  }
+
   if (
     aggregate.duplicateExecutionItemKeyCount > 0 ||
     aggregate.duplicatePlanItemKeyCount > 0 ||
