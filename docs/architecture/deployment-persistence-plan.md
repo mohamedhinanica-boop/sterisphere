@@ -1643,3 +1643,16 @@ The runtime deployment chain now appends provider shell activation after next-it
 `deploymentProviderShellActivation` evidence includes status, claimant, clinic/run/session/execution identity, selected provider item identity, provider id/key, before/after provisioning source/status and active flag, activated/reused/conflict counts, blockers, warnings, issues, message, and downstream zero counters. Setup Complete and support mail report this evidence without ownership tokens.
 
 The server composition uses the existing same-owner claim token handoff and the next-item start timestamp as the proposed provider activation time. It calls `public.activate_deployment_provider_shell` only after next-item start succeeds and a fresh provider-shell activation assessment returns `activatable`. `already_activated` is idempotent reuse evidence and does not rewrite provider state, renew ownership, rotate tokens, complete the item, progress another dependency, write hardware bindings, or finalize deployment.
+
+## RC8 Slice 11A - Provider-Shell Execution-Item Completion Assessment Boundary
+
+The provider-shell execution-item completion assessment is a read-only deployment-domain boundary. It runs conceptually after a provider shell has been activated and before any future atomic item-completion persistence.
+
+Planned order:
+
+provider shell activated
+-> provider-shell execution-item completion assessment
+-> future atomic running-to-succeeded completion
+-> future dependency progression
+
+The boundary requires durable snapshot evidence for the running execution session, ordered execution items, the selected provider-shell item, activated provider shell state, and aggregate integrity counts. It does not create a Supabase repository, SQL function, runtime composition, setup action wiring, item mutation, dependency progression, provider mutation, session finalization, rollback, or deployment finalization in this slice.

@@ -1113,3 +1113,11 @@ Setup completion now composes `DeploymentProviderShellActivationService` with `S
 Fresh activation calls `public.activate_deployment_provider_shell` exactly once after a fresh provider-shell activation assessment returns `activatable`. `already_activated` reuses compatible provider state without RPC mutation. Evidence remains token-safe and reports provider identity, before/after active/provisioning state, activated/reused/conflict counts, diagnostic issues, and downstream zero counters.
 
 This runtime boundary may activate only the selected provider shell. It does not complete the provider execution item, progress another dependency, start later items, mutate sessions, renew leases, rotate ownership tokens, activate sterilizers/workstations/hardware, bind hardware, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 11A - Provider-Shell Execution-Item Completion Assessment
+
+After provider-shell activation succeeds, the running provider-shell activation item remains an execution-control boundary. Slice 11A adds a read-only TypeScript assessment that determines whether that running provider-shell item can be completed in a future atomic running-to-succeeded mutation.
+
+The assessment consumes one repository snapshot containing the running execution session, ordered execution items, the selected provider-shell item, the activated provider shell, and aggregate integrity counts. It validates same-clinic/run/session/execution identity, same-owner active-lease evidence, deterministic item identity, provider active setup-draft state, dependency integrity, clean prior succeeded prefix, and untouched later items.
+
+`completable` and `already_completed` are evidence only. This boundary does not mutate execution items, progress dependencies, start another item, activate another entity, bind hardware, complete the execution session, renew leases, rotate tokens, create SQL, wire setup actions, modify UI, or change `DeploymentEngine.execute()`.

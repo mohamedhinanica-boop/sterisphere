@@ -1399,3 +1399,26 @@ Setup completion now extends the live execution-control sequence to:
 Step 9 runs only when step 8 returns `started` or `already_started` for a `provider_shell` `activate` item. It loads the provider-shell activation snapshot, reassesses same-owner active-lease provider activation safety, and calls `public.activate_deployment_provider_shell` only for `activatable` evidence. `already_activated` returns reuse evidence without rewriting provider state.
 
 A successful fresh pass may update only the selected provider shell to `active = true` with `provisioning_status = active`. It does not complete the running provider execution item, unlock dependencies, start another item, activate other entities, bind hardware, renew leases, rotate tokens, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 11A - Provider-Shell Execution-Item Completion Assessment Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic sequence-1 execution item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Atomic next execution-item start
+9. Atomic provider shell activation
+10. Provider-shell execution-item completion assessment
+11. Future atomic provider item completion
+12. Future dependency progression
+
+Slice 11A implements step 10 as read-only TypeScript. It assesses whether the currently running provider-shell activation item can safely be completed after the selected provider shell is active with `provisioning_status = active`, or whether that deterministic item is already completed with compatible evidence.
+
+The boundary validates same-owner active-lease session evidence, deterministic item identity and lifecycle, provider UUID/deployment-key alignment, active setup-draft provider state, dependency resolution, prior succeeded-prefix integrity, duplicate-free execution identities, untouched later items, and zero downstream counters.
+
+No runtime order changes are made in this slice. It does not complete the item, write `completed_at`, progress dependencies, start another item, activate another provider or entity, bind hardware, create SQL, add a Supabase repository, wire setup actions, modify UI/support mail, perform rollback, add workers, or change `DeploymentEngine.execute()`.
