@@ -5,6 +5,8 @@ import {
   ArrowRight,
   Building2,
   Check,
+  ChevronDown,
+  CircleAlert,
   Clock3,
   ImageIcon,
   MapPin,
@@ -1702,6 +1704,390 @@ const deploymentExecutionStageLabels = [
   "Finalizing deployment evidence",
 ] as const;
 
+type CompleteStageMetric = {
+  label: string;
+  value: string | number | boolean | null | undefined;
+};
+
+type CompleteStage = {
+  id: string;
+  name: string;
+  status: string;
+  result: string;
+  evidence: unknown;
+  metrics: readonly CompleteStageMetric[];
+  blockers: number;
+  warnings: number;
+  issues: readonly Record<string, unknown>[];
+};
+
+type CompleteStageGroup = {
+  name: string;
+  stages: readonly CompleteStage[];
+};
+
+function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStageGroup[] {
+  const stage = (
+    id: string,
+    name: string,
+    evidence: unknown,
+    fallbackStatus: string,
+    fallbackResult: string,
+    metrics: readonly CompleteStageMetric[] = [],
+  ): CompleteStage => {
+    const record = readRecord(evidence);
+    const status = readString(record, "status") ?? fallbackStatus;
+    const issues = readIssueArray(record);
+
+    return {
+      id,
+      name,
+      status,
+      result: readString(record, "message") ?? fallbackResult,
+      evidence,
+      metrics,
+      blockers: readNumber(record, "blockers") ?? readNumber(record, "conflicts") ?? issues.filter((issue) => readString(issue, "severity") === "blocker").length,
+      warnings: readNumber(record, "warnings") ?? issues.filter((issue) => readString(issue, "severity") === "warning").length,
+      issues,
+    };
+  };
+
+  const deploymentRunResult = readRecord(input.deploymentRunResult);
+
+  return [
+    {
+      name: "Provisioning",
+      stages: [
+        stage("deployment-run", "Deployment Run", input.deploymentRunResult ? {
+          status: readString(deploymentRunResult, "status"),
+          message: readString(deploymentRunResult, "message"),
+          deploymentRunId: readString(deploymentRunResult, "deploymentRunId"),
+          deploymentSessionId: readString(deploymentRunResult, "deploymentSessionId"),
+          idempotencyKey: readString(deploymentRunResult, "idempotencyKey"),
+          payloadHash: readString(deploymentRunResult, "payloadHash") ?? input.payloadHash,
+          ok: deploymentRunResult?.ok,
+        } : null, "ready", "Ready to persist deployment run evidence.", [
+          { label: "Run", value: readString(deploymentRunResult, "deploymentRunId") ?? "not persisted" },
+          { label: "Hash", value: readString(deploymentRunResult, "payloadHash") ?? String(input.payloadHash ?? "pending") },
+        ]),
+        stage("clinic-root", "Clinic Root", input.clinicRoot, "ready", "Draft clinic root is ready to create or reuse.", [
+          { label: "Clinic", value: readField(input.clinicRoot, "clinicId") ?? "not linked" },
+          { label: "Result", value: readField(input.clinicRoot, "status") ?? "ready" },
+        ]),
+        stage("clinic-settings", "Clinic Settings", input.clinicSettings, "ready", "Clinic settings follow clinic root persistence.", [
+          { label: "Settings", value: readField(input.clinicSettings, "settingsId") ?? "not linked" },
+          { label: "Result", value: readField(input.clinicSettings, "status") ?? "ready" },
+        ]),
+        stage("provider-shells", "Provider Shells", input.providerShells, "ready", "Provider placeholder shells are planned deployment records.", shellMetrics(input.providerShells)),
+        stage("sterilizer-shells", "Sterilizer Shells", input.sterilizerShells, "ready", "Sterilizer planned shells are inactive setup-draft records.", shellMetrics(input.sterilizerShells)),
+        stage("workstation-shells", "Workstation Shells", input.workstationShells, "ready", "Workstation planned shells are inactive setup-draft records.", shellMetrics(input.workstationShells)),
+        stage("hardware-shells", "Hardware Shells", input.hardwareShells, "ready", "Hardware planned shells are inactive setup-draft records.", shellMetrics(input.hardwareShells)),
+        stage("assignment-validation", "Assignment Validation", input.assignmentTargetValidation, "not_attempted", "Assignment target validation runs before hardware assignment persistence.", [
+          { label: "Checked", value: readField(input.assignmentTargetValidation, "assignmentsChecked") ?? readField(input.assignmentTargetValidation, "requested") ?? 0 },
+          { label: "Issues", value: readIssueArray(readRecord(input.assignmentTargetValidation)).length },
+        ]),
+        stage("hardware-assignments", "Hardware Assignments", input.hardwareAssignments, "not_attempted", "Logical hardware assignments are planned setup-draft relationships.", shellMetrics(input.hardwareAssignments)),
+        stage("planned-assignment-resolution", "Planned Assignment Resolution", input.plannedAssignmentResolution, "not_attempted", "Logical assignment resolution is read-only evidence.", [
+          { label: "Resolved", value: readField(input.plannedAssignmentResolution, "resolvedCount") ?? 0 },
+          { label: "Missing", value: (Number(readField(input.plannedAssignmentResolution, "missingHardware") ?? 0) + Number(readField(input.plannedAssignmentResolution, "missingTargets") ?? 0)) },
+        ]),
+      ],
+    },
+    {
+      name: "Activation Planning",
+      stages: [
+        stage("activation-readiness", "Activation Readiness", input.deploymentActivationReadiness, "not_attempted", "Activation readiness checks whether the deployment can plan activation.", blockerWarningMetrics(input.deploymentActivationReadiness)),
+        stage("controlled-activation-plan", "Controlled Activation Plan", input.deploymentActivationPlan, "not_attempted", "Controlled activation planning is deterministic and read-only.", [
+          { label: "Planned", value: readField(input.deploymentActivationPlan, "itemsPlanned") ?? 0 },
+          { label: "Blocked", value: readField(input.deploymentActivationPlan, "itemsBlocked") ?? 0 },
+        ]),
+        stage("execution-preparation", "Execution Preparation", input.deploymentActivationExecution, "not_attempted", "Execution preparation creates planned activation execution evidence.", [
+          { label: "Requested", value: readField(input.deploymentActivationExecution, "itemsRequested") ?? 0 },
+          { label: "Ready", value: readField(input.deploymentActivationExecution, "itemsPlanned") ?? 0 },
+        ]),
+        stage("execution-persistence", "Execution Persistence", input.deploymentActivationExecutionPersistence, "not_attempted", "Prepared execution persistence creates or reuses durable session and item evidence.", [
+          { label: "Items", value: readField(input.deploymentActivationExecutionPersistence, "itemCount") ?? readField(input.deploymentActivationExecutionPersistence, "itemsPersisted") ?? 0 },
+          { label: "Conflicts", value: readField(input.deploymentActivationExecutionPersistence, "conflicts") ?? 0 },
+        ]),
+      ],
+    },
+    {
+      name: "Execution Control",
+      stages: [
+        stage("execution-claim", "Execution Claim", input.deploymentActivationExecutionClaim, "not_attempted", "Atomic claim preserves exclusive ownership without starting activation.", [
+          { label: "Claimed", value: readField(input.deploymentActivationExecutionClaim, "claimedCount") ?? 0 },
+          { label: "Conflicts", value: readField(input.deploymentActivationExecutionClaim, "conflicts") ?? 0 },
+        ]),
+        stage("execution-start", "Execution Start", input.deploymentActivationExecutionStart, "not_attempted", "Session start marks only the activation execution session running.", [
+          { label: "Started", value: readField(input.deploymentActivationExecutionStart, "startedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentActivationExecutionStart, "reusedCount") ?? 0 },
+        ]),
+        stage("first-item-start", "First Item Start", input.deploymentActivationExecutionItemStart, "not_attempted", "First item start marks one deterministic execution item running.", [
+          { label: "Started", value: readField(input.deploymentActivationExecutionItemStart, "startedCount") ?? 0 },
+          { label: "Attempt", value: readField(input.deploymentActivationExecutionItemStart, "attemptCount") ?? 0 },
+        ]),
+        stage("item-completion", "Item Completion", null, "not_reported", "No separate item-completion action result is exposed to this page yet.", [
+          { label: "Completed", value: "not reported" },
+          { label: "Evidence", value: "pending contract" },
+        ]),
+        stage("dependency-progression", "Dependency Progression", input.deploymentActivationExecutionDependencyProgression, "not_attempted", "Dependency progression readies one deterministic next item after completion evidence.", [
+          { label: "Progressed", value: readField(input.deploymentActivationExecutionDependencyProgression, "progressedCount") ?? 0 },
+          { label: "Next", value: readField(input.deploymentActivationExecutionDependencyProgression, "nextSequence") ?? "none" },
+        ]),
+        stage("next-item-start", "Next Item Start", input.deploymentActivationExecutionNextItemStart, "not_attempted", "Next-item start marks the deterministic next item running only.", [
+          { label: "Started", value: readField(input.deploymentActivationExecutionNextItemStart, "startedCount") ?? 0 },
+          { label: "Sequence", value: readField(input.deploymentActivationExecutionNextItemStart, "sequence") ?? "none" },
+        ]),
+      ],
+    },
+    {
+      name: "Entity Activation",
+      stages: [
+        stage("clinic-activation", "Clinic Activation", input.deploymentClinicActivation, "not_attempted", "Clinic activation may mark the clinic deployed for the clinic activation item only.", [
+          { label: "Activated", value: readField(input.deploymentClinicActivation, "activatedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentClinicActivation, "reusedCount") ?? 0 },
+        ]),
+        stage("provider-shell-activation", "Provider Shell Activation", input.deploymentProviderShellActivation, "not_attempted", "Provider shell activation targets only the selected provider shell.", [
+          { label: "Activated", value: readField(input.deploymentProviderShellActivation, "activatedCount") ?? 0 },
+          { label: "Conflicts", value: readField(input.deploymentProviderShellActivation, "conflicts") ?? 0 },
+        ]),
+      ],
+    },
+  ];
+}
+
+function shellMetrics(evidence: unknown): readonly CompleteStageMetric[] {
+  return [
+    { label: "Requested", value: readField(evidence, "requested") ?? 0 },
+    { label: "Created", value: readField(evidence, "created") ?? 0 },
+    { label: "Reused", value: readField(evidence, "reused") ?? 0 },
+    { label: "Conflicts", value: readField(evidence, "conflicts") ?? 0 },
+  ];
+}
+
+function blockerWarningMetrics(evidence: unknown): readonly CompleteStageMetric[] {
+  return [
+    { label: "Blockers", value: readField(evidence, "blockers") ?? 0 },
+    { label: "Warnings", value: readField(evidence, "warnings") ?? 0 },
+  ];
+}
+
+function summarizeCompleteStageGroups(groups: readonly CompleteStageGroup[]) {
+  const stages = groups.flatMap((group) => group.stages);
+  return {
+    activeOrSucceededCount: stages.filter(isPositiveCompleteStage).length,
+    blockers: stages.reduce((total, stage) => total + stage.blockers, 0),
+    warnings: stages.reduce((total, stage) => total + stage.warnings, 0),
+    currentStage: stages.find(needsDefaultExpansion) ?? null,
+    totalStages: stages.length,
+  };
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function readString(record: Record<string, unknown> | null, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function readNumber(record: Record<string, unknown> | null, key: string): number | null {
+  const value = record?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readField(value: unknown, key: string): string | number | boolean | null {
+  const record = readRecord(value);
+  const field = record?.[key];
+  return typeof field === "string" || typeof field === "number" || typeof field === "boolean" ? field : null;
+}
+
+function readIssueArray(record: Record<string, unknown> | null): readonly Record<string, unknown>[] {
+  const issues = record?.issues;
+  return Array.isArray(issues) ? issues.filter((issue): issue is Record<string, unknown> => Boolean(readRecord(issue))) : [];
+}
+
+function isPositiveCompleteStage(stage: CompleteStage): boolean {
+  const status = stage.status.toLowerCase();
+  return ["created", "reused", "ready", "valid", "validated", "resolved", "planned", "prepared", "persisted", "claimed", "already_owned", "started", "already_started", "activated", "already_activated", "succeeded", "success", "ok"].includes(status) || status.includes("ready") || status.includes("created") || status.includes("reused");
+}
+
+function needsDefaultExpansion(stage: CompleteStage): boolean {
+  const status = stage.status.toLowerCase();
+  return stage.blockers > 0 || stage.warnings > 0 || stage.issues.length > 0 || ["error", "blocked", "conflict", "conflicted", "not_found", "rejected", "running", "started", "claimed", "activatable"].some((term) => status.includes(term));
+}
+
+function safeEvidenceText(evidence: unknown): string {
+  if (evidence === null || evidence === undefined) {
+    return "No structured evidence returned for this stage.";
+  }
+
+  return JSON.stringify(evidence, null, 2);
+}
+
+function CompleteStageGroups({
+  groups,
+  defaultExpandedStageId,
+}: {
+  groups: readonly CompleteStageGroup[];
+  defaultExpandedStageId: string | null;
+}) {
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <section key={group.name} className="rounded-2xl border border-white/60 bg-white/45 p-3 sm:p-4">
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+            <h4 className="text-sm font-bold text-slate-950">{group.name}</h4>
+            <span className="text-xs font-semibold text-slate-500">{group.stages.length} stages</span>
+          </div>
+          <div className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white/75">
+            {group.stages.map((stage) => (
+              <CompleteStageRow
+                key={stage.id}
+                stage={stage}
+                defaultExpanded={stage.id === defaultExpandedStageId}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function CompleteStageRow({
+  stage,
+  defaultExpanded,
+}: {
+  stage: CompleteStage;
+  defaultExpanded: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const panelId = `complete-stage-${stage.id}`;
+  const statusTone = stage.blockers > 0 || stage.issues.length > 0 || stage.status.toLowerCase().includes("error") || stage.status.toLowerCase().includes("conflict")
+    ? "text-amber-700"
+    : isPositiveCompleteStage(stage)
+      ? "text-emerald-700"
+      : "text-slate-500";
+
+  return (
+    <article className="bg-white/80">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={() => setExpanded((current) => !current)}
+        className="flex w-full items-start gap-3 px-3 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:items-center sm:px-4"
+      >
+        <span className={`mt-0.5 shrink-0 ${statusTone}`} aria-hidden="true">
+          {stage.blockers > 0 || stage.issues.length > 0 ? (
+            <CircleAlert className="h-5 w-5" />
+          ) : isPositiveCompleteStage(stage) ? (
+            <Check className="h-5 w-5" />
+          ) : (
+            <Minus className="h-5 w-5" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-950">{stage.name}</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-slate-600">
+              {stage.status}
+            </span>
+            {stage.blockers > 0 ? <StageBadge label="Blockers" value={stage.blockers} tone="amber" /> : null}
+            {stage.warnings > 0 ? <StageBadge label="Warnings" value={stage.warnings} tone="blue" /> : null}
+          </span>
+          <span className="mt-1 block truncate text-sm text-slate-600">{stage.result}</span>
+        </span>
+        <span className="hidden shrink-0 gap-2 sm:flex">
+          {stage.metrics.slice(0, 2).map((metric) => (
+            <span key={metric.label} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+              {metric.label}: {String(metric.value ?? "none")}
+            </span>
+          ))}
+        </span>
+        <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {expanded ? (
+        <div id={panelId} className="border-t border-slate-200 bg-slate-50/80 px-3 py-4 sm:px-4">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {stage.metrics.map((metric) => (
+              <div key={metric.label} className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-slate-500">{metric.label}</p>
+                <p className="mt-1 break-words text-sm font-semibold text-slate-950">{String(metric.value ?? "none")}</p>
+              </div>
+            ))}
+          </div>
+          <CompleteStageIssues stage={stage} />
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Structured Evidence</p>
+            <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-950 p-3 text-[0.68rem] leading-4 text-slate-100">
+              {safeEvidenceText(stage.evidence)}
+            </pre>
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function StageBadge({ label, value, tone }: { label: string; value: number; tone: "amber" | "blue" }) {
+  const classes = tone === "amber"
+    ? "border-amber-200 bg-amber-50 text-amber-800"
+    : "border-blue-200 bg-blue-50 text-blue-800";
+  return <span className={`rounded-full border px-2 py-0.5 text-[0.68rem] font-semibold ${classes}`}>{label}: {value}</span>;
+}
+
+function CompleteStageIssues({ stage }: { stage: CompleteStage }) {
+  if (stage.issues.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em]">{stage.name} Issues</p>
+      <ul className="mt-2 space-y-2 text-xs">
+        {stage.issues.map((issue, index) => (
+          <li key={`${stage.id}-${readString(issue, "code") ?? index}`} className="break-words">
+            <span className="font-semibold">{readString(issue, "severity") ?? "issue"}: {readString(issue, "code") ?? "unknown"}</span>{" "}
+            {readString(issue, "message") ?? "No issue message returned."}
+            {readRecord(issue.diagnostics) ? (
+              <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
+                {JSON.stringify(issue.diagnostics)}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function KnownLimitations() {
+  const limitations = [
+    "Rollback execution is unavailable.",
+    "Heartbeat and background worker orchestration are unavailable.",
+    "Item completion evidence is not exposed as a separate page result yet.",
+    "Dependency progression and next-item start remain single-boundary controls.",
+    "Entity activation is limited to the explicit clinic and provider-shell stages shown.",
+    "Deployment finalization is unavailable.",
+  ];
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-700">
+      <h4 className="font-bold text-slate-950">Known Limitations</h4>
+      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+        {limitations.map((limitation) => (
+          <li key={limitation} className="flex gap-2">
+            <Minus className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <span>{limitation}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 function CompleteStep({
   deploymentRunResult,
   reviewedDraft,
@@ -1789,6 +2175,34 @@ function CompleteStep({
       ? "Verifying deployment records"
       : "Provisioning clinic runtime";
 
+  const stageGroups = buildCompleteStageGroups({
+    deploymentRunResult,
+    payloadHash,
+    clinicRoot,
+    clinicSettings,
+    providerShells,
+    sterilizerShells,
+    workstationShells,
+    hardwareShells,
+    assignmentTargetValidation,
+    hardwareAssignments,
+    plannedAssignmentResolution,
+    deploymentActivationReadiness,
+    deploymentActivationPlan,
+    deploymentActivationExecution,
+    deploymentActivationExecutionPersistence,
+    deploymentActivationExecutionClaim,
+    deploymentActivationExecutionStart,
+    deploymentActivationExecutionItemStart,
+    deploymentClinicActivation,
+    deploymentActivationExecutionDependencyProgression,
+    deploymentActivationExecutionNextItemStart,
+    deploymentProviderShellActivation,
+  });
+  const stageSummary = summarizeCompleteStageGroups(stageGroups);
+  const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
+  const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
+  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
   useEffect(() => {
     if (!isPersisting) {
       setElapsedSeconds(0);
@@ -1890,13 +2304,21 @@ function CompleteStep({
             </div>
           )}
 
-          <dl className="mt-4 grid gap-3 sm:grid-cols-4">
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-                Session ID
+                Overall Status
+              </dt>
+              <dd className="mt-1 font-semibold">
+                {deploymentRunResult?.status ?? (isPersisting ? "running" : "ready")}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Clinic ID
               </dt>
               <dd className="mt-1 break-all font-mono text-xs">
-                {deploymentRunResult?.deploymentSessionId ?? "Pending"}
+                {summaryClinicId}
               </dd>
             </div>
             <div>
@@ -1909,1615 +2331,98 @@ function CompleteStep({
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-                Payload Hash
+                Execution Session ID
               </dt>
               <dd className="mt-1 break-all font-mono text-xs">
-                {deploymentRunResult?.payloadHash ?? payloadHash ?? "Pending"}
+                {summaryExecutionSessionId}
               </dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-                Deployment Run
+                Current Stage
               </dt>
               <dd className="mt-1 font-semibold">
-                {deploymentRunResult?.status ?? "ready"}
+                {currentStageName}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Succeeded / Active
+              </dt>
+              <dd className="mt-1 font-semibold">
+                {stageSummary.activeOrSucceededCount} of {stageSummary.totalStages}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Blockers
+              </dt>
+              <dd className="mt-1 font-semibold">
+                {stageSummary.blockers}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                Warnings
+              </dt>
+              <dd className="mt-1 font-semibold">
+                {stageSummary.warnings}
               </dd>
             </div>
           </dl>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Clinic Root: {clinicRoot?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {clinicRoot?.message ??
-                  "A successful confirmation will create or reuse one draft clinic root after the deployment_run is durable."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Clinic ID
-                  </dt>
-                  <dd className="mt-1 break-all font-mono text-xs">
-                    {clinicRoot?.clinicId ?? "Not linked"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Clinic Root
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {clinicRoot?.ok ? "linked draft" : "not linked"}
-                  </dd>
-                </div>
-              </dl>
+          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+            <div className="min-w-0">
+              <CompleteStageGroups
+                groups={stageGroups}
+                defaultExpandedStageId={stageSummary.currentStage?.id ?? null}
+              />
             </div>
-
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Clinic Settings: {clinicSettings?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {clinicSettings?.message ??
-                  "Clinic settings will be provisioned after the draft clinic root is linked."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Settings ID
-                  </dt>
-                  <dd className="mt-1 break-all font-mono text-xs">
-                    {clinicSettings?.settingsId ?? "Not linked"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Clinic Settings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {clinicSettings?.ok ? "linked" : "not linked"}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Provider Shells: {providerShells?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {providerShells?.message ??
-                  "Provider placeholder shells will be provisioned after clinic settings are linked."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {providerShells?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {providerShells?.created ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {providerShells?.reused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {providerShells?.conflicts ?? 0}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Sterilizer Shells: {sterilizerShells?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {sterilizerShells?.message ??
-                  "Sterilizer planned shells will be provisioned after provider shells are linked."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {sterilizerShells?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {sterilizerShells?.created ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {sterilizerShells?.reused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {sterilizerShells?.conflicts ?? 0}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Workstation Shells: {workstationShells?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {workstationShells?.message ??
-                  "Workstation planned shells will be provisioned after sterilizer shells are linked."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {workstationShells?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {workstationShells?.created ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {workstationShells?.reused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {workstationShells?.conflicts ?? 0}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Hardware Shells: {hardwareShells?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {hardwareShells?.message ??
-                  "Hardware planned shells will be provisioned after workstation shells are linked."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareShells?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareShells?.created ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareShells?.reused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareShells?.conflicts ?? 0}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Assignment Target Validation: {assignmentTargetValidation?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {assignmentTargetValidation?.message ??
-                  "Logical hardware assignment targets will be checked after hardware shells are linked and before assignment rows are created."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {assignmentTargetValidation?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Valid
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {assignmentTargetValidation?.valid ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Invalid
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {assignmentTargetValidation?.invalid ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Missing
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {assignmentTargetValidation?.missingTargets ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Incompatible
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {assignmentTargetValidation?.incompatibleTargets ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              {assignmentTargetValidation?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Validation Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {assignmentTargetValidation.issues.slice(0, 4).map((issue) => (
-                      <li
-                        key={`${issue.deploymentHardwareKey}-${issue.targetType}-${issue.targetDeploymentKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.deploymentHardwareKey || "hardware target"}
-                        </span>{" "}
-                        {issue.targetType}
-                        {issue.targetDeploymentKey
-                          ? ` ${issue.targetDeploymentKey}`
-                          : " unassigned"}
-                        : {issue.code}. {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {assignmentTargetValidation.issues.length > 4 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {assignmentTargetValidation.issues.length - 4} more validation issues are included in support evidence.
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-xs">
-                    Upstream deployment records remain durable; hardware assignment rows were not persisted.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Hardware Assignments: {hardwareAssignments?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {hardwareAssignments?.message ??
-                  "Hardware planned assignments will be provisioned after hardware shells are linked."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareAssignments?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareAssignments?.created ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareAssignments?.reused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {hardwareAssignments?.conflicts ?? 0}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Planned Assignment Resolution: {plannedAssignmentResolution?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {plannedAssignmentResolution?.message ??
-                  "Planned assignment IDs will be resolved in memory after assignment rows are persisted."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.requested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Resolved
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.resolved ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Unresolved
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.unresolved ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Missing Hardware
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.missingHardware ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Missing Targets
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.missingTargets ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Incompatible Hardware
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.incompatibleHardware ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Incompatible Targets
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {plannedAssignmentResolution?.incompatibleTargets ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              {plannedAssignmentResolution?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Resolution Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {plannedAssignmentResolution.issues.slice(0, 4).map((issue) => (
-                      <li
-                        key={`${issue.deploymentHardwareKey}-${issue.assignmentKey ?? "assignment"}-${issue.targetType}-${issue.targetDeploymentKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.deploymentHardwareKey || "hardware target"}
-                        </span>{" "}
-                        {issue.targetType}
-                        {issue.targetDeploymentKey
-                          ? ` ${issue.targetDeploymentKey}`
-                          : " unassigned"}
-                        : {issue.code}. {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {plannedAssignmentResolution.issues.length > 4 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {plannedAssignmentResolution.issues.length - 4} more resolution issues are included in support evidence.
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-xs">
-                    Logical assignment rows remain inactive and persisted; no resolved IDs were written back.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Deployment Activation Readiness: {deploymentActivationReadiness?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationReadiness?.message ??
-                  "Activation readiness will be assessed after planned assignment resolution succeeds."}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Checks Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationReadiness?.checksRequested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Checks Passed
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationReadiness?.checksPassed ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Checks Failed
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationReadiness?.checksFailed ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blockers
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationReadiness?.blockers ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Warnings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationReadiness?.warnings ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              {deploymentActivationReadiness?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Readiness Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationReadiness.issues.slice(0, 5).map((issue) => (
-                      <li
-                        key={`${issue.entityType}-${issue.deploymentKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.severity}: {issue.entityType}
-                        </span>{" "}
-                        {issue.deploymentKey ? `${issue.deploymentKey}: ` : ""}
-                        {issue.code}. {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationReadiness.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationReadiness.issues.length - 5} more readiness issues are included in support evidence.
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-xs">
-                    Activation has not occurred. Planned infrastructure remains inactive, unbound, and retryable.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Controlled Activation Plan: {deploymentActivationPlan?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationPlan?.message ??
-                  "Controlled activation planning will run after activation readiness is ready."}
-              </p>
-              <p className="mt-2 break-words text-xs font-semibold text-slate-600">
-                Plan key: {deploymentActivationPlan?.planKey ?? "not generated"}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.itemsRequested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Planned
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.itemsPlanned ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Blocked
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.itemsBlocked ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reversible
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.reversibleItems ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Irreversible
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.irreversibleItems ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blockers
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.blockers ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Warnings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationPlan?.warnings ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              {deploymentActivationPlan?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Plan Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationPlan.issues.slice(0, 5).map((issue) => (
-                      <li
-                        key={`${issue.entityType}-${issue.deploymentKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.severity}: {issue.entityType}
-                        </span>{" "}
-                        {issue.deploymentKey ? `${issue.deploymentKey}: ` : ""}
-                        {issue.code}. {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationPlan.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationPlan.issues.length - 5} more activation plan issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {deploymentActivationPlan?.planItems.length ? (
-                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    First Planned Items
-                  </p>
-                  <ol className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationPlan.planItems.slice(0, 6).map((item) => (
-                      <li key={item.planItemKey} className="break-words">
-                        <span className="font-semibold">
-                          {item.sequence} {item.entityType.replace(/_/g, " ")}
-                        </span>{" "}
-                        {item.deploymentKey ? `${item.deploymentKey}: ` : ""}
-                        {item.action}
-                      </li>
-                    ))}
-                  </ol>
-                  {deploymentActivationPlan.planItems.length > 6 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationPlan.planItems.length - 6} more plan items are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Preparation: {deploymentActivationExecution?.status ?? "ready"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecution?.message ??
-                  "Activation execution preparation will run after a controlled activation plan is ready."}
-              </p>
-              <p className="mt-2 break-words text-xs font-semibold text-slate-600">
-                Execution key: {deploymentActivationExecution?.executionKey ?? "not prepared"}
-              </p>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.itemsRequested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Ready
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.itemsReady ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Pending
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.itemsPending ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blocked
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.itemsBlocked ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reversible
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.reversibleItems ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Irreversible
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.irreversibleItems ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blockers
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.blockers ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Warnings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecution?.warnings ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">
-                  Rollback Boundary
+            <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+              <div className="rounded-2xl border border-white/60 bg-white/65 p-4 text-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Current Stage
                 </p>
-                <p className="mt-2">
-                  Last reversible sequence: {deploymentActivationExecution?.rollbackBoundary.lastReversibleSequence ?? "none"}. First irreversible sequence: {deploymentActivationExecution?.rollbackBoundary.firstIrreversibleSequence ?? "none"}.
-                </p>
-                <p className="mt-1">
-                  Supported keys: {deploymentActivationExecution?.rollbackBoundary.rollbackSupportedItemKeys.length ?? 0}. Unsupported keys: {deploymentActivationExecution?.rollbackBoundary.rollbackUnsupportedItemKeys.length ?? 0}. Crosses irreversible boundary: {deploymentActivationExecution?.rollbackBoundary.wouldCrossIrreversibleBoundary ? "yes" : "no"}.
-                </p>
-                <p className="mt-2">
-                  Execution and rollback persistence are not implemented; this is in-memory preparation evidence only.
-                </p>
+                <p className="mt-2 text-lg font-bold text-slate-950">{currentStageName}</p>
+                <dl className="mt-4 grid gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-slate-500">Succeeded/active</dt>
+                    <dd className="font-semibold text-slate-950">{stageSummary.activeOrSucceededCount}/{stageSummary.totalStages}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-slate-500">Blockers</dt>
+                    <dd className="font-semibold text-amber-700">{stageSummary.blockers}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-slate-500">Warnings</dt>
+                    <dd className="font-semibold text-blue-700">{stageSummary.warnings}</dd>
+                  </div>
+                </dl>
               </div>
-              {deploymentActivationExecution?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Execution Preparation Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecution.issues.slice(0, 5).map((issue) => (
-                      <li
-                        key={`${issue.entityType}-${issue.planItemKey ?? "none"}-${issue.deploymentKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.severity}: {issue.entityType}
-                        </span>{" "}
-                        {issue.deploymentKey ? `${issue.deploymentKey}: ` : ""}
-                        {issue.code}. {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecution.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecution.issues.length - 5} more execution-preparation issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {deploymentActivationExecution?.executionItems.length ? (
-                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    First Prepared Items
-                  </p>
-                  <ol className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecution.executionItems.slice(0, 6).map((item) => (
-                      <li key={item.executionItemKey} className="break-words">
-                        <span className="font-semibold">
-                          {item.sequence} {item.action} {item.entityType.replace(/_/g, " ")}
-                        </span>{" "}
-                        {item.deploymentKey ? `${item.deploymentKey}: ` : ""}
-                        {item.executionStatus}
-                      </li>
-                    ))}
-                  </ol>
-                  {deploymentActivationExecution.executionItems.length > 6 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecution.executionItems.length - 6} more prepared items are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              <p className="mt-4 text-xs text-slate-600">
-                No activation button is available. Prepared execution persistence is evidence only.
-              </p>
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Persistence: {deploymentActivationExecutionPersistence?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecutionPersistence?.message ??
-                  "Prepared activation execution persistence will run after execution preparation is ready."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Session ID: {deploymentActivationExecutionPersistence?.sessionId ?? "not persisted"}</p>
-                <p>Execution key: {deploymentActivationExecutionPersistence?.executionKey ?? "not prepared"}</p>
-                <p>Plan key: {deploymentActivationExecutionPersistence?.planKey ?? "not generated"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Session Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.sessionCreated ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Session Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.sessionReused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Requested
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.itemsRequested ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Created
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.itemsCreated ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Items Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.itemsReused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Item Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.itemsConflicted ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blockers
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.blockers ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Warnings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionPersistence?.warnings ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">
-                  Prepared Only
-                </p>
-                <p className="mt-2">
-                  Prepared evidence is created or reused without mutation. Verify/Reuse may pass through a compatible claimed or running session with one already-running item, but this stage never starts, resets, activates, binds, rolls back, or finalizes anything.
-                </p>
-                <p className="mt-1">
-                  Downstream execution counters: claimed {deploymentActivationExecutionPersistence?.downstream.itemsClaimed ?? 0}, started {deploymentActivationExecutionPersistence?.downstream.itemsStarted ?? 0}, succeeded {deploymentActivationExecutionPersistence?.downstream.itemsSucceeded ?? 0}, failed {deploymentActivationExecutionPersistence?.downstream.itemsFailed ?? 0}.
-                </p>
-              </div>
-              {deploymentActivationExecutionPersistence?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Persistence Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecutionPersistence.issues.slice(0, 5).map((issue) => (
-                      <li
-                        key={`${issue.executionKey ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.planItemKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.severity}: {issue.code}
-                        </span>{" "}
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecutionPersistence.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecutionPersistence.issues.length - 5} more execution-persistence issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Claim: {deploymentActivationExecutionClaim?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecutionClaim?.message ??
-                  "Activation execution ownership claim will run after prepared execution persistence completes."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentActivationExecutionClaim?.claimantId ?? "not assigned"}</p>
-                <p>Session ID: {deploymentActivationExecutionClaim?.sessionId ?? "not claimed"}</p>
-                <p>Execution key: {deploymentActivationExecutionClaim?.executionKey ?? "not prepared"}</p>
-                <p>Plan key: {deploymentActivationExecutionClaim?.planKey ?? "not generated"}</p>
-                <p>Lease expires: {deploymentActivationExecutionClaim?.leaseExpiresAt ?? "no lease"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Mode
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.claimMode ?? "none"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Result
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.ownershipResult ?? "none"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Claimed
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.sessionClaimed ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.sessionReused ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reclaimed
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.sessionReclaimed ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.conflicts ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blockers
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.blockers ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Warnings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionClaim?.warnings ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">
-                  Ownership Only
-                </p>
-                <p className="mt-2">
-                  {deploymentActivationExecutionClaim?.status === "already_owned"
-                    ? "Existing same-owner claim was reused and the lease was not extended."
-                    : deploymentActivationExecutionClaim?.ok
-                      ? "Execution session is exclusively owned by the deployment executor."
-                      : "No execution began because the claim is skipped, blocked, conflicted, or errored."}
-                </p>
-                <p className="mt-1">
-                  Downstream execution counters: sessions started {deploymentActivationExecutionClaim?.downstream.sessionsStarted ?? 0}, items claimed {deploymentActivationExecutionClaim?.downstream.itemsClaimed ?? 0}, items started {deploymentActivationExecutionClaim?.downstream.itemsStarted ?? 0}, activated entities {deploymentActivationExecutionClaim?.downstream.entitiesActivated ?? 0}.
-                </p>
-              </div>
-              {deploymentActivationExecutionClaim?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Claim Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecutionClaim.issues.slice(0, 5).map((issue) => (
-                      <li
-                        key={`${issue.sessionId ?? "none"}-${issue.executionKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.severity}: {issue.code}
-                        </span>{" "}
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecutionClaim.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecutionClaim.issues.length - 5} more execution-claim issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Start: {deploymentActivationExecutionStart?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecutionStart?.message ??
-                  "Activation execution start will run after ownership claim completes."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentActivationExecutionStart?.claimantId ?? "not assigned"}</p>
-                <p>Session ID: {deploymentActivationExecutionStart?.sessionId ?? "not started"}</p>
-                <p>Execution key: {deploymentActivationExecutionStart?.executionKey ?? "not prepared"}</p>
-                <p>Started at: {deploymentActivationExecutionStart?.startedAt ?? "not running"}</p>
-                <p>Lease expires: {deploymentActivationExecutionStart?.leaseExpiresAt ?? "no lease"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Result
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionStart?.startResult ?? "none"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Started
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionStart?.startedCount ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Reused
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionStart?.reusedCount ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Conflicts
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionStart?.conflicts ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Blockers
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionStart?.blockers ?? 0}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">
-                    Warnings
-                  </dt>
-                  <dd className="mt-1 text-base font-semibold">
-                    {deploymentActivationExecutionStart?.warnings ?? 0}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">
-                  Session Only
-                </p>
-                <p className="mt-2">
-                  {deploymentActivationExecutionStart?.status === "already_started"
-                    ? "Existing running execution session was reused. No activation item has started."
-                    : deploymentActivationExecutionStart?.status === "started"
-                      ? "Execution session is running under exclusive ownership. No activation item has started."
-                      : "No execution session was started because the stage is skipped, blocked, conflicted, or errored."}
-                </p>
-                <p className="mt-1">
-                  Downstream execution counters: items started {deploymentActivationExecutionStart?.downstream.itemsStarted ?? 0}, items succeeded {deploymentActivationExecutionStart?.downstream.itemsSucceeded ?? 0}, activated entities {deploymentActivationExecutionStart?.downstream.entitiesActivated ?? 0}, bindings written {deploymentActivationExecutionStart?.downstream.bindingsWritten ?? 0}.
-                </p>
-              </div>
-              {deploymentActivationExecutionStart?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">
-                    Start Issues
-                  </p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecutionStart.issues.slice(0, 5).map((issue) => (
-                      <li
-                        key={`${issue.sessionId ?? "none"}-${issue.executionKey ?? "none"}-${issue.code}`}
-                        className="break-words"
-                      >
-                        <span className="font-semibold">
-                          {issue.severity}: {issue.code}
-                        </span>{" "}
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecutionStart.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecutionStart.issues.length - 5} more execution-start issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Item Start: {deploymentActivationExecutionItemStart?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecutionItemStart?.message ??
-                  "The first execution item will start only after the execution session is running."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentActivationExecutionItemStart?.claimantId ?? "not assigned"}</p>
-                <p>Session ID: {deploymentActivationExecutionItemStart?.sessionId ?? "not started"}</p>
-                <p>Execution key: {deploymentActivationExecutionItemStart?.executionKey ?? "not prepared"}</p>
-                <p>Item key: {deploymentActivationExecutionItemStart?.executionItemKey ?? "not started"}</p>
-                <p>Plan item key: {deploymentActivationExecutionItemStart?.planItemKey ?? "not selected"}</p>
-                <p>Entity: {deploymentActivationExecutionItemStart?.entityType ?? "none"} / {deploymentActivationExecutionItemStart?.entityKey ?? "none"}</p>
-                <p>Started at: {deploymentActivationExecutionItemStart?.startedAt ?? "not running"}</p>
-                <p>Lease expires: {deploymentActivationExecutionItemStart?.leaseExpiresAt ?? "no lease"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Result</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.itemStartResult ?? "none"}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Sequence</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.sequence ?? "none"}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Action</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.action ?? "none"}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Attempt Count</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.attemptCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Started</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.startedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.reusedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.conflicts ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.blockers ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionItemStart?.warnings ?? 0}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">Item Start Only</p>
-                <p className="mt-2">
-                  {deploymentActivationExecutionItemStart?.status === "already_started"
-                    ? "The existing running execution item was reused. No second item was started and no activation action was executed."
-                    : deploymentActivationExecutionItemStart?.status === "started"
-                      ? "The first execution item is running under exclusive ownership. Its activation action has not been executed."
-                      : "No execution item was started because the stage is skipped, blocked, conflicted, missing, or errored."}
-                </p>
-                <p className="mt-1">
-                  Downstream counters: succeeded {deploymentActivationExecutionItemStart?.downstream.itemsSucceeded ?? 0}, activated entities {deploymentActivationExecutionItemStart?.downstream.entitiesActivated ?? 0}, bindings written {deploymentActivationExecutionItemStart?.downstream.bindingsWritten ?? 0}, finalized {deploymentActivationExecutionItemStart?.downstream.deploymentFinalized ?? 0}.
-                </p>
-              </div>
-              {deploymentActivationExecutionItemStart?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Item Start Issues</p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecutionItemStart.issues.slice(0, 5).map((issue) => (
-                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
-                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecutionItemStart.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecutionItemStart.issues.length - 5} more execution-item-start issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Clinic Activation: {deploymentClinicActivation?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentClinicActivation?.message ??
-                  "Clinic activation runs only after the first execution item is running."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentClinicActivation?.claimantId ?? "not assigned"}</p>
-                <p>Clinic ID: {deploymentClinicActivation?.clinicId ?? "not available"}</p>
-                <p>Deployment run key: {deploymentClinicActivation?.deploymentRunId ?? "not persisted"}</p>
-                <p>Session ID: {deploymentClinicActivation?.sessionId ?? "not started"}</p>
-                <p>Execution key: {deploymentClinicActivation?.executionKey ?? "not prepared"}</p>
-                <p>Item ID: {deploymentClinicActivation?.itemId ?? "not started"}</p>
-                <p>Item key: {deploymentClinicActivation?.executionItemKey ?? "not started"}</p>
-                <p>Plan item key: {deploymentClinicActivation?.planItemKey ?? "not selected"}</p>
-                <p>Deployed at: {deploymentClinicActivation?.deployedAt ?? "not activated"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Result</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.activationResult ?? "none"}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Current Status</dt>
-                  <dd className="mt-1 text-base font-semibold">{readDeploymentStatus(deploymentClinicActivation?.currentClinicState)}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Target Status</dt>
-                  <dd className="mt-1 text-base font-semibold">{readDeploymentStatus(deploymentClinicActivation?.targetClinicState)}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Activated</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.activatedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.reusedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.conflicts ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.blockers ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentClinicActivation?.warnings ?? 0}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">Clinic Row Only</p>
-                <p className="mt-2">
-                  {deploymentClinicActivation?.status === "already_activated"
-                    ? "The existing deployed clinic deployment state was reused. The execution item remains running and no dependent item was unlocked."
-                    : deploymentClinicActivation?.status === "activated"
-                      ? "The clinic deployment state is deployed. The execution item is still running and no dependent item has been unlocked."
-                      : "Clinic activation was not applied because the stage is skipped, blocked, conflicted, missing, or errored."}
-                </p>
-                <p className="mt-1">
-                  Downstream counters: items succeeded {deploymentClinicActivation?.downstream.itemsSucceeded ?? 0}, dependencies unlocked {deploymentClinicActivation?.downstream.dependenciesUnlocked ?? 0}, bindings written {deploymentClinicActivation?.downstream.bindingsWritten ?? 0}, finalized {deploymentClinicActivation?.downstream.deploymentFinalized ?? 0}.
-                </p>
-              </div>
-              {deploymentClinicActivation?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Clinic Activation Issues</p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentClinicActivation.issues.slice(0, 5).map((issue) => (
-                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
-                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
-                        {issue.message}
-                        {issue.diagnostics ? (
-                          <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
-                            {formatClinicActivationDiagnostics(issue.diagnostics)}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentClinicActivation.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentClinicActivation.issues.length - 5} more clinic-activation issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Dependency Progression: {deploymentActivationExecutionDependencyProgression?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecutionDependencyProgression?.message ??
-                  "Dependency progression runs only after the clinic activation item is completed."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentActivationExecutionDependencyProgression?.claimantId ?? "not assigned"}</p>
-                <p>Session ID: {deploymentActivationExecutionDependencyProgression?.sessionId ?? "not running"}</p>
-                <p>Execution key: {deploymentActivationExecutionDependencyProgression?.executionKey ?? "not prepared"}</p>
-                <p>Completed item: {deploymentActivationExecutionDependencyProgression?.completedExecutionItemKey ?? "none"}</p>
-                <p>Completed sequence: {deploymentActivationExecutionDependencyProgression?.completedSequence ?? "none"}</p>
-                <p>Next item: {deploymentActivationExecutionDependencyProgression?.nextExecutionItemKey ?? "none"}</p>
-                <p>Next sequence: {deploymentActivationExecutionDependencyProgression?.nextSequence ?? "none"}</p>
-                <p>Next entity: {deploymentActivationExecutionDependencyProgression?.nextEntityType ?? "none"} / {deploymentActivationExecutionDependencyProgression?.nextEntityId ?? "none"}</p>
-                <p>Next action: {deploymentActivationExecutionDependencyProgression?.nextAction ?? "none"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Before</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.statusBefore ?? "none"}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">After</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.statusAfter ?? "none"}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Progressed</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.progressedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.reusedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.conflicts ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.blockers ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.warnings ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Next Attempts</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionDependencyProgression?.nextAttemptCount ?? 0}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">Ready Only</p>
-                <p className="mt-2">
-                  One deterministic next item may now be ready. The next item has not started, no provider or other entity has been activated by this stage, no attempt count or execution timestamp was written, and the execution session remains running.
-                </p>
-                <p className="mt-1">
-                  Downstream counters: items started {deploymentActivationExecutionDependencyProgression?.downstream.itemsStarted ?? 0}, items succeeded {deploymentActivationExecutionDependencyProgression?.downstream.itemsSucceeded ?? 0}, activated entities {deploymentActivationExecutionDependencyProgression?.downstream.entitiesActivated ?? 0}, bindings written {deploymentActivationExecutionDependencyProgression?.downstream.bindingsWritten ?? 0}, finalized {deploymentActivationExecutionDependencyProgression?.downstream.deploymentsFinalized ?? 0}.
-                </p>
-              </div>
-              {deploymentActivationExecutionDependencyProgression?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Dependency Progression Issues</p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecutionDependencyProgression.issues.slice(0, 5).map((issue) => (
-                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
-                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
-                        {issue.message}
-                        {issue.diagnostics ? (
-                          <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
-                            {formatDependencyProgressionDiagnostics(issue.diagnostics)}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecutionDependencyProgression.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecutionDependencyProgression.issues.length - 5} more dependency-progression issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Activation Execution Next Item Start: {deploymentActivationExecutionNextItemStart?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentActivationExecutionNextItemStart?.message ??
-                  "Next-item start runs only after dependency progression safely readies the deterministic next item."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentActivationExecutionNextItemStart?.claimantId ?? "not assigned"}</p>
-                <p>Session ID: {deploymentActivationExecutionNextItemStart?.sessionId ?? "not running"}</p>
-                <p>Execution key: {deploymentActivationExecutionNextItemStart?.executionKey ?? "not prepared"}</p>
-                <p>Plan key: {deploymentActivationExecutionNextItemStart?.planKey ?? "not generated"}</p>
-                <p>Item ID: {deploymentActivationExecutionNextItemStart?.itemId ?? "not started"}</p>
-                <p>Item key: {deploymentActivationExecutionNextItemStart?.executionItemKey ?? "not started"}</p>
-                <p>Plan item key: {deploymentActivationExecutionNextItemStart?.planItemKey ?? "not selected"}</p>
-                <p>Sequence: {deploymentActivationExecutionNextItemStart?.sequence ?? "none"}</p>
-                <p>Entity: {deploymentActivationExecutionNextItemStart?.entityType ?? "none"} / {deploymentActivationExecutionNextItemStart?.entityId ?? "none"}</p>
-                <p>Action: {deploymentActivationExecutionNextItemStart?.action ?? "none"}</p>
-                <p>Started at: {deploymentActivationExecutionNextItemStart?.startedAt ?? "not running"}</p>
-                <p>Lease expires: {deploymentActivationExecutionNextItemStart?.leaseExpiresAt ?? "no lease"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Attempt</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.attemptCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Started</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.startedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.reusedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.conflicts ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.blockers ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Warnings</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentActivationExecutionNextItemStart?.warnings ?? 0}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">Running Item Only</p>
-                <p className="mt-2">
-                  One deterministic next item may now be running. The provider or other entity has not been activated, the item has not completed, no dependency was progressed by this stage, no session lifecycle field was changed, and the session remains running.
-                </p>
-                <p className="mt-1">
-                  Downstream counters: items succeeded {deploymentActivationExecutionNextItemStart?.downstream.itemsSucceeded ?? 0}, activated entities {deploymentActivationExecutionNextItemStart?.downstream.entitiesActivated ?? 0}, bindings written {deploymentActivationExecutionNextItemStart?.downstream.bindingsWritten ?? 0}, items completed {deploymentActivationExecutionNextItemStart?.downstream.itemsCompleted ?? 0}, dependencies progressed {deploymentActivationExecutionNextItemStart?.downstream.dependenciesProgressed ?? 0}, finalized {deploymentActivationExecutionNextItemStart?.downstream.finalized ?? 0}.
-                </p>
-              </div>
-              {deploymentActivationExecutionNextItemStart?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Next Item Start Issues</p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentActivationExecutionNextItemStart.issues.slice(0, 5).map((issue) => (
-                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.code}`} className="break-words">
-                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentActivationExecutionNextItemStart.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentActivationExecutionNextItemStart.issues.length - 5} more next-item start issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 rounded-xl border border-white/60 bg-white/50 p-5">
-              <p className="font-bold">
-                Provider Shell Activation: {deploymentProviderShellActivation?.status ?? "not_attempted"}
-              </p>
-              <p className="mt-1">
-                {deploymentProviderShellActivation?.message ??
-                  "Provider shell activation runs only when the deterministic running item targets a provider shell activation."}
-              </p>
-              <div className="mt-2 space-y-1 break-words text-xs font-semibold text-slate-600">
-                <p>Claimant: {deploymentProviderShellActivation?.claimantId ?? "not assigned"}</p>
-                <p>Session ID: {deploymentProviderShellActivation?.sessionId ?? "not running"}</p>
-                <p>Execution key: {deploymentProviderShellActivation?.executionKey ?? "not prepared"}</p>
-                <p>Plan key: {deploymentProviderShellActivation?.planKey ?? "not generated"}</p>
-                <p>Item ID: {deploymentProviderShellActivation?.itemId ?? "not started"}</p>
-                <p>Item key: {deploymentProviderShellActivation?.executionItemKey ?? "not started"}</p>
-                <p>Plan item key: {deploymentProviderShellActivation?.planItemKey ?? "not selected"}</p>
-                <p>Sequence: {deploymentProviderShellActivation?.sequence ?? "none"}</p>
-                <p>Provider ID: {deploymentProviderShellActivation?.providerId ?? "not activated"}</p>
-                <p>Provider key: {deploymentProviderShellActivation?.deploymentProviderKey ?? "none"}</p>
-                <p>Activated at: {deploymentProviderShellActivation?.activatedAt ?? "not activated"}</p>
-              </div>
-              <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Before</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.provisioningStatusBefore ?? "none"} / {String(deploymentProviderShellActivation?.activeBefore ?? "none")}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">After</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.provisioningStatusAfter ?? "none"} / {String(deploymentProviderShellActivation?.activeAfter ?? "none")}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Activated</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.activatedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Reused</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.reusedCount ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Conflicts</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.conflicts ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="break-words text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] opacity-70">Blockers</dt>
-                  <dd className="mt-1 text-base font-semibold">{deploymentProviderShellActivation?.blockers ?? 0}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-700">
-                <p className="font-semibold uppercase tracking-[0.08em]">Provider Shell Only</p>
-                <p className="mt-2">
-                  This stage may activate one planned provider shell for the currently running provider item. It does not complete the provider execution item, progress dependencies, bind hardware, activate other entities, roll back, or finalize deployment.
-                </p>
-                <p className="mt-1">
-                  Downstream counters: items completed {deploymentProviderShellActivation?.downstream.itemsCompleted ?? 0}, dependencies progressed {deploymentProviderShellActivation?.downstream.dependenciesProgressed ?? 0}, bindings written {deploymentProviderShellActivation?.downstream.bindingsWritten ?? 0}, sessions completed {deploymentProviderShellActivation?.downstream.sessionsCompleted ?? 0}, rollbacks {deploymentProviderShellActivation?.downstream.rollbacksExecuted ?? 0}, finalized {deploymentProviderShellActivation?.downstream.deploymentFinalized ?? 0}.
-                </p>
-              </div>
-              {deploymentProviderShellActivation?.issues.length ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em]">Provider Shell Activation Issues</p>
-                  <ul className="mt-2 space-y-2 text-xs">
-                    {deploymentProviderShellActivation.issues.slice(0, 5).map((issue) => (
-                      <li key={`${issue.sessionId ?? "none"}-${issue.executionItemKey ?? "none"}-${issue.deploymentProviderKey ?? "none"}-${issue.code}`} className="break-words">
-                        <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
-                        {issue.message}
-                        {issue.diagnostics ? (
-                          <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
-                            {formatProviderShellActivationDiagnostics(issue.diagnostics)}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {deploymentProviderShellActivation.issues.length > 5 ? (
-                    <p className="mt-2 text-xs font-semibold">
-                      {deploymentProviderShellActivation.issues.length - 5} more provider-shell activation issues are included in support evidence.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+              <KnownLimitations />
+            </aside>
           </div>
-          <p className="mt-4 font-semibold">
-            Clinic deployment status may now be deployed, the clinic execution item may be completed, one deterministic dependent item may be running, and a provider shell may be active only when that running item targets provider activation. No provider execution item has completed and no later dependency has progressed.
-          </p>
-          <p className="mt-1">
-            Only public.clinics, public.clinic_settings, public.providers
-            placeholder shells, public.sterilizers planned shells,
-            public.clinical_workstations planned shells,
-            public.clinical_hardware_devices planned shells, and
-            deployment_runs.clinic_id are persisted before the read-only
-            assignment target validation gate. public.deployment_hardware_assignments
-            planned relationships are persisted only after validation passes.
-            Planned assignment resolution reads those rows and matching planned
-            shells to return durable IDs in evidence only. Deployment activation
-            readiness combines that fresh evidence with the durable snapshot as
-            a read-only safety gate. Controlled activation planning then builds
-            deterministic plan evidence only; it persists no plan rows. Activation
-            execution preparation produces pre-execution evidence, and
-            public.deployment_activation_execution_sessions plus
-            public.deployment_activation_execution_items may persist that prepared
-            evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. After that, exactly one execution item may be atomically marked running, and the clinic row may be atomically marked deployed for the clinic activation item only. Claimed does not mean running, a running item does not mean item completion, and a deployed clinic row alone does not unlock dependent work; after item completion, dependency progression may mark one deterministic next item ready, and next-item start may atomically mark that single item running only. Only the selected provider shell may be activated by the provider-shell activation stage; no provider execution item is completed, no other entity is activated, no further dependency is progressed, and no hardware
-            bindings are written, no devices activate, and no users, packs,
-            cycles, traces, audit logs, rollback work, or deployment finalization
-            occurs.
-          </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs leading-5 text-slate-700">
+            <p className="font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Persistence Boundary
+            </p>
+            <p className="mt-2">
+              Deployment runtime persistence currently writes deployment_runs,
+              draft public.clinics rows, public.clinic_settings,
+              public.providers placeholder shells, public.sterilizers planned shells,
+              public.clinical_workstations planned shells,
+              public.clinical_hardware_devices planned shells,
+              public.deployment_hardware_assignments planned logical relationships,
+              activation readiness and planning evidence, and prepared activation execution evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. Execution item boundaries and entity activation remain explicit stage controls; no hardware bindings are written, no devices activate, and no users, packs, cycles, traces, audit logs, rollback work, or deployment finalization occurs from this page rendering.
+            </p>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/75 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <button
               type="button"
               disabled
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 disabled:cursor-not-allowed"
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 disabled:cursor-not-allowed sm:w-auto"
               title="Automatic workspace access will be enabled after clinic activation is implemented."
             >
               Access SteriSphere Platform
@@ -3526,20 +2431,19 @@ function CompleteStep({
               type="button"
               onClick={onStartOver}
               disabled={isPersisting}
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
             >
               Start Over
             </button>
             <a
               href={supportHref}
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
             >
               Contact Support
             </a>
           </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }
