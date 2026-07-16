@@ -1685,3 +1685,9 @@ Fresh progression may mark exactly one deterministic next pending item `ready`; 
 Deployment persistence evidence now includes deploymentProviderShellExecutionNextItemStart after deploymentProviderShellExecutionDependencyProgression. The stage is runtime wiring only and uses the existing atomic next-item-start repository/RPC contract. Successful evidence is started or already_started; blocked, conflict, not_found, error, or not_attempted evidence remains structured and does not trigger fallback mutation.
 
 The ordered runtime evidence path is: deployment_run, clinic_root, clinic_settings, provider_shells, sterilizer_shells, workstation_shells, hardware_shells, assignment_target_validation, hardware_assignments, planned_assignment_resolution, activation_readiness, controlled_activation_plan, execution_preparation, execution_persistence, execution_claim, execution_start, first_item_start, clinic_activation, clinic_item_completion, dependency_progression, next_item_start, provider_shell_activation, provider_shell_item_completion, post_provider_dependency_progression, post_provider_next_item_start.
+
+## RC9 Slice 1A - Generic Executor Persistence Boundary
+
+The generic activation executor foundation is intentionally persistence-free. It has no repository, RPC, SQL, setup action wiring, or operational mutation surface. Handler dispatch returns token-safe proposal evidence only, with downstream counters fixed at zero for entity activation, item completion, dependency progression, item start, binding, assignment finalization, session completion, deployment finalization, and rollback.
+
+Future slices may adapt existing entity-specific atomic boundaries behind explicit handlers, but item completion, dependency progression, next-item start, rollback, and finalization remain separate deterministic stages.

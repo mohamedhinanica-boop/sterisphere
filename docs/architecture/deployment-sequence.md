@@ -1482,3 +1482,9 @@ Setup completion now extends the live execution-control sequence to:
 13. Future provider activation, item completion, dependency progression, and finalization
 
 Step 12 runs only after post-provider dependency progression returns progressed or already_progressed. It reuses the existing next-item-start boundary to transition one deterministic ready provider-shell execution item to running, or to return already_started for compatible running evidence. It does not activate that provider, complete the item, progress another dependency, mutate sessions, renew leases, rotate tokens, bind hardware, finalize deployment, rollback, or invoke DeploymentEngine.execute().
+
+## RC9 Slice 1A - Generic Activation Executor Sequence Foundation
+
+The planned execution-control model now has a generic dispatch concept for one already-running execution item. The executor validates generic lifecycle evidence, resolves a canonical entityType:action dispatch key such as clinic:activate or provider_shell:activate, and calls one registered handler for proposal evidence.
+
+This slice does not alter the live sequence documented through RC8. It does not wire setup actions, replace explicit clinic/provider orchestration, activate entities, complete items, progress dependencies, start later items, loop over execution plans, add workers, poll, stream, create SQL, or change DeploymentEngine.execute().

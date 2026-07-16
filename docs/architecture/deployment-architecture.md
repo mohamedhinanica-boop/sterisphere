@@ -1141,3 +1141,9 @@ The runtime order is now provider shell activated -> provider execution item suc
 The setup runtime now records a distinct post-provider next-item-start evidence field after provider-shell item completion and post-provider dependency progression. The field reuses the existing next-item-start service and Supabase repository, but is surfaced separately from the first next-item-start stage so support and UI evidence can distinguish sequence-2 start from the later provider-shell item start.
 
 This wiring is mutation-limited to the established next-item-start boundary: at most one deterministic ready execution item may become running with one attempt increment and started_at. It does not activate entities, complete items, progress dependencies again, mutate sessions, renew ownership or leases, bind hardware, finalize deployment, rollback, or change DeploymentEngine.execute().
+
+## RC9 Slice 1A - Generic Activation Executor Foundation
+
+RC9 introduces a TypeScript-only activation executor foundation for future entity/action dispatch. The executor accepts one already-running activation execution item, validates only generic execution lifecycle evidence, derives a canonical dispatch key from entityType and action, and invokes exactly one explicitly registered handler for that pair.
+
+The intended future architecture is: durable running execution item -> generic executor lifecycle validation -> explicit entity/action handler dispatch -> entity-specific atomic business mutation -> separate execution-item completion -> separate dependency progression -> separate next-item start. Slice 1A does not replace the current RC8 setup runtime chain, execute entity mutations, complete items, progress dependencies, start items, iterate through the plan, run background work, add SQL, or call Supabase.
