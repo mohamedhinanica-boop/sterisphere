@@ -1135,3 +1135,9 @@ No runtime setup wiring is added in this slice. The boundary does not progress d
 Setup completion now reuses the existing dependency-progression boundary after successful provider-shell execution-item completion. The second invocation is reported separately as `deploymentProviderShellExecutionDependencyProgression` so clinic-post-completion progression evidence remains distinct and unchanged.
 
 The runtime order is now provider shell activated -> provider execution item succeeded -> deterministic next dependency progression -> next item ready -> future next-item start. The stage calls the existing `public.progress_deployment_activation_execution_dependency` RPC only after provider item completion returns `completed` or `already_completed`; `already_progressed` remains idempotent ready-item reuse. It does not start sequence 3, activate another entity, complete another item, mutate sessions, renew leases, rotate tokens, bind hardware, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 11E - Post-Provider Next Item Start Runtime Wiring
+
+The setup runtime now records a distinct post-provider next-item-start evidence field after provider-shell item completion and post-provider dependency progression. The field reuses the existing next-item-start service and Supabase repository, but is surfaced separately from the first next-item-start stage so support and UI evidence can distinguish sequence-2 start from the later provider-shell item start.
+
+This wiring is mutation-limited to the established next-item-start boundary: at most one deterministic ready execution item may become running with one attempt increment and started_at. It does not activate entities, complete items, progress dependencies again, mutate sessions, renew ownership or leases, bind hardware, finalize deployment, rollback, or change DeploymentEngine.execute().

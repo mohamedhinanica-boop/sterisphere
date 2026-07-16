@@ -1462,3 +1462,23 @@ Setup completion now extends the live execution-control sequence to:
 12. Future next-item start
 
 Step 11 runs only after provider-shell execution-item completion returns `completed` or `already_completed`. It reuses the existing dependency progression service, repository, and RPC to transition one deterministic next pending item to `ready`, or to return `already_progressed` for compatible ready evidence. It does not start the newly ready item, activate another entity, complete another item, mutate sessions, renew leases, rotate tokens, bind hardware, finalize deployment, rollback, or invoke `DeploymentEngine.execute()`.
+
+## RC8 Slice 11E - Runtime Post-Provider Next Item Start Sequence
+
+Setup completion now extends the live execution-control sequence to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic first execution-item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Atomic next execution-item start
+9. Atomic provider shell activation
+10. Atomic provider-shell execution-item completion
+11. Post-provider atomic dependency progression
+12. Post-provider atomic next execution-item start
+13. Future provider activation, item completion, dependency progression, and finalization
+
+Step 12 runs only after post-provider dependency progression returns progressed or already_progressed. It reuses the existing next-item-start boundary to transition one deterministic ready provider-shell execution item to running, or to return already_started for compatible running evidence. It does not activate that provider, complete the item, progress another dependency, mutate sessions, renew leases, rotate tokens, bind hardware, finalize deployment, rollback, or invoke DeploymentEngine.execute().

@@ -46,6 +46,9 @@ export async function runDeploymentActivationExecutionNextItemStartServerHarness
   const scenarios = [
     await scenarioProgressedStartableStarted(),
     await scenarioAlreadyProgressedStartableStarted(),
+    await scenarioPostProviderProgressionStartsNextProviderItem(),
+    await scenarioPostProviderAlreadyStartedReuseSkipsRpc(),
+    await scenarioPostProviderOrderingPreserved(),
     await scenarioAlreadyRunningReuseSkipsRpc(),
     await expectNotAttempted("dependency not attempted", dependency({ ok: false, status: "not_attempted" })),
     await expectNotAttempted("dependency blocked", dependency({ ok: false, status: "blocked" })),
@@ -112,6 +115,70 @@ async function scenarioAlreadyProgressedStartableStarted() {
   );
 }
 
+async function scenarioPostProviderProgressionStartsNextProviderItem() {
+  const repository = repositoryHarness({
+    snapshot: postProviderSnapshot(),
+    atomicResult: postProviderAtomicResult(),
+  });
+  const result = await start(repository, { progression: postProviderDependency() });
+  const command = repository.atomicCalls[0];
+
+  return expectScenario(
+    "post-provider progression starts the next provider item",
+    result.ok &&
+      result.status === "started" &&
+      result.sequence === 3 &&
+      result.entityType === "provider_shell" &&
+      result.entityId === "dentist-002" &&
+      command?.expectedSequence === 3 &&
+      command.itemId === POST_PROVIDER_ITEM_ID &&
+      command.executionItemKey === POST_PROVIDER_EXECUTION_ITEM_KEY &&
+      repository.atomicCalls.length === 1,
+    JSON.stringify(redact({ result, command })),
+  );
+}
+
+async function scenarioPostProviderAlreadyStartedReuseSkipsRpc() {
+  const repository = repositoryHarness({
+    snapshot: postProviderSnapshot({
+      3: {
+        executionStatus: "running",
+        attemptCount: 1,
+        startedAt: STARTED_AT,
+      },
+    }),
+    atomicResult: postProviderAtomicResult(),
+  });
+  const result = await start(repository, { progression: postProviderDependency({ status: "already_progressed" }) });
+
+  return expectScenario(
+    "post-provider already-started provider item reuses without RPC",
+    result.ok &&
+      result.status === "already_started" &&
+      result.reusedCount === 1 &&
+      result.startedCount === 0 &&
+      result.sequence === 3 &&
+      repository.atomicCalls.length === 0,
+    JSON.stringify(redact(result)),
+  );
+}
+
+async function scenarioPostProviderOrderingPreserved() {
+  const repository = repositoryHarness({
+    snapshot: postProviderSnapshot(),
+    atomicResult: postProviderAtomicResult(),
+  });
+  await start(repository, { progression: postProviderDependency() });
+  const command = repository.atomicCalls[0];
+
+  return expectScenario(
+    "post-provider next item ordering is preserved",
+    command?.expectedDependencyKeys.join(",") === planItemKey(2) &&
+      command.expectedSequence === 3 &&
+      command.proposedStartedAt === STARTED_AT,
+    JSON.stringify(redact(command)),
+  );
+}
 async function scenarioAlreadyRunningReuseSkipsRpc() {
   const repository = repositoryHarness({ snapshot: buildAlreadyStartedNextItemStartSnapshot() });
   const result = await start(repository);
@@ -328,6 +395,25 @@ function snapshot(
   });
 }
 
+function postProviderSnapshot(
+  itemPatches: Parameters<typeof buildNextItemStartSnapshot>[0]["itemPatches"] = {},
+): DeploymentActivationExecutionNextItemStartSnapshot {
+  return snapshot({
+    itemPatches: {
+      2: {
+        executionStatus: "succeeded",
+        attemptCount: 1,
+        startedAt: "2026-01-01T12:04:00.000Z",
+        completedAt: "2026-01-01T12:05:00.000Z",
+      },
+      3: {
+        executionStatus: "ready",
+        dependencyKeys: [planItemKey(2)],
+      },
+      ...itemPatches,
+    },
+  });
+}
 function claim(input: Partial<ServerDeploymentActivationExecutionClaimResult> = {}): ServerDeploymentActivationExecutionClaimResult {
   return {
     ok: true,
@@ -413,6 +499,28 @@ function dependency(input: Partial<ServerDeploymentActivationExecutionDependency
   };
 }
 
+function postProviderDependency(
+  input: Partial<ServerDeploymentActivationExecutionDependencyProgressionResult> = {},
+): ServerDeploymentActivationExecutionDependencyProgressionResult {
+  return dependency({
+    completedItemId: ITEM_ID,
+    completedExecutionItemKey: EXECUTION_ITEM_KEY,
+    completedPlanItemKey: PLAN_ITEM_KEY,
+    completedSequence: 2,
+    completedStartedAt: "2026-01-01T12:04:00.000Z",
+    completedCompletedAt: "2026-01-01T12:05:00.000Z",
+    completedAttemptCount: 1,
+    nextItemId: POST_PROVIDER_ITEM_ID,
+    nextExecutionItemKey: POST_PROVIDER_EXECUTION_ITEM_KEY,
+    nextPlanItemKey: POST_PROVIDER_PLAN_ITEM_KEY,
+    nextSequence: 3,
+    nextEntityType: "provider_shell",
+    nextEntityId: "dentist-002",
+    nextAction: "activate",
+    nextAttemptCount: 0,
+    ...input,
+  });
+}
 function atomicResult(input: Partial<DeploymentActivationExecutionAtomicNextItemStartResult> = {}): DeploymentActivationExecutionAtomicNextItemStartResult {
   return {
     ok: true,
@@ -437,6 +545,22 @@ function atomicResult(input: Partial<DeploymentActivationExecutionAtomicNextItem
   };
 }
 
+function postProviderAtomicResult(
+  input: Partial<DeploymentActivationExecutionAtomicNextItemStartResult> = {},
+): DeploymentActivationExecutionAtomicNextItemStartResult {
+  return atomicResult({
+    itemId: POST_PROVIDER_ITEM_ID,
+    executionItemKey: POST_PROVIDER_EXECUTION_ITEM_KEY,
+    planItemKey: POST_PROVIDER_PLAN_ITEM_KEY,
+    sequence: 3,
+    entityType: "provider_shell",
+    entityId: "dentist-002",
+    action: "activate",
+    attemptCount: 1,
+    startedAt: STARTED_AT,
+    ...input,
+  });
+}
 function redact(value: unknown): unknown {
   return JSON.parse(
     JSON.stringify(value, (key, entry) => {

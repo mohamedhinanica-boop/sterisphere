@@ -956,6 +956,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentProviderShellActivation?: DeploymentProviderShellActivationActionResult;
   deploymentProviderShellExecutionItemCompletion?: DeploymentProviderShellExecutionItemCompletionActionResult;
   deploymentProviderShellExecutionDependencyProgression?: DeploymentActivationExecutionDependencyProgressionActionResult;
+  deploymentProviderShellExecutionNextItemStart?: DeploymentActivationExecutionNextItemStartActionResult;
   message: string;
 }
 
@@ -2592,6 +2593,15 @@ export async function persistDeploymentRunAction(
           dependencyProgressionRequestedAt: persistedAt,
         })
       : null;
+    const deploymentProviderShellExecutionNextItemStart = deploymentProviderShellExecutionDependencyProgression?.ok
+      ? await startNextActivationExecutionItemForServerDeployment(client, {
+          clinicId,
+          deploymentRunId: result.deploymentRun.deploymentRunId,
+          deploymentActivationExecutionClaim,
+          deploymentActivationExecutionDependencyProgression: deploymentProviderShellExecutionDependencyProgression,
+          nextItemStartedAt: persistedAt,
+        })
+      : null;
 
     return {
       ok:
@@ -2608,7 +2618,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionNextItemStart?.ok) &&
         Boolean(deploymentProviderShellActivation?.ok || deploymentProviderShellActivation?.status === "not_attempted") &&
         Boolean(deploymentProviderShellExecutionItemCompletion?.ok || deploymentProviderShellActivation?.status === "not_attempted") &&
-        Boolean(deploymentProviderShellExecutionDependencyProgression?.ok || deploymentProviderShellExecutionItemCompletion?.status === "not_attempted"),
+        Boolean(deploymentProviderShellExecutionDependencyProgression?.ok || deploymentProviderShellExecutionItemCompletion?.status === "not_attempted") &&
+        Boolean(deploymentProviderShellExecutionNextItemStart?.ok || deploymentProviderShellExecutionDependencyProgression?.status === "not_attempted"),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2929,8 +2940,32 @@ export async function persistDeploymentRunAction(
             message:
               "Provider completion dependency progression was skipped because provider-shell execution item completion did not complete successfully.",
           },
-      message: deploymentProviderShellExecutionDependencyProgression?.ok
-        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, and post-provider dependency progression are complete. The next deterministic item may now be ready, but it was not started."
+      deploymentProviderShellExecutionNextItemStart: deploymentProviderShellExecutionNextItemStart
+        ? mapDeploymentActivationExecutionNextItemStartActionResult(
+            deploymentProviderShellExecutionNextItemStart,
+          )
+        : {
+            ...DEPLOYMENT_ACTIVATION_EXECUTION_NEXT_ITEM_START_NOT_ATTEMPTED,
+            clinicId,
+            deploymentRunKey: result.deploymentRun.deploymentRunId,
+            sessionId: deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellExecutionItemCompletion?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? null,
+            executionKey: deploymentProviderShellExecutionDependencyProgression?.executionKey ?? deploymentProviderShellExecutionItemCompletion?.executionKey ?? deploymentProviderShellActivation?.executionKey ?? deploymentActivationExecutionClaim?.executionKey ?? null,
+            claimantId: deploymentProviderShellExecutionDependencyProgression?.claimantId ?? deploymentProviderShellExecutionItemCompletion?.claimantId ?? deploymentProviderShellActivation?.claimantId ?? deploymentActivationExecutionClaim?.claimantId ?? null,
+            itemId: deploymentProviderShellExecutionDependencyProgression?.nextItemId ?? null,
+            executionItemKey: deploymentProviderShellExecutionDependencyProgression?.nextExecutionItemKey ?? null,
+            planItemKey: deploymentProviderShellExecutionDependencyProgression?.nextPlanItemKey ?? null,
+            sequence: deploymentProviderShellExecutionDependencyProgression?.nextSequence ?? null,
+            entityType: deploymentProviderShellExecutionDependencyProgression?.nextEntityType ?? null,
+            entityId: deploymentProviderShellExecutionDependencyProgression?.nextEntityId ?? null,
+            action: deploymentProviderShellExecutionDependencyProgression?.nextAction ?? null,
+            attemptCount: deploymentProviderShellExecutionDependencyProgression?.nextAttemptCount ?? 0,
+            message:
+              "Post-provider next-item start was skipped because post-provider dependency progression did not complete successfully.",
+          },
+      message: deploymentProviderShellExecutionNextItemStart?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, post-provider dependency progression, and post-provider next-item start are complete. The next provider item may now be running, but no provider activation, item completion, further dependency progression, binding, rollback, or finalization occurred."
+        : deploymentProviderShellExecutionDependencyProgression?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, and post-provider dependency progression are complete, but post-provider next-item start is blocked, skipped, or not applicable. No provider activation, further item completion, binding, rollback, or finalization occurred."
         : deploymentProviderShellExecutionItemCompletion?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, and provider-shell execution item completion are complete, but post-provider dependency progression is blocked, skipped, or not applicable. No further item start, binding, rollback, or finalization occurred."
         : deploymentProviderShellActivation?.ok

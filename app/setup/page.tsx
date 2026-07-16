@@ -1852,6 +1852,11 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Reused", value: readField(input.deploymentProviderShellExecutionDependencyProgression, "reusedCount") ?? 0 },
           { label: "Next", value: readField(input.deploymentProviderShellExecutionDependencyProgression, "nextSequence") ?? "none" },
         ]),
+        stage("post-provider-next-item-start", "Post-Provider Next Item Start", input.deploymentProviderShellExecutionNextItemStart, "not_attempted", "Post-provider next-item start marks the next deterministic provider item running only.", [
+          { label: "Started", value: readField(input.deploymentProviderShellExecutionNextItemStart, "startedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentProviderShellExecutionNextItemStart, "reusedCount") ?? 0 },
+          { label: "Sequence", value: readField(input.deploymentProviderShellExecutionNextItemStart, "sequence") ?? "none" },
+        ]),
       ],
     },
     {
@@ -2293,6 +2298,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentProviderShellExecutionItemCompletion ?? null;
   const deploymentProviderShellExecutionDependencyProgression =
     deploymentRunResult?.deploymentProviderShellExecutionDependencyProgression ?? null;
+  const deploymentProviderShellExecutionNextItemStart =
+    deploymentRunResult?.deploymentProviderShellExecutionNextItemStart ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2344,6 +2351,8 @@ function CompleteStep({
     deploymentActivationExecutionNextItemStart,
     deploymentProviderShellActivation,
     deploymentProviderShellExecutionItemCompletion,
+    deploymentProviderShellExecutionDependencyProgression,
+    deploymentProviderShellExecutionNextItemStart,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
@@ -2367,7 +2376,7 @@ function CompleteStep({
   const collapseAllStages = () => setManuallyExpandedStageIds(new Set());
   const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
   const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
-  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
+  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
   useEffect(() => {
     if (!isPersisting) {
       setElapsedSeconds(0);
@@ -2848,6 +2857,15 @@ function buildDeploymentSupportHref(
       `Post-provider dependency progression diagnostics: ${result?.deploymentProviderShellExecutionDependencyProgression?.issues.map((issue) => `${issue.code}: ${formatDependencyProgressionDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
       `Post-provider dependency progression message: ${result?.deploymentProviderShellExecutionDependencyProgression?.message ?? "No post-provider dependency-progression response yet."}`,
       "Post-provider dependency progression note: the next item was not started, no attempt count or execution timestamp was written, and no entity was activated.",
+      `Post-provider next-item start status: ${result?.deploymentProviderShellExecutionNextItemStart?.status ?? "not attempted"}`,
+      `Post-provider next-item start item: ${result?.deploymentProviderShellExecutionNextItemStart?.sequence ?? "none"}:${result?.deploymentProviderShellExecutionNextItemStart?.executionItemKey ?? "none"}:${result?.deploymentProviderShellExecutionNextItemStart?.planItemKey ?? "none"}`,
+      `Post-provider next-item start entity/action: ${result?.deploymentProviderShellExecutionNextItemStart?.entityType ?? "none"}:${result?.deploymentProviderShellExecutionNextItemStart?.entityId ?? "none"}:${result?.deploymentProviderShellExecutionNextItemStart?.action ?? "none"}`,
+      `Post-provider next-item start attempt/started: ${result?.deploymentProviderShellExecutionNextItemStart?.attemptCount ?? 0}:${result?.deploymentProviderShellExecutionNextItemStart?.startedAt ?? "not started"}`,
+      `Post-provider next-item start result: ${result?.deploymentProviderShellExecutionNextItemStart?.result ?? "none"}`,
+      `Post-provider next-item start counts: started ${result?.deploymentProviderShellExecutionNextItemStart?.startedCount ?? 0}, reused ${result?.deploymentProviderShellExecutionNextItemStart?.reusedCount ?? 0}, conflicts ${result?.deploymentProviderShellExecutionNextItemStart?.conflicts ?? 0}`,
+      `Post-provider next-item start issues: ${result?.deploymentProviderShellExecutionNextItemStart?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Post-provider next-item start message: ${result?.deploymentProviderShellExecutionNextItemStart?.message ?? "No post-provider next-item-start response yet."}`,
+      "Post-provider next-item start note: exactly one deterministic ready item may be started; no entity activation, item completion, further dependency progression, binding, rollback, or finalization occurred.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,
