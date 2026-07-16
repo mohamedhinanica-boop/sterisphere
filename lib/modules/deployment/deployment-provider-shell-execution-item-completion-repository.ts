@@ -1,4 +1,6 @@
 import type {
+  DeploymentProviderShellExecutionAtomicItemCompletionCommand,
+  DeploymentProviderShellExecutionAtomicItemCompletionResult,
   DeploymentProviderShellExecutionItemCompletionSnapshot,
 } from "./deployment-provider-shell-execution-item-completion-types";
 
@@ -13,4 +15,8 @@ export interface DeploymentProviderShellExecutionItemCompletionRepository {
   loadProviderShellExecutionItemCompletionSnapshot(
     input: LoadDeploymentProviderShellExecutionItemCompletionSnapshotInput,
   ): Promise<DeploymentProviderShellExecutionItemCompletionSnapshot>;
+
+  completeProviderShellExecutionItemAtomically(
+    command: DeploymentProviderShellExecutionAtomicItemCompletionCommand,
+  ): Promise<DeploymentProviderShellExecutionAtomicItemCompletionResult>;
 }

@@ -1656,3 +1656,16 @@ provider shell activated
 -> future dependency progression
 
 The boundary requires durable snapshot evidence for the running execution session, ordered execution items, the selected provider-shell item, activated provider shell state, and aggregate integrity counts. It does not create a Supabase repository, SQL function, runtime composition, setup action wiring, item mutation, dependency progression, provider mutation, session finalization, rollback, or deployment finalization in this slice.
+
+## RC8 Slice 11B - Provider-Shell Item Completion Persistence Boundary
+
+The provider-shell item completion persistence boundary is now documented for manual Supabase promotion. The checked-in SQL defines `public.complete_deployment_provider_shell_execution_item` as a service-role-only security-definer RPC with a fixed search path.
+
+Order:
+
+provider shell active
+-> provider item completion assessment
+-> atomic running-to-succeeded item completion
+-> future dependency progression
+
+Fresh completion updates only the selected execution item to `execution_status = succeeded` and `completed_at = proposed_completed_at`. `already_completed` reuses compatible succeeded evidence without rewriting `completed_at`. The SQL does not mutate providers, sessions, clinics, leases, ownership tokens, dependency keys, rollback/error evidence, or other execution items.

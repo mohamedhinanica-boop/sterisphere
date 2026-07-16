@@ -4,6 +4,8 @@ import type {
 import {
   cloneProviderShellExecutionItemCompletionSnapshot,
   emptyProviderShellExecutionItemCompletionAggregate,
+  type DeploymentProviderShellExecutionAtomicItemCompletionCommand,
+  type DeploymentProviderShellExecutionAtomicItemCompletionResult,
   type DeploymentProviderShellExecutionItemCompletionAggregateSnapshot,
   type DeploymentProviderShellExecutionItemCompletionItemSnapshot,
   type DeploymentProviderShellExecutionItemCompletionProviderSnapshot,
@@ -68,6 +70,12 @@ export class InMemoryDeploymentProviderShellExecutionItemCompletionTestRepositor
     }
 
     return cloneProviderShellExecutionItemCompletionSnapshot(this.snapshot);
+  }
+
+  async completeProviderShellExecutionItemAtomically(
+    _command: DeploymentProviderShellExecutionAtomicItemCompletionCommand,
+  ): Promise<DeploymentProviderShellExecutionAtomicItemCompletionResult> {
+    throw new Error("Atomic provider-shell item completion is not implemented by the in-memory assessment repository.");
   }
 
   get downstreamWriteCount(): number {

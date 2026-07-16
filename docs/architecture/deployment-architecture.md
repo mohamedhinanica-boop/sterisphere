@@ -1121,3 +1121,11 @@ After provider-shell activation succeeds, the running provider-shell activation 
 The assessment consumes one repository snapshot containing the running execution session, ordered execution items, the selected provider-shell item, the activated provider shell, and aggregate integrity counts. It validates same-clinic/run/session/execution identity, same-owner active-lease evidence, deterministic item identity, provider active setup-draft state, dependency integrity, clean prior succeeded prefix, and untouched later items.
 
 `completable` and `already_completed` are evidence only. This boundary does not mutate execution items, progress dependencies, start another item, activate another entity, bind hardware, complete the execution session, renew leases, rotate tokens, create SQL, wire setup actions, modify UI, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 11B - Atomic Provider-Shell Execution-Item Completion Boundary
+
+Slice 11B adds the Supabase snapshot repository and atomic RPC boundary for provider-shell execution-item completion. The repository loads the running session, ordered execution items, selected provider-shell item, activated provider shell, and aggregate integrity evidence using server-side service-role access only.
+
+The atomic function `public.complete_deployment_provider_shell_execution_item` may update only the selected `public.deployment_activation_execution_items` row from `running` to `succeeded` and write `completed_at`. It preserves provider UUID versus deployment-provider-key identity, locks session, item, and provider evidence deterministically, and rechecks ownership, lease, item lifecycle, provider active state, dependencies, prior prefix, later-item immutability, and duplicate identities.
+
+No runtime setup wiring is added in this slice. The boundary does not progress dependencies, start another item, activate another entity, mutate provider/session/clinic rows, renew leases, rotate tokens, finalize deployment, rollback, or change `DeploymentEngine.execute()`.

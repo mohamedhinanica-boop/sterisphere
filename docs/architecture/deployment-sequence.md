@@ -1422,3 +1422,24 @@ Slice 11A implements step 10 as read-only TypeScript. It assesses whether the cu
 The boundary validates same-owner active-lease session evidence, deterministic item identity and lifecycle, provider UUID/deployment-key alignment, active setup-draft provider state, dependency resolution, prior succeeded-prefix integrity, duplicate-free execution identities, untouched later items, and zero downstream counters.
 
 No runtime order changes are made in this slice. It does not complete the item, write `completed_at`, progress dependencies, start another item, activate another provider or entity, bind hardware, create SQL, add a Supabase repository, wire setup actions, modify UI/support mail, perform rollback, add workers, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 11B - Atomic Provider-Shell Execution-Item Completion Boundary Sequence
+
+The planned execution-control sequence now extends to:
+
+1. Prepared activation execution persistence
+2. Atomic ownership claim
+3. Atomic execution-session start
+4. Atomic sequence-1 execution item start
+5. Atomic clinic activation
+6. Atomic sequence-1 execution item completion
+7. Atomic dependency progression
+8. Atomic next execution-item start
+9. Atomic provider shell activation
+10. Provider-shell execution-item completion assessment
+11. Atomic provider-shell execution-item completion SQL boundary
+12. Future dependency progression
+
+Slice 11B adds the Supabase repository and SQL boundary for step 11 only. No setup action is wired in this slice. A fresh pass can complete only the selected running provider-shell execution item. Compatible already-completed evidence returns reuse without rewriting completion timestamps.
+
+This slice does not progress dependencies, start another item, activate additional provider shells or other entities, bind hardware, mutate sessions, renew leases, rotate ownership tokens, finalize deployment, rollback, modify UI/support mail, or change `DeploymentEngine.execute()`.

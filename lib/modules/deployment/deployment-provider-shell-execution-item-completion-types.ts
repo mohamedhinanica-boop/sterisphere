@@ -266,3 +266,70 @@ export function cloneProviderShellExecutionItemCompletionItem(
 export function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
+
+export type DeploymentProviderShellExecutionAtomicItemCompletionStatus =
+  | "completed"
+  | "already_completed"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error";
+
+export interface DeploymentProviderShellExecutionAtomicItemCompletionCommand {
+  clinicId: string;
+  deploymentRunId: string;
+  sessionId: string;
+  executionKey: string;
+  claimantId: string;
+  ownershipToken: string;
+  expectedLeaseExpiresAt: string;
+  itemId: string;
+  executionItemKey: string;
+  planItemKey: string;
+  expectedSequence: number;
+  expectedEntityType: "provider_shell";
+  expectedEntityId: string;
+  expectedDeploymentProviderKey: string;
+  expectedAction: "activate";
+  expectedItemStartedAt: string;
+  expectedAttemptCount: number;
+  providerId: string;
+  expectedProviderState: Record<string, unknown>;
+  expectedTargetState: Record<string, unknown>;
+  proposedCompletedAt: string;
+}
+
+export interface DeploymentProviderShellExecutionAtomicItemCompletionDiagnostics {
+  layer?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  errorDetails?: string | null;
+  errorHint?: string | null;
+}
+
+export interface DeploymentProviderShellExecutionAtomicItemCompletionResult {
+  ok: boolean;
+  status: DeploymentProviderShellExecutionAtomicItemCompletionStatus;
+  claimantId: string | null;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  itemId: string | null;
+  executionItemKey: string | null;
+  planItemKey: string | null;
+  sequence: number | null;
+  entityType: string | null;
+  entityId: string | null;
+  deploymentProviderKey: string | null;
+  action: string | null;
+  providerId: string | null;
+  itemStatusBefore: string | null;
+  itemStatusAfter: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  attemptCount: number;
+  issueCode: string | null;
+  message: string;
+  diagnostics?: DeploymentProviderShellExecutionAtomicItemCompletionDiagnostics | null;
+}
