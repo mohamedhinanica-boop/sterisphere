@@ -1129,3 +1129,9 @@ Slice 11B adds the Supabase snapshot repository and atomic RPC boundary for prov
 The atomic function `public.complete_deployment_provider_shell_execution_item` may update only the selected `public.deployment_activation_execution_items` row from `running` to `succeeded` and write `completed_at`. It preserves provider UUID versus deployment-provider-key identity, locks session, item, and provider evidence deterministically, and rechecks ownership, lease, item lifecycle, provider active state, dependencies, prior prefix, later-item immutability, and duplicate identities.
 
 No runtime setup wiring is added in this slice. The boundary does not progress dependencies, start another item, activate another entity, mutate provider/session/clinic rows, renew leases, rotate tokens, finalize deployment, rollback, or change `DeploymentEngine.execute()`.
+
+## RC8 Slice 11D - Runtime Post-Provider Dependency Progression
+
+Setup completion now reuses the existing dependency-progression boundary after successful provider-shell execution-item completion. The second invocation is reported separately as `deploymentProviderShellExecutionDependencyProgression` so clinic-post-completion progression evidence remains distinct and unchanged.
+
+The runtime order is now provider shell activated -> provider execution item succeeded -> deterministic next dependency progression -> next item ready -> future next-item start. The stage calls the existing `public.progress_deployment_activation_execution_dependency` RPC only after provider item completion returns `completed` or `already_completed`; `already_progressed` remains idempotent ready-item reuse. It does not start sequence 3, activate another entity, complete another item, mutate sessions, renew leases, rotate tokens, bind hardware, finalize deployment, rollback, add workers, or change `DeploymentEngine.execute()`.

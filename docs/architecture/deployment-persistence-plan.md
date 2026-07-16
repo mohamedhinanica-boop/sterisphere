@@ -1669,3 +1669,13 @@ provider shell active
 -> future dependency progression
 
 Fresh completion updates only the selected execution item to `execution_status = succeeded` and `completed_at = proposed_completed_at`. `already_completed` reuses compatible succeeded evidence without rewriting `completed_at`. The SQL does not mutate providers, sessions, clinics, leases, ownership tokens, dependency keys, rollback/error evidence, or other execution items.
+
+## RC8 Slice 11D - Runtime Post-Provider Dependency Progression
+
+The runtime deployment chain now invokes atomic dependency progression a second time after provider-shell execution-item completion succeeds:
+
+`atomic provider shell activation -> atomic provider-shell execution-item completion -> post-provider atomic dependency progression -> future next-item start`
+
+This second invocation reuses `DeploymentActivationExecutionDependencyProgressionService`, `SupabaseDeploymentActivationExecutionDependencyProgressionRepository`, and `public.progress_deployment_activation_execution_dependency`. Its action evidence is stored under `deploymentProviderShellExecutionDependencyProgression`, separate from the earlier `deploymentActivationExecutionDependencyProgression` evidence after clinic item completion.
+
+Fresh progression may mark exactly one deterministic next pending item `ready`; compatible already-ready evidence returns `already_progressed`. The boundary does not start the item, increment attempts, write execution timestamps, mutate dependencies, activate another provider or entity, bind hardware, complete the session, finalize deployment, rollback, renew leases, rotate tokens, or change `DeploymentEngine.execute()`.

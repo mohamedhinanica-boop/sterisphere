@@ -1847,6 +1847,11 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Started", value: readField(input.deploymentActivationExecutionNextItemStart, "startedCount") ?? 0 },
           { label: "Sequence", value: readField(input.deploymentActivationExecutionNextItemStart, "sequence") ?? "none" },
         ]),
+        stage("post-provider-dependency-progression", "Post-Provider Dependency Progression", input.deploymentProviderShellExecutionDependencyProgression, "not_attempted", "Post-provider dependency progression readies the next deterministic pending item without starting it.", [
+          { label: "Progressed", value: readField(input.deploymentProviderShellExecutionDependencyProgression, "progressedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentProviderShellExecutionDependencyProgression, "reusedCount") ?? 0 },
+          { label: "Next", value: readField(input.deploymentProviderShellExecutionDependencyProgression, "nextSequence") ?? "none" },
+        ]),
       ],
     },
     {
@@ -2286,6 +2291,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentProviderShellActivation ?? null;
   const deploymentProviderShellExecutionItemCompletion =
     deploymentRunResult?.deploymentProviderShellExecutionItemCompletion ?? null;
+  const deploymentProviderShellExecutionDependencyProgression =
+    deploymentRunResult?.deploymentProviderShellExecutionDependencyProgression ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2360,7 +2367,7 @@ function CompleteStep({
   const collapseAllStages = () => setManuallyExpandedStageIds(new Set());
   const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
   const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
-  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
+  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
   useEffect(() => {
     if (!isPersisting) {
       setElapsedSeconds(0);
@@ -2831,6 +2838,16 @@ function buildDeploymentSupportHref(
       `Provider shell activation diagnostics: ${result?.deploymentProviderShellActivation?.issues.map((issue) => `${issue.code}: ${formatProviderShellActivationDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
       `Provider shell activation message: ${result?.deploymentProviderShellActivation?.message ?? "No provider-shell activation response yet."}`,
       "Provider shell activation note: a selected provider shell may now be active, but no provider item completion, further dependency progression, hardware binding, rollback, or finalization occurred.",
+      `Post-provider dependency progression status: ${result?.deploymentProviderShellExecutionDependencyProgression?.status ?? "not attempted"}`,
+      `Post-provider dependency progression completed item: ${result?.deploymentProviderShellExecutionDependencyProgression?.completedSequence ?? "none"}:${result?.deploymentProviderShellExecutionDependencyProgression?.completedExecutionItemKey ?? "none"}:${result?.deploymentProviderShellExecutionDependencyProgression?.completedPlanItemKey ?? "none"}`,
+      `Post-provider dependency progression next item: ${result?.deploymentProviderShellExecutionDependencyProgression?.nextSequence ?? "none"}:${result?.deploymentProviderShellExecutionDependencyProgression?.nextExecutionItemKey ?? "none"}:${result?.deploymentProviderShellExecutionDependencyProgression?.nextPlanItemKey ?? "none"}`,
+      `Post-provider dependency progression next entity/action: ${result?.deploymentProviderShellExecutionDependencyProgression?.nextEntityType ?? "none"}:${result?.deploymentProviderShellExecutionDependencyProgression?.nextEntityId ?? "none"}:${result?.deploymentProviderShellExecutionDependencyProgression?.nextAction ?? "none"}`,
+      `Post-provider dependency progression before/after: ${result?.deploymentProviderShellExecutionDependencyProgression?.statusBefore ?? "none"} -> ${result?.deploymentProviderShellExecutionDependencyProgression?.statusAfter ?? "none"}`,
+      `Post-provider dependency progression counts: progressed ${result?.deploymentProviderShellExecutionDependencyProgression?.progressedCount ?? 0}, reused ${result?.deploymentProviderShellExecutionDependencyProgression?.reusedCount ?? 0}, conflicts ${result?.deploymentProviderShellExecutionDependencyProgression?.conflicts ?? 0}`,
+      `Post-provider dependency progression issues: ${result?.deploymentProviderShellExecutionDependencyProgression?.issues.map((issue) => `${issue.severity}:${issue.sessionId ?? "none"}:${issue.executionItemKey ?? "none"}:${issue.code}`).join("; ") ?? "none"}`,
+      `Post-provider dependency progression diagnostics: ${result?.deploymentProviderShellExecutionDependencyProgression?.issues.map((issue) => `${issue.code}: ${formatDependencyProgressionDiagnostics(issue.diagnostics)}`).join(" | ") ?? "none"}`,
+      `Post-provider dependency progression message: ${result?.deploymentProviderShellExecutionDependencyProgression?.message ?? "No post-provider dependency-progression response yet."}`,
+      "Post-provider dependency progression note: the next item was not started, no attempt count or execution timestamp was written, and no entity was activated.",
       "Activation execution persistence note: prepared evidence is create/reuse only; compatible claimed or running evidence may pass through unchanged, with no activation, binding, rollback, or finalization.",
       `Message: ${result?.message ?? "No server response yet."}`,
       `Clinic root message: ${result?.clinicRoot.message ?? "No clinic-root response yet."}`,

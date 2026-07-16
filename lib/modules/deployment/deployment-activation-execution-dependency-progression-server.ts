@@ -29,6 +29,9 @@ import {
 import type {
   ServerDeploymentActivationExecutionItemCompletionResult,
 } from "./deployment-activation-execution-item-completion-server";
+import type {
+  ServerDeploymentProviderShellExecutionItemCompletionResult,
+} from "./deployment-provider-shell-execution-item-completion-server";
 
 export type ServerDeploymentActivationExecutionDependencyProgressionStatus =
   | "progressed"
@@ -47,6 +50,7 @@ export interface ServerDeploymentActivationExecutionDependencyProgressionCommand
     | null;
   deploymentActivationExecutionItemCompletion:
     | ServerDeploymentActivationExecutionItemCompletionResult
+    | ServerDeploymentProviderShellExecutionItemCompletionResult
     | null;
   dependencyProgressionRequestedAt?: string | null;
 }

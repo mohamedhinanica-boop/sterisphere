@@ -20,6 +20,9 @@ import type {
 import type {
   ServerDeploymentActivationExecutionItemCompletionResult,
 } from "./deployment-activation-execution-item-completion-server";
+import type {
+  ServerDeploymentProviderShellExecutionItemCompletionResult,
+} from "./deployment-provider-shell-execution-item-completion-server";
 
 export interface DeploymentActivationExecutionDependencyProgressionServerHarnessScenario {
   name: string;
@@ -54,6 +57,8 @@ export async function runDeploymentActivationExecutionDependencyProgressionServe
   const scenarios = [
     await scenarioProgressed(),
     await scenarioAlreadyCompletedPredecessorProgresses(),
+    await scenarioProviderCompletionProgresses(),
+    await scenarioAlreadyCompletedProviderCompletionProgresses(),
     await scenarioAlreadyProgressedReuseSkipsRpc(),
     await scenarioSkippedWhenCompletionMissing(),
     await scenarioSkippedWhenCompletionBlocked(),
@@ -127,6 +132,31 @@ async function scenarioAlreadyCompletedPredecessorProgresses(): Promise<Deployme
   );
 }
 
+async function scenarioProviderCompletionProgresses(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({ snapshot: providerProgressionSnapshot(), atomicResult: providerAtomicResult() });
+  const result = await progress(repository, { completion: providerCompletion() });
+
+  return expectScenario(
+    "provider completion progresses next item",
+    result.ok &&
+      result.status === "progressed" &&
+      result.progressedCount === 1 &&
+      result.completedSequence === 2 &&
+      repository.atomicCalls.length === 1,
+    JSON.stringify(redact(result)),
+  );
+}
+
+async function scenarioAlreadyCompletedProviderCompletionProgresses(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
+  const repository = repositoryHarness({ snapshot: providerProgressionSnapshot(), atomicResult: providerAtomicResult() });
+  const result = await progress(repository, { completion: providerCompletion({ status: "already_completed", completionResult: "already_completed", completedCount: 0, reusedCount: 1 }) });
+
+  return expectScenario(
+    "already completed provider predecessor progresses",
+    result.ok && result.status === "progressed" && repository.atomicCalls.length === 1,
+    JSON.stringify(redact(result)),
+  );
+}
 async function scenarioAlreadyProgressedReuseSkipsRpc(): Promise<DeploymentActivationExecutionDependencyProgressionServerHarnessScenario> {
   const repository = repositoryHarness({ snapshot: buildAlreadyProgressedDependencyProgressionSnapshot() });
   const result = await progress(repository);
@@ -567,7 +597,7 @@ async function scenarioDownstreamCountersRemainZero(): Promise<DeploymentActivat
 
 interface ProgressInput {
   claim: ServerDeploymentActivationExecutionClaimResult | null;
-  completion: ServerDeploymentActivationExecutionItemCompletionResult | null;
+  completion: ServerDeploymentActivationExecutionItemCompletionResult | ServerDeploymentProviderShellExecutionItemCompletionResult | null;
   token: string | null;
 }
 
@@ -753,6 +783,87 @@ function completion(input: Partial<ServerDeploymentActivationExecutionItemComple
   };
 }
 
+function providerProgressionSnapshot(): DeploymentActivationExecutionDependencyProgressionSnapshot {
+  return snapshot({
+    itemPatches: {
+      2: {
+        executionStatus: "succeeded",
+        attemptCount: 1,
+        startedAt: COMPLETED_STARTED_AT,
+        completedAt: COMPLETED_COMPLETED_AT,
+      },
+    },
+  });
+}
+
+function providerAtomicResult(input: Partial<DeploymentActivationExecutionAtomicDependencyProgressionResult> = {}): DeploymentActivationExecutionAtomicDependencyProgressionResult {
+  const nextPlanItemKey = planItemKey(3);
+  return atomicResult({
+    completedItemId: "activation-execution-item-dependency-002",
+    completedExecutionItemKey: NEXT_EXECUTION_ITEM_KEY,
+    completedPlanItemKey: NEXT_PLAN_ITEM_KEY,
+    completedSequence: 2,
+    nextItemId: "activation-execution-item-dependency-003",
+    nextExecutionItemKey: `${EXECUTION_KEY}:${nextPlanItemKey}`,
+    nextPlanItemKey,
+    nextSequence: 3,
+    nextEntityType: "provider_shell",
+    nextEntityId: "provider-002",
+    nextAction: "activate",
+    ...input,
+  });
+}
+function providerCompletion(input: Partial<ServerDeploymentProviderShellExecutionItemCompletionResult> = {}): ServerDeploymentProviderShellExecutionItemCompletionResult {
+  return {
+    ok: true,
+    status: "completed",
+    message: "Provider-shell activation execution item was completed.",
+    claimantId: CLAIMANT_ID,
+    clinicId: CLINIC_ID,
+    deploymentRunId: DEPLOYMENT_RUN_ID,
+    sessionId: SESSION_ID,
+    executionKey: EXECUTION_KEY,
+    itemId: "activation-execution-item-dependency-002",
+    executionItemKey: NEXT_EXECUTION_ITEM_KEY,
+    planItemKey: NEXT_PLAN_ITEM_KEY,
+    sequence: 2,
+    entityType: "provider_shell",
+    entityId: "provider-001",
+    deploymentProviderKey: "dentist-001",
+    action: "activate",
+    itemStatusBefore: "running",
+    itemStatusAfter: "succeeded",
+    attemptCount: 1,
+    startedAt: COMPLETED_STARTED_AT,
+    completedAt: COMPLETED_COMPLETED_AT,
+    providerId: "provider-001",
+    providerStatus: "active",
+    providerActive: true,
+    completionResult: "completed",
+    issueCode: null,
+    completedCount: 1,
+    reusedCount: 0,
+    conflicts: 0,
+    blockers: 0,
+    warnings: 0,
+    issues: [],
+    diagnostics: null,
+    downstream: {
+      itemsCompleted: 0,
+      dependenciesProgressed: 0,
+      nextItemsStarted: 0,
+      providersActivated: 0,
+      sterilizersActivated: 0,
+      workstationsActivated: 0,
+      hardwareActivated: 0,
+      bindingsWritten: 0,
+      sessionsCompleted: 0,
+      rollbacksExecuted: 0,
+      deploymentFinalized: 0,
+    },
+    ...input,
+  };
+}
 function atomicResult(input: Partial<DeploymentActivationExecutionAtomicDependencyProgressionResult> = {}): DeploymentActivationExecutionAtomicDependencyProgressionResult {
   return {
     ok: true,
