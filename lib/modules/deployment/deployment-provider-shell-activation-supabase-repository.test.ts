@@ -194,8 +194,8 @@ function scenarioRpcPayloadShape() {
 }
 
 function scenarioOwnerTokenLeasePayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("owner/token/lease CAS payload", payload.p_claimant_id === OWNER && payload.p_ownership_token === TOKEN && payload.p_expected_lease_expires_at === LEASE, JSON.stringify(redact(payload))); }
-function scenarioItemIdentityPayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("item identity payload", payload.p_item_id === itemId(2) && payload.p_execution_item_key === executionItemKey(2) && payload.p_plan_item_key === planItemKey(2) && payload.p_expected_sequence === 2, JSON.stringify(redact(payload))); }
-function scenarioProviderIdentityPayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("provider identity payload", payload.p_provider_id === PROVIDER_ID && payload.p_expected_provider_key === PROVIDER_KEY, JSON.stringify(redact(payload))); }
+function scenarioItemIdentityPayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("item identity payload", payload.p_item_id === itemId(2) && payload.p_execution_item_key === executionItemKey(2) && payload.p_plan_item_key === planItemKey(2) && payload.p_expected_sequence === 2 && payload.p_expected_entity_id === PROVIDER_ID, JSON.stringify(redact(payload))); }
+function scenarioProviderIdentityPayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("provider identity payload", payload.p_provider_id === PROVIDER_ID && payload.p_expected_provider_key === PROVIDER_KEY && payload.p_expected_entity_id !== payload.p_expected_provider_key, JSON.stringify(redact(payload))); }
 function scenarioExpectedCurrentStatePayload() { const source = command(); const payload = providerShellActivationRpcPayload(source); (payload.p_expected_current_state as Record<string, unknown>).active = true; return expectScenario("expected current state payload", source.expectedCurrentState.active === false && (payload.p_expected_current_state as Record<string, unknown>).provisioningStatus === "placeholder", JSON.stringify(redact(payload))); }
 function scenarioTargetStatePayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("target state payload", (payload.p_target_state as Record<string, unknown>).active === true && (payload.p_target_state as Record<string, unknown>).provisioningStatus === "active", JSON.stringify(redact(payload))); }
 function scenarioProposedActivationTimestampPayload() { const payload = providerShellActivationRpcPayload(command()); return expectScenario("proposed activation timestamp payload", payload.p_proposed_activated_at === ACTIVATED_AT, JSON.stringify(redact(payload))); }
@@ -286,11 +286,16 @@ function scenarioSqlSourceExpectations() {
     source.includes("provisioning_status = 'active'") &&
     !source.includes("insert into") &&
     !source.includes("delete from");
+  const identityContract =
+    source.includes("v_item.entity_id::text is distinct from p_expected_entity_id") &&
+    source.includes("'entityidmatchesproviderid', v_item.entity_id::text is not distinct from p_provider_id::text") &&
+    !source.includes("p_expected_entity_id is distinct from p_expected_provider_key") &&
+    !source.includes("v_item.entity_id::text is distinct from p_expected_provider_key");
 
   return expectScenario(
     "SQL source mutation boundary",
-    selectedProviderUpdate && noForbiddenUpdates && supportedTarget,
-    JSON.stringify({ selectedProviderUpdate, noForbiddenUpdates, supportedTarget }),
+    selectedProviderUpdate && noForbiddenUpdates && supportedTarget && identityContract,
+    JSON.stringify({ selectedProviderUpdate, noForbiddenUpdates, supportedTarget, identityContract }),
   );
 }
 
@@ -322,7 +327,7 @@ function command(input: Partial<DeploymentProviderShellActivationAtomicCommand> 
     planItemKey: planItemKey(2),
     expectedSequence: 2,
     expectedEntityType: "provider_shell",
-    expectedEntityId: PROVIDER_KEY,
+    expectedEntityId: PROVIDER_ID,
     expectedAction: "activate",
     expectedItemStartedAt: ITEM_STARTED_AT,
     expectedAttemptCount: 1,

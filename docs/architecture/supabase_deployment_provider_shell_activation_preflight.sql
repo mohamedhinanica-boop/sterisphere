@@ -97,6 +97,11 @@ with required_tables as (
     body ~ 'where\s+update_provider\.id\s*=\s*v_provider\.id' as constrains_provider_id,
     body ~ 'and\s+update_provider\.clinic_id\s*=\s*p_clinic_id' as constrains_clinic_id,
     body ~ 'and\s+update_provider\.deployment_provider_key\s*=\s*p_expected_provider_key' as constrains_provider_key,
+    body ~ 'v_item\.entity_id::text\s+is\s+distinct\s+from\s+p_expected_entity_id' as compares_item_entity_id_to_expected_entity_id,
+    body ~ '''entityidmatchesproviderid'',\s*v_item\.entity_id::text\s+is\s+not\s+distinct\s+from\s+p_provider_id::text' as reports_entity_id_provider_id_diagnostic,
+    body !~ 'p_expected_entity_id\s+is\s+distinct\s+from\s+p_expected_provider_key' as does_not_compare_entity_id_to_provider_key,
+    body !~ 'v_item\.entity_id::text\s+is\s+distinct\s+from\s*p_expected_provider_key' as does_not_compare_item_entity_id_to_provider_key,
+    body !~ 'v_item\.deployment_key[^;]*(p_provider_id|p_expected_provider_key)' as does_not_compare_item_deployment_key_to_provider_identity,
     body ~ 'set\s+active\s*=\s*true' as writes_active_true,
     body ~ 'provisioning_status\s*=\s*''active''' as writes_provisioning_status_active,
     body ~ 'updated_at\s*=\s*p_proposed_activated_at' as writes_updated_at,
@@ -147,8 +152,27 @@ with required_tables as (
       'does_not_write_lease', does_not_write_lease,
       'does_not_write_token', does_not_write_token,
       'does_not_complete_item', does_not_complete_item,
-      'does_not_progress_dependency', does_not_progress_dependency
+      'does_not_progress_dependency', does_not_progress_dependency,
+      'compares_item_entity_id_to_expected_entity_id', compares_item_entity_id_to_expected_entity_id,
+      'does_not_compare_entity_id_to_provider_key', does_not_compare_entity_id_to_provider_key,
+      'does_not_compare_item_entity_id_to_provider_key', does_not_compare_item_entity_id_to_provider_key,
+      'does_not_compare_item_deployment_key_to_provider_identity', does_not_compare_item_deployment_key_to_provider_identity
     ) as details
+  from source_diagnostics
+  union all
+  select 'function_preserves_provider_uuid_key_identity_contract',
+    compares_item_entity_id_to_expected_entity_id
+    and reports_entity_id_provider_id_diagnostic
+    and does_not_compare_entity_id_to_provider_key
+    and does_not_compare_item_entity_id_to_provider_key
+    and does_not_compare_item_deployment_key_to_provider_identity,
+    jsonb_build_object(
+      'compares_item_entity_id_to_expected_entity_id', compares_item_entity_id_to_expected_entity_id,
+      'reports_entity_id_provider_id_diagnostic', reports_entity_id_provider_id_diagnostic,
+      'does_not_compare_entity_id_to_provider_key', does_not_compare_entity_id_to_provider_key,
+      'does_not_compare_item_entity_id_to_provider_key', does_not_compare_item_entity_id_to_provider_key,
+      'does_not_compare_item_deployment_key_to_provider_identity', does_not_compare_item_deployment_key_to_provider_identity
+    )
   from source_diagnostics
   union all
   select 'function_updates_selected_provider_once',

@@ -173,11 +173,28 @@ begin
      or v_item.entity_id::text is distinct from p_expected_entity_id
      or v_item.action is distinct from p_expected_action
      or p_expected_entity_type <> 'provider_shell'
-     or p_expected_action <> 'activate'
-     or p_expected_entity_id is distinct from p_expected_provider_key then
+     or p_expected_action <> 'activate' then
     return query select 'conflict'::text, v_session.clinic_id, v_session.deployment_run_key, v_session.id, v_session.execution_key,
       v_item.id, v_item.execution_item_key, v_item.plan_item_key, v_item.sequence, v_provider.id, v_provider.deployment_provider_key,
-      v_state_before, v_state_before, null::timestamptz, 'item_identity_compare_failed'::text, 'Provider activation item identity compare-and-set failed.'::text;
+      v_state_before || jsonb_build_object(
+        'identityDiagnostics',
+        jsonb_build_object(
+          'itemIdMatches', v_item.id = p_item_id,
+          'executionItemKeyMatches', v_item.execution_item_key is not distinct from p_execution_item_key,
+          'planItemKeyMatches', v_item.plan_item_key is not distinct from p_plan_item_key,
+          'sequenceMatches', v_item.sequence is not distinct from p_expected_sequence,
+          'entityTypeMatches', v_item.entity_type is not distinct from p_expected_entity_type,
+          'entityIdMatchesProviderId', v_item.entity_id::text is not distinct from p_provider_id::text,
+          'entityIdMatchesExpected', v_item.entity_id::text is not distinct from p_expected_entity_id,
+          'actionMatches', v_item.action is not distinct from p_expected_action,
+          'providerIdMatches', v_provider.id = p_provider_id,
+          'providerKeyMatches', v_provider.deployment_provider_key is not distinct from p_expected_provider_key,
+          'clinicMatches', v_session.clinic_id = p_clinic_id and v_provider.clinic_id = p_clinic_id,
+          'deploymentRunMatches', v_session.deployment_run_key is not distinct from p_deployment_run_key,
+          'executionKeyMatches', v_session.execution_key is not distinct from p_execution_key
+        )
+      ),
+      v_state_before, null::timestamptz, 'item_identity_compare_failed'::text, 'Provider activation item identity compare-and-set failed.'::text;
     return;
   end if;
 
