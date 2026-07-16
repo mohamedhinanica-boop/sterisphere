@@ -76,6 +76,9 @@ import {
 import {
   activateProviderShellForServerDeployment,
 } from "@/lib/modules/deployment/deployment-provider-shell-activation-server";
+import {
+  completeProviderShellExecutionItemForServerDeployment,
+} from "@/lib/modules/deployment/deployment-provider-shell-execution-item-completion-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
@@ -118,6 +121,10 @@ import type {
 import type {
   DeploymentProviderShellActivationIssue,
 } from "@/lib/modules/deployment/deployment-provider-shell-activation-types";
+import type {
+  DeploymentProviderShellExecutionAtomicItemCompletionDiagnostics,
+  DeploymentProviderShellExecutionItemCompletionIssue,
+} from "@/lib/modules/deployment/deployment-provider-shell-execution-item-completion-types";
 import type {
   DeploymentPlannedAssignmentResolutionIssue,
   DeploymentPlannedAssignmentResolvedRecord,
@@ -854,6 +861,71 @@ export interface DeploymentProviderShellActivationActionResult {
     deploymentFinalized: 0;
   };
 }
+export type DeploymentProviderShellExecutionItemCompletionActionStatus =
+  | "completed"
+  | "already_completed"
+  | "not_attempted"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "error";
+
+export interface DeploymentProviderShellExecutionItemCompletionActionResult {
+  ok: boolean;
+  status: DeploymentProviderShellExecutionItemCompletionActionStatus;
+  message: string;
+  claimantId: string | null;
+  clinicId: string | null;
+  deploymentRunId: string | null;
+  sessionId: string | null;
+  executionKey: string | null;
+  itemId: string | null;
+  executionItemKey: string | null;
+  planItemKey: string | null;
+  sequence: number | null;
+  entityType: string | null;
+  entityId: string | null;
+  deploymentProviderKey: string | null;
+  action: string | null;
+  itemStatusBefore: string | null;
+  itemStatusAfter: string | null;
+  attemptCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  providerId: string | null;
+  providerStatus: string | null;
+  providerActive: boolean | null;
+  completionResult:
+    | "completed"
+    | "already_completed"
+    | "blocked"
+    | "conflict"
+    | "not_found"
+    | "error"
+    | null;
+  issueCode: string | null;
+  completedCount: 0 | 1;
+  reusedCount: 0 | 1;
+  conflicts: number;
+  blockers: number;
+  warnings: number;
+  issues: readonly DeploymentProviderShellExecutionItemCompletionIssue[];
+  diagnostics: DeploymentProviderShellExecutionAtomicItemCompletionDiagnostics | null;
+  downstream: {
+    itemsCompleted: 0;
+    dependenciesProgressed: 0;
+    nextItemsStarted: 0;
+    providersActivated: 0;
+    sterilizersActivated: 0;
+    workstationsActivated: 0;
+    hardwareActivated: 0;
+    bindingsWritten: 0;
+    sessionsCompleted: 0;
+    rollbacksExecuted: 0;
+    deploymentFinalized: 0;
+  };
+}
+
 export interface PersistDeploymentRunActionResult {
   ok: boolean;
   status: PersistDeploymentRunActionStatus;
@@ -882,6 +954,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentActivationExecutionDependencyProgression?: DeploymentActivationExecutionDependencyProgressionActionResult;
   deploymentActivationExecutionNextItemStart?: DeploymentActivationExecutionNextItemStartActionResult;
   deploymentProviderShellActivation?: DeploymentProviderShellActivationActionResult;
+  deploymentProviderShellExecutionItemCompletion?: DeploymentProviderShellExecutionItemCompletionActionResult;
   message: string;
 }
 
@@ -1297,6 +1370,54 @@ const DEPLOYMENT_ACTIVATION_EXECUTION_NEXT_ITEM_START_NOT_ATTEMPTED: DeploymentA
     itemsCompleted: 0,
     dependenciesProgressed: 0,
     finalized: 0,
+  },
+};
+const DEPLOYMENT_PROVIDER_SHELL_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED: DeploymentProviderShellExecutionItemCompletionActionResult = {
+  ok: false,
+  status: "not_attempted",
+  message: "Provider-shell execution item completion was not attempted.",
+  claimantId: null,
+  clinicId: null,
+  deploymentRunId: null,
+  sessionId: null,
+  executionKey: null,
+  itemId: null,
+  executionItemKey: null,
+  planItemKey: null,
+  sequence: null,
+  entityType: null,
+  entityId: null,
+  deploymentProviderKey: null,
+  action: null,
+  itemStatusBefore: null,
+  itemStatusAfter: null,
+  attemptCount: 0,
+  startedAt: null,
+  completedAt: null,
+  providerId: null,
+  providerStatus: null,
+  providerActive: null,
+  completionResult: null,
+  issueCode: null,
+  completedCount: 0,
+  reusedCount: 0,
+  conflicts: 0,
+  blockers: 0,
+  warnings: 0,
+  issues: [],
+  diagnostics: null,
+  downstream: {
+    itemsCompleted: 0,
+    dependenciesProgressed: 0,
+    nextItemsStarted: 0,
+    providersActivated: 0,
+    sterilizersActivated: 0,
+    workstationsActivated: 0,
+    hardwareActivated: 0,
+    bindingsWritten: 0,
+    sessionsCompleted: 0,
+    rollbacksExecuted: 0,
+    deploymentFinalized: 0,
   },
 };
 const DEPLOYMENT_PROVIDER_SHELL_ACTIVATION_NOT_ATTEMPTED: DeploymentProviderShellActivationActionResult = {
@@ -2452,6 +2573,15 @@ export async function persistDeploymentRunAction(
           providerActivatedAt: persistedAt,
         })
       : null;
+    const deploymentProviderShellExecutionItemCompletion = deploymentProviderShellActivation?.ok
+      ? await completeProviderShellExecutionItemForServerDeployment(client, {
+          clinicId,
+          deploymentRunId: result.deploymentRun.deploymentRunId,
+          deploymentActivationExecutionClaim,
+          deploymentProviderShellActivation,
+          itemCompletionRequestedAt: persistedAt,
+        })
+      : null;
 
     return {
       ok:
@@ -2466,7 +2596,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionItemCompletion?.ok) &&
         Boolean(deploymentActivationExecutionDependencyProgression?.ok) &&
         Boolean(deploymentActivationExecutionNextItemStart?.ok) &&
-        Boolean(deploymentProviderShellActivation?.ok || deploymentProviderShellActivation?.status === "not_attempted"),
+        Boolean(deploymentProviderShellActivation?.ok || deploymentProviderShellActivation?.status === "not_attempted") &&
+        Boolean(deploymentProviderShellExecutionItemCompletion?.ok || deploymentProviderShellActivation?.status === "not_attempted"),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2743,8 +2874,33 @@ export async function persistDeploymentRunAction(
             message:
               "Provider shell activation was skipped because next-item start did not complete successfully.",
           },
-      message: deploymentProviderShellActivation?.ok
-        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, and provider shell activation are complete. The provider shell may now be active, but the provider execution item has not completed and no further dependency progression, binding, rollback, or finalization occurred."
+      deploymentProviderShellExecutionItemCompletion: deploymentProviderShellExecutionItemCompletion
+        ? mapDeploymentProviderShellExecutionItemCompletionActionResult(
+            deploymentProviderShellExecutionItemCompletion,
+          )
+        : {
+            ...DEPLOYMENT_PROVIDER_SHELL_EXECUTION_ITEM_COMPLETION_NOT_ATTEMPTED,
+            clinicId,
+            deploymentRunId: result.deploymentRun.deploymentRunId,
+            sessionId: deploymentProviderShellActivation?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? null,
+            executionKey: deploymentProviderShellActivation?.executionKey ?? deploymentActivationExecutionNextItemStart?.executionKey ?? deploymentActivationExecutionClaim?.executionKey ?? null,
+            claimantId: deploymentProviderShellActivation?.claimantId ?? deploymentActivationExecutionNextItemStart?.claimantId ?? deploymentActivationExecutionClaim?.claimantId ?? null,
+            itemId: deploymentProviderShellActivation?.itemId ?? deploymentActivationExecutionNextItemStart?.itemId ?? null,
+            executionItemKey: deploymentProviderShellActivation?.executionItemKey ?? deploymentActivationExecutionNextItemStart?.executionItemKey ?? null,
+            planItemKey: deploymentProviderShellActivation?.planItemKey ?? deploymentActivationExecutionNextItemStart?.planItemKey ?? null,
+            sequence: deploymentProviderShellActivation?.sequence ?? deploymentActivationExecutionNextItemStart?.sequence ?? null,
+            entityType: deploymentActivationExecutionNextItemStart?.entityType ?? null,
+            entityId: deploymentActivationExecutionNextItemStart?.entityId ?? null,
+            deploymentProviderKey: deploymentProviderShellActivation?.deploymentProviderKey ?? null,
+            action: deploymentActivationExecutionNextItemStart?.action ?? null,
+            providerId: deploymentProviderShellActivation?.providerId ?? null,
+            message:
+              "Provider-shell execution item completion was skipped because provider shell activation did not complete successfully.",
+          },
+      message: deploymentProviderShellExecutionItemCompletion?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, and provider-shell execution item completion are complete. No further dependency progression, binding, rollback, or finalization occurred."
+        : deploymentProviderShellActivation?.ok
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, and provider shell activation are complete, but provider-shell execution item completion is blocked, skipped, or not applicable. No further dependency progression, binding, rollback, or finalization occurred."
         : deploymentActivationExecutionNextItemStart?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, and next-item start are complete. Provider shell activation is blocked, skipped, or not applicable; no item completion, further dependency progression, binding, rollback, or finalization occurred."
         : deploymentActivationExecutionDependencyProgression?.ok
@@ -3168,6 +3324,58 @@ function mapDeploymentActivationExecutionNextItemStartActionResult(
       itemsCompleted: result.downstream.itemsCompleted,
       dependenciesProgressed: result.downstream.dependenciesProgressed,
       finalized: result.downstream.finalized,
+    },
+  };
+}
+function mapDeploymentProviderShellExecutionItemCompletionActionResult(
+  result: Awaited<ReturnType<typeof completeProviderShellExecutionItemForServerDeployment>>,
+): DeploymentProviderShellExecutionItemCompletionActionResult {
+  return {
+    ok: result.ok,
+    status: result.status,
+    message: result.message,
+    claimantId: result.claimantId,
+    clinicId: result.clinicId,
+    deploymentRunId: result.deploymentRunId,
+    sessionId: result.sessionId,
+    executionKey: result.executionKey,
+    itemId: result.itemId,
+    executionItemKey: result.executionItemKey,
+    planItemKey: result.planItemKey,
+    sequence: result.sequence,
+    entityType: result.entityType,
+    entityId: result.entityId,
+    deploymentProviderKey: result.deploymentProviderKey,
+    action: result.action,
+    itemStatusBefore: result.itemStatusBefore,
+    itemStatusAfter: result.itemStatusAfter,
+    attemptCount: result.attemptCount,
+    startedAt: result.startedAt,
+    completedAt: result.completedAt,
+    providerId: result.providerId,
+    providerStatus: result.providerStatus,
+    providerActive: result.providerActive,
+    completionResult: result.completionResult,
+    issueCode: result.issueCode,
+    completedCount: result.completedCount,
+    reusedCount: result.reusedCount,
+    conflicts: result.conflicts,
+    blockers: result.blockers,
+    warnings: result.warnings,
+    issues: result.issues,
+    diagnostics: result.diagnostics,
+    downstream: {
+      itemsCompleted: result.downstream.itemsCompleted,
+      dependenciesProgressed: result.downstream.dependenciesProgressed,
+      nextItemsStarted: result.downstream.nextItemsStarted,
+      providersActivated: result.downstream.providersActivated,
+      sterilizersActivated: result.downstream.sterilizersActivated,
+      workstationsActivated: result.downstream.workstationsActivated,
+      hardwareActivated: result.downstream.hardwareActivated,
+      bindingsWritten: result.downstream.bindingsWritten,
+      sessionsCompleted: result.downstream.sessionsCompleted,
+      rollbacksExecuted: result.downstream.rollbacksExecuted,
+      deploymentFinalized: result.downstream.deploymentFinalized,
     },
   };
 }

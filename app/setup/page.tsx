@@ -1860,6 +1860,10 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Activated", value: readField(input.deploymentProviderShellActivation, "activatedCount") ?? 0 },
           { label: "Conflicts", value: readField(input.deploymentProviderShellActivation, "conflicts") ?? 0 },
         ]),
+        stage("provider-shell-item-completion", "Provider Shell Item Completion", input.deploymentProviderShellExecutionItemCompletion, "not_attempted", "Provider-shell item completion marks only the activated provider execution item succeeded.", [
+          { label: "Completed", value: readField(input.deploymentProviderShellExecutionItemCompletion, "completedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentProviderShellExecutionItemCompletion, "reusedCount") ?? 0 },
+        ]),
       ],
     },
   ];
@@ -2280,6 +2284,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentActivationExecutionNextItemStart ?? null;
   const deploymentProviderShellActivation =
     deploymentRunResult?.deploymentProviderShellActivation ?? null;
+  const deploymentProviderShellExecutionItemCompletion =
+    deploymentRunResult?.deploymentProviderShellExecutionItemCompletion ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2330,6 +2336,7 @@ function CompleteStep({
     deploymentActivationExecutionDependencyProgression,
     deploymentActivationExecutionNextItemStart,
     deploymentProviderShellActivation,
+    deploymentProviderShellExecutionItemCompletion,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
