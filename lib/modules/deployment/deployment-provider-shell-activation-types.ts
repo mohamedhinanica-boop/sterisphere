@@ -146,7 +146,22 @@ export interface DeploymentProviderShellActivationSnapshot {
   session: DeploymentProviderShellActivationSessionSnapshot | null;
   items: readonly DeploymentProviderShellActivationItemSnapshot[];
   providerShell: DeploymentProviderShellActivationProviderSnapshot | null;
+  providerLookup: DeploymentProviderShellActivationProviderLookupDiagnostics | null;
   aggregate: DeploymentProviderShellActivationAggregateSnapshot;
+}
+
+export type DeploymentProviderShellActivationProviderLookupResult =
+  | "not_attempted"
+  | "zero_rows"
+  | "multiple_rows"
+  | "mapped";
+
+export interface DeploymentProviderShellActivationProviderLookupDiagnostics {
+  attempted: boolean;
+  result: DeploymentProviderShellActivationProviderLookupResult;
+  rowsReturned: number;
+  deploymentProviderKey: string | null;
+  providerId: string | null;
 }
 
 export interface DeploymentProviderShellActivationIssue {
@@ -166,6 +181,11 @@ export interface DeploymentProviderShellActivationIssue {
 export interface DeploymentProviderShellActivationIssueDiagnostics {
   layer?: string | null;
   rpcAttempted?: boolean | null;
+  providerLookupAttempted?: boolean | null;
+  providerLookupResult?: DeploymentProviderShellActivationProviderLookupResult | null;
+  providerLookupRowsReturned?: number | null;
+  providerLookupDeploymentProviderKey?: string | null;
+  providerLookupProviderId?: string | null;
   errorCode?: string | null;
   errorMessage?: string | null;
   errorDetails?: string | null;
@@ -245,6 +265,7 @@ export function cloneProviderShellActivationSnapshot(
     session: snapshot.session ? { ...snapshot.session } : null,
     items: snapshot.items.map(cloneProviderShellActivationItem),
     providerShell: snapshot.providerShell ? { ...snapshot.providerShell } : null,
+    providerLookup: snapshot.providerLookup ? { ...snapshot.providerLookup } : null,
     aggregate: {
       ...snapshot.aggregate,
       succeededPlanItemKeys: [...snapshot.aggregate.succeededPlanItemKeys],

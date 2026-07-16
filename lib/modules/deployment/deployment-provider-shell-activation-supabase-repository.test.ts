@@ -9,6 +9,7 @@ import {
   mapProviderShellActivationSessionRow,
   providerShellActivationRpcPayload,
   readSingleRpcRow,
+  selectRunningProviderLookup,
   SupabaseDeploymentProviderShellActivationRepository,
   type ProviderShellActivationItemRow,
   type ProviderShellActivationProviderRow,
@@ -46,6 +47,8 @@ export async function runDeploymentProviderShellActivationSupabaseRepositoryHarn
     scenarioSessionMapping(),
     scenarioItemMapping(),
     scenarioProviderMapping(),
+    scenarioProviderLookupUsesStateKeyWithUuidEntity(),
+    scenarioProviderLookupFallsBackToLegacyEntityKey(),
     await scenarioSnapshotMapping(),
     await scenarioDeterministicItemOrdering(),
     scenarioAggregateCounts(),
@@ -101,6 +104,23 @@ function scenarioProviderMapping() {
   return expectScenario("provider mapping", mapped.providerId === PROVIDER_ID && mapped.clinicId === CLINIC_ID && mapped.deploymentProviderKey === PROVIDER_KEY && mapped.currentState?.provisioningStatus === "placeholder", JSON.stringify(mapped));
 }
 
+function scenarioProviderLookupUsesStateKeyWithUuidEntity() {
+  const lookup = selectRunningProviderLookup(rowsWithUuidProviderEntity());
+  return expectScenario(
+    "provider lookup uses state key with UUID entity id",
+    lookup.attempted && lookup.deploymentProviderKey === PROVIDER_KEY && lookup.providerId === PROVIDER_ID,
+    JSON.stringify(lookup),
+  );
+}
+
+function scenarioProviderLookupFallsBackToLegacyEntityKey() {
+  const lookup = selectRunningProviderLookup(rows());
+  return expectScenario(
+    "provider lookup falls back to legacy entity key",
+    lookup.attempted && lookup.deploymentProviderKey === PROVIDER_KEY && lookup.providerId === PROVIDER_KEY,
+    JSON.stringify(lookup),
+  );
+}
 async function scenarioSnapshotMapping() {
   const repository = new SupabaseDeploymentProviderShellActivationRepository(mockClient({ sessions: [sessionRow()], items: rows(), providers: [providerRow()] }));
   const snapshot = await repository.loadProviderShellActivationSnapshot(query());
@@ -323,6 +343,9 @@ function rows(): ProviderShellActivationItemRow[] {
   ];
 }
 
+function rowsWithUuidProviderEntity(): ProviderShellActivationItemRow[] {
+  return rows().map((row) => row.sequence === 2 ? { ...row, entity_id: PROVIDER_ID } : row);
+}
 function sessionRow(input: Partial<ReturnType<typeof baseSessionRow>> = {}) { return { ...baseSessionRow(), ...input }; }
 function baseSessionRow() {
   return {
@@ -361,8 +384,8 @@ function itemRow(sequence: number, input: Partial<ProviderShellActivationItemRow
     error_code: null,
     error_message: null,
     dependency_keys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
-    expected_current_state: { provisioningStatus: "placeholder", active: false },
-    target_state: { provisioningStatus: "active", active: true },
+    expected_current_state: { deploymentProviderKey: PROVIDER_KEY, provisioningStatus: "placeholder", active: false },
+    target_state: { deploymentProviderKey: PROVIDER_KEY, provisioningStatus: "active", active: true },
     ...input,
   };
 }

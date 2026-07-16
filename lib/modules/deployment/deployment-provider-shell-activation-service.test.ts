@@ -34,9 +34,11 @@ const WRONG_TOKEN = "wrong-sensitive-provider-shell-activation-token";
 export async function runDeploymentProviderShellActivationServiceHarness(): Promise<DeploymentProviderShellActivationServiceHarnessResult> {
   const scenarios = [
     await scenarioActivatable(),
+    await scenarioUuidEntityIdWithDeploymentProviderKeyState(),
     await scenarioAlreadyActivated(),
     await scenarioMissingSession(),
     await scenarioMissingProvider(),
+    await scenarioMissingProviderLookupDiagnostics(),
     await scenarioClinicMismatch(),
     await scenarioDeploymentRunMismatch(),
     await scenarioSessionMismatch(),
@@ -113,6 +115,32 @@ async function scenarioActivatable() {
   );
 }
 
+async function scenarioUuidEntityIdWithDeploymentProviderKeyState() {
+  const providerId = "f74f1056-0e59-474c-9676-0230d4936114";
+  const result = await assess(snapshot({
+    itemPatches: {
+      2: {
+        entityId: providerId,
+        expectedCurrentState: { deploymentProviderKey: PROVIDER_SHELL_ACTIVATION_TEST_IDS.providerKey, provisioningStatus: "placeholder", active: false },
+        targetState: { deploymentProviderKey: PROVIDER_SHELL_ACTIVATION_TEST_IDS.providerKey, provisioningStatus: "active", active: true },
+      },
+    },
+    providerShell: {
+      providerId,
+      deploymentProviderKey: PROVIDER_SHELL_ACTIVATION_TEST_IDS.providerKey,
+    },
+  }));
+
+  return expectScenario(
+    "provider UUID entity id with deterministic key state is activatable",
+    result.ok &&
+      result.status === "activatable" &&
+      result.entityId === providerId &&
+      result.providerId === providerId &&
+      result.deploymentProviderKey === PROVIDER_SHELL_ACTIVATION_TEST_IDS.providerKey,
+    JSON.stringify(result),
+  );
+}
 async function scenarioAlreadyActivated() {
   const result = await assess(buildAlreadyActivatedProviderShellActivationSnapshot());
   return expectScenario(
@@ -128,6 +156,26 @@ async function scenarioAlreadyActivated() {
 
 async function scenarioMissingSession() { return expectIssue("missing session", snapshot({ session: null }), "missing_session", "not_found"); }
 async function scenarioMissingProvider() { return expectIssue("missing provider shell", snapshot({ providerShell: null }), "missing_provider_shell", "not_found"); }
+async function scenarioMissingProviderLookupDiagnostics() {
+  const result = await assess(snapshot({
+    providerShell: null,
+    itemPatches: {
+      2: {
+        expectedCurrentState: { deploymentProviderKey: PROVIDER_SHELL_ACTIVATION_TEST_IDS.providerKey, provisioningStatus: "placeholder", active: false },
+      },
+    },
+  }));
+  const issue = result.issues.find((current) => current.code === "missing_provider_shell");
+
+  return expectScenario(
+    "missing provider exposes lookup diagnostics",
+    result.status === "not_found" &&
+      issue?.diagnostics?.layer === "snapshot_provider_lookup" &&
+      issue.diagnostics.providerLookupResult === "zero_rows" &&
+      issue.diagnostics.providerLookupDeploymentProviderKey === PROVIDER_SHELL_ACTIVATION_TEST_IDS.providerKey,
+    JSON.stringify(issue),
+  );
+}
 async function scenarioClinicMismatch() { return expectIssue("clinic identity mismatch", snapshot({ session: { clinicId: "clinic-other" } }), "clinic_identity_mismatch", "conflict"); }
 async function scenarioDeploymentRunMismatch() { return expectIssue("deployment-run identity mismatch", snapshot({ session: { deploymentRunKey: "run-other" } }), "deployment_run_identity_mismatch", "conflict"); }
 async function scenarioSessionMismatch() { return expectIssue("session identity mismatch", snapshot({ session: { sessionId: "session-other" } }), "session_identity_mismatch", "conflict"); }

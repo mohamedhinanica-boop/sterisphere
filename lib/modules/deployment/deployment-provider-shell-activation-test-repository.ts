@@ -165,6 +165,7 @@ export function buildProviderShellActivationSnapshot(input: {
         },
     items: patchedItems,
     providerShell,
+    providerLookup: providerLookupForBuild(patchedItems, providerShell),
     aggregate: {
       ...aggregateProviderShellActivation(patchedItems, providerShell),
       ...input.aggregate,
@@ -247,8 +248,8 @@ export function item(
     errorCode: null,
     errorMessage: null,
     dependencyKeys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
-    expectedCurrentState: { provisioningStatus: "placeholder", active: false },
-    targetState: { provisioningStatus: "active", active: true },
+    expectedCurrentState: { deploymentProviderKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningStatus: "placeholder", active: false },
+    targetState: { deploymentProviderKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningStatus: "active", active: true },
     ...input,
   };
 }
@@ -273,6 +274,21 @@ export const PROVIDER_SHELL_ACTIVATION_TEST_IDS = {
   providerKey: PROVIDER_KEY,
 } as const;
 
+function providerLookupForBuild(
+  items: readonly DeploymentProviderShellActivationItemSnapshot[],
+  providerShell: DeploymentProviderShellActivationProviderSnapshot | null,
+): DeploymentProviderShellActivationSnapshot["providerLookup"] {
+  const runningProvider = items.find((current) => current.executionStatus === "running" && current.entityType === "provider_shell") ?? null;
+  const deploymentProviderKey = providerShell?.deploymentProviderKey ?? runningProviderKey(items);
+
+  return {
+    attempted: deploymentProviderKey !== null,
+    result: providerShell ? "mapped" : deploymentProviderKey ? "zero_rows" : "not_attempted",
+    rowsReturned: providerShell ? 1 : 0,
+    deploymentProviderKey,
+    providerId: runningProvider?.entityId ?? providerShell?.providerId ?? null,
+  };
+}
 function runningProviderKey(
   items: readonly DeploymentProviderShellActivationItemSnapshot[],
 ): string | null {

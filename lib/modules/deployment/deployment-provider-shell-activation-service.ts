@@ -10,6 +10,7 @@ import {
   type DeploymentProviderShellActivationIssueCode,
   type DeploymentProviderShellActivationIssueSeverity,
   type DeploymentProviderShellActivationItemSnapshot,
+  type DeploymentProviderShellActivationProviderLookupDiagnostics,
   type DeploymentProviderShellActivationProviderSnapshot,
   type DeploymentProviderShellActivationResult,
   type DeploymentProviderShellActivationSessionSnapshot,
@@ -102,7 +103,7 @@ function assessSnapshot(
     ...validateAggregate(session, snapshot),
     ...validateSucceededPrefix(session, orderedItems, prefix),
     ...validateRunningItem(session, runningItem, prefix.length + 1),
-    ...validateProviderShell(command, session, runningItem, snapshot.providerShell, snapshot.aggregate, mode),
+    ...validateProviderShell(command, session, runningItem, snapshot.providerShell, snapshot.aggregate, mode, snapshot.providerLookup),
     ...validateLaterItems(session, orderedItems, runningItem),
   ];
 
@@ -369,9 +370,10 @@ function validateProviderShell(
   provider: DeploymentProviderShellActivationProviderSnapshot | null,
   aggregate: DeploymentProviderShellActivationSnapshot["aggregate"],
   mode: ProviderActivationMode,
+  providerLookup: DeploymentProviderShellActivationProviderLookupDiagnostics | null,
 ): DeploymentProviderShellActivationIssue[] {
   if (!provider) {
-    return [commandIssue("missing_provider_shell", command, "Provider shell was not found.")];
+    return [commandIssue("missing_provider_shell", command, "Provider shell was not found.", providerLookupIssueDiagnostics(providerLookup))];
   }
 
   const issues: DeploymentProviderShellActivationIssue[] = [];
@@ -388,8 +390,10 @@ function validateProviderShell(
     issues.push(providerIssue("provider_clinic_mismatch", session, item, provider, "Provider shell does not belong to the execution clinic."));
   }
 
-  if (!provider.deploymentProviderKey || provider.deploymentProviderKey !== item?.entityId) {
-    issues.push(providerIssue("provider_identity_mismatch", session, item, provider, "Provider shell deployment key does not match the running execution item."));
+  const expectedProviderKey = item ? deploymentProviderKeyFromItem(item) : null;
+  const entityIdMatchesProvider = item?.entityId === provider.providerId || item?.entityId === provider.deploymentProviderKey;
+  if (!provider.deploymentProviderKey || (expectedProviderKey !== null && provider.deploymentProviderKey !== expectedProviderKey) || !entityIdMatchesProvider) {
+    issues.push(providerIssue("provider_identity_mismatch", session, item, provider, "Provider shell identity does not match the running execution item."));
   }
 
   if (provider.provisioningSource !== "setup_draft") {
@@ -421,6 +425,50 @@ function validateProviderShell(
   return issues;
 }
 
+function deploymentProviderKeyFromItem(
+  item: DeploymentProviderShellActivationItemSnapshot,
+): string | null {
+  return stringField(item.expectedCurrentState, "deploymentProviderKey") ??
+    stringField(item.expectedCurrentState, "deployment_provider_key") ??
+    stringField(item.targetState, "deploymentProviderKey") ??
+    stringField(item.targetState, "deployment_provider_key") ??
+    fallbackDeploymentProviderKey(item.entityId);
+}
+
+function fallbackDeploymentProviderKey(value: string | null): string | null {
+  if (!value || isUuid(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+function stringField(source: Record<string, unknown> | null, key: string): string | null {
+  const value = source?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function providerLookupIssueDiagnostics(
+  providerLookup: DeploymentProviderShellActivationProviderLookupDiagnostics | null,
+): DeploymentProviderShellActivationIssue["diagnostics"] {
+  if (!providerLookup) {
+    return null;
+  }
+
+  return {
+    layer: "snapshot_provider_lookup",
+    rpcAttempted: false,
+    providerLookupAttempted: providerLookup.attempted,
+    providerLookupResult: providerLookup.result,
+    providerLookupRowsReturned: providerLookup.rowsReturned,
+    providerLookupDeploymentProviderKey: providerLookup.deploymentProviderKey,
+    providerLookupProviderId: providerLookup.providerId,
+  };
+}
 function validateLaterItems(
   session: DeploymentProviderShellActivationSessionSnapshot,
   items: readonly DeploymentProviderShellActivationItemSnapshot[],
@@ -578,6 +626,7 @@ function commandIssue(
   code: DeploymentProviderShellActivationIssueCode,
   command: DeploymentProviderShellActivationCommand,
   message: string,
+  diagnostics: DeploymentProviderShellActivationIssue["diagnostics"] = null,
 ): DeploymentProviderShellActivationIssue {
   return {
     code,
@@ -590,6 +639,7 @@ function commandIssue(
     providerId: null,
     deploymentProviderKey: null,
     sequence: null,
+    diagnostics,
   };
 }
 
@@ -678,6 +728,7 @@ function emptySnapshot(): DeploymentProviderShellActivationSnapshot {
     session: null,
     items: [],
     providerShell: null,
+    providerLookup: null,
     aggregate: emptyProviderShellActivationAggregate(),
   };
 }

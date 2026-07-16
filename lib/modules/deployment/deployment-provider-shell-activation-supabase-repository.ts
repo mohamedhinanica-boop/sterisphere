@@ -10,6 +10,7 @@ import {
   type DeploymentProviderShellActivationAtomicCommand,
   type DeploymentProviderShellActivationAtomicResult,
   type DeploymentProviderShellActivationItemSnapshot,
+  type DeploymentProviderShellActivationProviderLookupDiagnostics,
   type DeploymentProviderShellActivationProviderSnapshot,
   type DeploymentProviderShellActivationSessionSnapshot,
   type DeploymentProviderShellActivationSnapshot,
@@ -182,14 +183,15 @@ export class SupabaseDeploymentProviderShellActivationRepository
         session: null,
         items: [],
         providerShell: null,
+        providerLookup: notAttemptedProviderLookup(),
         aggregate: emptyProviderShellActivationAggregate(),
       };
     }
 
     const items = await this.listItems(session.id);
-    const runningProviderKey = selectRunningProviderKey(items);
-    const providers = runningProviderKey
-      ? await this.listProviders(input.clinicId, runningProviderKey)
+    const providerLookup = selectRunningProviderLookup(items);
+    const providers = providerLookup.deploymentProviderKey
+      ? await this.listProviders(input.clinicId, providerLookup.deploymentProviderKey)
       : [];
     const providerShell = providers.length === 1 ? mapProviderShellActivationProviderRow(providers[0]) : null;
 
@@ -197,6 +199,17 @@ export class SupabaseDeploymentProviderShellActivationRepository
       session: mapProviderShellActivationSessionRow(session),
       items: items.map(mapProviderShellActivationItemRow),
       providerShell,
+      providerLookup: {
+        ...providerLookup,
+        rowsReturned: providers.length,
+        result: providerLookup.attempted
+          ? providers.length === 0
+            ? "zero_rows"
+            : providers.length === 1
+              ? "mapped"
+              : "multiple_rows"
+          : "not_attempted",
+      },
       aggregate: aggregateProviderShellActivationRows(items, providers),
     };
   }
@@ -464,12 +477,64 @@ function readProviderShellActivationAtomicStatus(
   });
 }
 
-function selectRunningProviderKey(items: readonly ProviderShellActivationItemRow[]): string | null {
+export function selectRunningProviderLookup(
+  items: readonly ProviderShellActivationItemRow[],
+): DeploymentProviderShellActivationProviderLookupDiagnostics {
   const runningProvider = [...items]
     .sort(compareRows)
     .find((item) => item.execution_status === "running" && item.entity_type === "provider_shell");
 
-  return runningProvider?.entity_id ?? null;
+  if (!runningProvider) {
+    return notAttemptedProviderLookup();
+  }
+
+  const deploymentProviderKey = readDeploymentProviderKey(runningProvider) ?? fallbackDeploymentProviderKey(runningProvider.entity_id);
+
+  return {
+    attempted: deploymentProviderKey !== null,
+    result: deploymentProviderKey === null ? "not_attempted" : "zero_rows",
+    rowsReturned: 0,
+    deploymentProviderKey,
+    providerId: runningProvider.entity_id ?? null,
+  };
+}
+
+function notAttemptedProviderLookup(): DeploymentProviderShellActivationProviderLookupDiagnostics {
+  return {
+    attempted: false,
+    result: "not_attempted",
+    rowsReturned: 0,
+    deploymentProviderKey: null,
+    providerId: null,
+  };
+}
+
+function readDeploymentProviderKey(item: ProviderShellActivationItemRow): string | null {
+  return readStringField(item.expected_current_state, "deploymentProviderKey") ??
+    readStringField(item.expected_current_state, "deployment_provider_key") ??
+    readStringField(item.target_state, "deploymentProviderKey") ??
+    readStringField(item.target_state, "deployment_provider_key");
+}
+
+function fallbackDeploymentProviderKey(value: string | null): string | null {
+  if (!value || isUuid(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+function readStringField(source: unknown, key: string): string | null {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return null;
+  }
+
+  const value = (source as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function providerState(row: ProviderShellActivationProviderRow): Record<string, unknown> {
