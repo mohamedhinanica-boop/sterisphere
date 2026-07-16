@@ -1726,6 +1726,15 @@ type CompleteStageGroup = {
   stages: readonly CompleteStage[];
 };
 
+type CompleteStageIssueGroup = {
+  key: string;
+  severity: string;
+  code: string;
+  message: string;
+  count: number;
+  diagnostics: readonly unknown[];
+};
+
 function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStageGroup[] {
   const stage = (
     id: string,
@@ -1788,7 +1797,7 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
         ]),
         stage("hardware-assignments", "Hardware Assignments", input.hardwareAssignments, "not_attempted", "Logical hardware assignments are planned setup-draft relationships.", shellMetrics(input.hardwareAssignments)),
         stage("planned-assignment-resolution", "Planned Assignment Resolution", input.plannedAssignmentResolution, "not_attempted", "Logical assignment resolution is read-only evidence.", [
-          { label: "Resolved", value: readField(input.plannedAssignmentResolution, "resolvedCount") ?? 0 },
+          { label: "Resolved", value: readField(input.plannedAssignmentResolution, "resolved") ?? readField(input.plannedAssignmentResolution, "resolvedCount") ?? 0 },
           { label: "Missing", value: (Number(readField(input.plannedAssignmentResolution, "missingHardware") ?? 0) + Number(readField(input.plannedAssignmentResolution, "missingTargets") ?? 0)) },
         ]),
       ],
@@ -1915,7 +1924,13 @@ function isPositiveCompleteStage(stage: CompleteStage): boolean {
 
 function needsDefaultExpansion(stage: CompleteStage): boolean {
   const status = stage.status.toLowerCase();
-  return stage.blockers > 0 || stage.warnings > 0 || stage.issues.length > 0 || ["error", "blocked", "conflict", "conflicted", "not_found", "rejected", "running", "started", "claimed", "activatable"].some((term) => status.includes(term));
+  const hasBlockerIssue = stage.issues.some((issue) => readString(issue, "severity") === "blocker");
+  return stage.blockers > 0 || hasBlockerIssue || ["error", "blocked", "conflict", "conflicted", "not_found", "rejected", "running", "started", "claimed", "activatable"].some((term) => status.includes(term));
+}
+
+function shouldExpandForIssues(stage: CompleteStage): boolean {
+  const status = stage.status.toLowerCase();
+  return stage.blockers > 0 || stage.warnings > 0 || stage.issues.some((issue) => readString(issue, "code") === "repository_error") || ["error", "blocked", "conflict", "conflicted", "not_found", "rejected"].some((term) => status.includes(term));
 }
 
 function safeEvidenceText(evidence: unknown): string {
@@ -1928,25 +1943,68 @@ function safeEvidenceText(evidence: unknown): string {
 
 function CompleteStageGroups({
   groups,
-  defaultExpandedStageId,
+  expandedStageIds,
+  onToggleStage,
+  onExpandIssues,
+  onExpandAll,
+  onCollapseAll,
 }: {
   groups: readonly CompleteStageGroup[];
-  defaultExpandedStageId: string | null;
+  expandedStageIds: ReadonlySet<string>;
+  onToggleStage: (stageId: string, expanded: boolean) => void;
+  onExpandIssues: () => void;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
 }) {
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/60 bg-white/45 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="min-w-0">
+          <h4 className="text-sm font-bold text-slate-950">Deployment Evidence</h4>
+          <p className="mt-1 text-xs text-slate-600">
+            Expand only the evidence you need; all stage details remain available.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            aria-label="Expand stages with issues, blockers, warnings, conflicts, or errors"
+            onClick={onExpandIssues}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Expand issues
+          </button>
+          <button
+            type="button"
+            aria-label="Expand all deployment evidence stages"
+            onClick={onExpandAll}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Expand all
+          </button>
+          <button
+            type="button"
+            aria-label="Collapse all deployment evidence stages"
+            onClick={onCollapseAll}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Collapse all
+          </button>
+        </div>
+      </div>
       {groups.map((group) => (
         <section key={group.name} className="rounded-2xl border border-white/60 bg-white/45 p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between gap-3 px-1">
-            <h4 className="text-sm font-bold text-slate-950">{group.name}</h4>
-            <span className="text-xs font-semibold text-slate-500">{group.stages.length} stages</span>
+          <div className="mb-2 flex min-w-0 items-center justify-between gap-3 px-1">
+            <h4 className="min-w-0 truncate text-sm font-bold text-slate-950" title={group.name}>{group.name}</h4>
+            <span className="shrink-0 text-xs font-semibold text-slate-500">{group.stages.length} stages</span>
           </div>
-          <div className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white/75">
+          <div className="min-w-0 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white/75">
             {group.stages.map((stage) => (
               <CompleteStageRow
                 key={stage.id}
                 stage={stage}
-                defaultExpanded={stage.id === defaultExpandedStageId}
+                expanded={expandedStageIds.has(stage.id)}
+                onToggle={(expanded) => onToggleStage(stage.id, expanded)}
               />
             ))}
           </div>
@@ -1958,13 +2016,15 @@ function CompleteStageGroups({
 
 function CompleteStageRow({
   stage,
-  defaultExpanded,
+  expanded,
+  onToggle,
 }: {
   stage: CompleteStage;
-  defaultExpanded: boolean;
+  expanded: boolean;
+  onToggle: (expanded: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
   const panelId = `complete-stage-${stage.id}`;
+  const primaryMetrics = stage.metrics.slice(0, 2);
   const statusTone = stage.blockers > 0 || stage.issues.length > 0 || stage.status.toLowerCase().includes("error") || stage.status.toLowerCase().includes("conflict")
     ? "text-amber-700"
     : isPositiveCompleteStage(stage)
@@ -1972,13 +2032,13 @@ function CompleteStageRow({
       : "text-slate-500";
 
   return (
-    <article className="bg-white/80">
+    <article className="min-w-0 bg-white/80">
       <button
         type="button"
         aria-expanded={expanded}
         aria-controls={panelId}
-        onClick={() => setExpanded((current) => !current)}
-        className="flex w-full items-start gap-3 px-3 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:items-center sm:px-4"
+        onClick={() => onToggle(!expanded)}
+        className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] gap-3 px-3 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:px-4"
       >
         <span className={`mt-0.5 shrink-0 ${statusTone}`} aria-hidden="true">
           {stage.blockers > 0 || stage.issues.length > 0 ? (
@@ -1989,46 +2049,55 @@ function CompleteStageRow({
             <Minus className="h-5 w-5" />
           )}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-950">{stage.name}</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-slate-600">
+        <span className="min-w-0">
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 max-w-full truncate font-semibold text-slate-950" title={stage.name}>{stage.name}</span>
+            <span className="max-w-full truncate rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-slate-600" title={stage.status}>
               {stage.status}
             </span>
             {stage.blockers > 0 ? <StageBadge label="Blockers" value={stage.blockers} tone="amber" /> : null}
             {stage.warnings > 0 ? <StageBadge label="Warnings" value={stage.warnings} tone="blue" /> : null}
           </span>
-          <span className="mt-1 block truncate text-sm text-slate-600">{stage.result}</span>
+          <span className="mt-1 block min-w-0 truncate text-sm text-slate-600" title={stage.result}>{stage.result}</span>
+          <span className="mt-2 flex min-w-0 flex-wrap gap-2 sm:hidden">
+            {primaryMetrics.map((metric) => (
+              <MetricChip key={metric.label} metric={metric} />
+            ))}
+          </span>
         </span>
-        <span className="hidden shrink-0 gap-2 sm:flex">
-          {stage.metrics.slice(0, 2).map((metric) => (
-            <span key={metric.label} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
-              {metric.label}: {String(metric.value ?? "none")}
-            </span>
-          ))}
+        <span className="flex min-w-0 shrink-0 items-start gap-2 justify-self-end">
+          <span className="hidden max-w-[22rem] min-w-0 flex-wrap justify-end gap-2 lg:flex">
+            {primaryMetrics.map((metric) => (
+              <MetricChip key={metric.label} metric={metric} />
+            ))}
+          </span>
+          <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
         </span>
-        <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {expanded ? (
-        <div id={panelId} className="border-t border-slate-200 bg-slate-50/80 px-3 py-4 sm:px-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div id={panelId} className="min-w-0 border-t border-slate-200 bg-slate-50/80 px-3 py-4 sm:px-4">
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {stage.metrics.map((metric) => (
-              <div key={metric.label} className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-slate-500">{metric.label}</p>
-                <p className="mt-1 break-words text-sm font-semibold text-slate-950">{String(metric.value ?? "none")}</p>
+              <div key={metric.label} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                <p className="truncate text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-slate-500" title={metric.label}>{metric.label}</p>
+                <p className="mt-1 min-w-0 truncate text-sm font-semibold text-slate-950" title={String(metric.value ?? "none")}>{String(metric.value ?? "none")}</p>
               </div>
             ))}
           </div>
           <CompleteStageIssues stage={stage} />
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Structured Evidence</p>
-            <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-950 p-3 text-[0.68rem] leading-4 text-slate-100">
-              {safeEvidenceText(stage.evidence)}
-            </pre>
-          </div>
+          <StructuredEvidenceDisclosure stage={stage} />
         </div>
       ) : null}
     </article>
+  );
+}
+
+function MetricChip({ metric }: { metric: CompleteStageMetric }) {
+  const value = String(metric.value ?? "none");
+  return (
+    <span className="max-w-full truncate rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700" title={`${metric.label}: ${value}`}>
+      {metric.label}: {value}
+    </span>
   );
 }
 
@@ -2036,11 +2105,13 @@ function StageBadge({ label, value, tone }: { label: string; value: number; tone
   const classes = tone === "amber"
     ? "border-amber-200 bg-amber-50 text-amber-800"
     : "border-blue-200 bg-blue-50 text-blue-800";
-  return <span className={`rounded-full border px-2 py-0.5 text-[0.68rem] font-semibold ${classes}`}>{label}: {value}</span>;
+  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[0.68rem] font-semibold ${classes}`}>{label}: {value}</span>;
 }
 
 function CompleteStageIssues({ stage }: { stage: CompleteStage }) {
-  if (stage.issues.length === 0) {
+  const issueGroups = groupCompleteStageIssues(stage.issues);
+
+  if (issueGroups.length === 0) {
     return null;
   }
 
@@ -2048,13 +2119,18 @@ function CompleteStageIssues({ stage }: { stage: CompleteStage }) {
     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
       <p className="text-xs font-semibold uppercase tracking-[0.08em]">{stage.name} Issues</p>
       <ul className="mt-2 space-y-2 text-xs">
-        {stage.issues.map((issue, index) => (
-          <li key={`${stage.id}-${readString(issue, "code") ?? index}`} className="break-words">
-            <span className="font-semibold">{readString(issue, "severity") ?? "issue"}: {readString(issue, "code") ?? "unknown"}</span>{" "}
-            {readString(issue, "message") ?? "No issue message returned."}
-            {readRecord(issue.diagnostics) ? (
-              <span className="mt-1 block font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
-                {JSON.stringify(issue.diagnostics)}
+        {issueGroups.map((issue) => (
+          <li key={issue.key} className="min-w-0 break-words rounded-md bg-white/45 p-2">
+            <span className="font-semibold">{issue.severity}: {issue.code}</span>{" "}
+            <span>{issue.message}</span>
+            {issue.count > 1 ? <span className="ml-1 font-semibold">x{issue.count}</span> : null}
+            {issue.diagnostics.length > 0 ? (
+              <span className="mt-1 block space-y-1 font-mono text-[0.68rem] font-normal leading-4 text-amber-900">
+                {issue.diagnostics.map((diagnostic: unknown, index: number) => (
+                  <span key={`${issue.key}-diagnostic-${index}`} className="block overflow-x-auto whitespace-pre-wrap break-words">
+                    {JSON.stringify(diagnostic)}
+                  </span>
+                ))}
               </span>
             ) : null}
           </li>
@@ -2064,6 +2140,62 @@ function CompleteStageIssues({ stage }: { stage: CompleteStage }) {
   );
 }
 
+function groupCompleteStageIssues(issues: readonly Record<string, unknown>[]): readonly CompleteStageIssueGroup[] {
+  const groups = new Map<string, CompleteStageIssueGroup>();
+
+  for (const issue of issues) {
+    const severity = readString(issue, "severity") ?? "issue";
+    const code = readString(issue, "code") ?? "unknown";
+    const message = readString(issue, "message") ?? "No issue message returned.";
+    const diagnostics = readRecord(issue.diagnostics);
+    const key = diagnostics ? `${severity}:${code}:${message}:${JSON.stringify(diagnostics)}` : `${severity}:${code}:${message}`;
+    const current = groups.get(key);
+
+    if (current) {
+      groups.set(key, {
+        ...current,
+        count: current.count + 1,
+      });
+    } else {
+      groups.set(key, {
+        key,
+        severity,
+        code,
+        message,
+        count: 1,
+        diagnostics: diagnostics ? [diagnostics] : [],
+      });
+    }
+  }
+
+  return [...groups.values()];
+}
+
+function StructuredEvidenceDisclosure({ stage }: { stage: CompleteStage }) {
+  const [expanded, setExpanded] = useState(false);
+  const panelId = `complete-stage-${stage.id}-structured-evidence`;
+
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        aria-label={`Toggle structured evidence for ${stage.name}`}
+        onClick={() => setExpanded((current) => !current)}
+        className="flex w-full min-w-0 items-center justify-between gap-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      >
+        <span className="min-w-0 truncate">Structured Evidence</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {expanded ? (
+        <pre id={panelId} className="mt-2 max-h-72 max-w-full overflow-auto whitespace-pre rounded-md bg-slate-950 p-3 text-[0.68rem] leading-4 text-slate-100">
+          {safeEvidenceText(stage.evidence)}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
 function KnownLimitations() {
   const limitations = [
     "Rollback execution is unavailable.",
@@ -2200,6 +2332,25 @@ function CompleteStep({
     deploymentProviderShellActivation,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
+  const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
+  const [manuallyExpandedStageIds, setManuallyExpandedStageIds] = useState<Set<string> | null>(null);
+  const expandedStageIds = manuallyExpandedStageIds ?? new Set(defaultExpandedStageIds);
+  const allStageIds = stageGroups.flatMap((group) => group.stages.map((stage) => stage.id));
+  const issueStageIds = stageGroups.flatMap((group) => group.stages.filter(shouldExpandForIssues).map((stage) => stage.id));
+  const toggleStageExpansion = (stageId: string, expanded: boolean) => {
+    setManuallyExpandedStageIds((current) => {
+      const next = new Set(current ?? defaultExpandedStageIds);
+      if (expanded) {
+        next.add(stageId);
+      } else {
+        next.delete(stageId);
+      }
+      return next;
+    });
+  };
+  const expandIssueStages = () => setManuallyExpandedStageIds(new Set(issueStageIds));
+  const expandAllStages = () => setManuallyExpandedStageIds(new Set(allStageIds));
+  const collapseAllStages = () => setManuallyExpandedStageIds(new Set());
   const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
   const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
   const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
@@ -2375,7 +2526,11 @@ function CompleteStep({
             <div className="min-w-0">
               <CompleteStageGroups
                 groups={stageGroups}
-                defaultExpandedStageId={stageSummary.currentStage?.id ?? null}
+                expandedStageIds={expandedStageIds}
+                onToggleStage={toggleStageExpansion}
+                onExpandIssues={expandIssueStages}
+                onExpandAll={expandAllStages}
+                onCollapseAll={collapseAllStages}
               />
             </div>
             <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
