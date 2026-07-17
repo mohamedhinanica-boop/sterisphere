@@ -499,9 +499,7 @@ function targetStateMatchesProvider(
   targetState: Record<string, unknown> | null,
   provider: DeploymentProviderShellExecutionItemCompletionProviderSnapshot,
 ): boolean {
-  return stringField(targetState, "deploymentProviderKey") === provider.deploymentProviderKey &&
-    stringField(targetState, "provisioningSource") === "setup_draft" &&
-    stringField(targetState, "provisioningStatus") === provider.provisioningStatus &&
+  return stringField(targetState, "provisioningStatus") === provider.provisioningStatus &&
     targetState?.active === provider.active;
 }
 

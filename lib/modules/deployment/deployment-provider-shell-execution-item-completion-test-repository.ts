@@ -264,7 +264,7 @@ export function item(
       : { deploymentProviderKey: providerKey, provisioningSource: "setup_draft", provisioningStatus: "placeholder", active: false },
     targetState: isClinic
       ? { deploymentStatus: "deployed" }
-      : { deploymentProviderKey: providerKey, provisioningSource: "setup_draft", provisioningStatus: "active", active: true },
+      : { provisioningStatus: "active", active: true },
     dependencyKeys: isClinic ? [] : [planItemKey(sequence - 1)],
     reversible: true,
     ...input,
