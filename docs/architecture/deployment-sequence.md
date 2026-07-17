@@ -1506,3 +1506,9 @@ The live RC8 sequence remains authoritative and continues to invoke entity activ
 The proposed one-item sequence is `durable already-running execution item -> generic execution-step lifecycle validation -> generic entity executor runner -> separate item-completion runner -> separate dependency-progression runner -> separate next-item-start runner -> structured token-safe orchestration result -> stop`. Later stages run only after explicit safe outcomes from the prior stage, and each runner can be invoked at most once. `no_runnable_item` and `plan_complete` are safe step terminals only; they do not complete a session or finalize a deployment.
 
 Slice 2A is TypeScript-only and uses compile-checked in-memory runners. It does not call the RC8 production services, replace setup orchestration, find or iterate plan items, retry, recurse, roll back, compensate, schedule work, run workers or queues, poll, stream, or change `DeploymentEngine.execute()`.
+
+## RC9 Slice 2B - Server-Composed One-Step Production Sequence
+
+The future controlled migration boundary is `running item -> server composition -> entity production adapter -> generic entity executor -> completion production adapter -> completion boundary -> progression production adapter -> progression boundary -> next-start production adapter -> next-start boundary -> structured token-safe result -> stop`. Stage gating remains the Slice 2A contract, with at most one call per eligible stage and immediate stop after an unsafe, thrown, malformed, or unexpected result.
+
+This helper is not invoked from setup actions, routes, UI, workers, queues, scheduled tasks, polling, streaming, or background jobs. The verified RC8 chain remains authoritative. Slice 2B performs no plan loop, recursion, retry, session completion, deployment finalization, rollback, or `DeploymentEngine.execute()` change.

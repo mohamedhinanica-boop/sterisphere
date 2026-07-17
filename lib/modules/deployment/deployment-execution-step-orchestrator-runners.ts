@@ -12,6 +12,9 @@ export interface DeploymentExecutionStepRunnerInput {
   context: DeploymentExecutionStepOrchestratorContext;
   item: DeploymentExecutionStepOrchestratorItem;
 }
+export interface DeploymentExecutionStepItemCompletionRunnerInput extends DeploymentExecutionStepRunnerInput { entityExecution: DeploymentActivationExecutorResult; }
+export interface DeploymentExecutionStepDependencyProgressionRunnerInput extends DeploymentExecutionStepItemCompletionRunnerInput { itemCompletion: DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepCompletionStatus>; }
+export interface DeploymentExecutionStepNextItemStartRunnerInput extends DeploymentExecutionStepDependencyProgressionRunnerInput { dependencyProgression: DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepProgressionStatus>; }
 
 export interface DeploymentExecutionStepEntityRunner {
   readonly runnerId: string;
@@ -20,17 +23,17 @@ export interface DeploymentExecutionStepEntityRunner {
 
 export interface DeploymentExecutionStepItemCompletionRunner {
   readonly runnerId: string;
-  completeItem(input: DeploymentExecutionStepRunnerInput): Promise<DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepCompletionStatus>> | DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepCompletionStatus>;
+  completeItem(input: DeploymentExecutionStepItemCompletionRunnerInput): Promise<DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepCompletionStatus>> | DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepCompletionStatus>;
 }
 
 export interface DeploymentExecutionStepDependencyProgressionRunner {
   readonly runnerId: string;
-  progressDependencies(input: DeploymentExecutionStepRunnerInput): Promise<DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepProgressionStatus>> | DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepProgressionStatus>;
+  progressDependencies(input: DeploymentExecutionStepDependencyProgressionRunnerInput): Promise<DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepProgressionStatus>> | DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepProgressionStatus>;
 }
 
 export interface DeploymentExecutionStepNextItemStartRunner {
   readonly runnerId: string;
-  startNextItem(input: DeploymentExecutionStepRunnerInput): Promise<DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepNextStartStatus>> | DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepNextStartStatus>;
+  startNextItem(input: DeploymentExecutionStepNextItemStartRunnerInput): Promise<DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepNextStartStatus>> | DeploymentExecutionStepOrchestratorStageResult<DeploymentExecutionStepNextStartStatus>;
 }
 
 export interface DeploymentExecutionStepOrchestratorRunners {

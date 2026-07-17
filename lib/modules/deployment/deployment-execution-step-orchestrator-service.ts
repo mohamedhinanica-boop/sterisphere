@@ -40,13 +40,16 @@ export class DeploymentExecutionStepOrchestratorService {
     const entity = await this.runEntity(runnerInput);
     if (!ENTITY_SAFE.has(entity.status)) return result(input, overallStatus(entity.status), "entity_execution", [], entity, null, null, null, entityIssues(entity));
 
-    const completion = await this.runStage("item_completion", this.runners.itemCompletion.runnerId, context.ownershipToken, COMPLETION_STATUSES, () => this.runners.itemCompletion.completeItem(runnerInput));
+    const completionInput = Object.freeze({ ...runnerInput, entityExecution: clone(entity) });
+    const completion = await this.runStage("item_completion", this.runners.itemCompletion.runnerId, context.ownershipToken, COMPLETION_STATUSES, () => this.runners.itemCompletion.completeItem(completionInput));
     if (!COMPLETION_SAFE.has(completion.status)) return result(input, overallStatus(completion.status), "item_completion", ["entity_execution"], entity, completion as CompletionResult, null, null, completion.issues);
 
-    const progression = await this.runStage("dependency_progression", this.runners.dependencyProgression.runnerId, context.ownershipToken, PROGRESSION_STATUSES, () => this.runners.dependencyProgression.progressDependencies(runnerInput));
+    const progressionInput = Object.freeze({ ...completionInput, itemCompletion: clone(completion as CompletionResult) });
+    const progression = await this.runStage("dependency_progression", this.runners.dependencyProgression.runnerId, context.ownershipToken, PROGRESSION_STATUSES, () => this.runners.dependencyProgression.progressDependencies(progressionInput));
     if (!PROGRESSION_SAFE.has(progression.status)) return result(input, overallStatus(progression.status), "dependency_progression", ["entity_execution", "item_completion"], entity, completion as CompletionResult, progression as ProgressionResult, null, progression.issues);
 
-    const nextStart = await this.runStage("next_item_start", this.runners.nextItemStart.runnerId, context.ownershipToken, NEXT_STATUSES, () => this.runners.nextItemStart.startNextItem(runnerInput));
+    const nextStartInput = Object.freeze({ ...progressionInput, dependencyProgression: clone(progression as ProgressionResult) });
+    const nextStart = await this.runStage("next_item_start", this.runners.nextItemStart.runnerId, context.ownershipToken, NEXT_STATUSES, () => this.runners.nextItemStart.startNextItem(nextStartInput));
     if (!NEXT_SAFE.has(nextStart.status)) return result(input, overallStatus(nextStart.status), "next_item_start", ["entity_execution", "item_completion", "dependency_progression"], entity, completion as CompletionResult, progression as ProgressionResult, nextStart as NextResult, nextStart.issues);
 
     return result(input, "completed_step", "next_item_start", STAGES, entity, completion as CompletionResult, progression as ProgressionResult, nextStart as NextResult, []);
