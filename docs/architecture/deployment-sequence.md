@@ -1500,3 +1500,9 @@ Unsupported entity/action pairs such as sterilizer_shell:activate, workstation_s
 The staged future sequence is `durable running execution item -> server-only generic executor composition -> generic lifecycle validation -> explicit entityType + action handler dispatch -> existing clinic/provider atomic activation boundary -> token-safe generic result -> stop`. The helper accepts one explicit context and one explicit already-running item, invokes at most one handler once, returns the existing generic result, and does not inspect another plan item.
 
 The live RC8 sequence remains authoritative and continues to invoke entity activation, execution-item completion, dependency progression, and next-item start explicitly. Slice 1C is not wired into setup actions or UI and adds no completion, progression, next-item start, loops, retries, workers, queues, polling, streaming, background work, rollback, finalization, SQL, RPC changes, or `DeploymentEngine.execute()` changes.
+
+## RC9 Slice 2A - Generic One-Step Orchestrator Sequence Foundation
+
+The proposed one-item sequence is `durable already-running execution item -> generic execution-step lifecycle validation -> generic entity executor runner -> separate item-completion runner -> separate dependency-progression runner -> separate next-item-start runner -> structured token-safe orchestration result -> stop`. Later stages run only after explicit safe outcomes from the prior stage, and each runner can be invoked at most once. `no_runnable_item` and `plan_complete` are safe step terminals only; they do not complete a session or finalize a deployment.
+
+Slice 2A is TypeScript-only and uses compile-checked in-memory runners. It does not call the RC8 production services, replace setup orchestration, find or iterate plan items, retry, recurse, roll back, compensate, schedule work, run workers or queues, poll, stream, or change `DeploymentEngine.execute()`.

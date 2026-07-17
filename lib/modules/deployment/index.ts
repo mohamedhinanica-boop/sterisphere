@@ -28,3 +28,4 @@ export * from "./deployment-types";
 export * from "./deployment-validation";
 export * from "./repositories";
 export * from "./deployment-activation-executor-index";
+export * from "./deployment-execution-step-orchestrator-index";
