@@ -76,6 +76,7 @@ export async function runDeploymentProviderShellExecutionItemCompletionSupabaseR
     scenarioNoGenericMutationMethods(),
     await scenarioNoRetryFallbackPath(),
     scenarioSqlMutationBoundarySourceAssertions(),
+    scenarioExecutionItemSchemaContract(),
   ];
 
   return { passed: scenarios.every((scenario) => scenario.passed), scenarios };
@@ -201,6 +202,23 @@ function scenarioSqlMutationBoundarySourceAssertions() {
   return expectScenario("SQL mutation-boundary source assertions", selectedItemOnly && writesOnlyCompletion && identitySafe, JSON.stringify({ selectedItemOnly, writesOnlyCompletion, identitySafe }));
 }
 
+function scenarioExecutionItemSchemaContract() {
+  const fs = require("fs") as typeof import("fs");
+  const schema = fs.readFileSync("docs/architecture/supabase_deployment_activation_execution.sql", "utf8").toLowerCase();
+  const repository = fs.readFileSync("lib/modules/deployment/deployment-provider-shell-execution-item-completion-supabase-repository.ts", "utf8").toLowerCase();
+  const table = schema.match(/create table if not exists public\.deployment_activation_execution_items \(([\s\S]*?)\n\);/)?.[1] ?? "";
+  const hasAuthoritativeExecutionEvidence = /execution_evidence\s+jsonb\s+not null\s+default\s+'\{\}'::jsonb/.test(table);
+  const hasNullableRollbackTimestamp = /rolled_back_at\s+timestamptz(?:\s+null)?\s*(?:,|$)/m.test(table);
+  const noRollbackEvidenceColumn = !/\brollback_evidence\b/.test(table);
+  const repositoryUsesRollbackTimestamp = repository.includes('"rolled_back_at"') && repository.includes("rolledbackat: row.rolled_back_at");
+  const repositoryDoesNotProjectMissingColumn = !repository.includes('"rollback_evidence"') && !repository.includes("row.rollback_evidence");
+  const executionEvidenceMeaningPreserved = schema.includes("prepared dependency evidence") && !repository.includes("execution_evidence");
+  return expectScenario(
+    "execution-item schema contract",
+    hasAuthoritativeExecutionEvidence && hasNullableRollbackTimestamp && noRollbackEvidenceColumn && repositoryUsesRollbackTimestamp && repositoryDoesNotProjectMissingColumn && executionEvidenceMeaningPreserved,
+    JSON.stringify({ hasAuthoritativeExecutionEvidence, hasNullableRollbackTimestamp, noRollbackEvidenceColumn, repositoryUsesRollbackTimestamp, repositoryDoesNotProjectMissingColumn, executionEvidenceMeaningPreserved }),
+  );
+}
 function expectNoMethods(name: string, forbidden: readonly string[]) {
   const prototype = SupabaseDeploymentProviderShellExecutionItemCompletionRepository.prototype as Record<string, unknown>;
   return expectScenario(name, forbidden.every((method) => !(method in prototype)), forbidden.filter((method) => method in prototype).join(","));
@@ -210,7 +228,7 @@ function query() { return { clinicId: CLINIC_ID, deploymentRunId: DEPLOYMENT_RUN
 function command(input: Partial<DeploymentProviderShellExecutionAtomicItemCompletionCommand> = {}): DeploymentProviderShellExecutionAtomicItemCompletionCommand { return { clinicId: CLINIC_ID, deploymentRunId: DEPLOYMENT_RUN_KEY, sessionId: SESSION_ID, executionKey: EXECUTION_KEY, claimantId: CLAIMANT_ID, ownershipToken: TOKEN, expectedLeaseExpiresAt: LEASE, itemId: ITEM_ID, executionItemKey: EXECUTION_ITEM_KEY, planItemKey: PLAN_ITEM_KEY, expectedSequence: 2, expectedEntityType: "provider_shell", expectedEntityId: PROVIDER_ID, expectedDeploymentProviderKey: PROVIDER_KEY, expectedAction: "activate", expectedItemStartedAt: STARTED_AT, expectedAttemptCount: 1, providerId: PROVIDER_ID, expectedProviderState: providerState(), expectedTargetState: providerState(), proposedCompletedAt: COMPLETED_AT, ...input }; }
 function providerState() { return { deploymentProviderKey: PROVIDER_KEY, provisioningSource: "setup_draft", provisioningStatus: "active", active: true }; }
 function sessionRow(input: Partial<Record<string, unknown>> = {}) { return { id: SESSION_ID, clinic_id: CLINIC_ID, deployment_run_key: DEPLOYMENT_RUN_KEY, execution_key: EXECUTION_KEY, preparation_status: "ready", execution_status: "running", execution_owner: CLAIMANT_ID, ownership_token: TOKEN, lease_expires_at: LEASE, started_at: "2026-01-01T12:00:00.000Z", completed_at: null, failed_at: null, items_requested: 3, created_at: "2026-01-01T00:00:00.000Z", ...input }; }
-function itemRow(sequence = 2, input: Partial<ProviderShellItemCompletionItemRow> = {}): ProviderShellItemCompletionItemRow { const isClinic = sequence === 1; return { id: isClinic ? "55555555-5555-4555-8555-555555555555" : ITEM_ID, session_id: SESSION_ID, execution_item_key: isClinic ? `${EXECUTION_KEY}:${PLAN_KEY}:clinic` : sequence === 2 ? EXECUTION_ITEM_KEY : `${EXECUTION_KEY}:${PLAN_KEY}:provider-002`, plan_item_key: isClinic ? `${PLAN_KEY}:clinic` : sequence === 2 ? PLAN_ITEM_KEY : `${PLAN_KEY}:provider-002`, sequence, entity_type: isClinic ? "clinic" : "provider_shell", entity_id: isClinic ? CLINIC_ID : PROVIDER_ID, deployment_key: isClinic ? CLINIC_ID : PROVIDER_KEY, action: "activate", execution_status: isClinic ? "succeeded" : sequence === 2 ? "running" : "pending", attempt_count: sequence === 3 ? 0 : 1, started_at: isClinic ? "2026-01-01T12:01:00.000Z" : sequence === 2 ? STARTED_AT : null, completed_at: isClinic ? "2026-01-01T12:02:00.000Z" : null, rolled_back_at: null, error_code: null, error_message: null, expected_current_state: isClinic ? { deploymentStatus: "draft" } : { deploymentProviderKey: PROVIDER_KEY, provisioningSource: "setup_draft", provisioningStatus: "placeholder", active: false }, target_state: isClinic ? { deploymentStatus: "deployed" } : providerState(), dependency_keys: isClinic ? [] : [`${PLAN_KEY}:clinic`], reversible: true, rollback_evidence: null, ...input }; }
+function itemRow(sequence = 2, input: Partial<ProviderShellItemCompletionItemRow> = {}): ProviderShellItemCompletionItemRow { const isClinic = sequence === 1; return { id: isClinic ? "55555555-5555-4555-8555-555555555555" : ITEM_ID, session_id: SESSION_ID, execution_item_key: isClinic ? `${EXECUTION_KEY}:${PLAN_KEY}:clinic` : sequence === 2 ? EXECUTION_ITEM_KEY : `${EXECUTION_KEY}:${PLAN_KEY}:provider-002`, plan_item_key: isClinic ? `${PLAN_KEY}:clinic` : sequence === 2 ? PLAN_ITEM_KEY : `${PLAN_KEY}:provider-002`, sequence, entity_type: isClinic ? "clinic" : "provider_shell", entity_id: isClinic ? CLINIC_ID : PROVIDER_ID, deployment_key: isClinic ? CLINIC_ID : PROVIDER_KEY, action: "activate", execution_status: isClinic ? "succeeded" : sequence === 2 ? "running" : "pending", attempt_count: sequence === 3 ? 0 : 1, started_at: isClinic ? "2026-01-01T12:01:00.000Z" : sequence === 2 ? STARTED_AT : null, completed_at: isClinic ? "2026-01-01T12:02:00.000Z" : null, rolled_back_at: null, error_code: null, error_message: null, expected_current_state: isClinic ? { deploymentStatus: "draft" } : { deploymentProviderKey: PROVIDER_KEY, provisioningSource: "setup_draft", provisioningStatus: "placeholder", active: false }, target_state: isClinic ? { deploymentStatus: "deployed" } : providerState(), dependency_keys: isClinic ? [] : [`${PLAN_KEY}:clinic`], reversible: true, ...input }; }
 function providerRow(input: Partial<ProviderShellItemCompletionProviderRow> = {}): ProviderShellItemCompletionProviderRow { return { id: PROVIDER_ID, clinic_id: CLINIC_ID, deployment_provider_key: PROVIDER_KEY, provisioning_source: "setup_draft", provisioning_status: "active", active: true, updated_at: "2026-01-01T12:07:00.000Z", ...input }; }
 function rpcRow(input: Partial<Record<string, unknown>> = {}) { return { status: "completed", claimant_id: CLAIMANT_ID, clinic_id: CLINIC_ID, deployment_run_key: DEPLOYMENT_RUN_KEY, session_id: SESSION_ID, execution_key: EXECUTION_KEY, item_id: ITEM_ID, execution_item_key: EXECUTION_ITEM_KEY, plan_item_key: PLAN_ITEM_KEY, sequence: 2, entity_type: "provider_shell", entity_id: PROVIDER_ID, deployment_provider_key: PROVIDER_KEY, action: "activate", provider_id: PROVIDER_ID, item_status_before: "running", item_status_after: "succeeded", started_at: STARTED_AT, completed_at: COMPLETED_AT, attempt_count: 1, issue_code: null, message: "Provider-shell item completed.", ...input }; }
 

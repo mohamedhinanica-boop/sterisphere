@@ -267,7 +267,6 @@ export function item(
       : { deploymentProviderKey: providerKey, provisioningSource: "setup_draft", provisioningStatus: "active", active: true },
     dependencyKeys: isClinic ? [] : [planItemKey(sequence - 1)],
     reversible: true,
-    rollbackEvidence: null,
     ...input,
   };
 }
@@ -359,7 +358,6 @@ function cloneItem(
     expectedCurrentState: source.expectedCurrentState ? JSON.parse(JSON.stringify(source.expectedCurrentState)) as Record<string, unknown> : null,
     targetState: source.targetState ? JSON.parse(JSON.stringify(source.targetState)) as Record<string, unknown> : null,
     dependencyKeys: [...source.dependencyKeys],
-    rollbackEvidence: source.rollbackEvidence ? JSON.parse(JSON.stringify(source.rollbackEvidence)) as Record<string, unknown> : null,
   };
 }
 

@@ -51,7 +51,6 @@ const ITEM_COLUMNS = [
   "target_state",
   "dependency_keys",
   "reversible",
-  "rollback_evidence",
 ].join(",");
 
 const PROVIDER_COLUMNS = [
@@ -104,7 +103,6 @@ export type ProviderShellItemCompletionItemRow = {
   target_state: unknown;
   dependency_keys: unknown;
   reversible: boolean | null;
-  rollback_evidence: unknown;
 };
 
 export type ProviderShellItemCompletionProviderRow = {
@@ -322,7 +320,6 @@ export function mapProviderShellItemCompletionItemRow(
     targetState: readNullableRecord(row.target_state),
     dependencyKeys: readStringArray(row.dependency_keys),
     reversible: row.reversible,
-    rollbackEvidence: readNullableRecord(row.rollback_evidence),
   };
 }
 

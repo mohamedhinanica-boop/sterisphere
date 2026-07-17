@@ -1518,3 +1518,9 @@ This helper is not invoked from setup actions, routes, UI, workers, queues, sche
 Clinic runtime is now `durable running clinic item -> setup clinic eligibility branch -> server execution-step helper -> clinic activation -> clinic item completion -> dependency progression -> at-most-one next-item start -> structured result -> stop`. The newly started item is not executed recursively. `no_runnable_item` and `plan_complete` remain safe terminals without session or deployment finalization.
 
 Provider runtime remains `running provider item -> explicit RC8 provider activation -> explicit provider completion -> explicit post-provider progression -> explicit post-provider next-item start -> stop`. Provisioning stage order is unchanged, and no other entity, worker, queue, polling, streaming, retry, rollback, or background path is migrated.
+
+## RC9 Slice 2C Hotfix A - Persistence contract only
+
+Provider item completion continues on the existing explicit RC8 sequence. Its snapshot now reads only columns in the authoritative execution-item table; `rolled_back_at` supplies rollback-completion evidence, while `rollback_action` and `rollback_status` retain their instruction and lifecycle meanings. `execution_evidence` remains prepared dependency evidence and is neither overwritten nor interpreted as rollback evidence.
+
+Clinic and provider ordering are unchanged. This hotfix adds no migration, runtime branch, fallback, retry, repair, loop, rollback execution, session completion, deployment finalization, or background work. Replace or safely reset the disposable partial deployment before running a fresh validation.

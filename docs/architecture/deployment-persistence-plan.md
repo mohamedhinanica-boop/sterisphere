@@ -1721,3 +1721,9 @@ No SQL, RPC signature, repository contract, raw RPC payload, fallback write, dir
 Clinic runtime persistence still uses the existing atomic RC8 boundaries; only their orchestration glue is composed through the generic one-step helper. The clinic dependency factory retains the trusted original claim and raw prior-stage results internally so each subsequent boundary receives its verified prerequisite evidence. The setup response preserves the existing clinic activation, completion, progression, and next-start evidence and adds the sanitized generic orchestration result without duplicating counters.
 
 No SQL, RPC signature, business mutation, repository, provider runtime, session completion, deployment finalization, rollback, or fallback persistence changes are included. Ownership credentials remain server-only input and are not exposed through setup evidence, diagnostics, messages, or logs.
+
+## RC9 Slice 2C Hotfix A - Execution-item persistence reconciliation
+
+The authoritative item evidence fields remain `execution_evidence jsonb not null default '{}'::jsonb` for prepared dependency evidence, `rollback_action text null` for the approved rollback instruction, `rollback_status text not null default 'not_started'` for rollback lifecycle, and `rolled_back_at timestamptz null` for completed rollback timing. `rollback_evidence` was never created, inserted, updated, or returned by an execution RPC; its provider-completion projection was stale and has been removed rather than mapped to `execution_evidence` or added as a duplicate column.
+
+This is a read-contract correction only. It rewrites no execution data and changes no setup orchestration, clinic generic runtime, provider RC8 runtime, RPC signature, fallback, retry, or repair behavior. Validation must use a new disposable clinic/setup identity or an existing documented safe reset process rather than manually editing provider or execution statuses.

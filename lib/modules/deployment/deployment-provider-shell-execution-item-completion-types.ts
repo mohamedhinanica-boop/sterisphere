@@ -122,7 +122,6 @@ export interface DeploymentProviderShellExecutionItemCompletionItemSnapshot {
   targetState: Record<string, unknown> | null;
   dependencyKeys: readonly string[];
   reversible: boolean | null;
-  rollbackEvidence: Record<string, unknown> | null;
 }
 
 export interface DeploymentProviderShellExecutionItemCompletionProviderSnapshot {
@@ -259,7 +258,6 @@ export function cloneProviderShellExecutionItemCompletionItem(
     expectedCurrentState: item.expectedCurrentState ? cloneRecord(item.expectedCurrentState) : null,
     targetState: item.targetState ? cloneRecord(item.targetState) : null,
     dependencyKeys: [...item.dependencyKeys],
-    rollbackEvidence: item.rollbackEvidence ? cloneRecord(item.rollbackEvidence) : null,
   };
 }
 

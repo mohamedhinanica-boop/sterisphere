@@ -290,7 +290,7 @@ function validateItem(
       issues.push(blocker("item_completion_before_start", session, item, provider, "Provider-shell item completed before it started."));
     }
   }
-  if (item.rolledBackAt !== null || item.rollbackEvidence !== null) {
+  if (item.rolledBackAt !== null) {
     issues.push(blocker("item_rollback_evidence_present", session, item, provider, "Provider-shell item has rollback evidence."));
   }
   if (item.errorCode !== null || item.errorMessage !== null) {
@@ -408,7 +408,7 @@ function validateSucceededItem(
   } else if (Date.parse(item.completedAt) < Date.parse(item.startedAt)) {
     issues.push(blocker("succeeded_item_completion_before_start", session, item, null, "Succeeded prior item completed before it started."));
   }
-  if (item.rolledBackAt !== null || item.rollbackEvidence !== null) {
+  if (item.rolledBackAt !== null) {
     issues.push(blocker("succeeded_item_rollback_evidence_present", session, item, null, "Succeeded prior item has rollback evidence."));
   }
   if (item.errorCode !== null || item.errorMessage !== null) {
@@ -426,7 +426,7 @@ function validateLaterItems(
   const issues: DeploymentProviderShellExecutionItemCompletionIssue[] = [];
 
   for (const later of items.filter((current) => current.sequence > item.sequence)) {
-    if (later.executionStatus !== "pending" || later.attemptCount !== 0 || later.startedAt !== null || later.completedAt !== null || later.rolledBackAt !== null || later.rollbackEvidence !== null || later.errorCode !== null || later.errorMessage !== null) {
+    if (later.executionStatus !== "pending" || later.attemptCount !== 0 || later.startedAt !== null || later.completedAt !== null || later.rolledBackAt !== null || later.errorCode !== null || later.errorMessage !== null) {
       issues.push(blocker("later_item_drift", session, later, null, "Later execution item has lifecycle drift."));
     }
   }
