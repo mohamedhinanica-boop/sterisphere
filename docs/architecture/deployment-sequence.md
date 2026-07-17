@@ -1512,3 +1512,9 @@ Slice 2A is TypeScript-only and uses compile-checked in-memory runners. It does 
 The future controlled migration boundary is `running item -> server composition -> entity production adapter -> generic entity executor -> completion production adapter -> completion boundary -> progression production adapter -> progression boundary -> next-start production adapter -> next-start boundary -> structured token-safe result -> stop`. Stage gating remains the Slice 2A contract, with at most one call per eligible stage and immediate stop after an unsafe, thrown, malformed, or unexpected result.
 
 This helper is not invoked from setup actions, routes, UI, workers, queues, scheduled tasks, polling, streaming, or background jobs. The verified RC8 chain remains authoritative. Slice 2B performs no plan loop, recursion, retry, session completion, deployment finalization, rollback, or `DeploymentEngine.execute()` change.
+
+## RC9 Slice 2C - Clinic-Only Runtime Sequence
+
+Clinic runtime is now `durable running clinic item -> setup clinic eligibility branch -> server execution-step helper -> clinic activation -> clinic item completion -> dependency progression -> at-most-one next-item start -> structured result -> stop`. The newly started item is not executed recursively. `no_runnable_item` and `plan_complete` remain safe terminals without session or deployment finalization.
+
+Provider runtime remains `running provider item -> explicit RC8 provider activation -> explicit provider completion -> explicit post-provider progression -> explicit post-provider next-item start -> stop`. Provisioning stage order is unchanged, and no other entity, worker, queue, polling, streaming, retry, rollback, or background path is migrated.

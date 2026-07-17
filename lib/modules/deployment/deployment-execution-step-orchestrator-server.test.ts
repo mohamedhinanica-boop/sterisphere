@@ -1,7 +1,7 @@
 import type { DeploymentActivationExecutorClinicActivationCommand, DeploymentActivationExecutorClinicActivationResult } from "./deployment-activation-executor-clinic-handler";
 import type { DeploymentActivationExecutorProviderShellActivationCommand, DeploymentActivationExecutorProviderShellActivationResult } from "./deployment-activation-executor-provider-shell-handler";
 import type { DeploymentExecutionStepRunnerInput } from "./deployment-execution-step-orchestrator-runners";
-import { executeDeploymentExecutionStepForServer, type ServerDeploymentExecutionStepOrchestratorDependencies } from "./deployment-execution-step-orchestrator-server";
+import { createServerClinicDeploymentExecutionStepDependencies, executeDeploymentExecutionStepForServer, type ServerDeploymentExecutionStepOrchestratorDependencies } from "./deployment-execution-step-orchestrator-server";
 import type { DeploymentExecutionStepCompletionStatus, DeploymentExecutionStepNextStartStatus, DeploymentExecutionStepOrchestratorContext, DeploymentExecutionStepOrchestratorItem, DeploymentExecutionStepProgressionStatus } from "./deployment-execution-step-orchestrator-types";
 import type { ServerDeploymentExecutionStepBoundaryIssue, ServerDeploymentExecutionStepCompletionBoundaryResult } from "./deployment-execution-step-completion-runner";
 import type { ServerDeploymentExecutionStepProgressionBoundaryResult } from "./deployment-execution-step-progression-runner";
@@ -26,6 +26,7 @@ export async function runDeploymentExecutionStepOrchestratorServerHarness(): Pro
     ...(await thrownScenarios()),
     adapterSurfaceScenario(),
     serverSourceSurfaceScenario(),
+    clinicRuntimeCompositionScenario(),
   ];
   return { passed: scenarios.every((current) => current.passed), scenarios };
 }
@@ -80,6 +81,12 @@ async function thrownScenarios() {
 function adapterSurfaceScenario() {
   const harness = createHarness(); const forbidden = ["repository", "supabase", "rpc", "insert", "update", "upsert", "delete", "retry", "rollback", "finalize"];
   return scenario("production adapters expose no generic repository retry or finalization surface", [harness.clinic, harness.provider, harness.completion, harness.progression, harness.next].every((adapter) => forbidden.every((name) => !(name in adapter))), "adapter objects checked");
+}
+function clinicRuntimeCompositionScenario() {
+  const source = String(createServerClinicDeploymentExecutionStepDependencies);
+  const required = ["activateClinicForServerDeployment", "completeActivationExecutionItemForServerDeployment", "progressActivationExecutionDependencyForServerDeployment", "startNextActivationExecutionItemForServerDeployment"];
+  const forbidden = ["activateProviderShellForServerDeployment", "completeProviderShellExecutionItemForServerDeployment", "retry", "while (", "for ("];
+  return scenario("clinic runtime composition delegates once per RC8 boundary without provider migration or loops", required.every((term) => source.includes(term)) && forbidden.every((term) => !source.includes(term)), "clinic-only source checked");
 }
 function serverSourceSurfaceScenario() {
   const source = String(executeDeploymentExecutionStepForServer); const forbidden = ["app/setup", "DeploymentEngine.execute", ".rpc(", "createClient", "for (", "while (", "setInterval", "worker", "queue", "poll", "stream"];

@@ -1715,3 +1715,9 @@ Counters are derived exclusively from typed stage statuses: fresh `handled`, `co
 The production adapters contain mapping and delegation only. Entity execution reuses the Slice 1C composition; completion, dependency progression, and next-start use injected wrappers around their existing atomic RC8 server boundaries. Unknown and `not_attempted` production outcomes map to deterministic error evidence. Conflicts and compatible reuse outcomes retain their distinct statuses, and `no_dependencies`, `no_runnable_item`, and `plan_complete` are not reinterpreted as fresh persistence or deployment finalization.
 
 No SQL, RPC signature, repository contract, raw RPC payload, fallback write, direct Supabase client construction, business-rule change, session completion, deployment finalization, or rollback is added. Ownership credentials are forwarded only inside stage inputs and sanitized from returned messages, issues, diagnostics, evidence, identifiers, and thrown errors.
+
+## RC9 Slice 2C - Clinic Runtime Persistence Migration Boundary
+
+Clinic runtime persistence still uses the existing atomic RC8 boundaries; only their orchestration glue is composed through the generic one-step helper. The clinic dependency factory retains the trusted original claim and raw prior-stage results internally so each subsequent boundary receives its verified prerequisite evidence. The setup response preserves the existing clinic activation, completion, progression, and next-start evidence and adds the sanitized generic orchestration result without duplicating counters.
+
+No SQL, RPC signature, business mutation, repository, provider runtime, session completion, deployment finalization, rollback, or fallback persistence changes are included. Ownership credentials remain server-only input and are not exposed through setup evidence, diagnostics, messages, or logs.
