@@ -1691,3 +1691,15 @@ The ordered runtime evidence path is: deployment_run, clinic_root, clinic_settin
 The generic activation executor foundation is intentionally persistence-free. It has no repository, RPC, SQL, setup action wiring, or operational mutation surface. Handler dispatch returns token-safe proposal evidence only, with downstream counters fixed at zero for entity activation, item completion, dependency progression, item start, binding, assignment finalization, session completion, deployment finalization, and rollback.
 
 Future slices may adapt existing entity-specific atomic boundaries behind explicit handlers, but item completion, dependency progression, next-item start, rollback, and finalization remain separate deterministic stages.
+
+## RC9 Slice 1B - Executor Adapter Persistence Boundary
+
+Clinic and provider-shell executor handlers use constructor-injected activation runners rather than generic repositories or database methods. The clinic adapter preserves clinic identity and deployment-run/session/item evidence. The provider-shell adapter keeps provider UUID entity identity separate from the deterministic deployment provider key, forwarding expected and target state without mutation.
+
+Generic executor downstream counters remain zero. Handler evidence may report safe entity-specific activation facts, but it does not claim item completion, dependency progression, item start, session completion, deployment finalization, rollback, or binding work.
+
+## RC9 Slice 1C - Server-Only Generic Executor Composition Persistence Boundary
+
+The server-only composition accepts narrow clinic and provider-shell activation runners and exposes no Supabase client, repository, RPC object, SQL payload, or generic CRUD interface. Existing entity-specific server boundaries remain responsible for snapshot loading, readiness and identity validation, compare-and-set rules, atomic mutation, idempotency, diagnostics, and mutation evidence. The generic `deploymentRunKey` is mapped to any entity-specific internal naming only inside the injected narrow runner adapter.
+
+The ownership credential remains input-only and is forwarded internally without appearing in generic results, handler evidence, issues, diagnostics, messages, or documentation examples. No SQL, RPC signature, fallback persistence, execution-item completion, dependency progression, next-item start, session completion, deployment finalization, rollback, runtime wiring, or background execution is added.

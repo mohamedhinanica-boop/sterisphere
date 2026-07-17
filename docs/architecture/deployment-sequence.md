@@ -1488,3 +1488,15 @@ Step 12 runs only after post-provider dependency progression returns progressed 
 The planned execution-control model now has a generic dispatch concept for one already-running execution item. The executor validates generic lifecycle evidence, resolves a canonical entityType:action dispatch key such as clinic:activate or provider_shell:activate, and calls one registered handler for proposal evidence.
 
 This slice does not alter the live sequence documented through RC8. It does not wire setup actions, replace explicit clinic/provider orchestration, activate entities, complete items, progress dependencies, start later items, loop over execution plans, add workers, poll, stream, create SQL, or change DeploymentEngine.execute().
+
+## RC9 Slice 1B - Handler Adapter Sequence Foundation
+
+The planned generic executor sequence now has concrete adapters for clinic:activate and provider_shell:activate: durable running item -> generic lifecycle validation -> explicit handler registry -> clinic/provider adapter -> injected entity activation boundary -> generic token-safe evidence.
+
+Unsupported entity/action pairs such as sterilizer_shell:activate, workstation_shell:activate, hardware_shell:activate, hardware_binding:bind, hardware_assignment:finalize, and deployment_run:finalize remain unsupported. The live RC8 setup sequence is not replaced or rewired in this slice.
+
+## RC9 Slice 1C - Server-Only One-Item Composition Sequence
+
+The staged future sequence is `durable running execution item -> server-only generic executor composition -> generic lifecycle validation -> explicit entityType + action handler dispatch -> existing clinic/provider atomic activation boundary -> token-safe generic result -> stop`. The helper accepts one explicit context and one explicit already-running item, invokes at most one handler once, returns the existing generic result, and does not inspect another plan item.
+
+The live RC8 sequence remains authoritative and continues to invoke entity activation, execution-item completion, dependency progression, and next-item start explicitly. Slice 1C is not wired into setup actions or UI and adds no completion, progression, next-item start, loops, retries, workers, queues, polling, streaming, background work, rollback, finalization, SQL, RPC changes, or `DeploymentEngine.execute()` changes.

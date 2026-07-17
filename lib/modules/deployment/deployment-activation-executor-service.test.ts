@@ -271,7 +271,7 @@ async function dispatch(
 function item(input: Partial<DeploymentActivationExecutorItem> = {}): DeploymentActivationExecutorItem {
   return {
     clinicId: "clinic-generic-executor-001",
-    deploymentRunId: "deployment-run-generic-executor-001",
+    deploymentRunKey: "deployment-run-generic-executor-001",
     sessionId: "activation-session-generic-executor-001",
     executionKey: "activation-execution-generic-executor-001",
     planKey: "activation-plan-generic-executor-001",

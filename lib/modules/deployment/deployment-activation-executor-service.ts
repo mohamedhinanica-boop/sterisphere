@@ -78,6 +78,7 @@ export class DeploymentActivationExecutorService {
         handlerId: handler.handlerId,
         issues: normalizeHandlerIssues(handlerResult, item, dispatchKey, handler.handlerId, context.ownershipToken),
         message: redactToken(handlerResult.message, context.ownershipToken),
+        handlerEvidence: sanitizeEvidence(handlerResult.handlerEvidence ?? null, context.ownershipToken),
       });
     } catch (caught) {
       const rawMessage = caught instanceof Error ? caught.message : "Activation executor handler failed safely.";
@@ -201,6 +202,7 @@ function buildResult(input: {
   handlerId: string | null;
   issues: readonly DeploymentActivationExecutorIssue[];
   message: string;
+  handlerEvidence?: Record<string, unknown> | null;
 }): DeploymentActivationExecutorResult {
   const issues = [...input.issues].sort(compareIssues);
 
@@ -211,7 +213,7 @@ function buildResult(input: {
     dispatchKey: input.dispatchKey,
     claimantId: input.context.claimantId || null,
     clinicId: input.item.clinicId,
-    deploymentRunId: input.item.deploymentRunId,
+    deploymentRunKey: input.item.deploymentRunKey,
     sessionId: input.item.sessionId,
     executionKey: input.item.executionKey,
     itemId: input.item.itemId,
@@ -230,6 +232,7 @@ function buildResult(input: {
     blockers: issues.filter((current) => current.severity === "blocker").length,
     warnings: issues.filter((current) => current.severity === "warning").length,
     issues,
+    handlerEvidence: input.handlerEvidence ?? null,
     downstream: zeroActivationExecutorDownstream(),
   };
 }
@@ -280,6 +283,37 @@ function compareIssues(
   );
 }
 
+function sanitizeEvidence(
+  value: Record<string, unknown> | null,
+  token: string,
+): Record<string, unknown> | null {
+  if (!value) {
+    return null;
+  }
+
+  return sanitizeValue(value, token) as Record<string, unknown>;
+}
+
+function sanitizeValue(value: unknown, token: string): unknown {
+  if (typeof value === "string") {
+    return redactToken(value, token);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeValue(entry, token));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+        key,
+        key.toLowerCase().includes("token") ? "[redacted]" : sanitizeValue(entry, token),
+      ]),
+    );
+  }
+
+  return value;
+}
 function redactToken(value: string, token: string): string {
   return token ? value.split(token).join("[redacted]") : value;
 }

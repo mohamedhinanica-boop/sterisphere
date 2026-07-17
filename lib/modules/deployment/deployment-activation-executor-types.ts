@@ -27,7 +27,7 @@ export type DeploymentActivationExecutorIssueCode =
 
 export interface DeploymentActivationExecutorItem {
   clinicId: string;
-  deploymentRunId: string;
+  deploymentRunKey: string;
   sessionId: string;
   executionKey: string;
   planKey: string;
@@ -77,6 +77,7 @@ export interface DeploymentActivationExecutorIssue {
   executionItemKey: string | null;
   planItemKey: string | null;
   sequence: number | null;
+  diagnostics?: Record<string, unknown> | null;
 }
 
 export interface DeploymentActivationExecutorDownstream {
@@ -95,6 +96,7 @@ export interface DeploymentActivationExecutorHandlerResult {
   status: DeploymentActivationExecutorStatus;
   message: string;
   issues?: readonly DeploymentActivationExecutorIssue[];
+  handlerEvidence?: Record<string, unknown> | null;
 }
 
 export interface DeploymentActivationExecutorResult {
@@ -104,7 +106,7 @@ export interface DeploymentActivationExecutorResult {
   dispatchKey: string;
   claimantId: string | null;
   clinicId: string | null;
-  deploymentRunId: string | null;
+  deploymentRunKey: string | null;
   sessionId: string | null;
   executionKey: string | null;
   itemId: string | null;
@@ -123,6 +125,7 @@ export interface DeploymentActivationExecutorResult {
   blockers: number;
   warnings: number;
   issues: readonly DeploymentActivationExecutorIssue[];
+  handlerEvidence: Record<string, unknown> | null;
   downstream: DeploymentActivationExecutorDownstream;
 }
 

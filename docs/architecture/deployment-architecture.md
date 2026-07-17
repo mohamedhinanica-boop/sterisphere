@@ -1147,3 +1147,15 @@ This wiring is mutation-limited to the established next-item-start boundary: at 
 RC9 introduces a TypeScript-only activation executor foundation for future entity/action dispatch. The executor accepts one already-running activation execution item, validates only generic execution lifecycle evidence, derives a canonical dispatch key from entityType and action, and invokes exactly one explicitly registered handler for that pair.
 
 The intended future architecture is: durable running execution item -> generic executor lifecycle validation -> explicit entity/action handler dispatch -> entity-specific atomic business mutation -> separate execution-item completion -> separate dependency progression -> separate next-item start. Slice 1A does not replace the current RC8 setup runtime chain, execute entity mutations, complete items, progress dependencies, start items, iterate through the plan, run background work, add SQL, or call Supabase.
+
+## RC9 Slice 1B - Clinic and Provider-Shell Executor Adapters
+
+The generic activation executor now has explicit dependency-injected adapters for clinic:activate and provider_shell:activate. Each adapter maps one already-running execution item and token-bearing executor context into a narrow activation runner dependency, then maps the activation outcome back into generic handled, already_applied, blocked, conflict, not_found, or error evidence.
+
+The adapters preserve the RC8 separation of concerns: they perform only the entity business mutation through injected activation boundaries. Execution-item completion, dependency progression, next-item start, rollback, finalization, looping, background work, setup action wiring, SQL, and DeploymentEngine.execute() remain unchanged.
+
+## RC9 Slice 1C - Server-Only Generic Executor Composition Boundary
+
+The future controlled migration path is `durable running execution item -> server-only generic executor composition -> generic lifecycle validation -> explicit entityType + action handler dispatch -> existing clinic/provider atomic activation boundary -> token-safe generic result -> stop`. `createServerDeploymentActivationExecutor` explicitly composes only the `clinic:activate` and `provider_shell:activate` handlers from narrow injected server activation runners. `executeActivationItemForServerDeployment` dispatches exactly one supplied item exactly once.
+
+This boundary is not invoked by setup actions, routes, workers, queues, scheduled work, polling, streaming, or UI. It does not replace the verified RC8 runtime, complete an item, progress dependencies, start another item, iterate a plan, mutate a session, finalize a deployment, retry, or roll back. It is a future migration boundary for only the selected entity-specific business mutation; `DeploymentEngine.execute()` remains unchanged.
