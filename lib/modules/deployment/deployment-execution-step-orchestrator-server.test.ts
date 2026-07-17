@@ -1,7 +1,7 @@
 import type { DeploymentActivationExecutorClinicActivationCommand, DeploymentActivationExecutorClinicActivationResult } from "./deployment-activation-executor-clinic-handler";
 import type { DeploymentActivationExecutorProviderShellActivationCommand, DeploymentActivationExecutorProviderShellActivationResult } from "./deployment-activation-executor-provider-shell-handler";
 import type { DeploymentExecutionStepRunnerInput } from "./deployment-execution-step-orchestrator-runners";
-import { createServerClinicDeploymentExecutionStepDependencies, executeDeploymentExecutionStepForServer, type ServerDeploymentExecutionStepOrchestratorDependencies } from "./deployment-execution-step-orchestrator-server";
+import { createServerClinicDeploymentExecutionStepDependencies, createServerProviderDeploymentExecutionStepDependencies, executeDeploymentExecutionStepForServer, type ServerDeploymentExecutionStepOrchestratorDependencies } from "./deployment-execution-step-orchestrator-server";
 import type { DeploymentExecutionStepCompletionStatus, DeploymentExecutionStepNextStartStatus, DeploymentExecutionStepOrchestratorContext, DeploymentExecutionStepOrchestratorItem, DeploymentExecutionStepProgressionStatus } from "./deployment-execution-step-orchestrator-types";
 import type { ServerDeploymentExecutionStepBoundaryIssue, ServerDeploymentExecutionStepCompletionBoundaryResult } from "./deployment-execution-step-completion-runner";
 import type { ServerDeploymentExecutionStepProgressionBoundaryResult } from "./deployment-execution-step-progression-runner";
@@ -27,6 +27,7 @@ export async function runDeploymentExecutionStepOrchestratorServerHarness(): Pro
     adapterSurfaceScenario(),
     serverSourceSurfaceScenario(),
     clinicRuntimeCompositionScenario(),
+    providerRuntimeCompositionScenario(),
   ];
   return { passed: scenarios.every((current) => current.passed), scenarios };
 }
@@ -87,6 +88,19 @@ function clinicRuntimeCompositionScenario() {
   const required = ["activateClinicForServerDeployment", "completeActivationExecutionItemForServerDeployment", "progressActivationExecutionDependencyForServerDeployment", "startNextActivationExecutionItemForServerDeployment"];
   const forbidden = ["activateProviderShellForServerDeployment", "completeProviderShellExecutionItemForServerDeployment", "retry", "while (", "for ("];
   return scenario("clinic runtime composition delegates once per RC8 boundary without provider migration or loops", required.every((term) => source.includes(term)) && forbidden.every((term) => !source.includes(term)), "clinic-only source checked");
+}
+function providerRuntimeCompositionScenario() {
+  const composition = String(createServerProviderDeploymentExecutionStepDependencies);
+  const actions = require("fs").readFileSync("app/setup/actions.ts", "utf8") as string;
+  const providerBranch = actions.slice(actions.indexOf("const preparedProviderItem"), actions.indexOf("return {", actions.indexOf("const preparedProviderItem")));
+  const helperCalls = providerBranch.match(/executeDeploymentExecutionStepForServer\(/g)?.length ?? 0;
+  const required = ["activateProviderShellForServerDeployment", "completeProviderShellExecutionItemForServerDeployment", "progressActivationExecutionDependencyForServerDeployment", "startNextActivationExecutionItemForServerDeployment"];
+  const noDirectOldCalls = !providerBranch.includes("await activateProviderShellForServerDeployment") && !providerBranch.includes("await completeProviderShellExecutionItemForServerDeployment") && !providerBranch.includes("await progressActivationExecutionDependencyForServerDeployment") && !providerBranch.includes("await startNextActivationExecutionItemForServerDeployment");
+  const identitiesPreserved = providerBranch.includes("entityId: preparedProviderItem.entityId") && providerBranch.includes("deploymentKey: preparedProviderItem.deploymentKey") && providerBranch.includes("deploymentRunKey: result.deploymentRun.deploymentRunId");
+  const clinicStillGeneric = actions.includes("const deploymentClinicExecutionStep") && actions.includes("createServerClinicDeploymentExecutionStepDependencies");
+  const bounded = !composition.includes("retry") && !composition.includes("while (") && !composition.includes("for (") && !composition.includes("completeSession") && !composition.includes("finalizeDeployment") && !composition.includes("rollback");
+  const noDatabaseCompositionInAction = !providerBranch.includes("createClient") && !providerBranch.includes(".rpc(") && !providerBranch.includes("p_ownership_token");
+  return scenario("provider runtime uses one generic step with preserved identity and no direct fallback", helperCalls === 1 && required.every((term) => composition.includes(term)) && noDirectOldCalls && identitiesPreserved && clinicStillGeneric && bounded && noDatabaseCompositionInAction, JSON.stringify({ helperCalls, noDirectOldCalls, identitiesPreserved, clinicStillGeneric, bounded, noDatabaseCompositionInAction }));
 }
 function serverSourceSurfaceScenario() {
   const source = String(executeDeploymentExecutionStepForServer); const forbidden = ["app/setup", "DeploymentEngine.execute", ".rpc(", "createClient", "for (", "while (", "setInterval", "worker", "queue", "poll", "stream"];

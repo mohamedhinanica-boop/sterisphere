@@ -1524,3 +1524,9 @@ Provider runtime remains `running provider item -> explicit RC8 provider activat
 Provider item completion continues on the existing explicit RC8 sequence. Its snapshot now reads only columns in the authoritative execution-item table; `rolled_back_at` supplies rollback-completion evidence, while `rollback_action` and `rollback_status` retain their instruction and lifecycle meanings. `execution_evidence` remains prepared dependency evidence and is neither overwritten nor interpreted as rollback evidence.
 
 Clinic and provider ordering are unchanged. This hotfix adds no migration, runtime branch, fallback, retry, repair, loop, rollback execution, session completion, deployment finalization, or background work. Replace or safely reset the disposable partial deployment before running a fresh validation.
+
+## RC9 Slice 2D - Provider generic execution sequence
+
+Provider runtime is now `durable running provider item -> setup provider eligibility branch -> server execution-step helper -> provider activation -> provider item completion -> dependency progression -> at-most-one next-item start -> structured result -> stop`. Each helper invocation processes exactly one running provider item; the existing outer deterministic provider progression remains responsible for any later explicit invocation, and the helper never recursively executes the item it starts.
+
+Clinic runtime remains the Slice 2C generic clinic sequence. Sterilizer, workstation, hardware, assignment, session-completion, deployment-finalization, and rollback behavior are unchanged. No fallback, retry, loop, worker, queue, polling, streaming, scheduled task, or background execution is introduced.

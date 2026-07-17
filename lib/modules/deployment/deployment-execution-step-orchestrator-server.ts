@@ -2,13 +2,16 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeploymentActivationExecutorClinicActivationResult } from "./deployment-activation-executor-clinic-handler";
+import type { DeploymentActivationExecutorProviderShellActivationResult } from "./deployment-activation-executor-provider-shell-handler";
 import type { ServerDeploymentActivationExecutorDependencies } from "./deployment-activation-executor-server";
 import type { ServerDeploymentActivationExecutionClaimResult } from "./deployment-activation-execution-claim-server";
 import { completeActivationExecutionItemForServerDeployment, type ServerDeploymentActivationExecutionItemCompletionResult } from "./deployment-activation-execution-item-completion-server";
 import { progressActivationExecutionDependencyForServerDeployment, type ServerDeploymentActivationExecutionDependencyProgressionResult } from "./deployment-activation-execution-dependency-progression-server";
 import type { ServerDeploymentActivationExecutionItemStartResult } from "./deployment-activation-execution-item-start-server";
-import { startNextActivationExecutionItemForServerDeployment } from "./deployment-activation-execution-next-item-start-server";
+import { startNextActivationExecutionItemForServerDeployment, type ServerDeploymentActivationExecutionNextItemStartResult } from "./deployment-activation-execution-next-item-start-server";
 import { activateClinicForServerDeployment, type ServerDeploymentClinicActivationResult } from "./deployment-clinic-activation-server";
+import { activateProviderShellForServerDeployment, type ServerDeploymentProviderShellActivationResult } from "./deployment-provider-shell-activation-server";
+import { completeProviderShellExecutionItemForServerDeployment, type ServerDeploymentProviderShellExecutionItemCompletionResult } from "./deployment-provider-shell-execution-item-completion-server";
 import { ServerDeploymentExecutionStepCompletionRunner, type ServerDeploymentExecutionStepCompletionBoundary } from "./deployment-execution-step-completion-runner";
 import { ServerDeploymentExecutionStepEntityRunner } from "./deployment-execution-step-entity-runner";
 import { ServerDeploymentExecutionStepNextStartRunner, type ServerDeploymentExecutionStepNextStartBoundary } from "./deployment-execution-step-next-start-runner";
@@ -31,6 +34,14 @@ export interface ServerClinicDeploymentExecutionStepDependencies extends ServerD
   };
 }
 
+export interface ServerProviderDeploymentExecutionStepDependencies extends ServerDeploymentExecutionStepOrchestratorDependencies {
+  getProviderRuntimeEvidence(): {
+    providerActivation: ServerDeploymentProviderShellActivationResult | null;
+    itemCompletion: ServerDeploymentProviderShellExecutionItemCompletionResult | null;
+    dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+    nextItemStart: Awaited<ReturnType<typeof startNextActivationExecutionItemForServerDeployment>> | null;
+  };
+}
 export function createServerClinicDeploymentExecutionStepDependencies(
   client: SupabaseClient,
   prerequisites: {
@@ -133,6 +144,97 @@ export function createServerClinicDeploymentExecutionStepDependencies(
   };
 }
 
+export function createServerProviderDeploymentExecutionStepDependencies(
+  client: SupabaseClient,
+  prerequisites: {
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    deploymentActivationExecutionNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+  },
+): ServerProviderDeploymentExecutionStepDependencies {
+  let providerActivation: ServerDeploymentProviderShellActivationResult | null = null;
+  let itemCompletion: ServerDeploymentProviderShellExecutionItemCompletionResult | null = null;
+  let dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null = null;
+  let nextItemStart: Awaited<ReturnType<typeof startNextActivationExecutionItemForServerDeployment>> | null = null;
+
+  return {
+    entityExecution: {
+      clinicActivation: {
+        async activateClinic() {
+          return { ok: false, status: "blocked" as const, message: "Provider-only execution-step composition does not execute clinics.", clinicId: null, currentClinicState: null, targetClinicState: null, deployedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      providerShellActivation: {
+        async activateProviderShell(command): Promise<DeploymentActivationExecutorProviderShellActivationResult> {
+          providerActivation = await activateProviderShellForServerDeployment(client, {
+            clinicId: command.clinicId,
+            deploymentRunId: command.deploymentRunKey,
+            deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+            deploymentActivationExecutionNextItemStart: prerequisites.deploymentActivationExecutionNextItemStart,
+            providerActivatedAt: command.providerActivatedAt,
+          });
+          return {
+            ok: providerActivation.ok,
+            status: providerActivation.status === "not_attempted" ? "blocked" : providerActivation.status,
+            message: providerActivation.message,
+            providerId: providerActivation.providerId,
+            deploymentProviderKey: providerActivation.deploymentProviderKey,
+            provisioningSourceBefore: providerActivation.provisioningSourceBefore,
+            provisioningSourceAfter: providerActivation.provisioningSourceAfter,
+            provisioningStatusBefore: providerActivation.provisioningStatusBefore,
+            provisioningStatusAfter: providerActivation.provisioningStatusAfter,
+            activeBefore: providerActivation.activeBefore,
+            activeAfter: providerActivation.activeAfter,
+            activatedAt: providerActivation.activatedAt,
+            activationResult: providerActivation.result,
+            issues: mapBoundaryIssues(providerActivation.issues),
+          };
+        },
+      },
+    },
+    itemCompletion: {
+      async completeCurrentItem(input) {
+        if (!providerActivation?.ok) return missingPrerequisite("Provider activation evidence is unavailable for item completion.");
+        itemCompletion = await completeProviderShellExecutionItemForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentProviderShellActivation: providerActivation,
+          itemCompletionRequestedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(itemCompletion);
+      },
+    },
+    dependencyProgression: {
+      async progressCurrentItemDependencies(input) {
+        if (!itemCompletion?.ok) return missingPrerequisite("Provider item-completion evidence is unavailable for dependency progression.");
+        dependencyProgression = await progressActivationExecutionDependencyForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionItemCompletion: itemCompletion,
+          dependencyProgressionRequestedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(dependencyProgression);
+      },
+    },
+    nextItemStart: {
+      async startAtMostOneNextItem(input) {
+        if (!dependencyProgression?.ok) return missingPrerequisite("Provider dependency-progression evidence is unavailable for next-item start.");
+        nextItemStart = await startNextActivationExecutionItemForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionDependencyProgression: dependencyProgression,
+          nextItemStartedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(nextItemStart);
+      },
+    },
+    getProviderRuntimeEvidence() {
+      return { providerActivation, itemCompletion, dependencyProgression, nextItemStart };
+    },
+  };
+}
 export function createServerDeploymentExecutionStepOrchestrator(dependencies: ServerDeploymentExecutionStepOrchestratorDependencies): DeploymentExecutionStepOrchestratorService {
   return createDeploymentExecutionStepOrchestratorService({
     entityExecution: new ServerDeploymentExecutionStepEntityRunner(dependencies.entityExecution),

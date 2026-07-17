@@ -58,6 +58,7 @@ import {
 } from "@/lib/modules/deployment/deployment-activation-execution-claim-server";
 import {
   createServerClinicDeploymentExecutionStepDependencies,
+  createServerProviderDeploymentExecutionStepDependencies,
   executeDeploymentExecutionStepForServer,
 } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-server";
 import {
@@ -957,6 +958,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentActivationExecutionItemStart: DeploymentActivationExecutionItemStartActionResult;
   deploymentClinicActivation: DeploymentClinicActivationActionResult;
   deploymentClinicExecutionStep?: DeploymentExecutionStepOrchestratorResult;
+  deploymentProviderExecutionStep?: DeploymentExecutionStepOrchestratorResult;
   deploymentActivationExecutionItemCompletion?: DeploymentActivationExecutionItemCompletionActionResult;
   deploymentActivationExecutionDependencyProgression?: DeploymentActivationExecutionDependencyProgressionActionResult;
   deploymentActivationExecutionNextItemStart?: DeploymentActivationExecutionNextItemStartActionResult;
@@ -2599,42 +2601,69 @@ export async function persistDeploymentRunAction(
     const deploymentActivationExecutionItemCompletion = clinicRuntimeEvidence?.itemCompletion ?? null;
     const deploymentActivationExecutionDependencyProgression = clinicRuntimeEvidence?.dependencyProgression ?? null;
     const deploymentActivationExecutionNextItemStart = clinicRuntimeEvidence?.nextItemStart ?? null;
-    const deploymentProviderShellActivation = deploymentActivationExecutionNextItemStart?.ok
-      ? await activateProviderShellForServerDeployment(client, {
-          clinicId,
-          deploymentRunId: result.deploymentRun.deploymentRunId,
-          deploymentActivationExecutionClaim,
-          deploymentActivationExecutionNextItemStart,
-          providerActivatedAt: persistedAt,
+    const preparedProviderItem = deploymentActivationExecution?.executionItems.find(
+      (item) => item.executionItemKey === deploymentActivationExecutionNextItemStart?.executionItemKey,
+    ) ?? null;
+    const useGenericProviderStep = Boolean(
+      deploymentActivationExecutionNextItemStart?.ok &&
+      deploymentActivationExecutionNextItemStart.entityType === "provider_shell" &&
+      deploymentActivationExecutionNextItemStart.action === "activate" &&
+      ["started", "already_started"].includes(deploymentActivationExecutionNextItemStart.status) &&
+      preparedProviderItem?.entityType === "provider_shell" &&
+      preparedProviderItem.action === "activate" &&
+      preparedProviderItem.entityId &&
+      preparedProviderItem.deploymentKey &&
+      clinicOwnershipToken &&
+      deploymentActivationExecutionClaim,
+    );
+    const providerStepDependencies = useGenericProviderStep
+      ? createServerProviderDeploymentExecutionStepDependencies(client, {
+          deploymentActivationExecutionClaim: deploymentActivationExecutionClaim!,
+          deploymentActivationExecutionNextItemStart: deploymentActivationExecutionNextItemStart!,
         })
       : null;
-    const deploymentProviderShellExecutionItemCompletion = deploymentProviderShellActivation?.ok
-      ? await completeProviderShellExecutionItemForServerDeployment(client, {
-          clinicId,
-          deploymentRunId: result.deploymentRun.deploymentRunId,
-          deploymentActivationExecutionClaim,
-          deploymentProviderShellActivation,
-          itemCompletionRequestedAt: persistedAt,
+    const deploymentProviderExecutionStep = providerStepDependencies && preparedProviderItem
+      ? await executeDeploymentExecutionStepForServer(providerStepDependencies, {
+          context: {
+            claimantId: deploymentActivationExecutionClaim!.claimantId!,
+            ownershipToken: clinicOwnershipToken!,
+            leaseExpiresAt: deploymentActivationExecutionClaim!.leaseExpiresAt,
+            executedAt: persistedAt,
+          },
+          item: {
+            clinicId,
+            deploymentRunKey: result.deploymentRun.deploymentRunId,
+            sessionId: deploymentActivationExecutionNextItemStart!.sessionId!,
+            executionKey: deploymentActivationExecutionNextItemStart!.executionKey!,
+            planKey: deploymentActivationExecutionClaim!.planKey!,
+            itemId: deploymentActivationExecutionNextItemStart!.itemId!,
+            executionItemKey: deploymentActivationExecutionNextItemStart!.executionItemKey!,
+            planItemKey: deploymentActivationExecutionNextItemStart!.planItemKey!,
+            sequence: deploymentActivationExecutionNextItemStart!.sequence!,
+            entityType: deploymentActivationExecutionNextItemStart!.entityType!,
+            entityId: preparedProviderItem.entityId,
+            deploymentKey: preparedProviderItem.deploymentKey,
+            action: deploymentActivationExecutionNextItemStart!.action!,
+            executionStatus: "running",
+            attemptCount: deploymentActivationExecutionNextItemStart!.attemptCount,
+            startedAt: deploymentActivationExecutionNextItemStart!.startedAt,
+            completedAt: preparedProviderItem.completedAt,
+            rolledBackAt: null,
+            errorCode: preparedProviderItem.error?.code ?? null,
+            errorMessage: preparedProviderItem.error?.message ?? null,
+            expectedCurrentState: preparedProviderItem.currentState,
+            targetState: preparedProviderItem.targetState,
+            dependencyKeys: preparedProviderItem.dependencyKeys,
+            reversible: preparedProviderItem.reversible,
+            rollbackBehavior: preparedProviderItem.rollbackAction,
+          },
         })
       : null;
-    const deploymentProviderShellExecutionDependencyProgression = deploymentProviderShellExecutionItemCompletion?.ok
-      ? await progressActivationExecutionDependencyForServerDeployment(client, {
-          clinicId,
-          deploymentRunId: result.deploymentRun.deploymentRunId,
-          deploymentActivationExecutionClaim,
-          deploymentActivationExecutionItemCompletion: deploymentProviderShellExecutionItemCompletion,
-          dependencyProgressionRequestedAt: persistedAt,
-        })
-      : null;
-    const deploymentProviderShellExecutionNextItemStart = deploymentProviderShellExecutionDependencyProgression?.ok
-      ? await startNextActivationExecutionItemForServerDeployment(client, {
-          clinicId,
-          deploymentRunId: result.deploymentRun.deploymentRunId,
-          deploymentActivationExecutionClaim,
-          deploymentActivationExecutionDependencyProgression: deploymentProviderShellExecutionDependencyProgression,
-          nextItemStartedAt: persistedAt,
-        })
-      : null;
+    const providerRuntimeEvidence = providerStepDependencies?.getProviderRuntimeEvidence() ?? null;
+    const deploymentProviderShellActivation = providerRuntimeEvidence?.providerActivation ?? null;
+    const deploymentProviderShellExecutionItemCompletion = providerRuntimeEvidence?.itemCompletion ?? null;
+    const deploymentProviderShellExecutionDependencyProgression = providerRuntimeEvidence?.dependencyProgression ?? null;
+    const deploymentProviderShellExecutionNextItemStart = providerRuntimeEvidence?.nextItemStart ?? null;
 
     return {
       ok:
@@ -2646,10 +2675,7 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionStart?.ok) &&
         Boolean(deploymentActivationExecutionItemStart?.ok) &&
         Boolean(deploymentClinicExecutionStep?.ok) &&
-        Boolean(deploymentProviderShellActivation?.ok || deploymentProviderShellActivation?.status === "not_attempted") &&
-        Boolean(deploymentProviderShellExecutionItemCompletion?.ok || deploymentProviderShellActivation?.status === "not_attempted") &&
-        Boolean(deploymentProviderShellExecutionDependencyProgression?.ok || deploymentProviderShellExecutionItemCompletion?.status === "not_attempted") &&
-        Boolean(deploymentProviderShellExecutionNextItemStart?.ok || deploymentProviderShellExecutionDependencyProgression?.status === "not_attempted"),
+        Boolean(deploymentProviderExecutionStep?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2832,6 +2858,7 @@ export async function persistDeploymentRunAction(
               "Activation execution item start was skipped because execution-session start did not complete successfully.",
           },
       deploymentClinicExecutionStep: deploymentClinicExecutionStep ?? undefined,
+      deploymentProviderExecutionStep: deploymentProviderExecutionStep ?? undefined,
       deploymentClinicActivation: deploymentClinicActivation
         ? mapDeploymentClinicActivationActionResult(deploymentClinicActivation)
         : {
@@ -2923,7 +2950,7 @@ export async function persistDeploymentRunAction(
             executionItemKey: deploymentActivationExecutionNextItemStart?.executionItemKey ?? null,
             planItemKey: deploymentActivationExecutionNextItemStart?.planItemKey ?? null,
             sequence: deploymentActivationExecutionNextItemStart?.sequence ?? null,
-            deploymentProviderKey: deploymentActivationExecutionNextItemStart?.entityType === "provider_shell" ? deploymentActivationExecutionNextItemStart.entityId : null,
+            deploymentProviderKey: preparedProviderItem?.deploymentKey ?? null,
             message:
               "Provider shell activation was skipped because next-item start did not complete successfully.",
           },

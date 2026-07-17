@@ -1727,3 +1727,9 @@ No SQL, RPC signature, business mutation, repository, provider runtime, session 
 The authoritative item evidence fields remain `execution_evidence jsonb not null default '{}'::jsonb` for prepared dependency evidence, `rollback_action text null` for the approved rollback instruction, `rollback_status text not null default 'not_started'` for rollback lifecycle, and `rolled_back_at timestamptz null` for completed rollback timing. `rollback_evidence` was never created, inserted, updated, or returned by an execution RPC; its provider-completion projection was stale and has been removed rather than mapped to `execution_evidence` or added as a duplicate column.
 
 This is a read-contract correction only. It rewrites no execution data and changes no setup orchestration, clinic generic runtime, provider RC8 runtime, RPC signature, fallback, retry, or repair behavior. Validation must use a new disposable clinic/setup identity or an existing documented safe reset process rather than manually editing provider or execution statuses.
+
+## RC9 Slice 2D - Provider runtime persistence migration boundary
+
+Provider runtime persistence continues to use the established atomic RC8 boundaries; Slice 2D replaces only their duplicated setup-action orchestration glue with the generic one-step server composition. The provider dependency factory retains the trusted claim and raw stage evidence internally so the existing setup response mappings and counters consume each successful mutation exactly once.
+
+No SQL, RPC signature, repository contract, item-start semantic, session completion, deployment finalization, rollback, fallback, retry, or data repair is added. Provider UUID and deterministic deployment key remain separate, `deploymentRunKey` is used consistently, ownership credentials remain internal, and the clinic Slice 2C path is unchanged.
