@@ -17,6 +17,7 @@ import { ServerDeploymentExecutionStepEntityRunner } from "./deployment-executio
 import { ServerDeploymentExecutionStepNextStartRunner, type ServerDeploymentExecutionStepNextStartBoundary } from "./deployment-execution-step-next-start-runner";
 import { createDeploymentExecutionStepOrchestratorService, type DeploymentExecutionStepOrchestratorService } from "./deployment-execution-step-orchestrator-service";
 import type { DeploymentExecutionStepOrchestratorContext, DeploymentExecutionStepOrchestratorItem, DeploymentExecutionStepOrchestratorResult } from "./deployment-execution-step-orchestrator-types";
+import type { DeploymentActivationExecutionItem } from "./deployment-activation-execution-types";
 import { ServerDeploymentExecutionStepProgressionRunner, type ServerDeploymentExecutionStepProgressionBoundary } from "./deployment-execution-step-progression-runner";
 
 export interface ServerDeploymentExecutionStepOrchestratorDependencies {
@@ -234,6 +235,90 @@ export function createServerProviderDeploymentExecutionStepDependencies(
       return { providerActivation, itemCompletion, dependencyProgression, nextItemStart };
     },
   };
+}
+export interface ServerProviderSequenceExecutionResult {
+  ok: boolean;
+  message: string;
+  providerItemsPlanned: number;
+  providerItemsExecuted: number;
+  lastStep: DeploymentExecutionStepOrchestratorResult | null;
+  providerActivation: ServerDeploymentProviderShellActivationResult | null;
+  itemCompletion: ServerDeploymentProviderShellExecutionItemCompletionResult | null;
+  dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+  nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
+}
+
+export async function executeServerProviderSequence(
+  client: SupabaseClient,
+  input: {
+    context: DeploymentExecutionStepOrchestratorContext;
+    clinicId: string;
+    deploymentRunKey: string;
+    sessionId: string;
+    executionKey: string;
+    planKey: string;
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    initialNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+    preparedExecutionItems: readonly DeploymentActivationExecutionItem[];
+    executeProviderStep?: (input: { current: ServerDeploymentActivationExecutionNextItemStartResult; prepared: DeploymentActivationExecutionItem; context: DeploymentExecutionStepOrchestratorContext }) => Promise<{ step: DeploymentExecutionStepOrchestratorResult; evidence: ReturnType<ServerProviderDeploymentExecutionStepDependencies["getProviderRuntimeEvidence"]> }>;
+  },
+): Promise<ServerProviderSequenceExecutionResult> {
+  const providerItems = input.preparedExecutionItems
+    .filter((item) => item.entityType === "provider_shell" && item.action === "activate")
+    .sort((left, right) => left.sequence - right.sequence || left.executionItemKey.localeCompare(right.executionItemKey));
+  const seenItemIds = new Set<string>();
+  let current = input.initialNextItemStart;
+  let lastStep: DeploymentExecutionStepOrchestratorResult | null = null;
+  let providerActivation: ServerDeploymentProviderShellActivationResult | null = null;
+  let itemCompletion: ServerDeploymentProviderShellExecutionItemCompletionResult | null = null;
+  let dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null = null;
+  let nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null = null;
+  const downstream = { entitiesActivated: 0, itemsCompleted: 0, dependenciesProgressed: 0, itemsStarted: 0 };
+  const stop = (message: string): ServerProviderSequenceExecutionResult => ({ ok: false, message, providerItemsPlanned: providerItems.length, providerItemsExecuted: seenItemIds.size, lastStep, providerActivation, itemCompletion, dependencyProgression, nextItemStart });
+
+  if (providerItems.length === 0) return stop("Provider sequence has no authoritative planned provider items.");
+  if (!input.context.leaseExpiresAt || Date.parse(input.context.leaseExpiresAt) <= Date.parse(input.context.executedAt)) return stop("Provider sequence ownership lease is not active.");
+
+  for (let index = 0; index < providerItems.length; index += 1) {
+    const prepared = providerItems[index];
+    const validIdentity = current.ok && ["started", "already_started"].includes(current.status) && current.clinicId === input.clinicId && current.deploymentRunKey === input.deploymentRunKey && current.sessionId === input.sessionId && current.executionKey === input.executionKey && current.planKey === input.planKey && current.claimantId === input.context.claimantId && current.leaseExpiresAt === input.context.leaseExpiresAt && current.entityType === "provider_shell" && current.action === "activate" && current.itemId && current.startedAt && current.executionItemKey === prepared.executionItemKey && current.planItemKey === prepared.planItemKey && current.sequence === prepared.sequence && current.entityId === prepared.entityId && prepared.entityId && prepared.deploymentKey && prepared.entityId !== prepared.deploymentKey;
+    if (!validIdentity) return stop("Provider sequence next-item evidence is malformed, foreign, or out of deterministic order.");
+    if (seenItemIds.has(current.itemId!)) return stop("Provider sequence refused duplicate execution-item evidence.");
+    seenItemIds.add(current.itemId!);
+
+    const productionStep = async () => {
+      const dependencies = createServerProviderDeploymentExecutionStepDependencies(client, { deploymentActivationExecutionClaim: input.deploymentActivationExecutionClaim, deploymentActivationExecutionNextItemStart: current });
+      const step = await executeDeploymentExecutionStepForServer(dependencies, {
+        context: input.context,
+        item: {
+          clinicId: input.clinicId, deploymentRunKey: input.deploymentRunKey, sessionId: input.sessionId, executionKey: input.executionKey, planKey: input.planKey,
+          itemId: current.itemId!, executionItemKey: prepared.executionItemKey, planItemKey: prepared.planItemKey, sequence: prepared.sequence,
+          entityType: "provider_shell", entityId: prepared.entityId, deploymentKey: prepared.deploymentKey, action: "activate", executionStatus: "running",
+          attemptCount: current.attemptCount, startedAt: current.startedAt, completedAt: prepared.completedAt, rolledBackAt: null,
+          errorCode: prepared.error?.code ?? null, errorMessage: prepared.error?.message ?? null,
+          expectedCurrentState: prepared.currentState, targetState: prepared.targetState, dependencyKeys: prepared.dependencyKeys,
+          reversible: prepared.reversible, rollbackBehavior: prepared.rollbackAction,
+        },
+      });
+      return { step, evidence: dependencies.getProviderRuntimeEvidence() };
+    };
+    const invocation = input.executeProviderStep ? await input.executeProviderStep({ current, prepared, context: input.context }) : await productionStep();
+    const { step, evidence } = invocation;
+    providerActivation = evidence.providerActivation; itemCompletion = evidence.itemCompletion; dependencyProgression = evidence.dependencyProgression; nextItemStart = evidence.nextItemStart;
+    downstream.entitiesActivated += step.downstream.entitiesActivated; downstream.itemsCompleted += step.downstream.itemsCompleted; downstream.dependenciesProgressed += step.downstream.dependenciesProgressed; downstream.itemsStarted += step.downstream.itemsStarted;
+    lastStep = { ...step, downstream: { ...step.downstream, ...downstream } };
+    if (!step.ok) return stop("Provider sequence stopped because one provider execution step did not complete.");
+    if (!nextItemStart?.ok || !["started", "already_started"].includes(nextItemStart.status)) return stop("Provider sequence stopped because no deterministic next item was started.");
+
+    if (index + 1 < providerItems.length) {
+      if (nextItemStart.entityType !== "provider_shell" || nextItemStart.action !== "activate") return stop("Provider sequence reached a non-provider item before the authoritative provider bound.");
+      current = nextItemStart;
+      continue;
+    }
+    if (nextItemStart.entityType === "provider_shell") return stop("Provider sequence exceeded the authoritative planned provider bound.");
+    return { ok: true, message: "All deterministic provider items completed and the first non-provider item was started without execution.", providerItemsPlanned: providerItems.length, providerItemsExecuted: seenItemIds.size, lastStep, providerActivation, itemCompletion, dependencyProgression, nextItemStart };
+  }
+  return stop("Provider sequence terminated without a non-provider handoff.");
 }
 export function createServerDeploymentExecutionStepOrchestrator(dependencies: ServerDeploymentExecutionStepOrchestratorDependencies): DeploymentExecutionStepOrchestratorService {
   return createDeploymentExecutionStepOrchestratorService({

@@ -1733,3 +1733,9 @@ This is a read-contract correction only. It rewrites no execution data and chang
 Provider runtime persistence continues to use the established atomic RC8 boundaries; Slice 2D replaces only their duplicated setup-action orchestration glue with the generic one-step server composition. The provider dependency factory retains the trusted claim and raw stage evidence internally so the existing setup response mappings and counters consume each successful mutation exactly once.
 
 No SQL, RPC signature, repository contract, item-start semantic, session completion, deployment finalization, rollback, fallback, retry, or data repair is added. Provider UUID and deterministic deployment key remain separate, `deploymentRunKey` is used consistently, ownership credentials remain internal, and the clinic Slice 2C path is unchanged.
+
+## RC9 Slice 2E - Deterministic provider continuation
+
+Provider continuation adds no persistence primitive. Each iteration reuses the existing provider activation, item-completion, dependency-progression, and next-item-start atomic boundaries through `executeDeploymentExecutionStepForServer`. The prepared execution plan's count of `provider_shell:activate` items is the authoritative bound, and returned next-start evidence supplies the next already-running item without polling or a repository reread.
+
+Each provider item is processed at most once per invocation. Singular setup evidence retains the deterministic final provider-stage results, while the generic final-step counters aggregate only real handled, completed, progressed, and started outcomes. Ownership tokens remain internal. No SQL, RPC, lease renewal, session completion, deployment finalization, rollback, retry, or recovery behavior is added.

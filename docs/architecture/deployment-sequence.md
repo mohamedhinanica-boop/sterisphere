@@ -1530,3 +1530,9 @@ Clinic and provider ordering are unchanged. This hotfix adds no migration, runti
 Provider runtime is now `durable running provider item -> setup provider eligibility branch -> server execution-step helper -> provider activation -> provider item completion -> dependency progression -> at-most-one next-item start -> structured result -> stop`. Each helper invocation processes exactly one running provider item; the existing outer deterministic provider progression remains responsible for any later explicit invocation, and the helper never recursively executes the item it starts.
 
 Clinic runtime remains the Slice 2C generic clinic sequence. Sterilizer, workstation, hardware, assignment, session-completion, deployment-finalization, and rollback behavior are unchanged. No fallback, retry, loop, worker, queue, polling, streaming, scheduled task, or background execution is introduced.
+
+## RC9 Slice 2E - Complete provider sequence before sterilizer
+
+Runtime now performs `clinic step -> first provider already running -> bounded provider step loop -> final provider completion -> dependency progression -> first non-provider start -> stop`. Every loop body calls the unchanged one-step helper exactly once for one already-running provider item. Provider sequence follows prepared-plan order and cannot exceed the prepared provider-item count or process an execution-item id twice.
+
+When next-start returns the first sterilizer item, that item remains running but sterilizer activation is not invoked. Any provider-stage failure, malformed or foreign handoff, missing next start, duplicate id, or bound violation stops immediately without fallback. Resume/recovery, retries, workers, queues, polling, background execution, session completion, deployment finalization, and rollback remain unavailable.

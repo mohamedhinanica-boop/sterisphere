@@ -58,7 +58,7 @@ import {
 } from "@/lib/modules/deployment/deployment-activation-execution-claim-server";
 import {
   createServerClinicDeploymentExecutionStepDependencies,
-  createServerProviderDeploymentExecutionStepDependencies,
+  executeServerProviderSequence,
   executeDeploymentExecutionStepForServer,
 } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-server";
 import {
@@ -2601,69 +2601,29 @@ export async function persistDeploymentRunAction(
     const deploymentActivationExecutionItemCompletion = clinicRuntimeEvidence?.itemCompletion ?? null;
     const deploymentActivationExecutionDependencyProgression = clinicRuntimeEvidence?.dependencyProgression ?? null;
     const deploymentActivationExecutionNextItemStart = clinicRuntimeEvidence?.nextItemStart ?? null;
-    const preparedProviderItem = deploymentActivationExecution?.executionItems.find(
-      (item) => item.executionItemKey === deploymentActivationExecutionNextItemStart?.executionItemKey,
-    ) ?? null;
-    const useGenericProviderStep = Boolean(
-      deploymentActivationExecutionNextItemStart?.ok &&
-      deploymentActivationExecutionNextItemStart.entityType === "provider_shell" &&
-      deploymentActivationExecutionNextItemStart.action === "activate" &&
-      ["started", "already_started"].includes(deploymentActivationExecutionNextItemStart.status) &&
-      preparedProviderItem?.entityType === "provider_shell" &&
-      preparedProviderItem.action === "activate" &&
-      preparedProviderItem.entityId &&
-      preparedProviderItem.deploymentKey &&
-      clinicOwnershipToken &&
-      deploymentActivationExecutionClaim,
-    );
-    const providerStepDependencies = useGenericProviderStep
-      ? createServerProviderDeploymentExecutionStepDependencies(client, {
-          deploymentActivationExecutionClaim: deploymentActivationExecutionClaim!,
-          deploymentActivationExecutionNextItemStart: deploymentActivationExecutionNextItemStart!,
-        })
-      : null;
-    const deploymentProviderExecutionStep = providerStepDependencies && preparedProviderItem
-      ? await executeDeploymentExecutionStepForServer(providerStepDependencies, {
+    const providerSequence = deploymentActivationExecutionNextItemStart?.ok && deploymentActivationExecution && deploymentActivationExecutionClaim && clinicOwnershipToken
+      ? await executeServerProviderSequence(client, {
           context: {
-            claimantId: deploymentActivationExecutionClaim!.claimantId!,
-            ownershipToken: clinicOwnershipToken!,
-            leaseExpiresAt: deploymentActivationExecutionClaim!.leaseExpiresAt,
+            claimantId: deploymentActivationExecutionClaim.claimantId!,
+            ownershipToken: clinicOwnershipToken,
+            leaseExpiresAt: deploymentActivationExecutionClaim.leaseExpiresAt,
             executedAt: persistedAt,
           },
-          item: {
-            clinicId,
-            deploymentRunKey: result.deploymentRun.deploymentRunId,
-            sessionId: deploymentActivationExecutionNextItemStart!.sessionId!,
-            executionKey: deploymentActivationExecutionNextItemStart!.executionKey!,
-            planKey: deploymentActivationExecutionClaim!.planKey!,
-            itemId: deploymentActivationExecutionNextItemStart!.itemId!,
-            executionItemKey: deploymentActivationExecutionNextItemStart!.executionItemKey!,
-            planItemKey: deploymentActivationExecutionNextItemStart!.planItemKey!,
-            sequence: deploymentActivationExecutionNextItemStart!.sequence!,
-            entityType: deploymentActivationExecutionNextItemStart!.entityType!,
-            entityId: preparedProviderItem.entityId,
-            deploymentKey: preparedProviderItem.deploymentKey,
-            action: deploymentActivationExecutionNextItemStart!.action!,
-            executionStatus: "running",
-            attemptCount: deploymentActivationExecutionNextItemStart!.attemptCount,
-            startedAt: deploymentActivationExecutionNextItemStart!.startedAt,
-            completedAt: preparedProviderItem.completedAt,
-            rolledBackAt: null,
-            errorCode: preparedProviderItem.error?.code ?? null,
-            errorMessage: preparedProviderItem.error?.message ?? null,
-            expectedCurrentState: preparedProviderItem.currentState,
-            targetState: preparedProviderItem.targetState,
-            dependencyKeys: preparedProviderItem.dependencyKeys,
-            reversible: preparedProviderItem.reversible,
-            rollbackBehavior: preparedProviderItem.rollbackAction,
-          },
+          clinicId,
+          deploymentRunKey: result.deploymentRun.deploymentRunId,
+          sessionId: deploymentActivationExecutionNextItemStart.sessionId!,
+          executionKey: deploymentActivationExecutionNextItemStart.executionKey!,
+          planKey: deploymentActivationExecutionClaim.planKey!,
+          deploymentActivationExecutionClaim,
+          initialNextItemStart: deploymentActivationExecutionNextItemStart,
+          preparedExecutionItems: deploymentActivationExecution.executionItems,
         })
       : null;
-    const providerRuntimeEvidence = providerStepDependencies?.getProviderRuntimeEvidence() ?? null;
-    const deploymentProviderShellActivation = providerRuntimeEvidence?.providerActivation ?? null;
-    const deploymentProviderShellExecutionItemCompletion = providerRuntimeEvidence?.itemCompletion ?? null;
-    const deploymentProviderShellExecutionDependencyProgression = providerRuntimeEvidence?.dependencyProgression ?? null;
-    const deploymentProviderShellExecutionNextItemStart = providerRuntimeEvidence?.nextItemStart ?? null;
+    const deploymentProviderExecutionStep = providerSequence?.lastStep ?? null;
+    const deploymentProviderShellActivation = providerSequence?.providerActivation ?? null;
+    const deploymentProviderShellExecutionItemCompletion = providerSequence?.itemCompletion ?? null;
+    const deploymentProviderShellExecutionDependencyProgression = providerSequence?.dependencyProgression ?? null;
+    const deploymentProviderShellExecutionNextItemStart = providerSequence?.nextItemStart ?? null;
 
     return {
       ok:
@@ -2675,7 +2635,7 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionStart?.ok) &&
         Boolean(deploymentActivationExecutionItemStart?.ok) &&
         Boolean(deploymentClinicExecutionStep?.ok) &&
-        Boolean(deploymentProviderExecutionStep?.ok),
+        Boolean(providerSequence?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2950,7 +2910,7 @@ export async function persistDeploymentRunAction(
             executionItemKey: deploymentActivationExecutionNextItemStart?.executionItemKey ?? null,
             planItemKey: deploymentActivationExecutionNextItemStart?.planItemKey ?? null,
             sequence: deploymentActivationExecutionNextItemStart?.sequence ?? null,
-            deploymentProviderKey: preparedProviderItem?.deploymentKey ?? null,
+            deploymentProviderKey: deploymentProviderExecutionStep?.deploymentKey ?? null,
             message:
               "Provider shell activation was skipped because next-item start did not complete successfully.",
           },
@@ -3021,7 +2981,7 @@ export async function persistDeploymentRunAction(
               "Post-provider next-item start was skipped because post-provider dependency progression did not complete successfully.",
           },
       message: deploymentProviderShellExecutionNextItemStart?.ok
-        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, post-provider dependency progression, and post-provider next-item start are complete. The next provider item may now be running, but no provider activation, item completion, further dependency progression, binding, rollback, or finalization occurred."
+        ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, post-provider dependency progression, and post-provider next-item start are complete. All deterministic provider items are complete and the first non-provider item may now be running, but no non-provider activation, binding, rollback, session completion, or finalization occurred."
         : deploymentProviderShellExecutionDependencyProgression?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, and post-provider dependency progression are complete, but post-provider next-item start is blocked, skipped, or not applicable. No provider activation, further item completion, binding, rollback, or finalization occurred."
         : deploymentProviderShellExecutionItemCompletion?.ok
