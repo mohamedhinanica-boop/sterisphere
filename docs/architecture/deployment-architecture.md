@@ -1195,3 +1195,11 @@ Provider UUID `entityId` remains distinct from the deterministic provider `deplo
 The generic execution-step orchestrator remains a one-item boundary. A server-only outer provider-sequence driver now consumes the next-start evidence returned by each completed provider step and invokes that one-item boundary again only for the next deterministic `provider_shell:activate` item. The immutable prepared execution list supplies the exact provider order and safety bound; execution-item ids are tracked to prevent duplicate handling.
 
 The driver validates clinic, deployment-run key, execution session, execution key, plan key, claimant, lease, item identity, provider UUID, deployment key, sequence, and action at every handoff. It stops on any failed or malformed stage, foreign or duplicate identity, bound violation, or when the first non-provider item is started. That non-provider item remains running and is not executed. Sterilizer migration and resume/recovery remain future work.
+
+## RC9 Slice 3A — Generic Entity Sequence Driver
+
+The verified provider continuation loop is now decomposed into three layers: the setup action locates the first already-running provider item, the provider adapter supplies `provider_shell:activate` identity mapping and the unchanged provider response contract, and the Generic Entity Sequence Driver performs bounded consecutive-item iteration through the existing one-step server executor.
+
+The driver owns deterministic ordering, clinic/run/session/execution/plan/claimant/lease validation, duplicate execution-item protection, exact-once tracking, counter aggregation, malformed-evidence stops, and the handoff stop after the first non-matching entity/action is started. It does not know provider, sterilizer, workstation, hardware, or assignment semantics. Ownership tokens remain only in the server-only one-step context and are not projected into driver evidence or results.
+
+Providers are the only production consumer in Slice 3A. Sterilizer, workstation, hardware, and hardware-assignment reuse remains future work; no such runtime was migrated here. The clinic path, atomic activation/completion/progression/next-start boundaries, response contract, rollback behavior, finalization behavior, and UI remain unchanged.

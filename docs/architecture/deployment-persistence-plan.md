@@ -1739,3 +1739,9 @@ No SQL, RPC signature, repository contract, item-start semantic, session complet
 Provider continuation adds no persistence primitive. Each iteration reuses the existing provider activation, item-completion, dependency-progression, and next-item-start atomic boundaries through `executeDeploymentExecutionStepForServer`. The prepared execution plan's count of `provider_shell:activate` items is the authoritative bound, and returned next-start evidence supplies the next already-running item without polling or a repository reread.
 
 Each provider item is processed at most once per invocation. Singular setup evidence retains the deterministic final provider-stage results, while the generic final-step counters aggregate only real handled, completed, progressed, and started outcomes. Ownership tokens remain internal. No SQL, RPC, lease renewal, session completion, deployment finalization, rollback, retry, or recovery behavior is added.
+
+## RC9 Slice 3A sequence-driver boundary
+
+Slice 3A changes composition only and introduces no persistence, SQL, or RPC changes. The Generic Entity Sequence Driver consumes the already-persisted prepared-item identities and next-start evidence, validates that every consecutive item belongs to the same clinic, deployment run, execution session, execution, plan, claimant, lease, entity type, and action, and delegates each item exactly once to the existing one-step executor.
+
+The authoritative provider adapter continues to preserve provider UUID `entityId` separately from deterministic `deploymentKey`, while the one-step item retains current state, target state, dependency keys, and rollback instruction. The driver neither writes repositories directly nor performs recovery, retry, rollback, session completion, or deployment finalization. Sterilizer migration is explicitly not part of Slice 3A.

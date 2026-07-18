@@ -6,6 +6,7 @@ import type { DeploymentExecutionStepCompletionStatus, DeploymentExecutionStepNe
 import type { ServerDeploymentExecutionStepBoundaryIssue, ServerDeploymentExecutionStepCompletionBoundaryResult } from "./deployment-execution-step-completion-runner";
 import type { ServerDeploymentExecutionStepProgressionBoundaryResult } from "./deployment-execution-step-progression-runner";
 import type { ServerDeploymentExecutionStepNextStartBoundaryResult } from "./deployment-execution-step-next-start-runner";
+import { executeGenericEntitySequence } from "./deployment-generic-entity-sequence-driver";
 
 export interface DeploymentExecutionStepOrchestratorServerHarnessScenario { name: string; passed: boolean; message: string }
 export interface DeploymentExecutionStepOrchestratorServerHarnessResult { passed: boolean; scenarios: readonly DeploymentExecutionStepOrchestratorServerHarnessScenario[] }
@@ -95,14 +96,16 @@ function providerRuntimeCompositionScenario() {
   const actions = require("fs").readFileSync("app/setup/actions.ts", "utf8") as string;
   const providerBranch = actions.slice(actions.indexOf("const providerSequence"), actions.indexOf("return {", actions.indexOf("const providerSequence")));
   const helperCalls = String(executeServerProviderSequence).match(/executeDeploymentExecutionStepForServer\(/g)?.length ?? 0;
+  const genericCalls = String(executeServerProviderSequence).match(/executeGenericEntitySequence\(/g)?.length ?? 0;
   const required = ["activateProviderShellForServerDeployment", "completeProviderShellExecutionItemForServerDeployment", "progressActivationExecutionDependencyForServerDeployment", "startNextActivationExecutionItemForServerDeployment"];
   const noDirectOldCalls = !providerBranch.includes("await activateProviderShellForServerDeployment") && !providerBranch.includes("await completeProviderShellExecutionItemForServerDeployment") && !providerBranch.includes("await progressActivationExecutionDependencyForServerDeployment") && !providerBranch.includes("await startNextActivationExecutionItemForServerDeployment");
   const driver = String(executeServerProviderSequence);
   const identitiesPreserved = driver.includes("entityId: prepared.entityId") && driver.includes("deploymentKey: prepared.deploymentKey") && providerBranch.includes("deploymentRunKey: result.deploymentRun.deploymentRunId");
   const clinicStillGeneric = actions.includes("const deploymentClinicExecutionStep") && actions.includes("createServerClinicDeploymentExecutionStepDependencies");
-  const bounded = driver.includes("index < providerItems.length") && (driver.match(/executeServerProviderSequence\(/g)?.length ?? 0) === 1 && !driver.includes("retry") && !driver.includes("while (") && !driver.includes("completeSession") && !driver.includes("finalizeDeployment") && !driver.includes("rollback");
+  const genericDriver = String(executeGenericEntitySequence);
+  const bounded = genericDriver.includes("index < items.length") && !genericDriver.includes("retry") && !genericDriver.includes("while (") && !genericDriver.includes("completeSession") && !genericDriver.includes("finalizeDeployment") && !genericDriver.includes("rollback");
   const noDatabaseCompositionInAction = !providerBranch.includes("createClient") && !providerBranch.includes(".rpc(") && !providerBranch.includes("p_ownership_token");
-  return scenario("provider runtime uses one generic step with preserved identity and no direct fallback", helperCalls === 1 && providerBranch.includes("executeServerProviderSequence") && required.every((term) => composition.includes(term)) && noDirectOldCalls && identitiesPreserved && clinicStillGeneric && bounded && noDatabaseCompositionInAction, JSON.stringify({ helperCalls, noDirectOldCalls, identitiesPreserved, clinicStillGeneric, bounded, noDatabaseCompositionInAction }));
+  return scenario("provider runtime uses the generic sequence driver with preserved identity and no direct fallback", helperCalls === 1 && genericCalls === 1 && providerBranch.includes("executeServerProviderSequence") && required.every((term) => composition.includes(term)) && noDirectOldCalls && identitiesPreserved && clinicStillGeneric && bounded && noDatabaseCompositionInAction, JSON.stringify({ helperCalls, genericCalls, noDirectOldCalls, identitiesPreserved, clinicStillGeneric, bounded, noDatabaseCompositionInAction }));
 }
 async function providerSequenceScenario() {
   const prepared = [providerPrepared(2), providerPrepared(3), nonProviderPrepared(4)];

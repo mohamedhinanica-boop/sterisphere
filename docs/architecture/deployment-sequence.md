@@ -1536,3 +1536,20 @@ Clinic runtime remains the Slice 2C generic clinic sequence. Sterilizer, worksta
 Runtime now performs `clinic step -> first provider already running -> bounded provider step loop -> final provider completion -> dependency progression -> first non-provider start -> stop`. Every loop body calls the unchanged one-step helper exactly once for one already-running provider item. Provider sequence follows prepared-plan order and cannot exceed the prepared provider-item count or process an execution-item id twice.
 
 When next-start returns the first sterilizer item, that item remains running but sterilizer activation is not invoked. Any provider-stage failure, malformed or foreign handoff, missing next start, duplicate id, or bound violation stops immediately without fallback. Resume/recovery, retries, workers, queues, polling, background execution, session completion, deployment finalization, and rollback remain unavailable.
+
+## RC9 Slice 3A provider sequence composition
+
+```text
+first already-running provider_shell:activate item
+-> setup provider branch
+-> thin provider sequence adapter
+-> Generic Entity Sequence Driver
+-> existing server-only one-step executor
+-> activation -> completion -> progression -> start at most one next item
+-> validate and consume the next provider_shell:activate item, within the prepared bound
+-> first non-matching entity/action is left started and is not executed
+-> unchanged provider response evidence
+-> stop
+```
+
+The sequence remains synchronous, serial, bounded by the authoritative prepared provider items, and protected by execution-item ID tracking. Any identity, ownership, lease, ordering, duplicate, or malformed-evidence failure stops immediately. There is no recursion, retry, polling, worker, queue, parallel execution, background continuation, rollback, session completion, or deployment finalization. Providers remain the sole production consumer; sterilizers and all later entity families are not migrated in Slice 3A.
