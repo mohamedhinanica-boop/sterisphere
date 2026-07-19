@@ -1553,3 +1553,15 @@ first already-running provider_shell:activate item
 ```
 
 The sequence remains synchronous, serial, bounded by the authoritative prepared provider items, and protected by execution-item ID tracking. Any identity, ownership, lease, ordering, duplicate, or malformed-evidence failure stops immediately. There is no recursion, retry, polling, worker, queue, parallel execution, background continuation, rollback, session completion, or deployment finalization. Providers remain the sole production consumer; sterilizers and all later entity families are not migrated in Slice 3A.
+
+## RC9 Slice 3B1A persistence-only sequence
+
+```text
+future owned running sterilizer_shell:activate item
+-> activate_deployment_sterilizer_shell (sterilizer planned/inactive -> active/active only)
+-> future TypeScript boundary
+-> complete_deployment_sterilizer_shell_execution_item (matching item running -> succeeded only)
+-> stop
+```
+
+Neither RPC progresses dependencies, starts a workstation, completes the execution session, finalizes deployment, or executes rollback. No TypeScript caller or production runtime wiring is added in this slice. TypeScript composition remains Slice 3B1B and Generic Entity Sequence Driver migration remains Slice 3B2.
