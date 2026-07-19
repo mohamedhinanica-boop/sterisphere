@@ -6,8 +6,8 @@ import {
 } from "./deployment-activation-executor-sterilizer-shell-handler";
 
 /**
- * Composes the future sterilizer one-step executor without adding it to the
- * production registry. Runtime wiring remains a separate slice.
+ * Composes the registered sterilizer one-step handler for the production
+ * Generic Entity Sequence Driver adapter.
  */
 export function createServerDeploymentActivationExecutorSterilizerShellHandler(
   runner: DeploymentActivationExecutorSterilizerShellRunner,

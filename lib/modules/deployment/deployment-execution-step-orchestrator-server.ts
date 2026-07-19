@@ -12,6 +12,9 @@ import { startNextActivationExecutionItemForServerDeployment, type ServerDeploym
 import { activateClinicForServerDeployment, type ServerDeploymentClinicActivationResult } from "./deployment-clinic-activation-server";
 import { activateProviderShellForServerDeployment, type ServerDeploymentProviderShellActivationResult } from "./deployment-provider-shell-activation-server";
 import { completeProviderShellExecutionItemForServerDeployment, type ServerDeploymentProviderShellExecutionItemCompletionResult } from "./deployment-provider-shell-execution-item-completion-server";
+import type { DeploymentActivationExecutorSterilizerShellRunner } from "./deployment-activation-executor-sterilizer-shell-handler";
+import { activateSterilizerShellForServerDeployment, type ServerDeploymentSterilizerShellActivationResult } from "./deployment-sterilizer-shell-activation-server";
+import { completeSterilizerShellExecutionItemForServerDeployment, type ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "./deployment-sterilizer-shell-execution-item-completion-server";
 import { ServerDeploymentExecutionStepCompletionRunner, type ServerDeploymentExecutionStepCompletionBoundary } from "./deployment-execution-step-completion-runner";
 import { ServerDeploymentExecutionStepEntityRunner } from "./deployment-execution-step-entity-runner";
 import { ServerDeploymentExecutionStepNextStartRunner, type ServerDeploymentExecutionStepNextStartBoundary } from "./deployment-execution-step-next-start-runner";
@@ -42,6 +45,14 @@ export interface ServerProviderDeploymentExecutionStepDependencies extends Serve
     itemCompletion: ServerDeploymentProviderShellExecutionItemCompletionResult | null;
     dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
     nextItemStart: Awaited<ReturnType<typeof startNextActivationExecutionItemForServerDeployment>> | null;
+  };
+}
+export interface ServerSterilizerDeploymentExecutionStepDependencies extends ServerDeploymentExecutionStepOrchestratorDependencies {
+  getSterilizerRuntimeEvidence(): {
+    sterilizerActivation: ServerDeploymentSterilizerShellActivationResult | null;
+    itemCompletion: ServerDeploymentSterilizerShellExecutionItemCompletionResult | null;
+    dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+    nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
   };
 }
 export function createServerClinicDeploymentExecutionStepDependencies(
@@ -237,6 +248,92 @@ export function createServerProviderDeploymentExecutionStepDependencies(
     },
   };
 }
+export function createServerSterilizerDeploymentExecutionStepDependencies(
+  client: SupabaseClient,
+  prerequisites: {
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    deploymentActivationExecutionNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+  },
+): ServerSterilizerDeploymentExecutionStepDependencies {
+  let sterilizerActivation: ServerDeploymentSterilizerShellActivationResult | null = null;
+  let itemCompletion: ServerDeploymentSterilizerShellExecutionItemCompletionResult | null = null;
+  let dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null = null;
+  let nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null = null;
+
+  const sterilizerRunner: DeploymentActivationExecutorSterilizerShellRunner = {
+    async activateSterilizerShell(command) {
+      sterilizerActivation = await activateSterilizerShellForServerDeployment(client, {
+        clinicId: command.clinicId,
+        deploymentRunId: command.deploymentRunKey,
+        deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+        deploymentActivationExecutionNextItemStart: prerequisites.deploymentActivationExecutionNextItemStart,
+        sterilizerActivatedAt: command.executedAt,
+      });
+      return sterilizerActivation;
+    },
+    async completeSterilizerShellExecutionItem(command) {
+      itemCompletion = await completeSterilizerShellExecutionItemForServerDeployment(client, {
+        clinicId: command.clinicId,
+        deploymentRunId: command.deploymentRunKey,
+        deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+        deploymentSterilizerShellActivation: sterilizerActivation,
+        itemCompletionRequestedAt: command.executedAt,
+      });
+      return itemCompletion;
+    },
+  };
+
+  return {
+    entityExecution: {
+      clinicActivation: {
+        async activateClinic() {
+          return { ok: false, status: "blocked" as const, message: "Sterilizer-only execution-step composition does not execute clinics.", clinicId: null, currentClinicState: null, targetClinicState: null, deployedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      providerShellActivation: {
+        async activateProviderShell() {
+          return { ok: false, status: "blocked" as const, message: "Sterilizer-only execution-step composition does not execute provider shells.", providerId: null, deploymentProviderKey: null, provisioningSourceBefore: null, provisioningSourceAfter: null, provisioningStatusBefore: null, provisioningStatusAfter: null, activeBefore: null, activeAfter: null, activatedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      sterilizerShellActivation: sterilizerRunner,
+    },
+    itemCompletion: {
+      async completeCurrentItem() {
+        if (!itemCompletion?.ok) return missingPrerequisite("Sterilizer item-completion evidence is unavailable after entity execution.");
+        return mapProductionStageResult(itemCompletion);
+      },
+    },
+    dependencyProgression: {
+      async progressCurrentItemDependencies(input) {
+        if (!itemCompletion?.ok) return missingPrerequisite("Sterilizer item-completion evidence is unavailable for dependency progression.");
+        dependencyProgression = await progressActivationExecutionDependencyForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionItemCompletion: itemCompletion,
+          dependencyProgressionRequestedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(dependencyProgression);
+      },
+    },
+    nextItemStart: {
+      async startAtMostOneNextItem(input) {
+        if (!dependencyProgression?.ok) return missingPrerequisite("Sterilizer dependency-progression evidence is unavailable for next-item start.");
+        nextItemStart = await startNextActivationExecutionItemForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionDependencyProgression: dependencyProgression,
+          nextItemStartedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(nextItemStart);
+      },
+    },
+    getSterilizerRuntimeEvidence() {
+      return { sterilizerActivation, itemCompletion, dependencyProgression, nextItemStart };
+    },
+  };
+}
 export interface ServerProviderSequenceExecutionResult {
   ok: boolean;
   message: string;
@@ -328,6 +425,110 @@ export async function executeServerProviderSequence(
   };
 }
 
+export interface ServerSterilizerSequenceExecutionResult {
+  ok: boolean;
+  message: string;
+  sterilizerItemsPlanned: number;
+  sterilizerItemsExecuted: number;
+  lastStep: DeploymentExecutionStepOrchestratorResult | null;
+  sterilizerActivation: ServerDeploymentSterilizerShellActivationResult | null;
+  itemCompletion: ServerDeploymentSterilizerShellExecutionItemCompletionResult | null;
+  dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+  nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
+}
+
+export async function executeServerSterilizerSequence(
+  client: SupabaseClient,
+  input: {
+    context: DeploymentExecutionStepOrchestratorContext;
+    clinicId: string;
+    deploymentRunKey: string;
+    sessionId: string;
+    executionKey: string;
+    planKey: string;
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    initialNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+    preparedExecutionItems: readonly DeploymentActivationExecutionItem[];
+    executeSterilizerStep?: (input: { current: ServerDeploymentActivationExecutionNextItemStartResult; prepared: DeploymentActivationExecutionItem; context: DeploymentExecutionStepOrchestratorContext }) => Promise<{ step: DeploymentExecutionStepOrchestratorResult; evidence: ReturnType<ServerSterilizerDeploymentExecutionStepDependencies["getSterilizerRuntimeEvidence"]> }>;
+  },
+): Promise<ServerSterilizerSequenceExecutionResult> {
+  const result = await executeGenericEntitySequence({
+    entityType: "sterilizer_shell",
+    action: "activate",
+    clinicId: input.clinicId,
+    deploymentRunKey: input.deploymentRunKey,
+    sessionId: input.sessionId,
+    executionKey: input.executionKey,
+    planKey: input.planKey,
+    claimantId: input.context.claimantId,
+    leaseExpiresAt: input.context.leaseExpiresAt,
+    executedAt: input.context.executedAt,
+    firstRunningItem: input.initialNextItemStart,
+    preparedItems: input.preparedExecutionItems.map((item) => ({
+      source: item,
+      executionItemKey: item.executionItemKey,
+      planItemKey: item.planItemKey,
+      sequence: item.sequence,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      deploymentKey: item.deploymentKey,
+      action: item.action,
+    })),
+    readRunningIdentity: providerRunningIdentity,
+    validateEntityIdentity: (_running, prepared) => Boolean(prepared.entityId && prepared.deploymentKey && prepared.entityId !== prepared.deploymentKey),
+    executeOne: async ({ running, prepared }) => {
+      if (input.executeSterilizerStep) {
+        const invocation = await input.executeSterilizerStep({ current: running, prepared: prepared.source, context: input.context });
+        return { ...invocation, nextRunningItem: invocation.evidence.nextItemStart };
+      }
+      const dependencies = createServerSterilizerDeploymentExecutionStepDependencies(client, {
+        deploymentActivationExecutionClaim: input.deploymentActivationExecutionClaim,
+        deploymentActivationExecutionNextItemStart: running,
+      });
+      const item = prepared.source;
+      const step = await executeDeploymentExecutionStepForServer(dependencies, {
+        context: input.context,
+        item: {
+          clinicId: input.clinicId, deploymentRunKey: input.deploymentRunKey, sessionId: input.sessionId, executionKey: input.executionKey, planKey: input.planKey,
+          itemId: running.itemId!, executionItemKey: item.executionItemKey, planItemKey: item.planItemKey, sequence: item.sequence,
+          entityType: "sterilizer_shell", entityId: item.entityId, deploymentKey: item.deploymentKey, action: "activate", executionStatus: "running",
+          attemptCount: running.attemptCount, startedAt: running.startedAt, completedAt: item.completedAt, rolledBackAt: null,
+          errorCode: item.error?.code ?? null, errorMessage: item.error?.message ?? null,
+          expectedCurrentState: item.currentState, targetState: item.targetState, dependencyKeys: item.dependencyKeys,
+          reversible: item.reversible, rollbackBehavior: item.rollbackAction,
+        },
+      });
+      const evidence = dependencies.getSterilizerRuntimeEvidence();
+      return { step, evidence, nextRunningItem: evidence.nextItemStart };
+    },
+  });
+  const evidence = result.lastEvidence;
+  return {
+    ok: result.ok,
+    message: sterilizerSequenceMessage(result.message),
+    sterilizerItemsPlanned: result.itemsPlanned,
+    sterilizerItemsExecuted: result.itemsExecuted,
+    lastStep: result.lastStep,
+    sterilizerActivation: evidence?.sterilizerActivation ?? null,
+    itemCompletion: evidence?.itemCompletion ?? null,
+    dependencyProgression: evidence?.dependencyProgression ?? null,
+    nextItemStart: evidence?.nextItemStart ?? null,
+  };
+}
+
+function sterilizerSequenceMessage(message: string): string {
+  return message
+    .replace("Entity sequence has no authoritative planned items.", "Sterilizer sequence has no authoritative prepared sterilizer items.")
+    .replace("Entity sequence ownership lease is not active.", "Sterilizer sequence ownership lease is not active.")
+    .replace("Entity sequence next-item evidence is malformed, foreign, or out of deterministic order.", "Sterilizer sequence handoff evidence is malformed, foreign, or out of deterministic order.")
+    .replace("Entity sequence refused duplicate execution-item evidence.", "Sterilizer sequence refused duplicate execution-item evidence.")
+    .replace("Entity sequence stopped because one execution step did not complete.", "Sterilizer sequence stopped because one sterilizer execution step did not complete.")
+    .replace("Entity sequence stopped because no deterministic next item was started.", "Sterilizer sequence stopped because no deterministic next item was started.")
+    .replace("Entity sequence reached a non-matching item before the authoritative bound.", "Sterilizer sequence reached a non-sterilizer item before the authoritative prepared-item bound.")
+    .replace("Entity sequence exceeded the authoritative planned bound.", "Sterilizer sequence exceeded the authoritative prepared-item bound.")
+    .replace("All deterministic entity items completed and the first non-matching item was started without execution.", "All deterministic sterilizer items completed and the first non-sterilizer item was started without execution.")
+    .replace("Entity sequence terminated without a non-matching handoff.", "Sterilizer sequence terminated without a non-sterilizer handoff.");
+}
 function providerRunningIdentity(item: ServerDeploymentActivationExecutionNextItemStartResult) {
   return {
     ok: item.ok, status: item.status, clinicId: item.clinicId, deploymentRunKey: item.deploymentRunKey, sessionId: item.sessionId,

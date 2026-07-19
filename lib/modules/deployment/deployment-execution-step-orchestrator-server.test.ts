@@ -1,7 +1,7 @@
 import type { DeploymentActivationExecutorClinicActivationCommand, DeploymentActivationExecutorClinicActivationResult } from "./deployment-activation-executor-clinic-handler";
 import type { DeploymentActivationExecutorProviderShellActivationCommand, DeploymentActivationExecutorProviderShellActivationResult } from "./deployment-activation-executor-provider-shell-handler";
 import type { DeploymentExecutionStepRunnerInput } from "./deployment-execution-step-orchestrator-runners";
-import { createServerClinicDeploymentExecutionStepDependencies, createServerProviderDeploymentExecutionStepDependencies, executeServerProviderSequence, executeDeploymentExecutionStepForServer, type ServerDeploymentExecutionStepOrchestratorDependencies } from "./deployment-execution-step-orchestrator-server";
+import { createServerClinicDeploymentExecutionStepDependencies, createServerProviderDeploymentExecutionStepDependencies, executeServerProviderSequence, executeServerSterilizerSequence, executeDeploymentExecutionStepForServer, type ServerDeploymentExecutionStepOrchestratorDependencies } from "./deployment-execution-step-orchestrator-server";
 import type { DeploymentExecutionStepCompletionStatus, DeploymentExecutionStepNextStartStatus, DeploymentExecutionStepOrchestratorContext, DeploymentExecutionStepOrchestratorItem, DeploymentExecutionStepProgressionStatus } from "./deployment-execution-step-orchestrator-types";
 import type { ServerDeploymentExecutionStepBoundaryIssue, ServerDeploymentExecutionStepCompletionBoundaryResult } from "./deployment-execution-step-completion-runner";
 import type { ServerDeploymentExecutionStepProgressionBoundaryResult } from "./deployment-execution-step-progression-runner";
@@ -30,6 +30,7 @@ export async function runDeploymentExecutionStepOrchestratorServerHarness(): Pro
     clinicRuntimeCompositionScenario(),
     providerRuntimeCompositionScenario(),
     await providerSequenceScenario(),
+    await sterilizerSequenceScenario(),
   ];
   return { passed: scenarios.every((current) => current.passed), scenarios };
 }
@@ -92,17 +93,19 @@ function clinicRuntimeCompositionScenario() {
   return scenario("clinic runtime composition delegates once per RC8 boundary without provider migration or loops", required.every((term) => source.includes(term)) && forbidden.every((term) => !source.includes(term)), "clinic-only source checked");
 }
 function providerRuntimeCompositionScenario() {
-  const composition = String(createServerProviderDeploymentExecutionStepDependencies);
+  const orchestratorSource = require("fs").readFileSync("lib/modules/deployment/deployment-execution-step-orchestrator-server.ts", "utf8") as string;
+  const composition = orchestratorSource.slice(orchestratorSource.indexOf("export function createServerProviderDeploymentExecutionStepDependencies"), orchestratorSource.indexOf("export function createServerSterilizerDeploymentExecutionStepDependencies"));
   const actions = require("fs").readFileSync("app/setup/actions.ts", "utf8") as string;
   const providerBranch = actions.slice(actions.indexOf("const providerSequence"), actions.indexOf("return {", actions.indexOf("const providerSequence")));
-  const helperCalls = String(executeServerProviderSequence).match(/executeDeploymentExecutionStepForServer\(/g)?.length ?? 0;
-  const genericCalls = String(executeServerProviderSequence).match(/executeGenericEntitySequence\(/g)?.length ?? 0;
+  const driver = orchestratorSource.slice(orchestratorSource.indexOf("export async function executeServerProviderSequence"), orchestratorSource.indexOf("export interface ServerSterilizerSequenceExecutionResult"));
+  const helperCalls = driver.match(/executeDeploymentExecutionStepForServer\(/g)?.length ?? 0;
+  const genericCalls = driver.match(/executeGenericEntitySequence\(/g)?.length ?? 0;
   const required = ["activateProviderShellForServerDeployment", "completeProviderShellExecutionItemForServerDeployment", "progressActivationExecutionDependencyForServerDeployment", "startNextActivationExecutionItemForServerDeployment"];
   const noDirectOldCalls = !providerBranch.includes("await activateProviderShellForServerDeployment") && !providerBranch.includes("await completeProviderShellExecutionItemForServerDeployment") && !providerBranch.includes("await progressActivationExecutionDependencyForServerDeployment") && !providerBranch.includes("await startNextActivationExecutionItemForServerDeployment");
-  const driver = String(executeServerProviderSequence);
-  const identitiesPreserved = driver.includes("entityId: prepared.entityId") && driver.includes("deploymentKey: prepared.deploymentKey") && providerBranch.includes("deploymentRunKey: result.deploymentRun.deploymentRunId");
+  const identitiesPreserved = driver.includes("entityId: item.entityId") && driver.includes("deploymentKey: item.deploymentKey") && providerBranch.includes("deploymentRunKey: result.deploymentRun.deploymentRunId");
   const clinicStillGeneric = actions.includes("const deploymentClinicExecutionStep") && actions.includes("createServerClinicDeploymentExecutionStepDependencies");
-  const genericDriver = String(executeGenericEntitySequence);
+  const genericDriverSource = require("fs").readFileSync("lib/modules/deployment/deployment-generic-entity-sequence-driver.ts", "utf8") as string;
+  const genericDriver = genericDriverSource.slice(genericDriverSource.indexOf("export async function executeGenericEntitySequence"));
   const bounded = genericDriver.includes("index < items.length") && !genericDriver.includes("retry") && !genericDriver.includes("while (") && !genericDriver.includes("completeSession") && !genericDriver.includes("finalizeDeployment") && !genericDriver.includes("rollback");
   const noDatabaseCompositionInAction = !providerBranch.includes("createClient") && !providerBranch.includes(".rpc(") && !providerBranch.includes("p_ownership_token");
   return scenario("provider runtime uses the generic sequence driver with preserved identity and no direct fallback", helperCalls === 1 && genericCalls === 1 && providerBranch.includes("executeServerProviderSequence") && required.every((term) => composition.includes(term)) && noDirectOldCalls && identitiesPreserved && clinicStillGeneric && bounded && noDatabaseCompositionInAction, JSON.stringify({ helperCalls, genericCalls, noDirectOldCalls, identitiesPreserved, clinicStillGeneric, bounded, noDatabaseCompositionInAction }));
@@ -122,6 +125,26 @@ async function providerSequenceScenario() {
   const passed = result.ok && result.providerItemsPlanned === 2 && result.providerItemsExecuted === 2 && calls.length === 2 && calls[0].includes("provider-id-2:provider-key-2") && calls[1].includes("provider-id-3:provider-key-3") && result.nextItemStart?.entityType === "sterilizer_shell" && result.lastStep?.downstream.entitiesActivated === 2 && result.lastStep.downstream.itemsCompleted === 2 && result.lastStep.downstream.dependenciesProgressed === 2 && result.lastStep.downstream.itemsStarted === 2 && !foreign.ok && !duplicate.ok && !bounded.ok;
   return scenario("bounded provider sequence executes each provider once then stops at sterilizer", passed, JSON.stringify({ calls, result: result.message, foreign: foreign.message, duplicate: duplicate.message, bounded: bounded.message }));
 }
+async function sterilizerSequenceScenario() {
+  const prepared = [sterilizerPrepared(24), sterilizerPrepared(25), workstationPrepared(26)];
+  const calls: string[] = [];
+  const executeSterilizerStep = async ({ current, prepared: item }: { current: any; prepared: any }) => {
+    calls.push(`${current.itemId}:${item.executionItemKey}:${item.entityId}:${item.deploymentKey}`);
+    const next = current.sequence === 24 ? nextEvidence(25, "sterilizer_shell") : nextEvidence(26, "workstation_shell");
+    return { step: stepResult(next), evidence: { sterilizerActivation: { sterilizerId: item.entityId, deploymentSterilizerKey: item.deploymentKey } as any, itemCompletion: { itemId: current.itemId, sterilizerId: item.entityId } as any, dependencyProgression: {} as any, nextItemStart: next } };
+  };
+  const base = { ...sequenceInput(prepared), initialNextItemStart: nextEvidence(24, "sterilizer_shell"), executeSterilizerStep };
+  const result = await executeServerSterilizerSequence({} as any, base);
+  const duplicate = await executeServerSterilizerSequence({} as any, { ...base, executeSterilizerStep: async ({ current }: any) => { const next = { ...nextEvidence(25, "sterilizer_shell"), itemId: current.itemId }; return { step: stepResult(next), evidence: { sterilizerActivation: {} as any, itemCompletion: {} as any, dependencyProgression: {} as any, nextItemStart: next } }; } });
+  const foreign = await executeServerSterilizerSequence({} as any, { ...base, initialNextItemStart: { ...nextEvidence(24, "sterilizer_shell"), clinicId: "foreign" } });
+  const early = await executeServerSterilizerSequence({} as any, { ...base, executeSterilizerStep: async () => { const next = nextEvidence(25, "workstation_shell"); return { step: stepResult(next), evidence: { sterilizerActivation: {} as any, itemCompletion: {} as any, dependencyProgression: {} as any, nextItemStart: next } }; } });
+  const exceeded = await executeServerSterilizerSequence({} as any, { ...base, preparedExecutionItems: [sterilizerPrepared(24), workstationPrepared(25)], executeSterilizerStep: async () => { const next = nextEvidence(25, "sterilizer_shell"); return { step: stepResult(next), evidence: { sterilizerActivation: {} as any, itemCompletion: {} as any, dependencyProgression: {} as any, nextItemStart: next } }; } });
+  const failed = await executeServerSterilizerSequence({} as any, { ...base, executeSterilizerStep: async () => { const next = nextEvidence(25, "sterilizer_shell"); return { step: { ...stepResult(next), ok: false, status: "blocked", downstream: { ...stepResult(next).downstream, dependenciesProgressed: 0, itemsStarted: 0 } }, evidence: { sterilizerActivation: {} as any, itemCompletion: {} as any, dependencyProgression: null, nextItemStart: null } }; } });
+  const passed = result.ok && result.sterilizerItemsPlanned === 2 && result.sterilizerItemsExecuted === 2 && calls.length === 2 && calls[0].includes("sterilizer-id-24:sterilizer-key-24") && calls[1].includes("sterilizer-id-25:sterilizer-key-25") && result.nextItemStart?.entityType === "workstation_shell" && result.nextItemStart.action === "activate" && result.lastStep?.downstream.entitiesActivated === 2 && result.lastStep.downstream.itemsCompleted === 2 && !duplicate.ok && !foreign.ok && !early.ok && !exceeded.ok && !failed.ok;
+  return scenario("bounded sterilizer sequence consumes provider handoff exactly once and stops after starting workstation", passed, JSON.stringify({ calls, result: result.message, duplicate: duplicate.message, foreign: foreign.message, early: early.message, exceeded: exceeded.message, failed: failed.message }));
+}
+function sterilizerPrepared(sequence: number) { return { ...nonProviderPrepared(sequence), executionItemKey: `execution-server-step:sterilizer-${sequence}`, planItemKey: `plan-server-step:sterilizer-${sequence}`, entityType: "sterilizer_shell", entityId: `sterilizer-id-${sequence}`, deploymentKey: `sterilizer-key-${sequence}`, targetState: { provisioningStatus: "active", active: true } }; }
+function workstationPrepared(sequence: number) { return { ...providerPrepared(sequence), entityType: "workstation_shell", entityId: `workstation-id-${sequence}`, deploymentKey: `workstation-key-${sequence}` }; }
 function sequenceInput(preparedExecutionItems: any[]) { return { context: context(), clinicId: "clinic-server-step", deploymentRunKey: "deployment-run-server-step", sessionId: "session-server-step", executionKey: "execution-server-step", planKey: "plan-server-step", deploymentActivationExecutionClaim: {} as any, initialNextItemStart: nextEvidence(2, "provider_shell"), preparedExecutionItems }; }
 function providerPrepared(sequence: number) { return { executionItemKey: `execution-server-step:provider-${sequence}`, planItemKey: `plan-server-step:provider-${sequence}`, sequence, entityType: "provider_shell", entityId: `provider-id-${sequence}`, deploymentKey: `provider-key-${sequence}`, action: "activate", currentState: { active: false }, targetState: { active: true }, dependencyKeys: [], executionStatus: "pending", attemptCount: 0, reversible: true, rollbackAction: "restore", startedAt: null, completedAt: null, error: null, evidence: { dependencyLevel: 1, readyDependencyKeys: [], pendingDependencyKeys: [] }, downstream: {} }; }
 function nonProviderPrepared(sequence: number) { return { ...providerPrepared(sequence), entityType: "sterilizer_shell", entityId: `sterilizer-id-${sequence}`, deploymentKey: `sterilizer-key-${sequence}` }; }

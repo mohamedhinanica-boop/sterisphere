@@ -33,6 +33,7 @@ export function createServerDeploymentActivationExecutor(
   const registry = createDeploymentActivationExecutorHandlerRegistry({
     clinicActivation: dependencies.clinicActivation,
     providerShellActivation: dependencies.providerShellActivation,
+    sterilizerShellActivation: dependencies.sterilizerShellActivation,
   });
 
   return createDeploymentActivationExecutorService(registry);

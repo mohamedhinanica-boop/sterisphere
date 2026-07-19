@@ -1565,3 +1565,10 @@ future owned running sterilizer_shell:activate item
 ```
 
 Neither RPC progresses dependencies, starts a workstation, completes the execution session, finalizes deployment, or executes rollback. No TypeScript caller or production runtime wiring is added in this slice. TypeScript composition remains Slice 3B1B and Generic Entity Sequence Driver migration remains Slice 3B2.
+
+
+## RC9 Slice 3B2 — sterilizer generic sequence runtime
+
+Setup Complete now passes the already-running first `sterilizer_shell:activate` item from the provider sequence directly into the Generic Entity Sequence Driver. It is not readied or started again. Prepared execution evidence supplies the authoritative matching-item count and deterministic UUID/key identities; the generic driver owns serial ordering, exactly-once item-ID tracking, identity and lease validation, bound enforcement, and first non-matching handoff.
+
+The registered sterilizer handler performs atomic sterilizer activation followed by atomic completion of that same execution item. The outer one-step orchestration then progresses dependencies and starts at most one deterministic next item. Additional matching sterilizers continue serially; after the authoritative bound, the first `workstation_shell:activate` item may be started and is returned without dispatch or activation. No rollback, session completion, deployment finalization, heartbeat renewal, retry, recovery, or background execution is introduced.

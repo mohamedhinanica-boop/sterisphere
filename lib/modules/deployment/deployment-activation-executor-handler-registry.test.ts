@@ -67,6 +67,7 @@ export async function runDeploymentActivationExecutorHandlerRegistryHarness(): P
     await scenarioHandlerInvokedExactlyOnce(),
     await scenarioNoRetryAfterHandlerFailure(),
     await scenarioUnsupportedSterilizerRemainsUnsupported(),
+    scenarioSterilizerRegistrationResolves(),
     await scenarioUnsupportedHardwareBindingRemainsUnsupported(),
     await scenarioDuplicateRegistrationRejected(),
     await scenarioExplicitRegistryOrderDoesNotAffectDispatch(),
@@ -185,6 +186,18 @@ async function scenarioNoRetryAfterHandlerFailure() {
   return expectScenario("no retry after handler failure", result.status === "error" && harness.clinic.calls.length === 1 && !JSON.stringify(result).includes(TOKEN), JSON.stringify(redact(result)));
 }
 
+function scenarioSterilizerRegistrationResolves() {
+  const harness = harnessFor(clinicResult("activated"), providerResult("activated"));
+  const registry = createDeploymentActivationExecutorHandlerRegistry({
+    clinicActivation: harness.clinic,
+    providerShellActivation: harness.provider,
+    sterilizerShellActivation: {
+      async activateSterilizerShell() { throw new Error("registration-only fake must not execute"); },
+      async completeSterilizerShellExecutionItem() { throw new Error("registration-only fake must not execute"); },
+    },
+  });
+  return expectScenario("production registry resolves sterilizer_shell:activate when composed", registry.has("sterilizer_shell", "activate"), registry.registrationKeys.join(","));
+}
 async function scenarioUnsupportedSterilizerRemainsUnsupported() {
   const result = await dispatch(harnessFor(clinicResult("activated")), clinicItem({ entityType: "sterilizer_shell", entityId: "sterilizer-001" }));
   return expectScenario("unsupported sterilizer remains unsupported", result.status === "unsupported", JSON.stringify(result));

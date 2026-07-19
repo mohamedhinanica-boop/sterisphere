@@ -1751,3 +1751,10 @@ The authoritative provider adapter continues to preserve provider UUID `entityId
 The forward-only SQL draft adds `activate_deployment_sterilizer_shell(...)` and `complete_deployment_sterilizer_shell_execution_item(...)`. Activation performs one compare-and-set update on `public.sterilizers` (`provisioning_status = active`, `active = true`, and the established `updated_at` timestamp) after locking and validating session, item, and sterilizer evidence. Completion performs one compare-and-set update on `public.deployment_activation_execution_items` (`running -> succeeded`, `completed_at`) after validating the transition-only target against durable sterilizer state.
 
 Completion does not mutate sterilizers, dependencies, later items, sessions, leases, ownership, rollback evidence, deployment state, or finalization state. Execution is revoked from public, anon, and authenticated roles and granted only to `service_role`. The companion read-only preflight verifies schema, signatures, hardened function configuration, privileges, identity uniqueness, and mutation boundaries.
+
+
+## RC9 Slice 3B2 — sterilizer runtime persistence consumption
+
+The production sterilizer adapter consumes only prepared `sterilizer_shell:activate` execution items and uses their exact count as the Generic Entity Sequence Driver safety bound. The provider handoff supplies the already-running initial item. UUID, clinic, deployment run, session, execution, plan, claimant, lease, deterministic deployment key, current state, transition-only target state, dependency, and rollback evidence remain preserved through the one-step executor.
+
+Activation and completion remain authoritative RPC mutations; dependency progression and next-item start remain existing generic outer boundaries. The first workstation item may become running after all prepared sterilizers complete, but no workstation activation, direct fallback update, rollback, session completion, finalization, retry, or recovery path exists in this slice.

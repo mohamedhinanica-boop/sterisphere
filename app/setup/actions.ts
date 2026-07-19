@@ -59,6 +59,7 @@ import {
 import {
   createServerClinicDeploymentExecutionStepDependencies,
   executeServerProviderSequence,
+  executeServerSterilizerSequence,
   executeDeploymentExecutionStepForServer,
 } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-server";
 import {
@@ -86,6 +87,10 @@ import {
   completeProviderShellExecutionItemForServerDeployment,
 } from "@/lib/modules/deployment/deployment-provider-shell-execution-item-completion-server";
 import type { DeploymentExecutionStepOrchestratorResult } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-types";
+import type { ServerDeploymentSterilizerShellActivationResult } from "@/lib/modules/deployment/deployment-sterilizer-shell-activation-server";
+import type { ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "@/lib/modules/deployment/deployment-sterilizer-shell-execution-item-completion-server";
+import type { ServerDeploymentActivationExecutionDependencyProgressionResult } from "@/lib/modules/deployment/deployment-activation-execution-dependency-progression-server";
+import type { ServerDeploymentActivationExecutionNextItemStartResult } from "@/lib/modules/deployment/deployment-activation-execution-next-item-start-server";
 import type {
   DeploymentAssignmentTargetValidationIssue,
 } from "@/lib/modules/deployment/deployment-assignment-target-validation-types";
@@ -959,6 +964,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentClinicActivation: DeploymentClinicActivationActionResult;
   deploymentClinicExecutionStep?: DeploymentExecutionStepOrchestratorResult;
   deploymentProviderExecutionStep?: DeploymentExecutionStepOrchestratorResult;
+  deploymentSterilizerExecutionStep?: DeploymentExecutionStepOrchestratorResult;
   deploymentActivationExecutionItemCompletion?: DeploymentActivationExecutionItemCompletionActionResult;
   deploymentActivationExecutionDependencyProgression?: DeploymentActivationExecutionDependencyProgressionActionResult;
   deploymentActivationExecutionNextItemStart?: DeploymentActivationExecutionNextItemStartActionResult;
@@ -966,6 +972,10 @@ export interface PersistDeploymentRunActionResult {
   deploymentProviderShellExecutionItemCompletion?: DeploymentProviderShellExecutionItemCompletionActionResult;
   deploymentProviderShellExecutionDependencyProgression?: DeploymentActivationExecutionDependencyProgressionActionResult;
   deploymentProviderShellExecutionNextItemStart?: DeploymentActivationExecutionNextItemStartActionResult;
+  deploymentSterilizerShellActivation?: ServerDeploymentSterilizerShellActivationResult;
+  deploymentSterilizerShellExecutionItemCompletion?: ServerDeploymentSterilizerShellExecutionItemCompletionResult;
+  deploymentSterilizerShellExecutionDependencyProgression?: ServerDeploymentActivationExecutionDependencyProgressionResult;
+  deploymentSterilizerShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
   message: string;
 }
 
@@ -2624,6 +2634,29 @@ export async function persistDeploymentRunAction(
     const deploymentProviderShellExecutionItemCompletion = providerSequence?.itemCompletion ?? null;
     const deploymentProviderShellExecutionDependencyProgression = providerSequence?.dependencyProgression ?? null;
     const deploymentProviderShellExecutionNextItemStart = providerSequence?.nextItemStart ?? null;
+    const sterilizerSequence = providerSequence?.ok && deploymentProviderShellExecutionNextItemStart?.ok && deploymentActivationExecution && deploymentActivationExecutionClaim && clinicOwnershipToken
+      ? await executeServerSterilizerSequence(client, {
+          context: {
+            claimantId: deploymentActivationExecutionClaim.claimantId!,
+            ownershipToken: clinicOwnershipToken,
+            leaseExpiresAt: deploymentActivationExecutionClaim.leaseExpiresAt,
+            executedAt: persistedAt,
+          },
+          clinicId,
+          deploymentRunKey: result.deploymentRun.deploymentRunId,
+          sessionId: deploymentProviderShellExecutionNextItemStart.sessionId!,
+          executionKey: deploymentProviderShellExecutionNextItemStart.executionKey!,
+          planKey: deploymentActivationExecutionClaim.planKey!,
+          deploymentActivationExecutionClaim,
+          initialNextItemStart: deploymentProviderShellExecutionNextItemStart,
+          preparedExecutionItems: deploymentActivationExecution.executionItems,
+        })
+      : null;
+    const deploymentSterilizerExecutionStep = sterilizerSequence?.lastStep ?? null;
+    const deploymentSterilizerShellActivation = sterilizerSequence?.sterilizerActivation ?? null;
+    const deploymentSterilizerShellExecutionItemCompletion = sterilizerSequence?.itemCompletion ?? null;
+    const deploymentSterilizerShellExecutionDependencyProgression = sterilizerSequence?.dependencyProgression ?? null;
+    const deploymentSterilizerShellExecutionNextItemStart = sterilizerSequence?.nextItemStart ?? null;
 
     return {
       ok:
@@ -2635,7 +2668,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionStart?.ok) &&
         Boolean(deploymentActivationExecutionItemStart?.ok) &&
         Boolean(deploymentClinicExecutionStep?.ok) &&
-        Boolean(providerSequence?.ok),
+        Boolean(providerSequence?.ok) &&
+        Boolean(sterilizerSequence?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -2819,6 +2853,7 @@ export async function persistDeploymentRunAction(
           },
       deploymentClinicExecutionStep: deploymentClinicExecutionStep ?? undefined,
       deploymentProviderExecutionStep: deploymentProviderExecutionStep ?? undefined,
+      deploymentSterilizerExecutionStep: deploymentSterilizerExecutionStep ?? undefined,
       deploymentClinicActivation: deploymentClinicActivation
         ? mapDeploymentClinicActivationActionResult(deploymentClinicActivation)
         : {
@@ -2980,7 +3015,13 @@ export async function persistDeploymentRunAction(
             message:
               "Post-provider next-item start was skipped because post-provider dependency progression did not complete successfully.",
           },
-      message: deploymentProviderShellExecutionNextItemStart?.ok
+      deploymentSterilizerShellActivation: deploymentSterilizerShellActivation ?? undefined,
+      deploymentSterilizerShellExecutionItemCompletion: deploymentSterilizerShellExecutionItemCompletion ?? undefined,
+      deploymentSterilizerShellExecutionDependencyProgression: deploymentSterilizerShellExecutionDependencyProgression ?? undefined,
+      deploymentSterilizerShellExecutionNextItemStart: deploymentSterilizerShellExecutionNextItemStart ?? undefined,
+      message: deploymentSterilizerShellExecutionNextItemStart?.ok
+        ? "Deployment run activation completed all deterministic provider and sterilizer items. The first workstation item may now be running, but no workstation activation, binding, rollback, session completion, or finalization occurred."
+        : deploymentProviderShellExecutionNextItemStart?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, post-provider dependency progression, and post-provider next-item start are complete. All deterministic provider items are complete and the first non-provider item may now be running, but no non-provider activation, binding, rollback, session completion, or finalization occurred."
         : deploymentProviderShellExecutionDependencyProgression?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, and post-provider dependency progression are complete, but post-provider next-item start is blocked, skipped, or not applicable. No provider activation, further item completion, binding, rollback, or finalization occurred."

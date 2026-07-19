@@ -32,6 +32,7 @@ import type {
 import type {
   ServerDeploymentProviderShellExecutionItemCompletionResult,
 } from "./deployment-provider-shell-execution-item-completion-server";
+import type { ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "./deployment-sterilizer-shell-execution-item-completion-server";
 
 export type ServerDeploymentActivationExecutionDependencyProgressionStatus =
   | "progressed"
@@ -51,6 +52,7 @@ export interface ServerDeploymentActivationExecutionDependencyProgressionCommand
   deploymentActivationExecutionItemCompletion:
     | ServerDeploymentActivationExecutionItemCompletionResult
     | ServerDeploymentProviderShellExecutionItemCompletionResult
+    | ServerDeploymentSterilizerShellExecutionItemCompletionResult
     | null;
   dependencyProgressionRequestedAt?: string | null;
 }

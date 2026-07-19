@@ -1857,6 +1857,14 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Reused", value: readField(input.deploymentProviderShellExecutionNextItemStart, "reusedCount") ?? 0 },
           { label: "Sequence", value: readField(input.deploymentProviderShellExecutionNextItemStart, "sequence") ?? "none" },
         ]),
+        stage("post-sterilizer-dependency-progression", "Post-Sterilizer Dependency Progression", input.deploymentSterilizerShellExecutionDependencyProgression, "not_attempted", "Post-sterilizer dependency progression readies the next deterministic item without activating it.", [
+          { label: "Progressed", value: readField(input.deploymentSterilizerShellExecutionDependencyProgression, "progressedCount") ?? 0 },
+          { label: "Next", value: readField(input.deploymentSterilizerShellExecutionDependencyProgression, "nextSequence") ?? "none" },
+        ]),
+        stage("post-sterilizer-next-item-start", "Post-Sterilizer Next Item Start", input.deploymentSterilizerShellExecutionNextItemStart, "not_attempted", "Post-sterilizer next-item start may start the first workstation item but does not dispatch it.", [
+          { label: "Started", value: readField(input.deploymentSterilizerShellExecutionNextItemStart, "startedCount") ?? 0 },
+          { label: "Sequence", value: readField(input.deploymentSterilizerShellExecutionNextItemStart, "sequence") ?? "none" },
+        ]),
       ],
     },
     {
@@ -1873,6 +1881,14 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
         stage("provider-shell-item-completion", "Provider Shell Item Completion", input.deploymentProviderShellExecutionItemCompletion, "not_attempted", "Provider-shell item completion marks only the activated provider execution item succeeded.", [
           { label: "Completed", value: readField(input.deploymentProviderShellExecutionItemCompletion, "completedCount") ?? 0 },
           { label: "Reused", value: readField(input.deploymentProviderShellExecutionItemCompletion, "reusedCount") ?? 0 },
+        ]),
+        stage("sterilizer-shell-activation", "Sterilizer Shell Activation", input.deploymentSterilizerShellActivation, "not_attempted", "Sterilizer shell activation targets only the selected deterministic sterilizer shell.", [
+          { label: "Activated", value: readField(input.deploymentSterilizerShellActivation, "activatedCount") ?? 0 },
+          { label: "Conflicts", value: readField(input.deploymentSterilizerShellActivation, "conflicts") ?? 0 },
+        ]),
+        stage("sterilizer-shell-item-completion", "Sterilizer Shell Item Completion", input.deploymentSterilizerShellExecutionItemCompletion, "not_attempted", "Sterilizer-shell item completion marks only the activated sterilizer execution item succeeded.", [
+          { label: "Completed", value: readField(input.deploymentSterilizerShellExecutionItemCompletion, "completedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentSterilizerShellExecutionItemCompletion, "reusedCount") ?? 0 },
         ]),
       ],
     },
@@ -2300,6 +2316,14 @@ function CompleteStep({
     deploymentRunResult?.deploymentProviderShellExecutionDependencyProgression ?? null;
   const deploymentProviderShellExecutionNextItemStart =
     deploymentRunResult?.deploymentProviderShellExecutionNextItemStart ?? null;
+  const deploymentSterilizerShellActivation =
+    deploymentRunResult?.deploymentSterilizerShellActivation ?? null;
+  const deploymentSterilizerShellExecutionItemCompletion =
+    deploymentRunResult?.deploymentSterilizerShellExecutionItemCompletion ?? null;
+  const deploymentSterilizerShellExecutionDependencyProgression =
+    deploymentRunResult?.deploymentSterilizerShellExecutionDependencyProgression ?? null;
+  const deploymentSterilizerShellExecutionNextItemStart =
+    deploymentRunResult?.deploymentSterilizerShellExecutionNextItemStart ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2353,6 +2377,10 @@ function CompleteStep({
     deploymentProviderShellExecutionItemCompletion,
     deploymentProviderShellExecutionDependencyProgression,
     deploymentProviderShellExecutionNextItemStart,
+    deploymentSterilizerShellActivation,
+    deploymentSterilizerShellExecutionItemCompletion,
+    deploymentSterilizerShellExecutionDependencyProgression,
+    deploymentSterilizerShellExecutionNextItemStart,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
@@ -2376,7 +2404,7 @@ function CompleteStep({
   const collapseAllStages = () => setManuallyExpandedStageIds(new Set());
   const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
   const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
-  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? "Not started";
+  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? deploymentSterilizerShellExecutionNextItemStart?.sessionId ?? deploymentSterilizerShellActivation?.sessionId ?? "Not started";
   useEffect(() => {
     if (!isPersisting) {
       setElapsedSeconds(0);
