@@ -1196,7 +1196,7 @@ The generic execution-step orchestrator remains a one-item boundary. A server-on
 
 The driver validates clinic, deployment-run key, execution session, execution key, plan key, claimant, lease, item identity, provider UUID, deployment key, sequence, and action at every handoff. It stops on any failed or malformed stage, foreign or duplicate identity, bound violation, or when the first non-provider item is started. That non-provider item remains running and is not executed. Sterilizer migration and resume/recovery remain future work.
 
-## RC9 Slice 3A — Generic Entity Sequence Driver
+## RC9 Slice 3A ï¿½ Generic Entity Sequence Driver
 
 The verified provider continuation loop is now decomposed into three layers: the setup action locates the first already-running provider item, the provider adapter supplies `provider_shell:activate` identity mapping and the unchanged provider response contract, and the Generic Entity Sequence Driver performs bounded consecutive-item iteration through the existing one-step server executor.
 
@@ -1204,8 +1204,10 @@ The driver owns deterministic ordering, clinic/run/session/execution/plan/claima
 
 Providers are the only production consumer in Slice 3A. Sterilizer, workstation, hardware, and hardware-assignment reuse remains future work; no such runtime was migrated here. The clinic path, atomic activation/completion/progression/next-start boundaries, response contract, rollback behavior, finalization behavior, and UI remain unchanged.
 
-## RC9 Slice 3B1A — Sterilizer atomic persistence primitives
+## RC9 Slice 3B1A ï¿½ Sterilizer atomic persistence primitives
 
 Two service-role-only, `SECURITY DEFINER` RPC foundations now define the future sterilizer execution boundary: `activate_deployment_sterilizer_shell(...)` atomically validates the owned running item and transitions only its clinic-scoped sterilizer from setup-draft `planned`/inactive to `active`/active; `complete_deployment_sterilizer_shell_execution_item(...)` proves that durable state and transitions only the same running execution item to `succeeded`. Both functions use a fixed `pg_catalog, public` search path, return structured status and issue codes without tokens, and preserve UUID, clinic, deterministic key, source, dependency, rollback, session, and finalization state.
 
-The planner target remains transition-only: `{ provisioningStatus: "active", active: true }`. UUID, clinic, `deployment_sterilizer_key`, and `provisioning_source` are validated separately. Exact already-activated and already-completed evidence may be reused only while ownership, lease, item identity, immutable identity, and durable target state still match. TypeScript repositories and services remain future Slice 3B1B; runtime adapter wiring remains future Slice 3B2.
+The planner target remains transition-only: `{ provisioningStatus: "active", active: true }`. UUID, clinic, `deployment_sterilizer_key`, and `provisioning_source` are validated separately. Exact already-activated and already-completed evidence may be reused only while ownership, lease, item identity, immutable identity, and durable target state still match.
+
+RC9 Slice 3B1B adds the server-only TypeScript activation and completion repositories, Supabase RPC adapters, validation services, composition boundaries, and an isolated `sterilizer_shell:activate` one-step handler. The handler performs activation followed by execution-item completion only. It is deliberately absent from the production handler registry, does not progress dependencies or start the next item, and is not invoked by Setup Complete; runtime adapter wiring remains future Slice 3B2.
