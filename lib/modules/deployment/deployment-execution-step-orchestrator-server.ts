@@ -13,8 +13,11 @@ import { activateClinicForServerDeployment, type ServerDeploymentClinicActivatio
 import { activateProviderShellForServerDeployment, type ServerDeploymentProviderShellActivationResult } from "./deployment-provider-shell-activation-server";
 import { completeProviderShellExecutionItemForServerDeployment, type ServerDeploymentProviderShellExecutionItemCompletionResult } from "./deployment-provider-shell-execution-item-completion-server";
 import type { DeploymentActivationExecutorSterilizerShellRunner } from "./deployment-activation-executor-sterilizer-shell-handler";
+import type { DeploymentActivationExecutorWorkstationShellRunner } from "./deployment-activation-executor-workstation-shell-handler";
 import { activateSterilizerShellForServerDeployment, type ServerDeploymentSterilizerShellActivationResult } from "./deployment-sterilizer-shell-activation-server";
 import { completeSterilizerShellExecutionItemForServerDeployment, type ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "./deployment-sterilizer-shell-execution-item-completion-server";
+import { activateWorkstationShellForServerDeployment, type ServerDeploymentWorkstationShellActivationResult } from "./deployment-workstation-shell-activation-server";
+import { completeWorkstationShellExecutionItemForServerDeployment, type ServerDeploymentWorkstationShellExecutionItemCompletionResult } from "./deployment-workstation-shell-execution-item-completion-server";
 import { ServerDeploymentExecutionStepCompletionRunner, type ServerDeploymentExecutionStepCompletionBoundary } from "./deployment-execution-step-completion-runner";
 import { ServerDeploymentExecutionStepEntityRunner } from "./deployment-execution-step-entity-runner";
 import { ServerDeploymentExecutionStepNextStartRunner, type ServerDeploymentExecutionStepNextStartBoundary } from "./deployment-execution-step-next-start-runner";
@@ -51,6 +54,14 @@ export interface ServerSterilizerDeploymentExecutionStepDependencies extends Ser
   getSterilizerRuntimeEvidence(): {
     sterilizerActivation: ServerDeploymentSterilizerShellActivationResult | null;
     itemCompletion: ServerDeploymentSterilizerShellExecutionItemCompletionResult | null;
+    dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+    nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
+  };
+}
+export interface ServerWorkstationDeploymentExecutionStepDependencies extends ServerDeploymentExecutionStepOrchestratorDependencies {
+  getWorkstationRuntimeEvidence(): {
+    workstationActivation: ServerDeploymentWorkstationShellActivationResult | null;
+    itemCompletion: ServerDeploymentWorkstationShellExecutionItemCompletionResult | null;
     dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
     nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
   };
@@ -334,6 +345,92 @@ export function createServerSterilizerDeploymentExecutionStepDependencies(
     },
   };
 }
+export function createServerWorkstationDeploymentExecutionStepDependencies(
+  client: SupabaseClient,
+  prerequisites: {
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    deploymentActivationExecutionNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+  },
+): ServerWorkstationDeploymentExecutionStepDependencies {
+  let workstationActivation: ServerDeploymentWorkstationShellActivationResult | null = null;
+  let itemCompletion: ServerDeploymentWorkstationShellExecutionItemCompletionResult | null = null;
+  let dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null = null;
+  let nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null = null;
+
+  const workstationRunner: DeploymentActivationExecutorWorkstationShellRunner = {
+    async activateWorkstationShell(command) {
+      workstationActivation = await activateWorkstationShellForServerDeployment(client, {
+        clinicId: command.clinicId,
+        deploymentRunId: command.deploymentRunKey,
+        deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+        deploymentActivationExecutionNextItemStart: prerequisites.deploymentActivationExecutionNextItemStart,
+        workstationActivatedAt: command.executedAt,
+      });
+      return workstationActivation;
+    },
+    async completeWorkstationShellExecutionItem(command) {
+      itemCompletion = await completeWorkstationShellExecutionItemForServerDeployment(client, {
+        clinicId: command.clinicId,
+        deploymentRunId: command.deploymentRunKey,
+        deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+        deploymentWorkstationShellActivation: workstationActivation,
+        itemCompletionRequestedAt: command.executedAt,
+      });
+      return itemCompletion;
+    },
+  };
+
+  return {
+    entityExecution: {
+      clinicActivation: {
+        async activateClinic() {
+          return { ok: false, status: "blocked" as const, message: "Workstation-only execution-step composition does not execute clinics.", clinicId: null, currentClinicState: null, targetClinicState: null, deployedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      providerShellActivation: {
+        async activateProviderShell() {
+          return { ok: false, status: "blocked" as const, message: "Workstation-only execution-step composition does not execute provider shells.", providerId: null, deploymentProviderKey: null, provisioningSourceBefore: null, provisioningSourceAfter: null, provisioningStatusBefore: null, provisioningStatusAfter: null, activeBefore: null, activeAfter: null, activatedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      workstationShellActivation: workstationRunner,
+    },
+    itemCompletion: {
+      async completeCurrentItem() {
+        if (!itemCompletion?.ok) return missingPrerequisite("Workstation item-completion evidence is unavailable after entity execution.");
+        return mapProductionStageResult(itemCompletion);
+      },
+    },
+    dependencyProgression: {
+      async progressCurrentItemDependencies(input) {
+        if (!itemCompletion?.ok) return missingPrerequisite("Workstation item-completion evidence is unavailable for dependency progression.");
+        dependencyProgression = await progressActivationExecutionDependencyForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionItemCompletion: itemCompletion,
+          dependencyProgressionRequestedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(dependencyProgression);
+      },
+    },
+    nextItemStart: {
+      async startAtMostOneNextItem(input) {
+        if (!dependencyProgression?.ok) return missingPrerequisite("Workstation dependency-progression evidence is unavailable for next-item start.");
+        nextItemStart = await startNextActivationExecutionItemForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionDependencyProgression: dependencyProgression,
+          nextItemStartedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(nextItemStart);
+      },
+    },
+    getWorkstationRuntimeEvidence() {
+      return { workstationActivation, itemCompletion, dependencyProgression, nextItemStart };
+    },
+  };
+}
 export interface ServerProviderSequenceExecutionResult {
   ok: boolean;
   message: string;
@@ -516,6 +613,97 @@ export async function executeServerSterilizerSequence(
   };
 }
 
+export interface ServerWorkstationSequenceExecutionResult {
+  ok: boolean;
+  message: string;
+  workstationItemsPlanned: number;
+  workstationItemsExecuted: number;
+  lastStep: DeploymentExecutionStepOrchestratorResult | null;
+  workstationActivation: ServerDeploymentWorkstationShellActivationResult | null;
+  itemCompletion: ServerDeploymentWorkstationShellExecutionItemCompletionResult | null;
+  dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+  nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
+}
+
+export async function executeServerWorkstationSequence(
+  client: SupabaseClient,
+  input: {
+    context: DeploymentExecutionStepOrchestratorContext;
+    clinicId: string;
+    deploymentRunKey: string;
+    sessionId: string;
+    executionKey: string;
+    planKey: string;
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    initialNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+    preparedExecutionItems: readonly DeploymentActivationExecutionItem[];
+    executeWorkstationStep?: (input: { current: ServerDeploymentActivationExecutionNextItemStartResult; prepared: DeploymentActivationExecutionItem; context: DeploymentExecutionStepOrchestratorContext }) => Promise<{ step: DeploymentExecutionStepOrchestratorResult; evidence: ReturnType<ServerWorkstationDeploymentExecutionStepDependencies["getWorkstationRuntimeEvidence"]> }>;
+  },
+): Promise<ServerWorkstationSequenceExecutionResult> {
+  const result = await executeGenericEntitySequence({
+    entityType: "workstation_shell",
+    action: "activate",
+    clinicId: input.clinicId,
+    deploymentRunKey: input.deploymentRunKey,
+    sessionId: input.sessionId,
+    executionKey: input.executionKey,
+    planKey: input.planKey,
+    claimantId: input.context.claimantId,
+    leaseExpiresAt: input.context.leaseExpiresAt,
+    executedAt: input.context.executedAt,
+    firstRunningItem: input.initialNextItemStart,
+    preparedItems: input.preparedExecutionItems.map((item) => ({
+      source: item,
+      executionItemKey: item.executionItemKey,
+      planItemKey: item.planItemKey,
+      sequence: item.sequence,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      deploymentKey: item.deploymentKey,
+      action: item.action,
+    })),
+    readRunningIdentity: providerRunningIdentity,
+    validateEntityIdentity: (_running, prepared) => Boolean(prepared.entityId && isUuidIdentity(prepared.entityId) && prepared.deploymentKey && prepared.entityId !== prepared.deploymentKey),
+    executeOne: async ({ running, prepared }) => {
+      if (input.executeWorkstationStep) {
+        const invocation = await input.executeWorkstationStep({ current: running, prepared: prepared.source, context: input.context });
+        return { ...invocation, nextRunningItem: invocation.evidence.nextItemStart };
+      }
+      const dependencies = createServerWorkstationDeploymentExecutionStepDependencies(client, {
+        deploymentActivationExecutionClaim: input.deploymentActivationExecutionClaim,
+        deploymentActivationExecutionNextItemStart: running,
+      });
+      const item = prepared.source;
+      const step = await executeDeploymentExecutionStepForServer(dependencies, {
+        context: input.context,
+        item: {
+          clinicId: input.clinicId, deploymentRunKey: input.deploymentRunKey, sessionId: input.sessionId, executionKey: input.executionKey, planKey: input.planKey,
+          itemId: running.itemId!, executionItemKey: item.executionItemKey, planItemKey: item.planItemKey, sequence: item.sequence,
+          entityType: "workstation_shell", entityId: item.entityId, deploymentKey: item.deploymentKey, action: "activate", executionStatus: "running",
+          attemptCount: running.attemptCount, startedAt: running.startedAt, completedAt: item.completedAt, rolledBackAt: null,
+          errorCode: item.error?.code ?? null, errorMessage: item.error?.message ?? null,
+          expectedCurrentState: item.currentState, targetState: item.targetState, dependencyKeys: item.dependencyKeys,
+          reversible: item.reversible, rollbackBehavior: item.rollbackAction,
+        },
+      });
+      const evidence = dependencies.getWorkstationRuntimeEvidence();
+      return { step, evidence, nextRunningItem: evidence.nextItemStart };
+    },
+  });
+  const evidence = result.lastEvidence;
+  return {
+    ok: result.ok,
+    message: workstationSequenceMessage(result.message),
+    workstationItemsPlanned: result.itemsPlanned,
+    workstationItemsExecuted: result.itemsExecuted,
+    lastStep: result.lastStep,
+    workstationActivation: evidence?.workstationActivation ?? null,
+    itemCompletion: evidence?.itemCompletion ?? null,
+    dependencyProgression: evidence?.dependencyProgression ?? null,
+    nextItemStart: evidence?.nextItemStart ?? null,
+  };
+}
+
 function sterilizerSequenceMessage(message: string): string {
   return message
     .replace("Entity sequence has no authoritative planned items.", "Sterilizer sequence has no authoritative prepared sterilizer items.")
@@ -529,6 +717,23 @@ function sterilizerSequenceMessage(message: string): string {
     .replace("All deterministic entity items completed and the first non-matching item was started without execution.", "All deterministic sterilizer items completed and the first non-sterilizer item was started without execution.")
     .replace("Entity sequence terminated without a non-matching handoff.", "Sterilizer sequence terminated without a non-sterilizer handoff.");
 }
+function workstationSequenceMessage(message: string): string {
+  return message
+    .replace("Entity sequence has no authoritative planned items.", "Workstation sequence has no authoritative prepared workstation items.")
+    .replace("Entity sequence ownership lease is not active.", "Workstation sequence ownership lease is not active.")
+    .replace("Entity sequence next-item evidence is malformed, foreign, or out of deterministic order.", "Workstation sequence handoff evidence is malformed, foreign, or out of deterministic order.")
+    .replace("Entity sequence refused duplicate execution-item evidence.", "Workstation sequence refused duplicate execution-item evidence.")
+    .replace("Entity sequence stopped because one execution step did not complete.", "Workstation sequence stopped because one workstation execution step did not complete.")
+    .replace("Entity sequence stopped because no deterministic next item was started.", "Workstation sequence stopped because no deterministic next item was started.")
+    .replace("Entity sequence reached a non-matching item before the authoritative bound.", "Workstation sequence reached a non-workstation item before the authoritative prepared-item bound.")
+    .replace("Entity sequence exceeded the authoritative planned bound.", "Workstation sequence exceeded the authoritative prepared-item bound.")
+    .replace("All deterministic entity items completed and the first non-matching item was started without execution.", "All deterministic workstation items completed and the first non-workstation item was started without execution.")
+    .replace("Entity sequence terminated without a non-matching handoff.", "Workstation sequence terminated without a non-workstation handoff.");
+}
+function isUuidIdentity(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function providerRunningIdentity(item: ServerDeploymentActivationExecutionNextItemStartResult) {
   return {
     ok: item.ok, status: item.status, clinicId: item.clinicId, deploymentRunKey: item.deploymentRunKey, sessionId: item.sessionId,

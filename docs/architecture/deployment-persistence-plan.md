@@ -1758,3 +1758,9 @@ Completion does not mutate sterilizers, dependencies, later items, sessions, lea
 The production sterilizer adapter consumes only prepared `sterilizer_shell:activate` execution items and uses their exact count as the Generic Entity Sequence Driver safety bound. The provider handoff supplies the already-running initial item. UUID, clinic, deployment run, session, execution, plan, claimant, lease, deterministic deployment key, current state, transition-only target state, dependency, and rollback evidence remain preserved through the one-step executor.
 
 Activation and completion remain authoritative RPC mutations; dependency progression and next-item start remain existing generic outer boundaries. The first workstation item may become running after all prepared sterilizers complete, but no workstation activation, direct fallback update, rollback, session completion, finalization, retry, or recovery path exists in this slice.
+
+## RC9 Slice 3C2 — workstation runtime persistence consumption
+
+The production workstation adapter consumes only prepared `workstation_shell:activate` execution items and uses their exact count as the Generic Entity Sequence Driver safety bound. The sterilizer handoff supplies the already-running initial item. Workstation UUID and deterministic deployment key remain separate, and clinic, deployment-run, session, execution, plan, claimant, ownership-token, lease, current-state, transition-target, dependency, and rollback evidence remain server-side through the one-step executor.
+
+Activation and completion remain the authoritative workstation RPC mutations; dependency progression and next-item start remain existing outer boundaries. The first hardware item may become running after all prepared workstations complete, but no hardware activation, direct fallback update, rollback, session completion, finalization, retry, recovery, or background path is introduced.

@@ -24,8 +24,8 @@ export type ServerDeploymentActivationExecutorDependencies =
   DeploymentActivationExecutorHandlerRegistryDependencies;
 
 /**
- * Constructs the server-only generic executor with the two supported production
- * handlers: clinic:activate and provider_shell:activate.
+ * Constructs the server-only generic executor with the supported production
+ * handlers registered by the authoritative production handler registry.
  */
 export function createServerDeploymentActivationExecutor(
   dependencies: ServerDeploymentActivationExecutorDependencies,
@@ -34,6 +34,7 @@ export function createServerDeploymentActivationExecutor(
     clinicActivation: dependencies.clinicActivation,
     providerShellActivation: dependencies.providerShellActivation,
     sterilizerShellActivation: dependencies.sterilizerShellActivation,
+    workstationShellActivation: dependencies.workstationShellActivation,
   });
 
   return createDeploymentActivationExecutorService(registry);

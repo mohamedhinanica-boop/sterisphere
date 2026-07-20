@@ -14,11 +14,16 @@ import {
   DeploymentActivationExecutorSterilizerShellHandler,
   type DeploymentActivationExecutorSterilizerShellRunner,
 } from "./deployment-activation-executor-sterilizer-shell-handler";
+import {
+  DeploymentActivationExecutorWorkstationShellHandler,
+  type DeploymentActivationExecutorWorkstationShellRunner,
+} from "./deployment-activation-executor-workstation-shell-handler";
 
 export interface DeploymentActivationExecutorHandlerRegistryDependencies {
   clinicActivation: DeploymentActivationExecutorClinicActivationRunner;
   providerShellActivation: DeploymentActivationExecutorProviderShellActivationRunner;
   sterilizerShellActivation?: DeploymentActivationExecutorSterilizerShellRunner;
+  workstationShellActivation?: DeploymentActivationExecutorWorkstationShellRunner;
 }
 
 export function createDeploymentActivationExecutorHandlerRegistry(
@@ -30,6 +35,9 @@ export function createDeploymentActivationExecutorHandlerRegistry(
   ];
   if (dependencies.sterilizerShellActivation) {
     handlers.push(new DeploymentActivationExecutorSterilizerShellHandler(dependencies.sterilizerShellActivation));
+  }
+  if (dependencies.workstationShellActivation) {
+    handlers.push(new DeploymentActivationExecutorWorkstationShellHandler(dependencies.workstationShellActivation));
   }
   return new DeploymentActivationExecutorRegistry(handlers);
 }

@@ -60,6 +60,7 @@ import {
   createServerClinicDeploymentExecutionStepDependencies,
   executeServerProviderSequence,
   executeServerSterilizerSequence,
+  executeServerWorkstationSequence,
   executeDeploymentExecutionStepForServer,
 } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-server";
 import {
@@ -89,6 +90,8 @@ import {
 import type { DeploymentExecutionStepOrchestratorResult } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-types";
 import type { ServerDeploymentSterilizerShellActivationResult } from "@/lib/modules/deployment/deployment-sterilizer-shell-activation-server";
 import type { ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "@/lib/modules/deployment/deployment-sterilizer-shell-execution-item-completion-server";
+import type { ServerDeploymentWorkstationShellActivationResult } from "@/lib/modules/deployment/deployment-workstation-shell-activation-server";
+import type { ServerDeploymentWorkstationShellExecutionItemCompletionResult } from "@/lib/modules/deployment/deployment-workstation-shell-execution-item-completion-server";
 import type { ServerDeploymentActivationExecutionDependencyProgressionResult } from "@/lib/modules/deployment/deployment-activation-execution-dependency-progression-server";
 import type { ServerDeploymentActivationExecutionNextItemStartResult } from "@/lib/modules/deployment/deployment-activation-execution-next-item-start-server";
 import type {
@@ -976,6 +979,11 @@ export interface PersistDeploymentRunActionResult {
   deploymentSterilizerShellExecutionItemCompletion?: ServerDeploymentSterilizerShellExecutionItemCompletionResult;
   deploymentSterilizerShellExecutionDependencyProgression?: ServerDeploymentActivationExecutionDependencyProgressionResult;
   deploymentSterilizerShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
+  deploymentWorkstationExecutionStep?: DeploymentExecutionStepOrchestratorResult;
+  deploymentWorkstationShellActivation?: ServerDeploymentWorkstationShellActivationResult;
+  deploymentWorkstationShellExecutionItemCompletion?: ServerDeploymentWorkstationShellExecutionItemCompletionResult;
+  deploymentWorkstationShellExecutionDependencyProgression?: ServerDeploymentActivationExecutionDependencyProgressionResult;
+  deploymentWorkstationShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
   message: string;
 }
 
@@ -2657,6 +2665,29 @@ export async function persistDeploymentRunAction(
     const deploymentSterilizerShellExecutionItemCompletion = sterilizerSequence?.itemCompletion ?? null;
     const deploymentSterilizerShellExecutionDependencyProgression = sterilizerSequence?.dependencyProgression ?? null;
     const deploymentSterilizerShellExecutionNextItemStart = sterilizerSequence?.nextItemStart ?? null;
+    const workstationSequence = sterilizerSequence?.ok && deploymentSterilizerShellExecutionNextItemStart?.ok && deploymentActivationExecution && deploymentActivationExecutionClaim && clinicOwnershipToken
+      ? await executeServerWorkstationSequence(client, {
+          context: {
+            claimantId: deploymentActivationExecutionClaim.claimantId!,
+            ownershipToken: clinicOwnershipToken,
+            leaseExpiresAt: deploymentActivationExecutionClaim.leaseExpiresAt,
+            executedAt: persistedAt,
+          },
+          clinicId,
+          deploymentRunKey: result.deploymentRun.deploymentRunId,
+          sessionId: deploymentSterilizerShellExecutionNextItemStart.sessionId!,
+          executionKey: deploymentSterilizerShellExecutionNextItemStart.executionKey!,
+          planKey: deploymentActivationExecutionClaim.planKey!,
+          deploymentActivationExecutionClaim,
+          initialNextItemStart: deploymentSterilizerShellExecutionNextItemStart,
+          preparedExecutionItems: deploymentActivationExecution.executionItems,
+        })
+      : null;
+    const deploymentWorkstationExecutionStep = workstationSequence?.lastStep ?? null;
+    const deploymentWorkstationShellActivation = workstationSequence?.workstationActivation ?? null;
+    const deploymentWorkstationShellExecutionItemCompletion = workstationSequence?.itemCompletion ?? null;
+    const deploymentWorkstationShellExecutionDependencyProgression = workstationSequence?.dependencyProgression ?? null;
+    const deploymentWorkstationShellExecutionNextItemStart = workstationSequence?.nextItemStart ?? null;
 
     return {
       ok:
@@ -2669,7 +2700,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentActivationExecutionItemStart?.ok) &&
         Boolean(deploymentClinicExecutionStep?.ok) &&
         Boolean(providerSequence?.ok) &&
-        Boolean(sterilizerSequence?.ok),
+        Boolean(sterilizerSequence?.ok) &&
+        Boolean(workstationSequence?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -3019,8 +3051,15 @@ export async function persistDeploymentRunAction(
       deploymentSterilizerShellExecutionItemCompletion: deploymentSterilizerShellExecutionItemCompletion ?? undefined,
       deploymentSterilizerShellExecutionDependencyProgression: deploymentSterilizerShellExecutionDependencyProgression ?? undefined,
       deploymentSterilizerShellExecutionNextItemStart: deploymentSterilizerShellExecutionNextItemStart ?? undefined,
-      message: deploymentSterilizerShellExecutionNextItemStart?.ok
-        ? "Deployment run activation completed all deterministic provider and sterilizer items. The first workstation item may now be running, but no workstation activation, binding, rollback, session completion, or finalization occurred."
+      deploymentWorkstationExecutionStep: deploymentWorkstationExecutionStep ?? undefined,
+      deploymentWorkstationShellActivation: deploymentWorkstationShellActivation ?? undefined,
+      deploymentWorkstationShellExecutionItemCompletion: deploymentWorkstationShellExecutionItemCompletion ?? undefined,
+      deploymentWorkstationShellExecutionDependencyProgression: deploymentWorkstationShellExecutionDependencyProgression ?? undefined,
+      deploymentWorkstationShellExecutionNextItemStart: deploymentWorkstationShellExecutionNextItemStart ?? undefined,
+      message: deploymentWorkstationShellExecutionNextItemStart?.ok
+        ? "Deployment run activation completed all deterministic provider, sterilizer, and workstation items. The first hardware item may now be running, but hardware activation was not attempted. No rollback, session completion, or finalization occurred."
+        : deploymentSterilizerShellExecutionNextItemStart?.ok
+        ? "Deployment run activation completed all deterministic provider and sterilizer items, but workstation sequence execution did not complete. Hardware activation was not attempted. No rollback, session completion, or finalization occurred."
         : deploymentProviderShellExecutionNextItemStart?.ok
         ? "Deployment run, draft clinic root, clinic settings, planned shells, hardware assignments, target validation, planned assignment resolution, deployment activation readiness, controlled activation plan, activation execution preparation, prepared execution persistence, activation execution ownership claim, atomic execution-session start, first execution item start, clinic activation, item completion, dependency progression, next-item start, provider shell activation, provider-shell execution item completion, post-provider dependency progression, and post-provider next-item start are complete. All deterministic provider items are complete and the first non-provider item may now be running, but no non-provider activation, binding, rollback, session completion, or finalization occurred."
         : deploymentProviderShellExecutionDependencyProgression?.ok

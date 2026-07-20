@@ -1865,6 +1865,18 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Started", value: readField(input.deploymentSterilizerShellExecutionNextItemStart, "startedCount") ?? 0 },
           { label: "Sequence", value: readField(input.deploymentSterilizerShellExecutionNextItemStart, "sequence") ?? "none" },
         ]),
+        stage("workstation-execution-step", "Workstation Execution Step", input.deploymentWorkstationExecutionStep, "not_attempted", "Workstation execution-step evidence covers one bounded activation/completion/progression/start cycle.", [
+          { label: "Status", value: readField(input.deploymentWorkstationExecutionStep, "status") ?? "not attempted" },
+          { label: "Sequence", value: readField(input.deploymentWorkstationExecutionStep, "sequence") ?? "none" },
+        ]),
+        stage("post-workstation-dependency-progression", "Post-Workstation Dependency Progression", input.deploymentWorkstationShellExecutionDependencyProgression, "not_attempted", "Post-workstation dependency progression readies the next deterministic item without activating hardware.", [
+          { label: "Progressed", value: readField(input.deploymentWorkstationShellExecutionDependencyProgression, "progressedCount") ?? 0 },
+          { label: "Next", value: readField(input.deploymentWorkstationShellExecutionDependencyProgression, "nextSequence") ?? "none" },
+        ]),
+        stage("post-workstation-next-item-start", "Post-Workstation Next Item Start", input.deploymentWorkstationShellExecutionNextItemStart, "not_attempted", "Post-workstation next-item start may start the first hardware item but does not dispatch or activate it.", [
+          { label: "Started", value: readField(input.deploymentWorkstationShellExecutionNextItemStart, "startedCount") ?? 0 },
+          { label: "Sequence", value: readField(input.deploymentWorkstationShellExecutionNextItemStart, "sequence") ?? "none" },
+        ]),
       ],
     },
     {
@@ -1889,6 +1901,14 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
         stage("sterilizer-shell-item-completion", "Sterilizer Shell Item Completion", input.deploymentSterilizerShellExecutionItemCompletion, "not_attempted", "Sterilizer-shell item completion marks only the activated sterilizer execution item succeeded.", [
           { label: "Completed", value: readField(input.deploymentSterilizerShellExecutionItemCompletion, "completedCount") ?? 0 },
           { label: "Reused", value: readField(input.deploymentSterilizerShellExecutionItemCompletion, "reusedCount") ?? 0 },
+        ]),
+        stage("workstation-shell-activation", "Workstation Shell Activation", input.deploymentWorkstationShellActivation, "not_attempted", "Workstation shell activation targets only the selected deterministic workstation UUID and deployment key.", [
+          { label: "Activated", value: readField(input.deploymentWorkstationShellActivation, "activatedCount") ?? 0 },
+          { label: "Conflicts", value: readField(input.deploymentWorkstationShellActivation, "conflicts") ?? 0 },
+        ]),
+        stage("workstation-shell-item-completion", "Workstation Shell Item Completion", input.deploymentWorkstationShellExecutionItemCompletion, "not_attempted", "Workstation-shell item completion marks only the activated workstation execution item succeeded.", [
+          { label: "Completed", value: readField(input.deploymentWorkstationShellExecutionItemCompletion, "completedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentWorkstationShellExecutionItemCompletion, "reusedCount") ?? 0 },
         ]),
       ],
     },
@@ -2324,6 +2344,16 @@ function CompleteStep({
     deploymentRunResult?.deploymentSterilizerShellExecutionDependencyProgression ?? null;
   const deploymentSterilizerShellExecutionNextItemStart =
     deploymentRunResult?.deploymentSterilizerShellExecutionNextItemStart ?? null;
+  const deploymentWorkstationExecutionStep =
+    deploymentRunResult?.deploymentWorkstationExecutionStep ?? null;
+  const deploymentWorkstationShellActivation =
+    deploymentRunResult?.deploymentWorkstationShellActivation ?? null;
+  const deploymentWorkstationShellExecutionItemCompletion =
+    deploymentRunResult?.deploymentWorkstationShellExecutionItemCompletion ?? null;
+  const deploymentWorkstationShellExecutionDependencyProgression =
+    deploymentRunResult?.deploymentWorkstationShellExecutionDependencyProgression ?? null;
+  const deploymentWorkstationShellExecutionNextItemStart =
+    deploymentRunResult?.deploymentWorkstationShellExecutionNextItemStart ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2381,6 +2411,11 @@ function CompleteStep({
     deploymentSterilizerShellExecutionItemCompletion,
     deploymentSterilizerShellExecutionDependencyProgression,
     deploymentSterilizerShellExecutionNextItemStart,
+    deploymentWorkstationExecutionStep,
+    deploymentWorkstationShellActivation,
+    deploymentWorkstationShellExecutionItemCompletion,
+    deploymentWorkstationShellExecutionDependencyProgression,
+    deploymentWorkstationShellExecutionNextItemStart,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
@@ -2404,7 +2439,7 @@ function CompleteStep({
   const collapseAllStages = () => setManuallyExpandedStageIds(new Set());
   const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
   const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
-  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? deploymentSterilizerShellExecutionNextItemStart?.sessionId ?? deploymentSterilizerShellActivation?.sessionId ?? "Not started";
+  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? deploymentWorkstationShellExecutionNextItemStart?.sessionId ?? deploymentWorkstationShellActivation?.sessionId ?? deploymentSterilizerShellExecutionNextItemStart?.sessionId ?? deploymentSterilizerShellActivation?.sessionId ?? "Not started";
   useEffect(() => {
     if (!isPersisting) {
       setElapsedSeconds(0);
