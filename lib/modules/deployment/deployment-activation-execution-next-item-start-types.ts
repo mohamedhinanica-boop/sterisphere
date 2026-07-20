@@ -152,8 +152,8 @@ export interface DeploymentActivationExecutionNextItemStartIssue {
   lifecycleDispatch?: {
     runtimeEntityType: string;
     runtimeAction: string;
-    selectedBranch: "generic_activate" | "hardware_assignment_finalize" | "unsupported";
-    hardwareAssignmentBranchReached: boolean;
+    selectedBranch: "generic_activate" | "hardware_binding_bind" | "hardware_assignment_finalize" | "unsupported";
+    hardwareBindingBranchReached: boolean;
     supported: boolean;
     expectedState: Record<string, unknown> | null;
     targetState: Record<string, unknown> | null;
@@ -189,9 +189,9 @@ export interface DeploymentActivationExecutionNextItemStartResult {
   entityId: string | null;
   action: string | null;
   lifecycleEvidence: {
-    lifecycle: "hardware_assignment:finalize";
+    lifecycle: "hardware_binding:bind" | "hardware_assignment:finalize";
     expectedStateFields: readonly string[];
-    targetState: { assignmentStatus: "active"; active: true };
+    targetState: Record<string, unknown>;
   } | null;
   dependencyKeys: readonly string[];
   attemptCount: number;

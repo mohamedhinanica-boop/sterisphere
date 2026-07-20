@@ -643,17 +643,37 @@ function hasBlocker(issues: readonly DeploymentActivationExecutionNextItemStartI
 }
 
 function auditEntityActionLifecycle(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string) {
-  const hardwareAssignmentBranchReached = item.entityType === "hardware_assignment";
-  if (!hardwareAssignmentBranchReached && Boolean(item.entityType.trim()) && item.action === "activate") {
+  const hardwareBindingBranchReached = item.entityType === "hardware_binding";
+  if (!hardwareBindingBranchReached && item.entityType !== "hardware_assignment" && Boolean(item.entityType.trim()) && item.action === "activate") {
     return lifecycleDispatch(item, "generic_activate" as const, false, true, []);
   }
-  if (hardwareAssignmentBranchReached) {
-    const rejectionReasons = hardwareAssignmentLifecycleRejectionReasons(item, clinicId);
-    return lifecycleDispatch(item, "hardware_assignment_finalize" as const, true, isHardwareAssignmentFinalizeLifecycle(item, clinicId), rejectionReasons);
+  if (hardwareBindingBranchReached) {
+    const rejectionReasons = hardwareBindingLifecycleRejectionReasons(item);
+    return lifecycleDispatch(item, "hardware_binding_bind" as const, true, rejectionReasons.length === 0, rejectionReasons);
   }
-  return lifecycleDispatch(item, "unsupported" as const, false, false, ["entity/action pair is neither generic activate nor hardware_assignment:finalize"]);
+  if (item.entityType === "hardware_assignment") {
+    const rejectionReasons = hardwareAssignmentLifecycleRejectionReasons(item, clinicId);
+    return lifecycleDispatch(item, "hardware_assignment_finalize" as const, false, isHardwareAssignmentFinalizeLifecycle(item, clinicId), rejectionReasons);
+  }
+  return lifecycleDispatch(item, "unsupported" as const, false, false, ["entity/action pair is neither generic activate, hardware_binding:bind, nor hardware_assignment:finalize"]);
 }
 
+function hardwareBindingLifecycleRejectionReasons(item: DeploymentActivationExecutionNextItemStartItemSnapshot): string[] {
+  const reasons: string[] = [];
+  const expected = item.expectedCurrentState;
+  const target = item.targetState;
+  if (item.action !== "bind") reasons.push(`action must be bind; received ${item.action || "<empty>"}`);
+  if (!item.entityId?.trim()) reasons.push("entityId must be non-empty");
+  if (!expected) reasons.push("expectedCurrentState is missing");
+  if (!target) reasons.push("targetState is missing");
+  if (!expected || !target) return reasons;
+  if (Object.keys(expected).sort().join("\u0000") !== [...HARDWARE_BINDING_EXPECTED_STATE_FIELDS].sort().join("\u0000")) reasons.push("expectedCurrentState field set does not match the three-field binding contract");
+  if (!isDeploymentKey(expected.deploymentHardwareKey, "hardware")) reasons.push("deploymentHardwareKey must be a deterministic hardware deployment key");
+  if (expected.targetType !== "workstation" && expected.targetType !== "sterilizer") reasons.push("targetType must be workstation or sterilizer");
+  if ((expected.targetType === "workstation" || expected.targetType === "sterilizer") && !isDeploymentKey(expected.targetDeploymentKey, expected.targetType)) reasons.push("targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
+  if (Object.keys(target).length !== 0) reasons.push("targetState must be an empty object");
+  return reasons;
+}
 function hardwareAssignmentLifecycleRejectionReasons(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): string[] {
   const reasons: string[] = [];
   const expected = item.expectedCurrentState;
@@ -677,8 +697,8 @@ function hardwareAssignmentLifecycleRejectionReasons(item: DeploymentActivationE
 
 function lifecycleDispatch(
   item: DeploymentActivationExecutionNextItemStartItemSnapshot,
-  selectedBranch: "generic_activate" | "hardware_assignment_finalize" | "unsupported",
-  hardwareAssignmentBranchReached: boolean,
+  selectedBranch: "generic_activate" | "hardware_binding_bind" | "hardware_assignment_finalize" | "unsupported",
+  hardwareBindingBranchReached: boolean,
   supported: boolean,
   rejectionReasons: readonly string[],
 ) {
@@ -686,7 +706,7 @@ function lifecycleDispatch(
     runtimeEntityType: item.entityType,
     runtimeAction: item.action,
     selectedBranch,
-    hardwareAssignmentBranchReached,
+    hardwareBindingBranchReached,
     supported,
     expectedState: safeLifecycleState(item.expectedCurrentState),
     targetState: safeLifecycleTarget(item.targetState),
@@ -712,10 +732,22 @@ function safeLifecycleTarget(state: Record<string, unknown> | null): Record<stri
   return safe;
 }
 function isSupportedEntityAction(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): boolean {
+  if (item.entityType === "hardware_binding") return isHardwareBindingBindLifecycle(item);
   if (item.entityType !== "hardware_assignment" && Boolean(item.entityType.trim()) && item.action === "activate") return true;
   return isHardwareAssignmentFinalizeLifecycle(item, clinicId);
 }
 
+const HARDWARE_BINDING_EXPECTED_STATE_FIELDS = [
+  "deploymentHardwareKey", "targetType", "targetDeploymentKey",
+] as const;
+
+function isHardwareBindingBindLifecycle(item: DeploymentActivationExecutionNextItemStartItemSnapshot): boolean {
+  return item.entityType === "hardware_binding" && hardwareBindingLifecycleRejectionReasons(item).length === 0;
+}
+
+function isDeploymentKey(value: unknown, entity: "hardware" | "workstation" | "sterilizer"): boolean {
+  return typeof value === "string" && new RegExp(`^${entity}-\\d{3}$`).test(value);
+}
 const HARDWARE_ASSIGNMENT_EXPECTED_STATE_FIELDS = [
   "id", "clinicId", "deploymentHardwareKey", "assignmentKey", "targetType",
   "targetDeploymentKey", "assignmentSource", "assignmentStatus", "active",
@@ -744,13 +776,17 @@ function isHardwareAssignmentFinalizeLifecycle(item: DeploymentActivationExecuti
 }
 
 function recognizedLifecycleEvidence(item: DeploymentActivationExecutionNextItemStartItemSnapshot | null, clinicId: string | null) {
+  if (item && isHardwareBindingBindLifecycle(item)) return {
+    lifecycle: "hardware_binding:bind" as const,
+    expectedStateFields: [...HARDWARE_BINDING_EXPECTED_STATE_FIELDS],
+    targetState: {},
+  };
   return item && isHardwareAssignmentFinalizeLifecycle(item, clinicId) ? {
     lifecycle: "hardware_assignment:finalize" as const,
     expectedStateFields: [...HARDWARE_ASSIGNMENT_EXPECTED_STATE_FIELDS],
     targetState: { assignmentStatus: "active" as const, active: true as const },
   } : null;
 }
-
 function isValidTimestamp(value: string): boolean {
   return Number.isFinite(Date.parse(value));
 }
