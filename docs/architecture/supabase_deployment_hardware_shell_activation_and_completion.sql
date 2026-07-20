@@ -57,6 +57,9 @@ declare
   v_hardware public.clinical_hardware_devices%rowtype;
   v_state_before jsonb;
   v_state_after jsonb;
+  v_item_transition_state jsonb;
+  v_transition_differences jsonb;
+  v_transition_differing_fields jsonb;
   v_running_count integer;
   v_ready_count integer;
   v_total_items integer;
@@ -155,6 +158,17 @@ begin
     'currentWorkstationId', v_hardware.current_workstation_id
   );
 
+  if jsonb_typeof(v_item.expected_current_state) = 'object' then
+    select coalesce(jsonb_object_agg(item_state.key, item_state.value), '{}'::jsonb)
+      into v_item_transition_state
+      from jsonb_each(v_item.expected_current_state) item_state
+     where item_state.key in (
+       'deploymentHardwareKey', 'provisioningSource', 'provisioningStatus', 'active',
+       'operationalStatus', 'agentId', 'defaultWorkstationId', 'currentWorkstationId'
+     );
+  else
+    v_item_transition_state := null;
+  end if;
   if v_session.preparation_status is distinct from 'ready'
      or v_session.execution_status is distinct from 'running'
      or v_session.started_at is null
@@ -361,15 +375,58 @@ begin
     return;
   end if;
 
+  select
+    coalesce(jsonb_agg(comparison.field_name order by comparison.ordinal), '[]'::jsonb),
+    coalesce(jsonb_object_agg(
+      comparison.field_name,
+      jsonb_build_object('expected', comparison.expected_value, 'actual', comparison.actual_value)
+    ), '{}'::jsonb)
+    into v_transition_differing_fields, v_transition_differences
+    from (values
+      (1, 'deploymentHardwareKey', p_expected_current_state -> 'deploymentHardwareKey', v_state_before -> 'deploymentHardwareKey'),
+      (2, 'provisioningSource', p_expected_current_state -> 'provisioningSource', v_state_before -> 'provisioningSource'),
+      (3, 'provisioningStatus', p_expected_current_state -> 'provisioningStatus', v_state_before -> 'provisioningStatus'),
+      (4, 'active', p_expected_current_state -> 'active', v_state_before -> 'active'),
+      (5, 'operationalStatus', p_expected_current_state -> 'operationalStatus', v_state_before -> 'operationalStatus'),
+      (6, 'agentId', p_expected_current_state -> 'agentId', v_state_before -> 'agentId'),
+      (7, 'defaultWorkstationId', p_expected_current_state -> 'defaultWorkstationId', v_state_before -> 'defaultWorkstationId'),
+      (8, 'currentWorkstationId', p_expected_current_state -> 'currentWorkstationId', v_state_before -> 'currentWorkstationId'),
+      (9, 'executionItem.deploymentHardwareKey', p_expected_current_state -> 'deploymentHardwareKey', v_item_transition_state -> 'deploymentHardwareKey'),
+      (10, 'executionItem.provisioningSource', p_expected_current_state -> 'provisioningSource', v_item_transition_state -> 'provisioningSource'),
+      (11, 'executionItem.provisioningStatus', p_expected_current_state -> 'provisioningStatus', v_item_transition_state -> 'provisioningStatus'),
+      (12, 'executionItem.active', p_expected_current_state -> 'active', v_item_transition_state -> 'active'),
+      (13, 'executionItem.operationalStatus', p_expected_current_state -> 'operationalStatus', v_item_transition_state -> 'operationalStatus'),
+      (14, 'executionItem.agentId', p_expected_current_state -> 'agentId', v_item_transition_state -> 'agentId'),
+      (15, 'executionItem.defaultWorkstationId', p_expected_current_state -> 'defaultWorkstationId', v_item_transition_state -> 'defaultWorkstationId'),
+      (16, 'executionItem.currentWorkstationId', p_expected_current_state -> 'currentWorkstationId', v_item_transition_state -> 'currentWorkstationId'),
+      (17, 'executionItemTargetState', p_target_state, v_item.target_state),
+      (18, 'requiredActive', to_jsonb(false), to_jsonb(v_hardware.active)),
+      (19, 'requiredProvisioningSource', to_jsonb('setup_draft'::text), to_jsonb(v_hardware.provisioning_source)),
+      (20, 'requiredProvisioningStatus', to_jsonb('planned'::text), to_jsonb(v_hardware.provisioning_status))
+    ) comparison(ordinal, field_name, expected_value, actual_value)
+   where comparison.expected_value is distinct from comparison.actual_value;
   if v_state_before is distinct from p_expected_current_state
-     or v_item.expected_current_state is distinct from p_expected_current_state
+     or v_item_transition_state is distinct from p_expected_current_state
      or v_item.target_state is distinct from p_target_state
      or v_hardware.active is distinct from false
      or v_hardware.provisioning_source is distinct from 'setup_draft'
      or v_hardware.provisioning_status is distinct from 'planned' then
     return query select 'conflict'::text, v_session.clinic_id, v_session.deployment_run_key, v_session.id, v_session.execution_key,
       v_item.id, v_item.execution_item_key, v_item.plan_item_key, v_item.sequence, v_hardware.id, v_hardware.deployment_hardware_key,
-      v_state_before, v_state_before, null::timestamptz, 'hardware_state_compare_failed'::text, 'Hardware shell current state does not match expected activation evidence.'::text;
+      v_state_before || jsonb_build_object(
+        'transitionDiagnostics',
+        jsonb_build_object(
+          'comparedTransitionFields', jsonb_build_array(
+            'deploymentHardwareKey', 'provisioningSource', 'provisioningStatus', 'active',
+            'operationalStatus', 'agentId', 'defaultWorkstationId', 'currentWorkstationId'
+          ),
+          'expectedTransitionState', p_expected_current_state,
+          'actualPersistedTransitionState', v_state_before,
+          'differingFields', v_transition_differing_fields,
+          'differences', v_transition_differences
+        )
+      ),
+      v_state_before, null::timestamptz, 'hardware_state_compare_failed'::text, 'Hardware shell current state does not match expected activation evidence.'::text;
     return;
   end if;
 

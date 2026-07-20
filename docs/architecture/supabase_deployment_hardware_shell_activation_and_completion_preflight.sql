@@ -219,6 +219,89 @@ union all select check_name, passed, details from source_checks
 order by check_name;
 
 
+-- Read-only field-difference harness for the activation conflict diagnostic.
+with baseline as (
+  select jsonb_build_object(
+    'deploymentHardwareKey', 'hardware-001', 'provisioningSource', 'setup_draft',
+    'provisioningStatus', 'planned', 'active', false, 'operationalStatus', 'discovered',
+    'agentId', null, 'defaultWorkstationId', null, 'currentWorkstationId', null
+  ) as state
+), cases(case_name, expected_state, actual_state, expected_differences) as (
+  select 'matching', state, state, '[]'::jsonb from baseline
+  union all select 'different_property_order', state, jsonb_build_object(
+    'currentWorkstationId', null, 'defaultWorkstationId', null, 'agentId', null,
+    'operationalStatus', 'discovered', 'active', false, 'provisioningStatus', 'planned',
+    'provisioningSource', 'setup_draft', 'deploymentHardwareKey', 'hardware-001'
+  ), '[]'::jsonb from baseline
+  union all select 'extra_execution_item_fields', state, state || '{"id":"hardware-uuid","clinicId":"clinic-uuid","plannerOnly":true}'::jsonb, '[]'::jsonb from baseline
+  union all select 'null_values', state, state, '[]'::jsonb from baseline  union all select 'deploymentHardwareKey', state, jsonb_set(state, '{deploymentHardwareKey}', '"other"'), '["deploymentHardwareKey"]' from baseline
+  union all select 'provisioningSource', state, jsonb_set(state, '{provisioningSource}', '"other"'), '["provisioningSource"]' from baseline
+  union all select 'provisioningStatus', state, jsonb_set(state, '{provisioningStatus}', '"active"'), '["provisioningStatus"]' from baseline
+  union all select 'active', state, jsonb_set(state, '{active}', 'true'), '["active"]' from baseline
+  union all select 'operationalStatus', state, jsonb_set(state, '{operationalStatus}', '"offline"'), '["operationalStatus"]' from baseline
+  union all select 'agentId', state, jsonb_set(state, '{agentId}', '"agent-1"'), '["agentId"]' from baseline
+  union all select 'defaultWorkstationId', state, jsonb_set(state, '{defaultWorkstationId}', '"workstation-1"'), '["defaultWorkstationId"]' from baseline
+  union all select 'currentWorkstationId', state, jsonb_set(state, '{currentWorkstationId}', '"workstation-2"'), '["currentWorkstationId"]' from baseline
+  union all select 'multiple', state, jsonb_set(jsonb_set(state, '{active}', 'true'), '{operationalStatus}', '"offline"'), '["active","operationalStatus"]' from baseline
+), observed as (
+  select cases.case_name, cases.expected_differences,
+    coalesce(jsonb_agg(field.field_name order by field.ordinal) filter (where field.expected_value is distinct from field.actual_value), '[]'::jsonb) as differing_fields
+  from cases
+  cross join lateral (values
+    (1, 'deploymentHardwareKey', expected_state -> 'deploymentHardwareKey', actual_state -> 'deploymentHardwareKey'),
+    (2, 'provisioningSource', expected_state -> 'provisioningSource', actual_state -> 'provisioningSource'),
+    (3, 'provisioningStatus', expected_state -> 'provisioningStatus', actual_state -> 'provisioningStatus'),
+    (4, 'active', expected_state -> 'active', actual_state -> 'active'),
+    (5, 'operationalStatus', expected_state -> 'operationalStatus', actual_state -> 'operationalStatus'),
+    (6, 'agentId', expected_state -> 'agentId', actual_state -> 'agentId'),
+    (7, 'defaultWorkstationId', expected_state -> 'defaultWorkstationId', actual_state -> 'defaultWorkstationId'),
+    (8, 'currentWorkstationId', expected_state -> 'currentWorkstationId', actual_state -> 'currentWorkstationId')
+  ) field(ordinal, field_name, expected_value, actual_value)
+  group by cases.case_name, cases.expected_differences
+)
+select 'matching_order_extra_and_null_transition_states_report_no_differences' as check_name,
+  bool_and(differing_fields = expected_differences) filter (where case_name in ('matching', 'different_property_order', 'extra_execution_item_fields', 'null_values')) as passed,
+  jsonb_object_agg(case_name, differing_fields) filter (where case_name in ('matching', 'different_property_order', 'extra_execution_item_fields', 'null_values')) as details
+from observed
+union all
+select 'each_transition_field_mismatch_is_identified',
+  bool_and(differing_fields = expected_differences) filter (where case_name not in ('matching', 'different_property_order', 'extra_execution_item_fields', 'null_values', 'multiple')),
+  jsonb_object_agg(case_name, differing_fields) filter (where case_name not in ('matching', 'different_property_order', 'extra_execution_item_fields', 'null_values', 'multiple'))
+from observed
+union all
+select 'multiple_transition_field_mismatches_are_reported_together',
+  bool_and(differing_fields = expected_differences) filter (where case_name = 'multiple'),
+  jsonb_object_agg(case_name, differing_fields) filter (where case_name = 'multiple')
+from observed;
+-- Read-only preservation checks for non-transition activation guards.
+with source as (
+  select lower(regexp_replace(pg_get_functiondef('public.activate_deployment_hardware_shell(uuid,text,uuid,text,text,text,timestamptz,uuid,text,text,integer,text,text,text,timestamptz,integer,uuid,text,jsonb,jsonb,timestamptz)'::regprocedure), '\s+', ' ', 'g')) as body
+)
+select 'authoritative_item_transition_projection_preserved' as check_name,
+  body ~ 'jsonb_each\(v_item\.expected_current_state\)'
+  and body ~ 'v_item_transition_state\s+is\s+distinct\s+from\s+p_expected_current_state'
+  and body !~ 'v_item\.expected_current_state\s+is\s+distinct\s+from\s+p_expected_current_state' as passed
+from source
+union all
+select 'claimant_token_and_lease_guards_preserved',
+  body ~ 'v_session\.execution_owner\s+is\s+distinct\s+from\s+p_claimant_id'
+  and body ~ 'v_session\.ownership_token\s+is\s+distinct\s+from\s+p_ownership_token'
+  and body ~ 'v_session\.lease_expires_at\s+is\s+distinct\s+from\s+p_expected_lease_expires_at'
+from source
+union all
+select 'clinic_uuid_and_deployment_key_guards_preserved',
+  body ~ 'hardware_row\.id\s*=\s*p_hardware_id'
+  and body ~ 'hardware_row\.clinic_id\s*=\s*p_clinic_id'
+  and body ~ 'hardware_row\.deployment_hardware_key\s*=\s*p_expected_hardware_key'
+  and body ~ 'v_item\.entity_id::text\s+is\s+distinct\s+from\s+p_hardware_id::text'
+from source
+union all
+select 'target_and_required_state_guards_preserved',
+  body ~ 'v_item\.target_state\s+is\s+distinct\s+from\s+p_target_state'
+  and body ~ 'v_hardware\.active\s+is\s+distinct\s+from\s+false'
+  and body ~ 'v_hardware\.provisioning_source\s+is\s+distinct\s+from\s+''setup_draft'''
+  and body ~ 'v_hardware\.provisioning_status\s+is\s+distinct\s+from\s+''planned'''
+from source;
 -- RC8 Slice 11B read-only preflight for hardware-shell execution-item completion.
 
 with required_tables as (
