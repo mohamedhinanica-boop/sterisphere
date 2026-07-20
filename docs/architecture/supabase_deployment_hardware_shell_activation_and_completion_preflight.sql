@@ -441,51 +441,65 @@ union all select * from timestamp_checks
 union all select * from source_checks
 order by check_name;
 
--- Read-only Hardware completion durable-state diagnostic harness.
+-- Read-only Hardware completion four-field contract harness.
 with baseline as (
-  select jsonb_build_object(
-    'deploymentHardwareKey', 'hardware-001', 'provisioningSource', 'setup_draft',
-    'provisioningStatus', 'active', 'active', true, 'operationalStatus', 'discovered',
-    'agentId', null, 'defaultWorkstationId', null, 'currentWorkstationId', null
-  ) as state
-), cases(case_name, expected_state, actual_state, expected_differences) as (
-  select 'valid_durable_state', state, state, '[]'::jsonb from baseline
-  union all select 'deploymentHardwareKey', state, jsonb_set(state, '{deploymentHardwareKey}', '"other"'), '["deploymentHardwareKey"]' from baseline
-  union all select 'provisioningSource', state, jsonb_set(state, '{provisioningSource}', '"other"'), '["provisioningSource"]' from baseline
-  union all select 'provisioningStatus', state, jsonb_set(state, '{provisioningStatus}', '"planned"'), '["provisioningStatus"]' from baseline
-  union all select 'active', state, jsonb_set(state, '{active}', 'false'), '["active"]' from baseline
-  union all select 'operationalStatus', state, jsonb_set(state, '{operationalStatus}', '"offline"'), '["operationalStatus"]' from baseline
-  union all select 'agentId', state, jsonb_set(state, '{agentId}', '"agent-1"'), '["agentId"]' from baseline
-  union all select 'defaultWorkstationId', state, jsonb_set(state, '{defaultWorkstationId}', '"workstation-1"'), '["defaultWorkstationId"]' from baseline
-  union all select 'currentWorkstationId', state, jsonb_set(state, '{currentWorkstationId}', '"workstation-2"'), '["currentWorkstationId"]' from baseline
-  union all select 'multiple', state, jsonb_set(jsonb_set(state, '{active}', 'false'), '{operationalStatus}', '"offline"'), '["active","operationalStatus"]' from baseline
-), observed as (
-  select cases.case_name, cases.expected_differences,
-    coalesce(jsonb_agg(field.field_name order by field.ordinal) filter (where field.expected_value is distinct from field.actual_value), '[]'::jsonb) as differing_fields
+  select
+    jsonb_build_object(
+      'deploymentHardwareKey', 'hardware-001', 'provisioningSource', 'setup_draft',
+      'provisioningStatus', 'active', 'active', true
+    ) as required_state,
+    jsonb_build_object(
+      'deploymentHardwareKey', 'hardware-001', 'provisioningSource', 'setup_draft',
+      'provisioningStatus', 'active', 'active', true, 'operationalStatus', 'discovered',
+      'agentId', null, 'defaultWorkstationId', null, 'currentWorkstationId', null
+    ) as persisted_state
+), cases(case_name, expected_state, persisted_state, expected_differences) as (
+  select 'valid_four_field_state', required_state, persisted_state, '[]'::jsonb from baseline
+  union all select 'operational_drift_ignored', required_state, jsonb_set(persisted_state, '{operationalStatus}', '"offline"'), '[]' from baseline
+  union all select 'null_bindings_ignored', required_state, persisted_state, '[]' from baseline
+  union all select 'non_null_bindings_ignored', required_state, jsonb_set(jsonb_set(jsonb_set(persisted_state, '{agentId}', '"agent-1"'), '{defaultWorkstationId}', '"workstation-1"'), '{currentWorkstationId}', '"workstation-2"'), '[]' from baseline
+  union all select 'deploymentHardwareKey', required_state, jsonb_set(persisted_state, '{deploymentHardwareKey}', '"other"'), '["deploymentHardwareKey"]' from baseline
+  union all select 'provisioningSource', required_state, jsonb_set(persisted_state, '{provisioningSource}', '"other"'), '["provisioningSource"]' from baseline
+  union all select 'provisioningStatus', required_state, jsonb_set(persisted_state, '{provisioningStatus}', '"planned"'), '["provisioningStatus"]' from baseline
+  union all select 'active', required_state, jsonb_set(persisted_state, '{active}', 'false'), '["active"]' from baseline
+  union all select 'multiple_authoritative', required_state, jsonb_set(jsonb_set(persisted_state, '{active}', 'false'), '{provisioningStatus}', '"planned"'), '["provisioningStatus","active"]' from baseline
+), projected as (
+  select case_name, expected_state, expected_differences,
+    jsonb_build_object(
+      'deploymentHardwareKey', persisted_state -> 'deploymentHardwareKey',
+      'provisioningSource', persisted_state -> 'provisioningSource',
+      'provisioningStatus', persisted_state -> 'provisioningStatus',
+      'active', persisted_state -> 'active'
+    ) as actual_state
   from cases
+), observed as (
+  select projected.case_name, projected.expected_differences,
+    coalesce(jsonb_agg(field.field_name order by field.ordinal) filter (where field.expected_value is distinct from field.actual_value), '[]'::jsonb) as differing_fields
+  from projected
   cross join lateral (values
     (1, 'deploymentHardwareKey', expected_state -> 'deploymentHardwareKey', actual_state -> 'deploymentHardwareKey'),
     (2, 'provisioningSource', expected_state -> 'provisioningSource', actual_state -> 'provisioningSource'),
     (3, 'provisioningStatus', expected_state -> 'provisioningStatus', actual_state -> 'provisioningStatus'),
-    (4, 'active', expected_state -> 'active', actual_state -> 'active'),
-    (5, 'operationalStatus', expected_state -> 'operationalStatus', actual_state -> 'operationalStatus'),
-    (6, 'agentId', expected_state -> 'agentId', actual_state -> 'agentId'),
-    (7, 'defaultWorkstationId', expected_state -> 'defaultWorkstationId', actual_state -> 'defaultWorkstationId'),
-    (8, 'currentWorkstationId', expected_state -> 'currentWorkstationId', actual_state -> 'currentWorkstationId')
+    (4, 'active', expected_state -> 'active', actual_state -> 'active')
   ) field(ordinal, field_name, expected_value, actual_value)
-  group by cases.case_name, cases.expected_differences
+  group by projected.case_name, projected.expected_differences
 )
-select 'valid_completion_durable_state_reports_no_differences' as check_name,
-  bool_and(differing_fields = expected_differences) filter (where case_name = 'valid_durable_state') as passed,
-  jsonb_object_agg(case_name, differing_fields) filter (where case_name = 'valid_durable_state') as details
-from observed
-union all
-select 'each_completion_durable_state_mismatch_is_identified',
-  bool_and(differing_fields = expected_differences) filter (where case_name not in ('valid_durable_state', 'multiple')),
-  jsonb_object_agg(case_name, differing_fields) filter (where case_name not in ('valid_durable_state', 'multiple'))
-from observed
-union all
-select 'multiple_completion_durable_state_mismatches_are_reported_together',
-  bool_and(differing_fields = expected_differences) filter (where case_name = 'multiple'),
-  jsonb_object_agg(case_name, differing_fields) filter (where case_name = 'multiple')
+select 'completion_four_field_contract_cases' as check_name,
+  bool_and(differing_fields = expected_differences) as passed,
+  jsonb_object_agg(case_name, differing_fields) as details
 from observed;
+
+-- Ensure the deployed function retains all non-state completion guards.
+with source as (
+  select lower(regexp_replace(pg_get_functiondef('public.complete_deployment_hardware_shell_execution_item(uuid,text,uuid,text,text,text,timestamptz,uuid,text,text,integer,text,text,text,text,timestamptz,integer,uuid,jsonb,jsonb,timestamptz)'::regprocedure), '\s+', ' ', 'g')) as body
+)
+select 'completion_four_field_predicate_and_guards_preserved' as check_name,
+  body ~ 'v_completion_authoritative_state\s+is\s+distinct\s+from\s+p_expected_hardware_state'
+  and body ~ 'v_item\.target_state\s+is\s+distinct\s+from\s+p_expected_target_state'
+  and body ~ 'v_session\.execution_owner\s+is\s+distinct\s+from\s+p_claimant_id'
+  and body ~ 'v_session\.ownership_token\s+is\s+distinct\s+from\s+p_ownership_token'
+  and body ~ 'v_session\.lease_expires_at\s+is\s+distinct\s+from\s+p_expected_lease_expires_at'
+  and body ~ 'v_hardware\.provisioning_source\s+is\s+distinct\s+from\s+''setup_draft'''
+  and body ~ 'v_hardware\.provisioning_status\s+is\s+distinct\s+from\s+''active'''
+  and body ~ 'v_hardware\.active\s+is\s+distinct\s+from\s+true' as passed
+from source;
