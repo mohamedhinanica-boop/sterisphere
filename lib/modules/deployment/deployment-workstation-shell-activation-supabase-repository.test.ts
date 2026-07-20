@@ -268,7 +268,8 @@ async function scenarioRepositoryDoesNotRetry() {
 }
 
 function scenarioSqlSourceExpectations() {
-  const source = readFileSync("docs/architecture/supabase_deployment_workstation_shell_activation.sql", "utf8").toLowerCase();
+  const sql = readFileSync("docs/architecture/supabase_deployment_workstation_shell_activation_and_completion.sql", "utf8").toLowerCase();
+  const source = sql.slice(0, sql.indexOf("create or replace function public.complete_deployment_workstation_shell_execution_item"));
   const selectedWorkstationUpdate =
     source.includes("update public.clinical_workstations update_workstation") &&
     source.includes("where update_workstation.id = v_workstation.id") &&
@@ -288,6 +289,14 @@ function scenarioSqlSourceExpectations() {
     source.includes("provisioning_status = 'active'") &&
     !source.includes("insert into") &&
     !source.includes("delete from");
+  const authoritativeStateProjection =
+    source.includes("v_item_transition_state := jsonb_build_object") &&
+    source.includes("'deploymentworkstationkey', v_item.expected_current_state -> 'deploymentworkstationkey'") &&
+    source.includes("'provisioningsource', v_item.expected_current_state -> 'provisioningsource'") &&
+    source.includes("'provisioningstatus', v_item.expected_current_state -> 'provisioningstatus'") &&
+    source.includes("'active', v_item.expected_current_state -> 'active'") &&
+    source.includes("v_item_transition_state is distinct from p_expected_current_state") &&
+    !source.includes("v_item.expected_current_state is distinct from p_expected_current_state");
   const identityContract =
     source.includes("v_item.entity_id::text is distinct from p_expected_entity_id") &&
     source.includes("'entityidmatchesworkstationid', v_item.entity_id::text is not distinct from p_workstation_id::text") &&
@@ -296,8 +305,8 @@ function scenarioSqlSourceExpectations() {
 
   return expectScenario(
     "SQL source mutation boundary",
-    selectedWorkstationUpdate && noForbiddenUpdates && supportedTarget && identityContract,
-    JSON.stringify({ selectedWorkstationUpdate, noForbiddenUpdates, supportedTarget, identityContract }),
+    selectedWorkstationUpdate && noForbiddenUpdates && supportedTarget && authoritativeStateProjection && identityContract,
+    JSON.stringify({ selectedWorkstationUpdate, noForbiddenUpdates, supportedTarget, authoritativeStateProjection, identityContract }),
   );
 }
 
