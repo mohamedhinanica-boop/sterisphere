@@ -157,6 +157,10 @@ export interface DeploymentActivationExecutionNextItemStartIssue {
     supported: boolean;
     expectedState: Record<string, unknown> | null;
     targetState: Record<string, unknown> | null;
+    expectedCurrentStateKeys: readonly string[];
+    targetStateKeys: readonly string[];
+    authoritativeExpectedState: Record<string, unknown> | null;
+    authoritativeTargetState: Record<string, unknown>;
     rejectionReasons: readonly string[];
   } | null;
 }

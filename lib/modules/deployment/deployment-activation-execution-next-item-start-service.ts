@@ -667,12 +667,23 @@ function hardwareBindingLifecycleRejectionReasons(item: DeploymentActivationExec
   if (!expected) reasons.push("expectedCurrentState is missing");
   if (!target) reasons.push("targetState is missing");
   if (!expected || !target) return reasons;
-  if (Object.keys(expected).sort().join("\u0000") !== [...HARDWARE_BINDING_EXPECTED_STATE_FIELDS].sort().join("\u0000")) reasons.push("expectedCurrentState field set does not match the three-field binding contract");
-  if (!isDeploymentKey(expected.deploymentHardwareKey, "hardware")) reasons.push("deploymentHardwareKey must be a deterministic hardware deployment key");
-  if (expected.targetType !== "workstation" && expected.targetType !== "sterilizer") reasons.push("targetType must be workstation or sterilizer");
-  if ((expected.targetType === "workstation" || expected.targetType === "sterilizer") && !isDeploymentKey(expected.targetDeploymentKey, expected.targetType)) reasons.push("targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
-  if (Object.keys(target).length !== 0) reasons.push("targetState must be an empty object");
+
+  const unexpectedExpectedKeys = Object.keys(expected).filter((key) =>
+    !HARDWARE_BINDING_EXPECTED_STATE_FIELDS.includes(key as (typeof HARDWARE_BINDING_EXPECTED_STATE_FIELDS)[number]) &&
+    !isSerializationMetadataKey(key)
+  );
+  if (unexpectedExpectedKeys.length > 0) reasons.push(`expectedCurrentState contains non-authoritative fields: ${unexpectedExpectedKeys.sort().join(", ")}`);
+  if (!Object.prototype.hasOwnProperty.call(expected, "deploymentHardwareKey") || !isDeploymentKey(expected.deploymentHardwareKey, "hardware")) reasons.push("deploymentHardwareKey must be a deterministic hardware deployment key");
+  if (!Object.prototype.hasOwnProperty.call(expected, "targetType") || (expected.targetType !== "workstation" && expected.targetType !== "sterilizer")) reasons.push("targetType must be workstation or sterilizer");
+  if (!Object.prototype.hasOwnProperty.call(expected, "targetDeploymentKey") || ((expected.targetType === "workstation" || expected.targetType === "sterilizer") && !isDeploymentKey(expected.targetDeploymentKey, expected.targetType))) reasons.push("targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
+
+  const authoritativeTargetKeys = Object.keys(target).filter((key) => !isSerializationMetadataKey(key));
+  if (authoritativeTargetKeys.length > 0) reasons.push(`targetState contains binding mutation fields: ${authoritativeTargetKeys.sort().join(", ")}`);
   return reasons;
+}
+
+function isSerializationMetadataKey(key: string): boolean {
+  return key === "__typename";
 }
 function hardwareAssignmentLifecycleRejectionReasons(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): string[] {
   const reasons: string[] = [];
@@ -710,10 +721,27 @@ function lifecycleDispatch(
     supported,
     expectedState: safeLifecycleState(item.expectedCurrentState),
     targetState: safeLifecycleTarget(item.targetState),
+    expectedCurrentStateKeys: Object.keys(item.expectedCurrentState ?? {}).sort(),
+    targetStateKeys: Object.keys(item.targetState ?? {}).sort(),
+    authoritativeExpectedState: projectHardwareBindingExpectedState(item.expectedCurrentState),
+    authoritativeTargetState: projectHardwareBindingTargetState(item.targetState),
     rejectionReasons,
   };
 }
 
+function projectHardwareBindingExpectedState(state: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!state) return null;
+  return {
+    deploymentHardwareKey: state.deploymentHardwareKey,
+    targetType: state.targetType,
+    targetDeploymentKey: state.targetDeploymentKey,
+  };
+}
+
+function projectHardwareBindingTargetState(state: Record<string, unknown> | null): Record<string, unknown> {
+  if (!state) return {};
+  return Object.fromEntries(Object.entries(state).filter(([key]) => !isSerializationMetadataKey(key)));
+}
 function safeLifecycleState(state: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!state) return null;
   const safe: Record<string, unknown> = {};
