@@ -124,6 +124,76 @@ async function scenarioAlreadyStarted() {
   );
 }
 
+async function scenarioHardwareAssignmentStartable() {
+  const result = await assess(hardwareAssignmentSnapshot());
+  return expectScenario("sequence-40 Hardware Assignment finalize item is startable", result.ok && result.status === "startable" && result.sequence === 40 && result.entityType === "hardware_assignment" && result.action === "finalize" && result.lifecycleEvidence?.lifecycle === "hardware_assignment:finalize" && result.downstream.itemsStarted === 0 && result.downstream.itemsCompleted === 0 && result.downstream.dependenciesProgressed === 0, JSON.stringify(result));
+}
+
+async function scenarioHardwareAssignmentAlreadyStarted() {
+  const result = await assess(hardwareAssignmentSnapshot({ executionStatus: "running", attemptCount: 1, startedAt: "2026-01-01T12:04:00.000Z" }));
+  return expectScenario("already-running Hardware Assignment safely reuses start", result.ok && result.status === "already_started" && result.reusedCount === 1 && result.lifecycleEvidence?.lifecycle === "hardware_assignment:finalize", JSON.stringify(result));
+}
+
+async function scenarioHardwareAssignmentWrongEntity() { return expectIssue("Hardware Assignment wrong entity blocks", hardwareAssignmentSnapshot({ entityType: "hardware_binding" }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareAssignmentWrongAction() { return expectIssue("Hardware Assignment wrong action blocks", hardwareAssignmentSnapshot({ action: "activate" }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareAssignmentWrongExpectedState() { return expectIssue("Hardware Assignment wrong expected state blocks", hardwareAssignmentSnapshot({ expectedCurrentState: { ...hardwareAssignmentState(), assignmentStatus: "active" } }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareAssignmentWrongTargetState() { return expectIssue("Hardware Assignment wrong target state blocks", hardwareAssignmentSnapshot({ targetState: { assignmentStatus: "planned", active: false } }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareAssignmentWrongSequence() { return expectIssue("Hardware Assignment wrong sequence blocks", hardwareAssignmentSnapshot({ sequence: 41 }), "candidate_sequence_mismatch", "blocked"); }
+async function scenarioHardwareAssignmentWrongDependency() { return expectIssue("Hardware Assignment wrong dependency blocks", hardwareAssignmentSnapshot({ dependencyKeys: ["missing-hardware-dependency"] }), "dependency_item_missing", "blocked"); }
+async function scenarioHardwareAssignmentOwnershipGuards() {
+  const owner = await assess(hardwareAssignmentSnapshot({}), { claimantId: "other-owner" });
+  const token = await assess(hardwareAssignmentSnapshot({}), { ownershipToken: WRONG_TOKEN });
+  const lease = await assess(hardwareAssignmentSnapshot({}, { leaseExpiresAt: EXPIRED_LEASE }));
+  return expectScenario("Hardware Assignment claimant token and lease guards remain enforced", hasIssue(owner, "session_owned_by_another_executor") && hasIssue(token, "ownership_token_mismatch") && hasIssue(lease, "lease_expired"), JSON.stringify([owner.status, token.status, lease.status]));
+}
+
+function hardwareAssignmentState(): Record<string, unknown> {
+  return {
+    id: "assignment-row-001",
+    clinicId: NEXT_ITEM_START_TEST_IDS.clinicId,
+    deploymentHardwareKey: "hardware-001",
+    assignmentKey: "assignment-hardware-001",
+    targetType: "workstation",
+    targetDeploymentKey: "workstation-001",
+    assignmentSource: "setup_draft",
+    assignmentStatus: "planned",
+    active: false,
+  };
+}
+
+function hardwareAssignmentSnapshot(
+  candidatePatch: Partial<ReturnType<typeof item>> = {},
+  sessionPatch: Parameters<typeof buildNextItemStartSnapshot>[0]["session"] = {},
+): DeploymentActivationExecutionNextItemStartSnapshot {
+  const items = Array.from({ length: 40 }, (_, index) => {
+    const sequence = index + 1;
+    if (sequence === 40) {
+      return item(sequence, {
+        itemId: "assignment-execution-item-040",
+        executionItemKey: `${NEXT_ITEM_START_TEST_IDS.executionKey}:hardware-assignment-040`,
+        planItemKey: `${NEXT_ITEM_START_TEST_IDS.planKey}:hardware_assignment:hardware-001`,
+        entityType: "hardware_assignment",
+        entityId: "assignment-row-001",
+        action: "finalize",
+        executionStatus: "ready",
+        dependencyKeys: [planItemKey(39)],
+        expectedCurrentState: hardwareAssignmentState(),
+        targetState: { assignmentStatus: "active", active: true },
+        reversible: false,
+        rollbackBehavior: "manual assignment rollback required",
+        ...candidatePatch,
+      });
+    }
+    return item(sequence, {
+      executionStatus: "succeeded",
+      attemptCount: 1,
+      startedAt: "2026-01-01T12:00:00.000Z",
+      completedAt: "2026-01-01T12:02:00.000Z",
+      dependencyKeys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
+    });
+  });
+  return buildNextItemStartSnapshot({ items, session: sessionPatch });
+}
 async function scenarioMissingSession() { return expectIssue("missing session", snapshot({ session: null }), "missing_session", "not_found"); }
 async function scenarioClinicMismatch() { return expectIssue("clinic identity mismatch", snapshot({ session: { clinicId: "clinic-other" } }), "clinic_identity_mismatch", "conflict"); }
 async function scenarioDeploymentRunMismatch() { return expectIssue("deployment-run identity mismatch", snapshot({ session: { deploymentRunKey: "run-other" } }), "deployment_run_identity_mismatch", "conflict"); }

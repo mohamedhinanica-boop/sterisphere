@@ -178,6 +178,11 @@ export interface DeploymentActivationExecutionNextItemStartResult {
   entityType: string | null;
   entityId: string | null;
   action: string | null;
+  lifecycleEvidence: {
+    lifecycle: "hardware_assignment:finalize";
+    expectedStateFields: readonly string[];
+    targetState: { assignmentStatus: "active"; active: true };
+  } | null;
   dependencyKeys: readonly string[];
   attemptCount: number;
   itemStartedAt: string | null;

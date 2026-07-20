@@ -388,7 +388,7 @@ function validateCandidate(
     issues.push(blocker("candidate_entity_identity_missing", session, candidate, "Candidate entity identity is missing."));
   }
 
-  if (!isSupportedEntityAction(candidate)) {
+  if (!isSupportedEntityAction(candidate, session.clinicId)) {
     issues.push(blocker("unsupported_entity_action_lifecycle", session, candidate, "Candidate entity/action lifecycle is not supported for next-item start assessment."));
   }
 
@@ -516,6 +516,7 @@ function buildResult(input: {
     entityType: candidate?.entityType ?? null,
     entityId: candidate?.entityId ?? null,
     action: candidate?.action ?? null,
+    lifecycleEvidence: recognizedLifecycleEvidence(candidate, session?.clinicId ?? null),
     dependencyKeys: candidate?.dependencyKeys ? [...candidate.dependencyKeys] : [],
     attemptCount: candidate?.attemptCount ?? 0,
     itemStartedAt: candidate?.startedAt ?? null,
@@ -638,8 +639,44 @@ function hasBlocker(issues: readonly DeploymentActivationExecutionNextItemStartI
   return issues.some((issue) => issue.severity === "blocker");
 }
 
-function isSupportedEntityAction(item: DeploymentActivationExecutionNextItemStartItemSnapshot): boolean {
-  return Boolean(item.entityType.trim()) && item.action === "activate";
+function isSupportedEntityAction(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): boolean {
+  if (item.entityType !== "hardware_assignment" && Boolean(item.entityType.trim()) && item.action === "activate") return true;
+  return isHardwareAssignmentFinalizeLifecycle(item, clinicId);
+}
+
+const HARDWARE_ASSIGNMENT_EXPECTED_STATE_FIELDS = [
+  "id", "clinicId", "deploymentHardwareKey", "assignmentKey", "targetType",
+  "targetDeploymentKey", "assignmentSource", "assignmentStatus", "active",
+] as const;
+
+function isHardwareAssignmentFinalizeLifecycle(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string | null): boolean {
+  if (item.entityType !== "hardware_assignment" || item.action !== "finalize" || !item.expectedCurrentState || !item.targetState) return false;
+  const expectedKeys = Object.keys(item.expectedCurrentState).sort();
+  const targetKeys = Object.keys(item.targetState).sort();
+  const targetType = item.expectedCurrentState.targetType;
+  const targetDeploymentKey = item.expectedCurrentState.targetDeploymentKey;
+  const targetShapeValid = targetType === "unassigned"
+    ? targetDeploymentKey === null
+    : (targetType === "workstation" || targetType === "sterilizer") && typeof targetDeploymentKey === "string" && targetDeploymentKey.length > 0;
+  return expectedKeys.join("\u0000") === [...HARDWARE_ASSIGNMENT_EXPECTED_STATE_FIELDS].sort().join("\u0000") &&
+    targetKeys.join("\u0000") === "active\u0000assignmentStatus" &&
+    item.expectedCurrentState.id === item.entityId &&
+    typeof item.expectedCurrentState.clinicId === "string" && item.expectedCurrentState.clinicId.length > 0 &&
+    (clinicId === null || item.expectedCurrentState.clinicId === clinicId) &&
+    typeof item.expectedCurrentState.deploymentHardwareKey === "string" && item.expectedCurrentState.deploymentHardwareKey.length > 0 &&
+    typeof item.expectedCurrentState.assignmentKey === "string" && item.expectedCurrentState.assignmentKey.length > 0 &&
+    item.expectedCurrentState.assignmentSource === "setup_draft" &&
+    item.expectedCurrentState.assignmentStatus === "planned" &&
+    item.expectedCurrentState.active === false && targetShapeValid &&
+    item.targetState.assignmentStatus === "active" && item.targetState.active === true;
+}
+
+function recognizedLifecycleEvidence(item: DeploymentActivationExecutionNextItemStartItemSnapshot | null, clinicId: string | null) {
+  return item && isHardwareAssignmentFinalizeLifecycle(item, clinicId) ? {
+    lifecycle: "hardware_assignment:finalize" as const,
+    expectedStateFields: [...HARDWARE_ASSIGNMENT_EXPECTED_STATE_FIELDS],
+    targetState: { assignmentStatus: "active" as const, active: true as const },
+  } : null;
 }
 
 function isValidTimestamp(value: string): boolean {

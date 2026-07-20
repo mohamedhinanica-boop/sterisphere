@@ -115,6 +115,37 @@ async function scenarioAlreadyProgressedStartableStarted() {
   );
 }
 
+async function scenarioHardwareAssignmentSequence40Started() {
+  const assignmentPlanKey = `${NEXT_ITEM_START_TEST_IDS.planKey}:hardware_assignment:hardware-001`;
+  const assignmentItemId = "assignment-execution-item-040";
+  const assignmentExecutionKey = `${NEXT_ITEM_START_TEST_IDS.executionKey}:hardware-assignment-040`;
+  const items = Array.from({ length: 40 }, (_, index) => {
+    const sequence = index + 1;
+    return item(sequence, sequence === 40 ? {
+      itemId: assignmentItemId,
+      executionItemKey: assignmentExecutionKey,
+      planItemKey: assignmentPlanKey,
+      entityType: "hardware_assignment",
+      entityId: "assignment-row-001",
+      action: "finalize",
+      executionStatus: "ready",
+      dependencyKeys: [planItemKey(39)],
+      expectedCurrentState: { id: "assignment-row-001", clinicId: NEXT_ITEM_START_TEST_IDS.clinicId, deploymentHardwareKey: "hardware-001", assignmentKey: "assignment-hardware-001", targetType: "workstation", targetDeploymentKey: "workstation-001", assignmentSource: "setup_draft", assignmentStatus: "planned", active: false },
+      targetState: { assignmentStatus: "active", active: true },
+      reversible: false,
+    } : {
+      executionStatus: "succeeded", attemptCount: 1,
+      startedAt: "2026-01-01T12:00:00.000Z", completedAt: "2026-01-01T12:02:00.000Z",
+      dependencyKeys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
+    });
+  });
+  const repository = repositoryHarness({
+    snapshot: buildNextItemStartSnapshot({ items }),
+    atomicResult: atomicResult({ itemId: assignmentItemId, executionItemKey: assignmentExecutionKey, planItemKey: assignmentPlanKey, sequence: 40, entityType: "hardware_assignment", entityId: "assignment-row-001", action: "finalize" }),
+  });
+  const result = await start(repository);
+  return expectScenario("sequence-40 Hardware Assignment item starts and remains running", result.ok && result.status === "started" && result.sequence === 40 && result.entityType === "hardware_assignment" && result.action === "finalize" && result.startedCount === 1 && result.completedCount === 0 && result.dependenciesProgressed === 0 && repository.atomicCalls.length === 1, JSON.stringify(redact(result)));
+}
 async function scenarioPostProviderProgressionStartsNextProviderItem() {
   const repository = repositoryHarness({
     snapshot: postProviderSnapshot(),
