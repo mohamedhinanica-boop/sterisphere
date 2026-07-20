@@ -1877,7 +1877,18 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Started", value: readField(input.deploymentWorkstationShellExecutionNextItemStart, "startedCount") ?? 0 },
           { label: "Sequence", value: readField(input.deploymentWorkstationShellExecutionNextItemStart, "sequence") ?? "none" },
         ]),
-      ],
+        stage("hardware-execution-step", "Hardware Execution Step", input.deploymentHardwareExecutionStep, "not_attempted", "Hardware execution-step evidence covers one bounded activation/completion/progression/start cycle.", [
+          { label: "Status", value: readField(input.deploymentHardwareExecutionStep, "status") ?? "not attempted" },
+          { label: "Sequence", value: readField(input.deploymentHardwareExecutionStep, "sequence") ?? "none" },
+        ]),
+        stage("post-hardware-dependency-progression", "Post-Hardware Dependency Progression", input.deploymentHardwareShellExecutionDependencyProgression, "not_attempted", "Post-hardware dependency progression readies the next deterministic item without executing hardware assignments.", [
+          { label: "Progressed", value: readField(input.deploymentHardwareShellExecutionDependencyProgression, "progressedCount") ?? 0 },
+          { label: "Next", value: readField(input.deploymentHardwareShellExecutionDependencyProgression, "nextSequence") ?? "none" },
+        ]),
+        stage("post-hardware-next-item-start", "Post-Hardware Next Item Start", input.deploymentHardwareShellExecutionNextItemStart, "not_attempted", "Post-hardware next-item start may start the first hardware-assignment item but does not dispatch or execute it.", [
+          { label: "Started", value: readField(input.deploymentHardwareShellExecutionNextItemStart, "startedCount") ?? 0 },
+          { label: "Sequence", value: readField(input.deploymentHardwareShellExecutionNextItemStart, "sequence") ?? "none" },
+        ]),      ],
     },
     {
       name: "Entity Activation",
@@ -1910,7 +1921,14 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Completed", value: readField(input.deploymentWorkstationShellExecutionItemCompletion, "completedCount") ?? 0 },
           { label: "Reused", value: readField(input.deploymentWorkstationShellExecutionItemCompletion, "reusedCount") ?? 0 },
         ]),
-      ],
+        stage("hardware-shell-activation", "Hardware Shell Activation", input.deploymentHardwareShellActivation, "not_attempted", "Hardware shell activation targets only the selected deterministic hardware UUID and deployment key.", [
+          { label: "Activated", value: readField(input.deploymentHardwareShellActivation, "activatedCount") ?? 0 },
+          { label: "Conflicts", value: readField(input.deploymentHardwareShellActivation, "conflicts") ?? 0 },
+        ]),
+        stage("hardware-shell-item-completion", "Hardware Shell Item Completion", input.deploymentHardwareShellExecutionItemCompletion, "not_attempted", "Hardware-shell item completion marks only the activated hardware execution item succeeded.", [
+          { label: "Completed", value: readField(input.deploymentHardwareShellExecutionItemCompletion, "completedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentHardwareShellExecutionItemCompletion, "reusedCount") ?? 0 },
+        ]),      ],
     },
   ];
 }
@@ -2353,7 +2371,16 @@ function CompleteStep({
   const deploymentWorkstationShellExecutionDependencyProgression =
     deploymentRunResult?.deploymentWorkstationShellExecutionDependencyProgression ?? null;
   const deploymentWorkstationShellExecutionNextItemStart =
-    deploymentRunResult?.deploymentWorkstationShellExecutionNextItemStart ?? null;
+    deploymentRunResult?.deploymentWorkstationShellExecutionNextItemStart ?? null;  const deploymentHardwareExecutionStep =
+    deploymentRunResult?.deploymentHardwareExecutionStep ?? null;
+  const deploymentHardwareShellActivation =
+    deploymentRunResult?.deploymentHardwareShellActivation ?? null;
+  const deploymentHardwareShellExecutionItemCompletion =
+    deploymentRunResult?.deploymentHardwareShellExecutionItemCompletion ?? null;
+  const deploymentHardwareShellExecutionDependencyProgression =
+    deploymentRunResult?.deploymentHardwareShellExecutionDependencyProgression ?? null;
+  const deploymentHardwareShellExecutionNextItemStart =
+    deploymentRunResult?.deploymentHardwareShellExecutionNextItemStart ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2416,6 +2443,11 @@ function CompleteStep({
     deploymentWorkstationShellExecutionItemCompletion,
     deploymentWorkstationShellExecutionDependencyProgression,
     deploymentWorkstationShellExecutionNextItemStart,
+    deploymentHardwareExecutionStep,
+    deploymentHardwareShellActivation,
+    deploymentHardwareShellExecutionItemCompletion,
+    deploymentHardwareShellExecutionDependencyProgression,
+    deploymentHardwareShellExecutionNextItemStart,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
@@ -2439,7 +2471,7 @@ function CompleteStep({
   const collapseAllStages = () => setManuallyExpandedStageIds(new Set());
   const currentStageName = stageSummary.currentStage?.name ?? (isPersisting ? executionStageLabel : "Ready");
   const summaryClinicId = clinicRoot?.clinicId ?? deploymentClinicActivation?.clinicId ?? "Not linked";
-  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? deploymentWorkstationShellExecutionNextItemStart?.sessionId ?? deploymentWorkstationShellActivation?.sessionId ?? deploymentSterilizerShellExecutionNextItemStart?.sessionId ?? deploymentSterilizerShellActivation?.sessionId ?? "Not started";
+  const summaryExecutionSessionId = deploymentActivationExecutionPersistence?.sessionId ?? deploymentActivationExecutionClaim?.sessionId ?? deploymentActivationExecutionStart?.sessionId ?? deploymentActivationExecutionItemStart?.sessionId ?? deploymentClinicActivation?.sessionId ?? deploymentActivationExecutionDependencyProgression?.sessionId ?? deploymentActivationExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionNextItemStart?.sessionId ?? deploymentProviderShellExecutionDependencyProgression?.sessionId ?? deploymentProviderShellActivation?.sessionId ?? deploymentHardwareShellExecutionNextItemStart?.sessionId ?? deploymentHardwareShellActivation?.sessionId ?? deploymentWorkstationShellExecutionNextItemStart?.sessionId ?? deploymentWorkstationShellActivation?.sessionId ?? deploymentSterilizerShellExecutionNextItemStart?.sessionId ?? deploymentSterilizerShellActivation?.sessionId ?? "Not started";
   useEffect(() => {
     if (!isPersisting) {
       setElapsedSeconds(0);

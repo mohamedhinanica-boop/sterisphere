@@ -61,6 +61,7 @@ import {
   executeServerProviderSequence,
   executeServerSterilizerSequence,
   executeServerWorkstationSequence,
+  executeServerHardwareSequence,
   executeDeploymentExecutionStepForServer,
 } from "@/lib/modules/deployment/deployment-execution-step-orchestrator-server";
 import {
@@ -92,6 +93,8 @@ import type { ServerDeploymentSterilizerShellActivationResult } from "@/lib/modu
 import type { ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "@/lib/modules/deployment/deployment-sterilizer-shell-execution-item-completion-server";
 import type { ServerDeploymentWorkstationShellActivationResult } from "@/lib/modules/deployment/deployment-workstation-shell-activation-server";
 import type { ServerDeploymentWorkstationShellExecutionItemCompletionResult } from "@/lib/modules/deployment/deployment-workstation-shell-execution-item-completion-server";
+import type { ServerDeploymentHardwareShellActivationResult } from "@/lib/modules/deployment/deployment-hardware-shell-activation-server";
+import type { ServerDeploymentHardwareShellExecutionItemCompletionResult } from "@/lib/modules/deployment/deployment-hardware-shell-execution-item-completion-server";
 import type { ServerDeploymentActivationExecutionDependencyProgressionResult } from "@/lib/modules/deployment/deployment-activation-execution-dependency-progression-server";
 import type { ServerDeploymentActivationExecutionNextItemStartResult } from "@/lib/modules/deployment/deployment-activation-execution-next-item-start-server";
 import type {
@@ -984,6 +987,11 @@ export interface PersistDeploymentRunActionResult {
   deploymentWorkstationShellExecutionItemCompletion?: ServerDeploymentWorkstationShellExecutionItemCompletionResult;
   deploymentWorkstationShellExecutionDependencyProgression?: ServerDeploymentActivationExecutionDependencyProgressionResult;
   deploymentWorkstationShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
+  deploymentHardwareExecutionStep?: DeploymentExecutionStepOrchestratorResult;
+  deploymentHardwareShellActivation?: ServerDeploymentHardwareShellActivationResult;
+  deploymentHardwareShellExecutionItemCompletion?: ServerDeploymentHardwareShellExecutionItemCompletionResult;
+  deploymentHardwareShellExecutionDependencyProgression?: ServerDeploymentActivationExecutionDependencyProgressionResult;
+  deploymentHardwareShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
   message: string;
 }
 
@@ -2688,6 +2696,29 @@ export async function persistDeploymentRunAction(
     const deploymentWorkstationShellExecutionItemCompletion = workstationSequence?.itemCompletion ?? null;
     const deploymentWorkstationShellExecutionDependencyProgression = workstationSequence?.dependencyProgression ?? null;
     const deploymentWorkstationShellExecutionNextItemStart = workstationSequence?.nextItemStart ?? null;
+    const hardwareSequence = workstationSequence?.ok && deploymentWorkstationShellExecutionNextItemStart?.ok && deploymentActivationExecution && deploymentActivationExecutionClaim && clinicOwnershipToken
+      ? await executeServerHardwareSequence(client, {
+          context: {
+            claimantId: deploymentActivationExecutionClaim.claimantId!,
+            ownershipToken: clinicOwnershipToken,
+            leaseExpiresAt: deploymentActivationExecutionClaim.leaseExpiresAt,
+            executedAt: persistedAt,
+          },
+          clinicId,
+          deploymentRunKey: result.deploymentRun.deploymentRunId,
+          sessionId: deploymentWorkstationShellExecutionNextItemStart.sessionId!,
+          executionKey: deploymentWorkstationShellExecutionNextItemStart.executionKey!,
+          planKey: deploymentActivationExecutionClaim.planKey!,
+          deploymentActivationExecutionClaim,
+          initialNextItemStart: deploymentWorkstationShellExecutionNextItemStart,
+          preparedExecutionItems: deploymentActivationExecution.executionItems,
+        })
+      : null;
+    const deploymentHardwareExecutionStep = hardwareSequence?.lastStep ?? null;
+    const deploymentHardwareShellActivation = hardwareSequence?.hardwareActivation ?? null;
+    const deploymentHardwareShellExecutionItemCompletion = hardwareSequence?.itemCompletion ?? null;
+    const deploymentHardwareShellExecutionDependencyProgression = hardwareSequence?.dependencyProgression ?? null;
+    const deploymentHardwareShellExecutionNextItemStart = hardwareSequence?.nextItemStart ?? null;
 
     return {
       ok:
@@ -2701,7 +2732,8 @@ export async function persistDeploymentRunAction(
         Boolean(deploymentClinicExecutionStep?.ok) &&
         Boolean(providerSequence?.ok) &&
         Boolean(sterilizerSequence?.ok) &&
-        Boolean(workstationSequence?.ok),
+        Boolean(workstationSequence?.ok) &&
+        Boolean(hardwareSequence?.ok),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -3056,7 +3088,14 @@ export async function persistDeploymentRunAction(
       deploymentWorkstationShellExecutionItemCompletion: deploymentWorkstationShellExecutionItemCompletion ?? undefined,
       deploymentWorkstationShellExecutionDependencyProgression: deploymentWorkstationShellExecutionDependencyProgression ?? undefined,
       deploymentWorkstationShellExecutionNextItemStart: deploymentWorkstationShellExecutionNextItemStart ?? undefined,
-      message: deploymentWorkstationShellExecutionNextItemStart?.ok
+      deploymentHardwareExecutionStep: deploymentHardwareExecutionStep ?? undefined,
+      deploymentHardwareShellActivation: deploymentHardwareShellActivation ?? undefined,
+      deploymentHardwareShellExecutionItemCompletion: deploymentHardwareShellExecutionItemCompletion ?? undefined,
+      deploymentHardwareShellExecutionDependencyProgression: deploymentHardwareShellExecutionDependencyProgression ?? undefined,
+      deploymentHardwareShellExecutionNextItemStart: deploymentHardwareShellExecutionNextItemStart ?? undefined,
+      message: deploymentHardwareShellExecutionNextItemStart?.ok
+        ? "Deployment run activation completed all deterministic provider, sterilizer, workstation, and hardware items. The first hardware-assignment item may now be running, but hardware-assignment execution was not attempted. No rollback, session completion, or finalization occurred."
+        : deploymentWorkstationShellExecutionNextItemStart?.ok
         ? "Deployment run activation completed all deterministic provider, sterilizer, and workstation items. The first hardware item may now be running, but hardware activation was not attempted. No rollback, session completion, or finalization occurred."
         : deploymentSterilizerShellExecutionNextItemStart?.ok
         ? "Deployment run activation completed all deterministic provider and sterilizer items, but workstation sequence execution did not complete. Hardware activation was not attempted. No rollback, session completion, or finalization occurred."

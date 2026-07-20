@@ -14,6 +14,9 @@ import { activateProviderShellForServerDeployment, type ServerDeploymentProvider
 import { completeProviderShellExecutionItemForServerDeployment, type ServerDeploymentProviderShellExecutionItemCompletionResult } from "./deployment-provider-shell-execution-item-completion-server";
 import type { DeploymentActivationExecutorSterilizerShellRunner } from "./deployment-activation-executor-sterilizer-shell-handler";
 import type { DeploymentActivationExecutorWorkstationShellRunner } from "./deployment-activation-executor-workstation-shell-handler";
+import type { DeploymentActivationExecutorHardwareShellRunner } from "./deployment-activation-executor-hardware-shell-handler";
+import { activateHardwareShellForServerDeployment, type ServerDeploymentHardwareShellActivationResult } from "./deployment-hardware-shell-activation-server";
+import { completeHardwareShellExecutionItemForServerDeployment, type ServerDeploymentHardwareShellExecutionItemCompletionResult } from "./deployment-hardware-shell-execution-item-completion-server";
 import { activateSterilizerShellForServerDeployment, type ServerDeploymentSterilizerShellActivationResult } from "./deployment-sterilizer-shell-activation-server";
 import { completeSterilizerShellExecutionItemForServerDeployment, type ServerDeploymentSterilizerShellExecutionItemCompletionResult } from "./deployment-sterilizer-shell-execution-item-completion-server";
 import { activateWorkstationShellForServerDeployment, type ServerDeploymentWorkstationShellActivationResult } from "./deployment-workstation-shell-activation-server";
@@ -62,6 +65,14 @@ export interface ServerWorkstationDeploymentExecutionStepDependencies extends Se
   getWorkstationRuntimeEvidence(): {
     workstationActivation: ServerDeploymentWorkstationShellActivationResult | null;
     itemCompletion: ServerDeploymentWorkstationShellExecutionItemCompletionResult | null;
+    dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+    nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
+  };
+}
+export interface ServerHardwareDeploymentExecutionStepDependencies extends ServerDeploymentExecutionStepOrchestratorDependencies {
+  getHardwareRuntimeEvidence(): {
+    hardwareActivation: ServerDeploymentHardwareShellActivationResult | null;
+    itemCompletion: ServerDeploymentHardwareShellExecutionItemCompletionResult | null;
     dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
     nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
   };
@@ -431,6 +442,92 @@ export function createServerWorkstationDeploymentExecutionStepDependencies(
     },
   };
 }
+export function createServerHardwareDeploymentExecutionStepDependencies(
+  client: SupabaseClient,
+  prerequisites: {
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    deploymentActivationExecutionNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+  },
+): ServerHardwareDeploymentExecutionStepDependencies {
+  let hardwareActivation: ServerDeploymentHardwareShellActivationResult | null = null;
+  let itemCompletion: ServerDeploymentHardwareShellExecutionItemCompletionResult | null = null;
+  let dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null = null;
+  let nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null = null;
+
+  const hardwareRunner: DeploymentActivationExecutorHardwareShellRunner = {
+    async activateHardwareShell(command) {
+      hardwareActivation = await activateHardwareShellForServerDeployment(client, {
+        clinicId: command.clinicId,
+        deploymentRunId: command.deploymentRunKey,
+        deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+        deploymentActivationExecutionNextItemStart: prerequisites.deploymentActivationExecutionNextItemStart,
+        hardwareActivatedAt: command.executedAt,
+      });
+      return hardwareActivation;
+    },
+    async completeHardwareShellExecutionItem(command) {
+      itemCompletion = await completeHardwareShellExecutionItemForServerDeployment(client, {
+        clinicId: command.clinicId,
+        deploymentRunId: command.deploymentRunKey,
+        deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+        deploymentHardwareShellActivation: hardwareActivation,
+        itemCompletionRequestedAt: command.executedAt,
+      });
+      return itemCompletion;
+    },
+  };
+
+  return {
+    entityExecution: {
+      clinicActivation: {
+        async activateClinic() {
+          return { ok: false, status: "blocked" as const, message: "Hardware-only execution-step composition does not execute clinics.", clinicId: null, currentClinicState: null, targetClinicState: null, deployedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      providerShellActivation: {
+        async activateProviderShell() {
+          return { ok: false, status: "blocked" as const, message: "Hardware-only execution-step composition does not execute provider shells.", providerId: null, deploymentProviderKey: null, provisioningSourceBefore: null, provisioningSourceAfter: null, provisioningStatusBefore: null, provisioningStatusAfter: null, activeBefore: null, activeAfter: null, activatedAt: null, activationResult: "blocked", issues: [] };
+        },
+      },
+      hardwareShellActivation: hardwareRunner,
+    },
+    itemCompletion: {
+      async completeCurrentItem() {
+        if (!itemCompletion?.ok) return missingPrerequisite("Hardware item-completion evidence is unavailable after entity execution.");
+        return mapProductionStageResult(itemCompletion);
+      },
+    },
+    dependencyProgression: {
+      async progressCurrentItemDependencies(input) {
+        if (!itemCompletion?.ok) return missingPrerequisite("Hardware item-completion evidence is unavailable for dependency progression.");
+        dependencyProgression = await progressActivationExecutionDependencyForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionItemCompletion: itemCompletion,
+          dependencyProgressionRequestedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(dependencyProgression);
+      },
+    },
+    nextItemStart: {
+      async startAtMostOneNextItem(input) {
+        if (!dependencyProgression?.ok) return missingPrerequisite("Hardware dependency-progression evidence is unavailable for next-item start.");
+        nextItemStart = await startNextActivationExecutionItemForServerDeployment(client, {
+          clinicId: input.item.clinicId,
+          deploymentRunId: input.item.deploymentRunKey,
+          deploymentActivationExecutionClaim: prerequisites.deploymentActivationExecutionClaim,
+          deploymentActivationExecutionDependencyProgression: dependencyProgression,
+          nextItemStartedAt: input.context.executedAt,
+        });
+        return mapProductionStageResult(nextItemStart);
+      },
+    },
+    getHardwareRuntimeEvidence() {
+      return { hardwareActivation, itemCompletion, dependencyProgression, nextItemStart };
+    },
+  };
+}
 export interface ServerProviderSequenceExecutionResult {
   ok: boolean;
   message: string;
@@ -704,6 +801,97 @@ export async function executeServerWorkstationSequence(
   };
 }
 
+export interface ServerHardwareSequenceExecutionResult {
+  ok: boolean;
+  message: string;
+  hardwareItemsPlanned: number;
+  hardwareItemsExecuted: number;
+  lastStep: DeploymentExecutionStepOrchestratorResult | null;
+  hardwareActivation: ServerDeploymentHardwareShellActivationResult | null;
+  itemCompletion: ServerDeploymentHardwareShellExecutionItemCompletionResult | null;
+  dependencyProgression: ServerDeploymentActivationExecutionDependencyProgressionResult | null;
+  nextItemStart: ServerDeploymentActivationExecutionNextItemStartResult | null;
+}
+
+export async function executeServerHardwareSequence(
+  client: SupabaseClient,
+  input: {
+    context: DeploymentExecutionStepOrchestratorContext;
+    clinicId: string;
+    deploymentRunKey: string;
+    sessionId: string;
+    executionKey: string;
+    planKey: string;
+    deploymentActivationExecutionClaim: ServerDeploymentActivationExecutionClaimResult;
+    initialNextItemStart: ServerDeploymentActivationExecutionNextItemStartResult;
+    preparedExecutionItems: readonly DeploymentActivationExecutionItem[];
+    executeHardwareStep?: (input: { current: ServerDeploymentActivationExecutionNextItemStartResult; prepared: DeploymentActivationExecutionItem; context: DeploymentExecutionStepOrchestratorContext }) => Promise<{ step: DeploymentExecutionStepOrchestratorResult; evidence: ReturnType<ServerHardwareDeploymentExecutionStepDependencies["getHardwareRuntimeEvidence"]> }>;
+  },
+): Promise<ServerHardwareSequenceExecutionResult> {
+  const result = await executeGenericEntitySequence({
+    entityType: "hardware_shell",
+    action: "activate",
+    clinicId: input.clinicId,
+    deploymentRunKey: input.deploymentRunKey,
+    sessionId: input.sessionId,
+    executionKey: input.executionKey,
+    planKey: input.planKey,
+    claimantId: input.context.claimantId,
+    leaseExpiresAt: input.context.leaseExpiresAt,
+    executedAt: input.context.executedAt,
+    firstRunningItem: input.initialNextItemStart,
+    preparedItems: input.preparedExecutionItems.map((item) => ({
+      source: item,
+      executionItemKey: item.executionItemKey,
+      planItemKey: item.planItemKey,
+      sequence: item.sequence,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      deploymentKey: item.deploymentKey,
+      action: item.action,
+    })),
+    readRunningIdentity: providerRunningIdentity,
+    validateEntityIdentity: (_running, prepared) => Boolean(prepared.entityId && isUuidIdentity(prepared.entityId) && prepared.deploymentKey && prepared.entityId !== prepared.deploymentKey),
+    executeOne: async ({ running, prepared }) => {
+      if (input.executeHardwareStep) {
+        const invocation = await input.executeHardwareStep({ current: running, prepared: prepared.source, context: input.context });
+        return { ...invocation, nextRunningItem: invocation.evidence.nextItemStart };
+      }
+      const dependencies = createServerHardwareDeploymentExecutionStepDependencies(client, {
+        deploymentActivationExecutionClaim: input.deploymentActivationExecutionClaim,
+        deploymentActivationExecutionNextItemStart: running,
+      });
+      const item = prepared.source;
+      const step = await executeDeploymentExecutionStepForServer(dependencies, {
+        context: input.context,
+        item: {
+          clinicId: input.clinicId, deploymentRunKey: input.deploymentRunKey, sessionId: input.sessionId, executionKey: input.executionKey, planKey: input.planKey,
+          itemId: running.itemId!, executionItemKey: item.executionItemKey, planItemKey: item.planItemKey, sequence: item.sequence,
+          entityType: "hardware_shell", entityId: item.entityId, deploymentKey: item.deploymentKey, action: "activate", executionStatus: "running",
+          attemptCount: running.attemptCount, startedAt: running.startedAt, completedAt: item.completedAt, rolledBackAt: null,
+          errorCode: item.error?.code ?? null, errorMessage: item.error?.message ?? null,
+          expectedCurrentState: item.currentState, targetState: item.targetState, dependencyKeys: item.dependencyKeys,
+          reversible: item.reversible, rollbackBehavior: item.rollbackAction,
+        },
+      });
+      const evidence = dependencies.getHardwareRuntimeEvidence();
+      return { step, evidence, nextRunningItem: evidence.nextItemStart };
+    },
+  });
+  const evidence = result.lastEvidence;
+  return {
+    ok: result.ok,
+    message: hardwareSequenceMessage(result.message),
+    hardwareItemsPlanned: result.itemsPlanned,
+    hardwareItemsExecuted: result.itemsExecuted,
+    lastStep: result.lastStep,
+    hardwareActivation: evidence?.hardwareActivation ?? null,
+    itemCompletion: evidence?.itemCompletion ?? null,
+    dependencyProgression: evidence?.dependencyProgression ?? null,
+    nextItemStart: evidence?.nextItemStart ?? null,
+  };
+}
+
 function sterilizerSequenceMessage(message: string): string {
   return message
     .replace("Entity sequence has no authoritative planned items.", "Sterilizer sequence has no authoritative prepared sterilizer items.")
@@ -729,6 +917,19 @@ function workstationSequenceMessage(message: string): string {
     .replace("Entity sequence exceeded the authoritative planned bound.", "Workstation sequence exceeded the authoritative prepared-item bound.")
     .replace("All deterministic entity items completed and the first non-matching item was started without execution.", "All deterministic workstation items completed and the first non-workstation item was started without execution.")
     .replace("Entity sequence terminated without a non-matching handoff.", "Workstation sequence terminated without a non-workstation handoff.");
+}
+function hardwareSequenceMessage(message: string): string {
+  return message
+    .replace("Entity sequence has no authoritative planned items.", "Hardware sequence has no authoritative prepared hardware items.")
+    .replace("Entity sequence ownership lease is not active.", "Hardware sequence ownership lease is not active.")
+    .replace("Entity sequence next-item evidence is malformed, foreign, or out of deterministic order.", "Hardware sequence handoff evidence is malformed, foreign, or out of deterministic order.")
+    .replace("Entity sequence refused duplicate execution-item evidence.", "Hardware sequence refused duplicate execution-item evidence.")
+    .replace("Entity sequence stopped because one execution step did not complete.", "Hardware sequence stopped because one hardware execution step did not complete.")
+    .replace("Entity sequence stopped because no deterministic next item was started.", "Hardware sequence stopped because no deterministic next item was started.")
+    .replace("Entity sequence reached a non-matching item before the authoritative bound.", "Hardware sequence reached a non-hardware item before the authoritative prepared-item bound.")
+    .replace("Entity sequence exceeded the authoritative planned bound.", "Hardware sequence exceeded the authoritative prepared-item bound.")
+    .replace("All deterministic entity items completed and the first non-matching item was started without execution.", "All deterministic hardware items completed and the first non-hardware item was started without execution.")
+    .replace("Entity sequence terminated without a non-matching handoff.", "Hardware sequence terminated without a non-hardware handoff.");
 }
 function isUuidIdentity(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);

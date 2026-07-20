@@ -35,6 +35,7 @@ export function createServerDeploymentActivationExecutor(
     providerShellActivation: dependencies.providerShellActivation,
     sterilizerShellActivation: dependencies.sterilizerShellActivation,
     workstationShellActivation: dependencies.workstationShellActivation,
+    hardwareShellActivation: dependencies.hardwareShellActivation,
   });
 
   return createDeploymentActivationExecutorService(registry);

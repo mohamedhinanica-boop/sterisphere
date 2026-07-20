@@ -18,12 +18,17 @@ import {
   DeploymentActivationExecutorWorkstationShellHandler,
   type DeploymentActivationExecutorWorkstationShellRunner,
 } from "./deployment-activation-executor-workstation-shell-handler";
+import {
+  DeploymentActivationExecutorHardwareShellHandler,
+  type DeploymentActivationExecutorHardwareShellRunner,
+} from "./deployment-activation-executor-hardware-shell-handler";
 
 export interface DeploymentActivationExecutorHandlerRegistryDependencies {
   clinicActivation: DeploymentActivationExecutorClinicActivationRunner;
   providerShellActivation: DeploymentActivationExecutorProviderShellActivationRunner;
   sterilizerShellActivation?: DeploymentActivationExecutorSterilizerShellRunner;
   workstationShellActivation?: DeploymentActivationExecutorWorkstationShellRunner;
+  hardwareShellActivation?: DeploymentActivationExecutorHardwareShellRunner;
 }
 
 export function createDeploymentActivationExecutorHandlerRegistry(
@@ -38,6 +43,9 @@ export function createDeploymentActivationExecutorHandlerRegistry(
   }
   if (dependencies.workstationShellActivation) {
     handlers.push(new DeploymentActivationExecutorWorkstationShellHandler(dependencies.workstationShellActivation));
+  }
+  if (dependencies.hardwareShellActivation) {
+    handlers.push(new DeploymentActivationExecutorHardwareShellHandler(dependencies.hardwareShellActivation));
   }
   return new DeploymentActivationExecutorRegistry(handlers);
 }

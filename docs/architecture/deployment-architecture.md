@@ -1243,3 +1243,11 @@ Hardware UUID and deterministic `deployment_hardware_key` remain distinct. Immut
 The hardware activation layer now mirrors the established sterilizer and workstation boundaries: typed activation and execution-item completion repositories, Supabase RPC-only implementations, validation services, server-only composition boundaries, and an isolated `hardware_shell:activate` one-step handler. The handler performs hardware activation followed by completion of that same execution item. It is intentionally absent from the production handler registry and Generic Entity Sequence Driver, so runtime sequencing remains unchanged.
 
 The TypeScript contracts preserve clinic, deployment-run, execution-session, item, ownership, lease, immutable hardware-state, dependency, and rollback evidence. Hardware UUIDs remain distinct from deterministic deployment hardware keys. Neither boundary progresses dependencies, starts another item, iterates a sequence, completes a session, rolls back, or finalizes a deployment.
+
+## RC9 Slice 3D2 — Hardware generic sequence runtime
+
+The authoritative production handler registry now composes `hardware_shell:activate`. Setup Complete consumes the already-running hardware item handed off by the workstation sequence and passes it directly to a hardware-specific adapter around the Generic Entity Sequence Driver; the item is not readied or started again. Prepared `hardware_shell:activate` execution items are the sole hardware bound.
+
+The generic driver retains bounded serial iteration, deterministic ordering, duplicate and exactly-once checks, execution identity and lease validation, malformed-evidence blocking, aggregate counters, and first non-matching-item handoff. The hardware adapter supplies only hardware entity/action matching, UUID and deterministic deployment-key validation, evidence mapping, and response projection. Each hardware step performs activation, completion of the same item, outer dependency progression, and outer next-item start.
+
+After all prepared hardware items complete, the first non-hardware item may be started and is returned without dispatch. With current planner ordering this is the first hardware-assignment item. Hardware-assignment execution, rollback, execution-session completion, and deployment finalization remain future work.
