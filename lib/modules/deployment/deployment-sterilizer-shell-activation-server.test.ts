@@ -73,7 +73,7 @@ async function scenarioActivatableCallsRpcOnce() {
       result.reusedCount === 0 &&
       repository.calls.load === 1 &&
       repository.calls.atomic === 1 &&
-      result.provisioningStatusBefore === "placeholder" &&
+      result.provisioningStatusBefore === "planned" &&
       result.provisioningStatusAfter === "active" &&
       result.activeBefore === false &&
       result.activeAfter === true,

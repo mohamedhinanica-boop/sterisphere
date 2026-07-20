@@ -337,7 +337,7 @@ export function mapSterilizerShellActivationSterilizerRow(
     clinicId: row.clinic_id,
     deploymentSterilizerKey: row.deployment_sterilizer_key,
     active: row.active,
-    placeholder: row.provisioning_source === "setup_draft" && row.provisioning_status === "placeholder" && row.active === false,
+    placeholder: row.provisioning_source === "setup_draft" && row.provisioning_status === "planned" && row.active === false,
     provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,
     archivedAt: null,

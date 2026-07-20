@@ -221,7 +221,7 @@ export function sterilizer(
     active: false,
     placeholder: true,
     provisioningSource: "setup_draft",
-    provisioningStatus: "placeholder",
+    provisioningStatus: "planned",
     ...input,
   };
 }
@@ -246,7 +246,7 @@ export function item(
     errorCode: null,
     errorMessage: null,
     dependencyKeys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
-    expectedCurrentState: { deploymentSterilizerKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningStatus: "placeholder", active: false },
+    expectedCurrentState: { deploymentSterilizerKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningStatus: "planned", active: false },
     targetState: { deploymentSterilizerKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningStatus: "active", active: true },
     ...input,
   };

@@ -102,7 +102,7 @@ function scenarioItemMapping() {
 
 function scenarioSterilizerMapping() {
   const mapped = mapSterilizerShellActivationSterilizerRow(sterilizerRow());
-  return expectScenario("sterilizer mapping", mapped.sterilizerId === STERILIZER_ID && mapped.clinicId === CLINIC_ID && mapped.deploymentSterilizerKey === STERILIZER_KEY && mapped.currentState?.provisioningStatus === "placeholder", JSON.stringify(mapped));
+  return expectScenario("sterilizer mapping", mapped.sterilizerId === STERILIZER_ID && mapped.clinicId === CLINIC_ID && mapped.deploymentSterilizerKey === STERILIZER_KEY && mapped.currentState?.provisioningStatus === "planned", JSON.stringify(mapped));
 }
 
 function scenarioSterilizerLookupUsesStateKeyWithUuidEntity() {
@@ -197,7 +197,7 @@ function scenarioRpcPayloadShape() {
 function scenarioOwnerTokenLeasePayload() { const payload = sterilizerShellActivationRpcPayload(command()); return expectScenario("owner/token/lease CAS payload", payload.p_claimant_id === OWNER && payload.p_ownership_token === TOKEN && payload.p_expected_lease_expires_at === LEASE, JSON.stringify(redact(payload))); }
 function scenarioItemIdentityPayload() { const payload = sterilizerShellActivationRpcPayload(command()); return expectScenario("item identity payload", payload.p_item_id === itemId(2) && payload.p_execution_item_key === executionItemKey(2) && payload.p_plan_item_key === planItemKey(2) && payload.p_expected_sequence === 2 && payload.p_expected_entity_id === STERILIZER_ID, JSON.stringify(redact(payload))); }
 function scenarioSterilizerIdentityPayload() { const payload = sterilizerShellActivationRpcPayload(command()); return expectScenario("sterilizer identity payload", payload.p_sterilizer_id === STERILIZER_ID && payload.p_expected_sterilizer_key === STERILIZER_KEY && payload.p_expected_entity_id !== payload.p_expected_sterilizer_key, JSON.stringify(redact(payload))); }
-function scenarioExpectedCurrentStatePayload() { const source = command(); const payload = sterilizerShellActivationRpcPayload(source); (payload.p_expected_current_state as Record<string, unknown>).active = true; return expectScenario("expected current state payload", source.expectedCurrentState.active === false && (payload.p_expected_current_state as Record<string, unknown>).provisioningStatus === "placeholder", JSON.stringify(redact(payload))); }
+function scenarioExpectedCurrentStatePayload() { const source = command(); const payload = sterilizerShellActivationRpcPayload(source); (payload.p_expected_current_state as Record<string, unknown>).active = true; return expectScenario("expected current state payload", source.expectedCurrentState.active === false && (payload.p_expected_current_state as Record<string, unknown>).provisioningStatus === "planned", JSON.stringify(redact(payload))); }
 function scenarioTargetStatePayload() { const payload = sterilizerShellActivationRpcPayload(command()); return expectScenario("target state payload", (payload.p_target_state as Record<string, unknown>).active === true && (payload.p_target_state as Record<string, unknown>).provisioningStatus === "active", JSON.stringify(redact(payload))); }
 function scenarioProposedActivationTimestampPayload() { const payload = sterilizerShellActivationRpcPayload(command()); return expectScenario("proposed activation timestamp payload", payload.p_proposed_activated_at === ACTIVATED_AT, JSON.stringify(redact(payload))); }
 
@@ -334,7 +334,7 @@ function command(input: Partial<DeploymentSterilizerShellActivationAtomicCommand
     expectedAttemptCount: 1,
     sterilizerId: STERILIZER_ID,
     expectedSterilizerKey: STERILIZER_KEY,
-    expectedCurrentState: { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "placeholder", active: false },
+    expectedCurrentState: { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false },
     targetState: { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "active", active: true },
     proposedActivatedAt: ACTIVATED_AT,
     ...input,
@@ -390,7 +390,7 @@ function itemRow(sequence: number, input: Partial<SterilizerShellActivationItemR
     error_code: null,
     error_message: null,
     dependency_keys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
-    expected_current_state: { deploymentSterilizerKey: STERILIZER_KEY, provisioningStatus: "placeholder", active: false },
+    expected_current_state: { deploymentSterilizerKey: STERILIZER_KEY, provisioningStatus: "planned", active: false },
     target_state: { deploymentSterilizerKey: STERILIZER_KEY, provisioningStatus: "active", active: true },
     ...input,
   };
@@ -404,7 +404,7 @@ function sterilizerRow(input: Partial<SterilizerShellActivationSterilizerRow> = 
     display_name: "Dentist Placeholder 001",
     active: false,
     provisioning_source: "setup_draft",
-    provisioning_status: "placeholder",
+    provisioning_status: "planned",
     ...input,
   };
 }
@@ -422,8 +422,8 @@ function rpcRow(status: "activated" | "already_activated" | "blocked" | "conflic
     sequence: 2,
     sterilizer_id: STERILIZER_ID,
     deployment_sterilizer_key: STERILIZER_KEY,
-    sterilizer_state_before: { provisioningStatus: "placeholder", active: false },
-    sterilizer_state_after: status === "activated" || status === "already_activated" ? { provisioningStatus: "active", active: true } : { provisioningStatus: "placeholder", active: false },
+    sterilizer_state_before: { provisioningStatus: "planned", active: false },
+    sterilizer_state_after: status === "activated" || status === "already_activated" ? { provisioningStatus: "active", active: true } : { provisioningStatus: "planned", active: false },
     activated_at: status === "activated" ? ACTIVATED_AT : null,
     issue_code: status === "activated" || status === "already_activated" ? null : "blocked_issue",
     message: `${status} message`,

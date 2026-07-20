@@ -82,6 +82,7 @@ export async function runDeploymentSterilizerShellActivationServiceHarness(): Pr
     await scenarioSterilizerActiveInvalid(),
     await scenarioSterilizerSourceInvalid(),
     await scenarioSterilizerStatusInvalid(),
+    await scenarioLegacyPlaceholderStatusInvalid(),
     await scenarioDuplicateSterilizerIdentity(),
     await scenarioSterilizerCandidateCountInvalid(),
     await scenarioDeterministicIssueOrdering(),
@@ -121,7 +122,7 @@ async function scenarioUuidEntityIdWithDeploymentSterilizerKeyState() {
     itemPatches: {
       2: {
         entityId: sterilizerId,
-        expectedCurrentState: { deploymentSterilizerKey: STERILIZER_SHELL_ACTIVATION_TEST_IDS.sterilizerKey, provisioningStatus: "placeholder", active: false },
+        expectedCurrentState: { deploymentSterilizerKey: STERILIZER_SHELL_ACTIVATION_TEST_IDS.sterilizerKey, provisioningStatus: "planned", active: false },
         targetState: { deploymentSterilizerKey: STERILIZER_SHELL_ACTIVATION_TEST_IDS.sterilizerKey, provisioningStatus: "active", active: true },
       },
     },
@@ -161,7 +162,7 @@ async function scenarioMissingSterilizerLookupDiagnostics() {
     sterilizerShell: null,
     itemPatches: {
       2: {
-        expectedCurrentState: { deploymentSterilizerKey: STERILIZER_SHELL_ACTIVATION_TEST_IDS.sterilizerKey, provisioningStatus: "placeholder", active: false },
+        expectedCurrentState: { deploymentSterilizerKey: STERILIZER_SHELL_ACTIVATION_TEST_IDS.sterilizerKey, provisioningStatus: "planned", active: false },
       },
     },
   }));
@@ -215,9 +216,10 @@ async function scenarioLaterItemError() { return expectIssue("later item error",
 async function scenarioSterilizerClinicMismatch() { return expectIssue("sterilizer clinic mismatch", snapshot({ sterilizerShell: { clinicId: "clinic-other" } }), "sterilizer_clinic_mismatch", "conflict"); }
 async function scenarioSterilizerIdentityMismatch() { return expectIssue("sterilizer identity mismatch", snapshot({ sterilizerShell: { deploymentSterilizerKey: "dentist-999" } }), "sterilizer_identity_mismatch", "conflict"); }
 async function scenarioSterilizerNotPlaceholder() { return expectIssue("sterilizer not placeholder", snapshot({ sterilizerShell: { placeholder: false } }), "sterilizer_placeholder_invalid", "blocked"); }
-async function scenarioSterilizerActiveInvalid() { return expectIssue("sterilizer active but not compatible", snapshot({ sterilizerShell: { active: true, provisioningStatus: "placeholder" } }), "sterilizer_provisioning_status_invalid", "blocked"); }
+async function scenarioSterilizerActiveInvalid() { return expectIssue("sterilizer active but not compatible", snapshot({ sterilizerShell: { active: true, provisioningStatus: "planned" } }), "sterilizer_provisioning_status_invalid", "blocked"); }
 async function scenarioSterilizerSourceInvalid() { return expectIssue("sterilizer source invalid", snapshot({ sterilizerShell: { provisioningSource: "legacy" } }), "sterilizer_provisioning_source_invalid", "blocked"); }
 async function scenarioSterilizerStatusInvalid() { return expectIssue("sterilizer status invalid", snapshot({ sterilizerShell: { provisioningStatus: "archived" } }), "sterilizer_provisioning_status_invalid", "blocked"); }
+async function scenarioLegacyPlaceholderStatusInvalid() { return expectIssue("legacy placeholder status invalid", snapshot({ sterilizerShell: { provisioningStatus: "placeholder" } }), "sterilizer_provisioning_status_invalid", "blocked"); }
 async function scenarioDuplicateSterilizerIdentity() { return expectIssue("duplicate sterilizer identity", snapshot({ aggregate: { duplicateSterilizerIdentityCount: 1 } }), "duplicate_sterilizer_identity", "blocked"); }
 async function scenarioSterilizerCandidateCountInvalid() { return expectIssue("sterilizer candidate count invalid", snapshot({ aggregate: { sterilizerCandidateCount: 2 } }), "duplicate_sterilizer_identity", "blocked"); }
 

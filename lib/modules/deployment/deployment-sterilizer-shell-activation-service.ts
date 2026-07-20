@@ -418,8 +418,8 @@ function validateSterilizerShell(
     issues.push(sterilizerIssue("sterilizer_active_state_invalid", session, item, sterilizer, "Sterilizer shell must be inactive before activation."));
   }
 
-  if (!["placeholder", "planned"].includes(String(sterilizer.provisioningStatus))) {
-    issues.push(sterilizerIssue("sterilizer_provisioning_status_invalid", session, item, sterilizer, "Sterilizer shell provisioning status must be placeholder or planned before activation."));
+  if (sterilizer.provisioningStatus !== "planned") {
+    issues.push(sterilizerIssue("sterilizer_provisioning_status_invalid", session, item, sterilizer, "Sterilizer shell provisioning status must be planned before activation."));
   }
 
   return issues;
