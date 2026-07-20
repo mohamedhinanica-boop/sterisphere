@@ -378,8 +378,7 @@ begin
 
   update public.sterilizers update_sterilizer
      set active = true,
-         provisioning_status = 'active',
-         updated_at = p_proposed_activated_at
+         provisioning_status = 'active'
    where update_sterilizer.id = v_sterilizer.id
      and update_sterilizer.clinic_id = p_clinic_id
      and update_sterilizer.deployment_sterilizer_key = p_expected_sterilizer_key

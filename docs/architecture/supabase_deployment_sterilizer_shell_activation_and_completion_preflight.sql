@@ -9,7 +9,7 @@ with required_tables as (
   union all select 'required_table_sterilizers', to_regclass('public.sterilizers') is not null
 ), required_sterilizer_columns as (
   select 'required_sterilizer_columns' as check_name,
-    count(*) filter (where column_name in ('id','clinic_id','deployment_sterilizer_key','provisioning_source','provisioning_status','active','updated_at')) = 7 as passed
+    count(*) filter (where column_name in ('id','clinic_id','deployment_sterilizer_key','provisioning_source','provisioning_status','active')) = 6 as passed
   from information_schema.columns
   where table_schema = 'public'
     and table_name = 'sterilizers'
@@ -109,7 +109,7 @@ with required_tables as (
     body !~ 'v_item\.expected_current_state\s+is\s+distinct\s+from\s+p_expected_current_state' as does_not_compare_unprojected_item_state,
     body ~ 'set\s+active\s*=\s*true' as writes_active_true,
     body ~ 'provisioning_status\s*=\s*''active''' as writes_provisioning_status_active,
-    body ~ 'updated_at\s*=\s*p_proposed_activated_at' as writes_updated_at,
+    body !~ 'updated_at\s*=' as does_not_write_updated_at,
     body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_items([^a-z_]|$)' as does_not_update_execution_items,
     body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_sessions([^a-z_]|$)' as does_not_update_execution_sessions,
     body !~ '(^|[^a-z_])update\s+public\.clinics([^a-z_]|$)' as does_not_update_clinics,
@@ -130,7 +130,7 @@ with required_tables as (
     and constrains_sterilizer_key
     and writes_active_true
     and writes_provisioning_status_active
-    and writes_updated_at
+    and does_not_write_updated_at
     and does_not_update_execution_items
     and does_not_update_execution_sessions
     and does_not_update_clinics
@@ -149,7 +149,7 @@ with required_tables as (
       'constrains_sterilizer_key', constrains_sterilizer_key,
       'writes_active_true', writes_active_true,
       'writes_provisioning_status_active', writes_provisioning_status_active,
-      'writes_updated_at', writes_updated_at,
+      'does_not_write_updated_at', does_not_write_updated_at,
       'does_not_update_execution_items', does_not_update_execution_items,
       'does_not_update_execution_sessions', does_not_update_execution_sessions,
       'does_not_update_clinics', does_not_update_clinics,
@@ -207,13 +207,13 @@ with required_tables as (
   select 'function_writes_supported_target_fields',
     writes_active_true
     and writes_provisioning_status_active
-    and writes_updated_at
+    and does_not_write_updated_at
     and does_not_insert
     and does_not_delete,
     jsonb_build_object(
       'writes_active_true', writes_active_true,
       'writes_provisioning_status_active', writes_provisioning_status_active,
-      'writes_updated_at', writes_updated_at,
+      'does_not_write_updated_at', does_not_write_updated_at,
       'does_not_insert', does_not_insert,
       'does_not_delete', does_not_delete
     )
