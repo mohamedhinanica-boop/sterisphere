@@ -63,7 +63,7 @@ const STERILIZER_ACTIVATION_STERILIZER_COLUMNS = [
   "provisioning_status",
 ].join(",");
 
-const STERILIZER_ACTIVATION_RPC_NAME = "activate_deployment_sterilizer_shell";
+export const STERILIZER_ACTIVATION_RPC_NAME = "activate_deployment_sterilizer_shell";
 const REDACTED = "[redacted]";
 
 export type SterilizerShellActivationSessionRow = {
@@ -144,6 +144,11 @@ export class DeploymentSterilizerShellActivationRepositoryError extends Error {
   readonly details: string | null;
   readonly hint: string | null;
   readonly layer: string;
+  readonly stage: "activation_snapshot" | "activation_rpc" | "activation_rpc_response";
+  readonly operation: string;
+  readonly failureClassification: "rpc_not_reached" | "rpc_database_error" | "rpc_transport_error" | "rpc_response_mapping_error" | "execution_timeout_or_abort";
+  readonly rpcAttempted: boolean;
+  readonly dataReturned: boolean;
 
   constructor(input: {
     message: string;
@@ -151,6 +156,11 @@ export class DeploymentSterilizerShellActivationRepositoryError extends Error {
     details?: string | null;
     hint?: string | null;
     layer?: string;
+    stage?: "activation_snapshot" | "activation_rpc" | "activation_rpc_response";
+    operation?: string;
+    failureClassification?: "rpc_not_reached" | "rpc_database_error" | "rpc_transport_error" | "rpc_response_mapping_error" | "execution_timeout_or_abort";
+    rpcAttempted?: boolean;
+    dataReturned?: boolean;
   }) {
     super(input.message);
     this.name = "DeploymentSterilizerShellActivationRepositoryError";
@@ -158,6 +168,11 @@ export class DeploymentSterilizerShellActivationRepositoryError extends Error {
     this.details = input.details ?? null;
     this.hint = input.hint ?? null;
     this.layer = input.layer ?? "repository";
+    this.stage = input.stage ?? "activation_snapshot";
+    this.operation = input.operation ?? this.layer;
+    this.failureClassification = input.failureClassification ?? "rpc_not_reached";
+    this.rpcAttempted = input.rpcAttempted ?? false;
+    this.dataReturned = input.dataReturned ?? false;
   }
 }
 
@@ -214,13 +229,37 @@ export class SupabaseDeploymentSterilizerShellActivationRepository
     command: DeploymentSterilizerShellActivationAtomicCommand,
   ): Promise<DeploymentSterilizerShellActivationAtomicResult> {
     const payload = sterilizerShellActivationRpcPayload(command);
-    const { data, error } = await this.client.rpc(STERILIZER_ACTIVATION_RPC_NAME, payload);
+    let response: Awaited<ReturnType<SupabaseClient["rpc"]>>;
 
-    if (error) {
-      throw toRepositoryError(error, command.ownershipToken, "atomic_rpc");
+    console.info("deployment_sterilizer_activation_rpc_started", {
+      stage: "activation_rpc",
+      operation: STERILIZER_ACTIVATION_RPC_NAME,
+      rpcAttempted: true,
+    });
+
+    try {
+      response = await this.client.rpc(STERILIZER_ACTIVATION_RPC_NAME, payload);
+    } catch (caught) {
+      throw toRpcTransportError(caught, command.ownershipToken);
     }
 
-    return mapSterilizerShellActivationRpcResult(readSingleRpcRow(data, "atomic_rpc_response_mapping"));
+    const { data, error } = response;
+
+    if (error) {
+      throw toRepositoryError(error, command.ownershipToken, "atomic_rpc", {
+        stage: "activation_rpc",
+        operation: STERILIZER_ACTIVATION_RPC_NAME,
+        failureClassification: "rpc_database_error",
+        rpcAttempted: true,
+        dataReturned: data !== null && data !== undefined,
+      });
+    }
+
+    try {
+      return mapSterilizerShellActivationRpcResult(readSingleRpcRow(data, "atomic_rpc_response_mapping"));
+    } catch (caught) {
+      throw toRpcResponseMappingError(caught, command.ownershipToken, data !== null && data !== undefined);
+    }
   }
 
   private async findSession(input: {
@@ -599,6 +638,7 @@ function toRepositoryError(
   error: SupabaseErrorLike,
   sensitiveToken: string | null = null,
   layer = "repository",
+  diagnostics: Partial<Pick<DeploymentSterilizerShellActivationRepositoryError, "stage" | "operation" | "failureClassification" | "rpcAttempted" | "dataReturned">> = {},
 ): DeploymentSterilizerShellActivationRepositoryError {
   return new DeploymentSterilizerShellActivationRepositoryError({
     message: sanitizeDiagnostic(error.message || "Sterilizer shell activation repository query failed.", sensitiveToken) ?? "Sterilizer shell activation repository query failed.",
@@ -606,6 +646,34 @@ function toRepositoryError(
     details: sanitizeDiagnostic(error.details ?? null, sensitiveToken),
     hint: sanitizeDiagnostic(error.hint ?? null, sensitiveToken),
     layer,
+    ...diagnostics,
+  });
+}
+
+function toRpcTransportError(caught: unknown, sensitiveToken: string): DeploymentSterilizerShellActivationRepositoryError {
+  const error = caught instanceof Error ? caught : new Error(String(caught));
+  const aborted = error.name === "AbortError" || /\b(abort|timeout|timed out)\b/i.test(error.message);
+  return new DeploymentSterilizerShellActivationRepositoryError({
+    message: sanitizeDiagnostic(error.message || "Sterilizer activation RPC transport failed.", sensitiveToken) ?? "Sterilizer activation RPC transport failed.",
+    layer: "atomic_rpc",
+    stage: "activation_rpc",
+    operation: STERILIZER_ACTIVATION_RPC_NAME,
+    failureClassification: aborted ? "execution_timeout_or_abort" : "rpc_transport_error",
+    rpcAttempted: true,
+    dataReturned: false,
+  });
+}
+
+function toRpcResponseMappingError(caught: unknown, sensitiveToken: string, dataReturned: boolean): DeploymentSterilizerShellActivationRepositoryError {
+  const error = caught instanceof Error ? caught : new Error(String(caught));
+  return new DeploymentSterilizerShellActivationRepositoryError({
+    message: sanitizeDiagnostic(error.message || "Sterilizer activation RPC response mapping failed.", sensitiveToken) ?? "Sterilizer activation RPC response mapping failed.",
+    layer: "atomic_rpc_response_mapping",
+    stage: "activation_rpc_response",
+    operation: STERILIZER_ACTIVATION_RPC_NAME,
+    failureClassification: "rpc_response_mapping_error",
+    rpcAttempted: true,
+    dataReturned,
   });
 }
 

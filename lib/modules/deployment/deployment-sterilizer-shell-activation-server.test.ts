@@ -162,6 +162,11 @@ async function scenarioRepositoryErrorDiagnostics() {
   const repository = new RuntimeSterilizerShellActivationTestRepository({
     throwOnAtomic: new DeploymentSterilizerShellActivationRepositoryError({
       layer: "atomic_rpc",
+      stage: "activation_rpc",
+      operation: "activate_deployment_sterilizer_shell",
+      failureClassification: "rpc_database_error",
+      rpcAttempted: true,
+      dataReturned: false,
       code: "23514",
       message: "sterilizer activation failed",
       details: "constraint detail",
@@ -177,7 +182,11 @@ async function scenarioRepositoryErrorDiagnostics() {
     "atomic repository diagnostics survive server evidence",
     result.status === "error" &&
       diagnostics?.layer === "atomic_rpc" &&
+      diagnostics.stage === "activation_rpc" &&
+      diagnostics.operation === "activate_deployment_sterilizer_shell" &&
+      diagnostics.failureClassification === "rpc_database_error" &&
       diagnostics.rpcAttempted === true &&
+      diagnostics.dataReturned === false &&
       diagnostics.errorCode === "23514" &&
       diagnostics.errorDetails === "constraint detail" &&
       diagnostics.errorHint === "check sterilizer state",

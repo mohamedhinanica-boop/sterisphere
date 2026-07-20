@@ -207,12 +207,25 @@ export async function activateSterilizerShellWithRepository(
       publicIssues,
     );
   } catch (caught) {
+    const diagnostics = issueDiagnostics(caught, activationCommand.ownershipToken);
+    console.error("deployment_sterilizer_activation_failed", {
+      stage: diagnostics.stage,
+      operation: diagnostics.operation,
+      failureClassification: diagnostics.failureClassification,
+      rpcAttempted: diagnostics.rpcAttempted,
+      dataReturned: diagnostics.dataReturned,
+      errorCode: diagnostics.errorCode,
+      errorMessage: diagnostics.errorMessage ?? diagnostics.exceptionMessage,
+      errorDetails: diagnostics.errorDetails,
+      errorHint: diagnostics.errorHint,
+      exceptionType: diagnostics.exceptionType,
+    });
     return safeError(
       activationCommand,
       latestAssessment,
       "Sterilizer shell activation failed safely. No fallback mutation was attempted.",
       [],
-      issueDiagnostics(caught, activationCommand.ownershipToken),
+      diagnostics,
     );
   }
 }
@@ -649,8 +662,12 @@ function issueDiagnostics(
 ): DeploymentSterilizerShellActivationIssueDiagnostics {
   if (caught instanceof DeploymentSterilizerShellActivationRepositoryError) {
     return {
+      stage: caught.stage,
+      operation: caught.operation,
+      failureClassification: caught.failureClassification,
       layer: caught.layer,
-      rpcAttempted: rpcAttempted(caught.layer),
+      rpcAttempted: caught.rpcAttempted,
+      dataReturned: caught.dataReturned,
       errorCode: sanitizeDiagnostic(caught.code, sensitiveToken),
       errorMessage: sanitizeDiagnostic(caught.message, sensitiveToken),
       errorDetails: sanitizeDiagnostic(caught.details, sensitiveToken),
@@ -662,8 +679,14 @@ function issueDiagnostics(
 
   if (caught instanceof Error) {
     return {
+      stage: "server_composition",
+      operation: "activateSterilizerShellWithRepository",
+      failureClassification: caught.name === "AbortError" || /\b(abort|timeout|timed out)\b/i.test(caught.message)
+        ? "execution_timeout_or_abort"
+        : "rpc_not_reached",
       layer: "server_composition",
       rpcAttempted: false,
+      dataReturned: false,
       errorCode: null,
       errorMessage: null,
       errorDetails: null,
@@ -674,8 +697,12 @@ function issueDiagnostics(
   }
 
   return {
+    stage: "server_composition",
+    operation: "activateSterilizerShellWithRepository",
+    failureClassification: "rpc_not_reached",
     layer: "server_composition",
     rpcAttempted: false,
+    dataReturned: false,
     errorCode: null,
     errorMessage: null,
     errorDetails: null,
@@ -685,9 +712,6 @@ function issueDiagnostics(
   };
 }
 
-function rpcAttempted(layer: string): boolean {
-  return layer === "atomic_rpc" || layer === "atomic_rpc_response_mapping";
-}
 
 function zeroDownstream(): DeploymentSterilizerShellActivationDownstreamCounts {
   return {

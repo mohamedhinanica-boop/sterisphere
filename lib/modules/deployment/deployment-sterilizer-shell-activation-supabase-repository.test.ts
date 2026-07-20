@@ -12,6 +12,7 @@ import {
   readSingleRpcRow,
   selectRunningSterilizerLookup,
   SupabaseDeploymentSterilizerShellActivationRepository,
+  STERILIZER_ACTIVATION_RPC_NAME,
   type SterilizerShellActivationItemRow,
   type SterilizerShellActivationSterilizerRow,
 } from "./deployment-sterilizer-shell-activation-supabase-repository";
@@ -73,6 +74,11 @@ export async function runDeploymentSterilizerShellActivationSupabaseRepositoryHa
     scenarioMalformedRpcResponse(),
     scenarioMultipleRpcRows(),
     await scenarioSnapshotErrorSanitization(),
+    await scenarioExactRpcInvocation(),
+    await scenarioRpcDatabaseErrorClassification(),
+    await scenarioRpcTransportErrorClassification(),
+    await scenarioRpcAbortClassification(),
+    await scenarioRpcResponseMappingClassification(),
     await scenarioRpcErrorSanitization(),
     scenarioTokenRedaction(),
     scenarioSourceImmutability(),
@@ -236,6 +242,54 @@ async function scenarioSnapshotErrorSanitization() {
   }
 }
 
+async function scenarioExactRpcInvocation() {
+  const client = mockClient();
+  const repository = new SupabaseDeploymentSterilizerShellActivationRepository(client);
+  await repository.activateSterilizerShellAtomically(command());
+  return expectScenario("exact activation RPC invocation", client.calls.rpc === 1 && client.calls.lastRpcName === STERILIZER_ACTIVATION_RPC_NAME, JSON.stringify(client.calls));
+}
+
+async function scenarioRpcDatabaseErrorClassification() {
+  return expectRepositoryFailure("RPC database error classification", { rpcError: { message: "database rejected", code: "23514", details: "constraint", hint: "check state" } }, "rpc_database_error", true, false);
+}
+
+async function scenarioRpcTransportErrorClassification() {
+  return expectRepositoryFailure("RPC transport error classification", { rpcThrow: new TypeError("fetch failed") }, "rpc_transport_error", true, false);
+}
+
+async function scenarioRpcAbortClassification() {
+  const aborted = new Error("request aborted");
+  aborted.name = "AbortError";
+  return expectRepositoryFailure("RPC timeout or abort classification", { rpcThrow: aborted }, "execution_timeout_or_abort", true, false);
+}
+
+async function scenarioRpcResponseMappingClassification() {
+  return expectRepositoryFailure("RPC response mapping classification", { rpcData: [] }, "rpc_response_mapping_error", true, true);
+}
+
+async function expectRepositoryFailure(
+  name: string,
+  input: Parameters<typeof mockClient>[0],
+  classification: DeploymentSterilizerShellActivationRepositoryError["failureClassification"],
+  rpcAttempted: boolean,
+  dataReturned: boolean,
+) {
+  try {
+    await new SupabaseDeploymentSterilizerShellActivationRepository(mockClient(input)).activateSterilizerShellAtomically(command());
+    return expectScenario(name, false, "did not throw");
+  } catch (caught) {
+    const error = caught as DeploymentSterilizerShellActivationRepositoryError;
+    return expectScenario(
+      name,
+      caught instanceof DeploymentSterilizerShellActivationRepositoryError &&
+        error.operation === STERILIZER_ACTIVATION_RPC_NAME &&
+        error.failureClassification === classification &&
+        error.rpcAttempted === rpcAttempted &&
+        error.dataReturned === dataReturned,
+      JSON.stringify(error),
+    );
+  }
+}
 async function scenarioRpcErrorSanitization() {
   const repository = new SupabaseDeploymentSterilizerShellActivationRepository(mockClient({ rpcError: { message: `rpc ${TOKEN}`, code: "42804", details: `details ${TOKEN}`, hint: `hint ${TOKEN}` } }));
   try {
@@ -438,8 +492,8 @@ function rpcRow(status: "activated" | "already_activated" | "blocked" | "conflic
   };
 }
 
-function mockClient(input: { sessions?: unknown[]; items?: unknown[]; sterilizers?: unknown[]; sessionError?: unknown; itemError?: unknown; sterilizerError?: unknown; rpcData?: unknown; rpcError?: unknown } = {}) {
-  const calls = { from: 0, rpc: 0 };
+function mockClient(input: { sessions?: unknown[]; items?: unknown[]; sterilizers?: unknown[]; sessionError?: unknown; itemError?: unknown; sterilizerError?: unknown; rpcData?: unknown; rpcError?: unknown; rpcThrow?: unknown } = {}) {
+  const calls = { from: 0, rpc: 0, lastRpcName: null as string | null };
   const client = {
     calls,
     from(table: string) {
@@ -451,9 +505,11 @@ function mockClient(input: { sessions?: unknown[]; items?: unknown[]; sterilizer
           : { data: input.sterilizers ?? [sterilizerRow()], error: input.sterilizerError ?? null };
       return queryBuilder(response);
     },
-    async rpc(_name: string, _payload: Record<string, unknown>) {
+    async rpc(name: string, _payload: Record<string, unknown>) {
       calls.rpc += 1;
-      return { data: input.rpcData ?? [rpcRow("activated")], error: input.rpcError ?? null };
+      calls.lastRpcName = name;
+      if (input.rpcThrow) throw input.rpcThrow;
+      return { data: input.rpcData ?? (input.rpcError ? null : [rpcRow("activated")]), error: input.rpcError ?? null };
     },
   };
   return client as unknown as SupabaseClient & { calls: typeof calls };

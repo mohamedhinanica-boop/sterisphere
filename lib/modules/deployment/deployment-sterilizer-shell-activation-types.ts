@@ -177,8 +177,18 @@ export interface DeploymentSterilizerShellActivationIssue {
 }
 
 export interface DeploymentSterilizerShellActivationIssueDiagnostics {
+  stage?: "activation_snapshot" | "activation_rpc" | "activation_rpc_response" | "server_composition" | null;
+  operation?: string | null;
+  failureClassification?:
+    | "rpc_not_reached"
+    | "rpc_database_error"
+    | "rpc_transport_error"
+    | "rpc_response_mapping_error"
+    | "execution_timeout_or_abort"
+    | null;
   layer?: string | null;
   rpcAttempted?: boolean | null;
+  dataReturned?: boolean | null;
   sterilizerLookupAttempted?: boolean | null;
   sterilizerLookupResult?: DeploymentSterilizerShellActivationSterilizerLookupResult | null;
   sterilizerLookupRowsReturned?: number | null;
