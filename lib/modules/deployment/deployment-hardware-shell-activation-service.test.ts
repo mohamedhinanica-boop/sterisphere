@@ -35,6 +35,8 @@ const WRONG_TOKEN = "wrong-sensitive-hardware-shell-activation-token";
 export async function runDeploymentHardwareShellActivationServiceHarness(): Promise<DeploymentHardwareShellActivationServiceHarnessResult> {
   const scenarios = [
     scenarioIdenticalStateDiagnostics(),
+    scenarioKeyOrderControlFlowDiagnostics(),
+    scenarioUniqueFailureSite(),
     scenarioSingleFieldDiagnostics(),
     scenarioMultipleFieldDiagnostics(),
     scenarioOmittedVersusNullDiagnostics(),
@@ -114,9 +116,48 @@ export async function runDeploymentHardwareShellActivationServiceHarness(): Prom
 function scenarioIdenticalStateDiagnostics() {
   const state = immutableState();
   const diagnostics = hardwareImmutableStateDiagnostics(state, { ...state });
-  return expectScenario("identical immutable states produce no differences", diagnostics.differingFields?.length === 0 && Object.keys(diagnostics.differences ?? {}).length === 0, JSON.stringify(diagnostics));
+  return expectScenario("identical immutable states produce no differences", diagnostics.comparisonResult === true && diagnostics.fieldComparisonResult === true && diagnostics.branchTaken === false && diagnostics.comparisonFailureReason === "none" && diagnostics.differingFields?.length === 0 && Object.keys(diagnostics.differences ?? {}).length === 0, JSON.stringify(diagnostics));
 }
 
+function scenarioKeyOrderControlFlowDiagnostics() {
+  const actual = immutableState();
+  const expected = Object.fromEntries(Object.entries(actual).reverse());
+  const diagnostics = hardwareImmutableStateDiagnostics(expected, actual);
+  return expectScenario("equal immutable fields pass regardless of property order", diagnostics.comparisonResult === true && diagnostics.fieldComparisonResult === true && diagnostics.branchTaken === false && diagnostics.comparisonFailureReason === "none" && diagnostics.differingFields?.length === 0, JSON.stringify(diagnostics));
+}
+
+function scenarioExtraPropertiesControlFlowDiagnostics() {
+  const expected = immutableState();
+  const diagnostics = hardwareImmutableStateDiagnostics(expected, { ...expected, plannerOnlyEvidence: "ignored" });
+  return expectScenario("extra non-immutable properties do not block", diagnostics.comparisonResult === true && diagnostics.branchTaken === false && diagnostics.repositoryNonImmutableFieldCount === 1 && diagnostics.differingFields?.length === 0, JSON.stringify(diagnostics));
+}
+
+function scenarioEveryImmutableFieldMismatchDiagnostics() {
+  const baseline = immutableState();
+  const mismatches: Record<string, unknown> = {
+    id: "wrong-id",
+    clinicId: "wrong-clinic",
+    deploymentHardwareKey: "wrong-key",
+    provisioningSource: "wrong-source",
+    provisioningStatus: "active",
+    active: true,
+    operationalStatus: "offline",
+    agentId: "wrong-agent",
+    defaultWorkstationId: "wrong-default-workstation",
+    currentWorkstationId: "wrong-current-workstation",
+  };
+  const failures = Object.entries(mismatches).filter(([field, value]) => {
+    const diagnostics = hardwareImmutableStateDiagnostics(baseline, { ...baseline, [field]: value });
+    return diagnostics.comparisonResult !== false || diagnostics.branchTaken !== true || diagnostics.differingFields?.join(",") !== field;
+  });
+  return expectScenario("every authoritative immutable field mismatch blocks", failures.length === 0, JSON.stringify(failures));
+}
+
+function scenarioUniqueFailureSite() {
+  const source = require("fs").readFileSync("lib/modules/deployment/deployment-hardware-shell-activation-service.ts", "utf8") as string;
+  const occurrences = source.match(/"hardware_current_state_invalid"/g)?.length ?? 0;
+  return expectScenario("Hardware immutable-state failure site is unique", occurrences === 1 && source.includes('validationSite: "hardware_activation.validateHardwareShell.immutable_current_state"'), String(occurrences));
+}
 function scenarioSingleFieldDiagnostics() {
   const expected = immutableState();
   const diagnostics = hardwareImmutableStateDiagnostics(expected, { ...expected, operationalStatus: "offline" });
@@ -151,7 +192,7 @@ function immutableState(): Record<string, unknown> {
 async function scenarioIssueExposesFieldDiagnostics() {
   const result = await assess(snapshot({ itemPatches: { 2: { expectedCurrentState: { ...immutableState(), operationalStatus: "offline" } } } }));
   const issue = result.issues.find((candidate) => candidate.code === "hardware_current_state_invalid");
-  return expectScenario("blocking issue exposes field diagnostics", issue?.diagnostics?.differingFields?.join(",") === "operationalStatus" && issue.diagnostics.differences?.operationalStatus?.actual.value === "discovered", JSON.stringify(issue));
+  return expectScenario("blocking issue exposes field diagnostics", issue?.diagnostics?.validationSite === "hardware_activation.validateHardwareShell.immutable_current_state" && issue.diagnostics.comparisonHelper === "matchesImmutableCurrentState" && issue.diagnostics.comparisonResult === false && issue.diagnostics.branchCondition === "!comparisonResult" && issue.diagnostics.branchTaken === true && issue.diagnostics.differingFields?.join(",") === "operationalStatus" && issue.diagnostics.differences?.operationalStatus?.actual.value === "discovered", JSON.stringify(issue));
 }
 async function scenarioActivatable() {
   const result = await assess();

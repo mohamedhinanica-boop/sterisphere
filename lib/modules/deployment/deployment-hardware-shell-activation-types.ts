@@ -184,6 +184,19 @@ export interface DeploymentHardwareShellActivationIssue {
 }
 
 export interface DeploymentHardwareShellActivationIssueDiagnostics {
+  validationSite?: string;
+  comparisonHelper?: string;
+  comparisonResult?: boolean;
+  fieldComparisonResult?: boolean;
+  branchCondition?: string;
+  branchTaken?: boolean;
+  expectedImmutableKeyOrder?: readonly string[];
+  repositoryImmutableKeyOrder?: readonly string[];
+  expectedKeyCount?: number;
+  repositoryKeyCount?: number;
+  expectedNonImmutableFieldCount?: number;
+  repositoryNonImmutableFieldCount?: number;
+  comparisonFailureReason?: "none" | "missing_state" | "immutable_field_difference" | "immutable_key_order_difference" | "non_immutable_field_presence" | "serialized_shape_difference";
   differingFields?: readonly string[];
   expectedPlannerState?: Record<string, unknown>;
   repositoryCurrentState?: Record<string, unknown>;

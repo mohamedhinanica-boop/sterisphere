@@ -418,7 +418,11 @@ function validateHardwareShell(
     return issues;
   }
 
-  if (!matchesImmutableCurrentState(item?.expectedCurrentState ?? null, hardware)) {
+  const expectedImmutableState = item?.expectedCurrentState ?? null;
+  const repositoryImmutableState = hardware.currentState ?? null;
+  const immutableStateMatches = matchesImmutableCurrentState(expectedImmutableState, hardware);
+
+  if (!immutableStateMatches) {
     issues.push(hardwareIssue(
       "hardware_current_state_invalid",
       session,
@@ -426,7 +430,7 @@ function validateHardwareShell(
       hardware,
       "Hardware immutable current-state evidence does not match the selected shell.",
       "blocker",
-      hardwareImmutableStateDiagnostics(item?.expectedCurrentState ?? null, hardware.currentState ?? null),
+      hardwareImmutableStateDiagnostics(expectedImmutableState, repositoryImmutableState, immutableStateMatches),
     ));
   }
 
@@ -461,6 +465,7 @@ const HARDWARE_IMMUTABLE_STATE_FIELDS = [
 export function hardwareImmutableStateDiagnostics(
   expectedPlannerState: Record<string, unknown> | null,
   repositoryCurrentState: Record<string, unknown> | null,
+  comparisonResult?: boolean,
 ): NonNullable<DeploymentHardwareShellActivationIssue["diagnostics"]> {
   const expected = immutableStateSnapshot(expectedPlannerState);
   const actual = immutableStateSnapshot(repositoryCurrentState);
@@ -476,9 +481,60 @@ export function hardwareImmutableStateDiagnostics(
     }
   }
 
-  return { differingFields, expectedPlannerState: expected, repositoryCurrentState: actual, differences };
+  const expectedImmutableKeyOrder = immutableKeyOrder(expectedPlannerState);
+  const repositoryImmutableKeyOrder = immutableKeyOrder(repositoryCurrentState);
+  const expectedKeyCount = Object.keys(expectedPlannerState ?? {}).length;
+  const repositoryKeyCount = Object.keys(repositoryCurrentState ?? {}).length;
+  const expectedNonImmutableFieldCount = expectedKeyCount - expectedImmutableKeyOrder.length;
+  const repositoryNonImmutableFieldCount = repositoryKeyCount - repositoryImmutableKeyOrder.length;
+  const fieldComparisonResult = differingFields.length === 0;
+  const authoritativeComparisonResult = comparisonResult ?? (
+    expectedPlannerState !== null && repositoryCurrentState !== null && fieldComparisonResult
+  );
+
+  return {
+    validationSite: "hardware_activation.validateHardwareShell.immutable_current_state",
+    comparisonHelper: "matchesImmutableCurrentState",
+    comparisonResult: authoritativeComparisonResult,
+    fieldComparisonResult,
+    branchCondition: "!comparisonResult",
+    branchTaken: !authoritativeComparisonResult,
+    expectedImmutableKeyOrder,
+    repositoryImmutableKeyOrder,
+    expectedKeyCount,
+    repositoryKeyCount,
+    expectedNonImmutableFieldCount,
+    repositoryNonImmutableFieldCount,
+    comparisonFailureReason: comparisonFailureReason({ comparisonResult: authoritativeComparisonResult, fieldComparisonResult, expectedPlannerState, repositoryCurrentState, expectedImmutableKeyOrder, repositoryImmutableKeyOrder, expectedNonImmutableFieldCount, repositoryNonImmutableFieldCount }),
+    differingFields,
+    expectedPlannerState: expected,
+    repositoryCurrentState: actual,
+    differences,
+  };
 }
 
+function immutableKeyOrder(state: Record<string, unknown> | null): string[] {
+  const allowed = new Set<string>(HARDWARE_IMMUTABLE_STATE_FIELDS);
+  return Object.keys(state ?? {}).filter((field) => allowed.has(field));
+}
+
+function comparisonFailureReason(input: {
+  comparisonResult: boolean;
+  fieldComparisonResult: boolean;
+  expectedPlannerState: Record<string, unknown> | null;
+  repositoryCurrentState: Record<string, unknown> | null;
+  expectedImmutableKeyOrder: readonly string[];
+  repositoryImmutableKeyOrder: readonly string[];
+  expectedNonImmutableFieldCount: number;
+  repositoryNonImmutableFieldCount: number;
+}): "none" | "missing_state" | "immutable_field_difference" | "immutable_key_order_difference" | "non_immutable_field_presence" | "serialized_shape_difference" {
+  if (input.comparisonResult) return "none";
+  if (!input.expectedPlannerState || !input.repositoryCurrentState) return "missing_state";
+  if (!input.fieldComparisonResult) return "immutable_field_difference";
+  if (input.expectedImmutableKeyOrder.join("\u0000") !== input.repositoryImmutableKeyOrder.join("\u0000")) return "immutable_key_order_difference";
+  if (input.expectedNonImmutableFieldCount > 0 || input.repositoryNonImmutableFieldCount > 0) return "non_immutable_field_presence";
+  return "serialized_shape_difference";
+}
 function immutableStateSnapshot(state: Record<string, unknown> | null): Record<string, unknown> {
   const snapshot: Record<string, unknown> = {};
   for (const field of HARDWARE_IMMUTABLE_STATE_FIELDS) {
@@ -500,7 +556,11 @@ function matchesImmutableCurrentState(
   hardware: DeploymentHardwareShellActivationHardwareSnapshot,
 ): boolean {
   return state !== null && hardware.currentState !== null && hardware.currentState !== undefined &&
-    JSON.stringify(state) === JSON.stringify(hardware.currentState);
+    HARDWARE_IMMUTABLE_STATE_FIELDS.every((field) => {
+      const expected = fieldValue(state, field);
+      const actual = fieldValue(hardware.currentState ?? null, field);
+      return expected.present === actual.present && Object.is(expected.value, actual.value);
+    });
 }
 
 function isTransitionOnlyTargetState(state: Record<string, unknown> | null): boolean {
