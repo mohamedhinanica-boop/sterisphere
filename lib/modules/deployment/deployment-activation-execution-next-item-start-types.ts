@@ -149,6 +149,16 @@ export interface DeploymentActivationExecutionNextItemStartIssue {
   entityType: string | null;
   entityId: string | null;
   sequence: number | null;
+  lifecycleDispatch?: {
+    runtimeEntityType: string;
+    runtimeAction: string;
+    selectedBranch: "generic_activate" | "hardware_assignment_finalize" | "unsupported";
+    hardwareAssignmentBranchReached: boolean;
+    supported: boolean;
+    expectedState: Record<string, unknown> | null;
+    targetState: Record<string, unknown> | null;
+    rejectionReasons: readonly string[];
+  } | null;
 }
 
 export interface DeploymentActivationExecutionNextItemStartDownstreamCounts {

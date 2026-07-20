@@ -388,8 +388,9 @@ function validateCandidate(
     issues.push(blocker("candidate_entity_identity_missing", session, candidate, "Candidate entity identity is missing."));
   }
 
-  if (!isSupportedEntityAction(candidate, session.clinicId)) {
-    issues.push(blocker("unsupported_entity_action_lifecycle", session, candidate, "Candidate entity/action lifecycle is not supported for next-item start assessment."));
+const lifecycleDispatch = auditEntityActionLifecycle(candidate, session.clinicId);
+  if (!lifecycleDispatch.supported) {
+    issues.push(blocker("unsupported_entity_action_lifecycle", session, candidate, "Candidate entity/action lifecycle is not supported for next-item start assessment.", "blocker", lifecycleDispatch));
   }
 
   return issues;
@@ -597,7 +598,8 @@ function blocker(
   session: DeploymentActivationExecutionNextItemStartSessionSnapshot,
   item: DeploymentActivationExecutionNextItemStartItemSnapshot | null,
   message: string,
-  severity: DeploymentActivationExecutionNextItemStartIssueSeverity = "blocker",
+severity: DeploymentActivationExecutionNextItemStartIssueSeverity = "blocker",
+  lifecycleDispatch: DeploymentActivationExecutionNextItemStartIssue["lifecycleDispatch"] = null,
 ): DeploymentActivationExecutionNextItemStartIssue {
   return {
     code,
@@ -609,7 +611,8 @@ function blocker(
     planItemKey: item?.planItemKey ?? null,
     entityType: item?.entityType ?? null,
     entityId: item?.entityId ?? null,
-    sequence: item?.sequence ?? null,
+sequence: item?.sequence ?? null,
+    lifecycleDispatch,
   };
 }
 
@@ -639,6 +642,75 @@ function hasBlocker(issues: readonly DeploymentActivationExecutionNextItemStartI
   return issues.some((issue) => issue.severity === "blocker");
 }
 
+function auditEntityActionLifecycle(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string) {
+  const hardwareAssignmentBranchReached = item.entityType === "hardware_assignment";
+  if (!hardwareAssignmentBranchReached && Boolean(item.entityType.trim()) && item.action === "activate") {
+    return lifecycleDispatch(item, "generic_activate" as const, false, true, []);
+  }
+  if (hardwareAssignmentBranchReached) {
+    const rejectionReasons = hardwareAssignmentLifecycleRejectionReasons(item, clinicId);
+    return lifecycleDispatch(item, "hardware_assignment_finalize" as const, true, isHardwareAssignmentFinalizeLifecycle(item, clinicId), rejectionReasons);
+  }
+  return lifecycleDispatch(item, "unsupported" as const, false, false, ["entity/action pair is neither generic activate nor hardware_assignment:finalize"]);
+}
+
+function hardwareAssignmentLifecycleRejectionReasons(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): string[] {
+  const reasons: string[] = [];
+  const expected = item.expectedCurrentState;
+  const target = item.targetState;
+  if (item.action !== "finalize") reasons.push(`action must be finalize; received ${item.action || "<empty>"}`);
+  if (!expected) reasons.push("expectedCurrentState is missing");
+  if (!target) reasons.push("targetState is missing");
+  if (!expected || !target) return reasons;
+  if (Object.keys(expected).sort().join("\u0000") !== [...HARDWARE_ASSIGNMENT_EXPECTED_STATE_FIELDS].sort().join("\u0000")) reasons.push("expectedCurrentState field set does not match the nine-field assignment contract");
+  if (expected.id !== item.entityId) reasons.push("expectedCurrentState.id does not match entityId");
+  if (expected.clinicId !== clinicId) reasons.push("expectedCurrentState.clinicId does not match the execution clinic");
+  if (typeof expected.deploymentHardwareKey !== "string" || !expected.deploymentHardwareKey) reasons.push("deploymentHardwareKey is missing");
+  if (typeof expected.assignmentKey !== "string" || !expected.assignmentKey) reasons.push("assignmentKey is missing");
+  if (expected.assignmentSource !== "setup_draft") reasons.push("assignmentSource must be setup_draft");
+  if (expected.assignmentStatus !== "planned") reasons.push("assignmentStatus must be planned");
+  if (expected.active !== false) reasons.push("active must be false before start");
+  if (expected.targetType === "unassigned" ? expected.targetDeploymentKey !== null : !(["workstation", "sterilizer"].includes(String(expected.targetType)) && typeof expected.targetDeploymentKey === "string" && expected.targetDeploymentKey.length > 0)) reasons.push("assignment target type/key shape is invalid");
+  if (Object.keys(target).sort().join("\u0000") !== "active\u0000assignmentStatus" || target.assignmentStatus !== "active" || target.active !== true) reasons.push("targetState must contain only assignmentStatus=active and active=true");
+  return reasons;
+}
+
+function lifecycleDispatch(
+  item: DeploymentActivationExecutionNextItemStartItemSnapshot,
+  selectedBranch: "generic_activate" | "hardware_assignment_finalize" | "unsupported",
+  hardwareAssignmentBranchReached: boolean,
+  supported: boolean,
+  rejectionReasons: readonly string[],
+) {
+  return {
+    runtimeEntityType: item.entityType,
+    runtimeAction: item.action,
+    selectedBranch,
+    hardwareAssignmentBranchReached,
+    supported,
+    expectedState: safeLifecycleState(item.expectedCurrentState),
+    targetState: safeLifecycleTarget(item.targetState),
+    rejectionReasons,
+  };
+}
+
+function safeLifecycleState(state: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!state) return null;
+  const safe: Record<string, unknown> = {};
+  for (const key of ["id", "clinicId", "deploymentHardwareKey", "assignmentKey", "targetType", "targetDeploymentKey", "assignmentSource", "assignmentStatus", "active"]) {
+    if (Object.prototype.hasOwnProperty.call(state, key)) safe[key] = state[key];
+  }
+  return safe;
+}
+
+function safeLifecycleTarget(state: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!state) return null;
+  const safe: Record<string, unknown> = {};
+  for (const key of ["assignmentStatus", "active"]) {
+    if (Object.prototype.hasOwnProperty.call(state, key)) safe[key] = state[key];
+  }
+  return safe;
+}
 function isSupportedEntityAction(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): boolean {
   if (item.entityType !== "hardware_assignment" && Boolean(item.entityType.trim()) && item.action === "activate") return true;
   return isHardwareAssignmentFinalizeLifecycle(item, clinicId);

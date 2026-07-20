@@ -138,6 +138,11 @@ async function scenarioHardwareAssignmentWrongEntity() { return expectIssue("Har
 async function scenarioHardwareAssignmentWrongAction() { return expectIssue("Hardware Assignment wrong action blocks", hardwareAssignmentSnapshot({ action: "activate" }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareAssignmentWrongExpectedState() { return expectIssue("Hardware Assignment wrong expected state blocks", hardwareAssignmentSnapshot({ expectedCurrentState: { ...hardwareAssignmentState(), assignmentStatus: "active" } }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareAssignmentWrongTargetState() { return expectIssue("Hardware Assignment wrong target state blocks", hardwareAssignmentSnapshot({ targetState: { assignmentStatus: "planned", active: false } }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioLifecycleDispatchDiagnostics() {
+  const result = await assess(hardwareAssignmentSnapshot({ expectedCurrentState: { ...hardwareAssignmentState(), assignmentStatus: "active" } }));
+  const dispatch = result.issues.find((issue) => issue.code === "unsupported_entity_action_lifecycle")?.lifecycleDispatch;
+  return expectScenario("lifecycle rejection identifies runtime branch and exact reason", dispatch?.runtimeEntityType === "hardware_assignment" && dispatch.runtimeAction === "finalize" && dispatch.selectedBranch === "hardware_assignment_finalize" && dispatch.hardwareAssignmentBranchReached === true && dispatch.supported === false && dispatch.rejectionReasons.includes("assignmentStatus must be planned") && dispatch.expectedState?.assignmentStatus === "active" && dispatch.targetState?.assignmentStatus === "active", JSON.stringify(dispatch));
+}
 async function scenarioHardwareAssignmentWrongSequence() { return expectIssue("Hardware Assignment wrong sequence blocks", hardwareAssignmentSnapshot({ sequence: 41 }), "candidate_sequence_mismatch", "blocked"); }
 async function scenarioHardwareAssignmentWrongDependency() { return expectIssue("Hardware Assignment wrong dependency blocks", hardwareAssignmentSnapshot({ dependencyKeys: ["missing-hardware-dependency"] }), "dependency_item_missing", "blocked"); }
 async function scenarioHardwareAssignmentOwnershipGuards() {
