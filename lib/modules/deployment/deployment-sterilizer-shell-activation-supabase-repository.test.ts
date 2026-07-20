@@ -267,7 +267,7 @@ async function scenarioRepositoryDoesNotRetry() {
 }
 
 function scenarioSqlSourceExpectations() {
-  const source = readFileSync("docs/architecture/supabase_deployment_sterilizer_shell_activation.sql", "utf8").toLowerCase();
+  const source = readFileSync("docs/architecture/supabase_deployment_sterilizer_shell_activation_and_completion.sql", "utf8").toLowerCase();
   const selectedSterilizerUpdate =
     source.includes("update public.sterilizers update_sterilizer") &&
     source.includes("where update_sterilizer.id = v_sterilizer.id") &&
@@ -287,6 +287,14 @@ function scenarioSqlSourceExpectations() {
     source.includes("provisioning_status = 'active'") &&
     !source.includes("insert into") &&
     !source.includes("delete from");
+  const authoritativeStateProjection =
+    source.includes("v_item_transition_state := jsonb_build_object") &&
+    source.includes("'deploymentsterilizerkey', v_item.expected_current_state -> 'deploymentsterilizerkey'") &&
+    source.includes("'provisioningsource', v_item.expected_current_state -> 'provisioningsource'") &&
+    source.includes("'provisioningstatus', v_item.expected_current_state -> 'provisioningstatus'") &&
+    source.includes("'active', v_item.expected_current_state -> 'active'") &&
+    source.includes("v_item_transition_state is distinct from p_expected_current_state") &&
+    !source.includes("v_item.expected_current_state is distinct from p_expected_current_state");
   const identityContract =
     source.includes("v_item.entity_id::text is distinct from p_expected_entity_id") &&
     source.includes("'entityidmatchessterilizerid', v_item.entity_id::text is not distinct from p_sterilizer_id::text") &&
@@ -295,8 +303,8 @@ function scenarioSqlSourceExpectations() {
 
   return expectScenario(
     "SQL source mutation boundary",
-    selectedSterilizerUpdate && noForbiddenUpdates && supportedTarget && identityContract,
-    JSON.stringify({ selectedSterilizerUpdate, noForbiddenUpdates, supportedTarget, identityContract }),
+    selectedSterilizerUpdate && noForbiddenUpdates && supportedTarget && identityContract && authoritativeStateProjection,
+    JSON.stringify({ selectedSterilizerUpdate, noForbiddenUpdates, supportedTarget, identityContract, authoritativeStateProjection }),
   );
 }
 
@@ -335,7 +343,7 @@ function command(input: Partial<DeploymentSterilizerShellActivationAtomicCommand
     sterilizerId: STERILIZER_ID,
     expectedSterilizerKey: STERILIZER_KEY,
     expectedCurrentState: { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false },
-    targetState: { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "active", active: true },
+    targetState: { provisioningStatus: "active", active: true },
     proposedActivatedAt: ACTIVATED_AT,
     ...input,
   };
@@ -391,7 +399,7 @@ function itemRow(sequence: number, input: Partial<SterilizerShellActivationItemR
     error_message: null,
     dependency_keys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
     expected_current_state: { deploymentSterilizerKey: STERILIZER_KEY, provisioningStatus: "planned", active: false },
-    target_state: { deploymentSterilizerKey: STERILIZER_KEY, provisioningStatus: "active", active: true },
+    target_state: { provisioningStatus: "active", active: true },
     ...input,
   };
 }

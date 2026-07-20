@@ -56,6 +56,7 @@ declare
   v_item public.deployment_activation_execution_items%rowtype;
   v_sterilizer public.sterilizers%rowtype;
   v_state_before jsonb;
+  v_item_transition_state jsonb;
   v_state_after jsonb;
   v_running_count integer;
   v_ready_count integer;
@@ -149,6 +150,12 @@ begin
     'provisioningSource', v_sterilizer.provisioning_source,
     'provisioningStatus', v_sterilizer.provisioning_status,
     'active', v_sterilizer.active
+  );
+  v_item_transition_state := jsonb_build_object(
+    'deploymentSterilizerKey', v_item.expected_current_state -> 'deploymentSterilizerKey',
+    'provisioningSource', v_item.expected_current_state -> 'provisioningSource',
+    'provisioningStatus', v_item.expected_current_state -> 'provisioningStatus',
+    'active', v_item.expected_current_state -> 'active'
   );
 
   if v_session.preparation_status is distinct from 'ready'
@@ -358,7 +365,7 @@ begin
   end if;
 
   if v_state_before is distinct from p_expected_current_state
-     or v_item.expected_current_state is distinct from p_expected_current_state
+     or v_item_transition_state is distinct from p_expected_current_state
      or v_item.target_state is distinct from p_target_state
      or v_sterilizer.active is distinct from false
      or v_sterilizer.provisioning_source is distinct from 'setup_draft'

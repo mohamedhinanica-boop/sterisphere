@@ -104,6 +104,9 @@ with required_tables as (
     body !~ 'p_expected_entity_id\s+is\s+distinct\s+from\s+p_expected_sterilizer_key' as does_not_compare_entity_id_to_sterilizer_key,
     body !~ 'v_item\.entity_id::text\s+is\s+distinct\s+from\s*p_expected_sterilizer_key' as does_not_compare_item_entity_id_to_sterilizer_key,
     body ~ 'v_item\.deployment_key\s+is\s+distinct\s+from\s+p_expected_sterilizer_key' as compares_item_deployment_key_to_sterilizer_key,
+    body ~ 'v_item_transition_state\s*:=\s*jsonb_build_object\s*\([^;]*''deploymentsterilizerkey''[^;]*''provisioningsource''[^;]*''provisioningstatus''[^;]*''active''' as projects_authoritative_item_transition_state,
+    body ~ 'v_item_transition_state\s+is\s+distinct\s+from\s+p_expected_current_state' as compares_projected_item_transition_state,
+    body !~ 'v_item\.expected_current_state\s+is\s+distinct\s+from\s+p_expected_current_state' as does_not_compare_unprojected_item_state,
     body ~ 'set\s+active\s*=\s*true' as writes_active_true,
     body ~ 'provisioning_status\s*=\s*''active''' as writes_provisioning_status_active,
     body ~ 'updated_at\s*=\s*p_proposed_activated_at' as writes_updated_at,
@@ -174,6 +177,17 @@ with required_tables as (
       'does_not_compare_entity_id_to_sterilizer_key', does_not_compare_entity_id_to_sterilizer_key,
       'does_not_compare_item_entity_id_to_sterilizer_key', does_not_compare_item_entity_id_to_sterilizer_key,
       'compares_item_deployment_key_to_sterilizer_key', compares_item_deployment_key_to_sterilizer_key
+    )
+  from source_diagnostics
+  union all
+  select 'function_compares_authoritative_sterilizer_transition_state',
+    projects_authoritative_item_transition_state
+    and compares_projected_item_transition_state
+    and does_not_compare_unprojected_item_state,
+    jsonb_build_object(
+      'projects_authoritative_item_transition_state', projects_authoritative_item_transition_state,
+      'compares_projected_item_transition_state', compares_projected_item_transition_state,
+      'does_not_compare_unprojected_item_state', does_not_compare_unprojected_item_state
     )
   from source_diagnostics
   union all
