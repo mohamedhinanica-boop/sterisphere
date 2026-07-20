@@ -440,3 +440,52 @@ union all select * from duplicate_checks
 union all select * from timestamp_checks
 union all select * from source_checks
 order by check_name;
+
+-- Read-only Hardware completion durable-state diagnostic harness.
+with baseline as (
+  select jsonb_build_object(
+    'deploymentHardwareKey', 'hardware-001', 'provisioningSource', 'setup_draft',
+    'provisioningStatus', 'active', 'active', true, 'operationalStatus', 'discovered',
+    'agentId', null, 'defaultWorkstationId', null, 'currentWorkstationId', null
+  ) as state
+), cases(case_name, expected_state, actual_state, expected_differences) as (
+  select 'valid_durable_state', state, state, '[]'::jsonb from baseline
+  union all select 'deploymentHardwareKey', state, jsonb_set(state, '{deploymentHardwareKey}', '"other"'), '["deploymentHardwareKey"]' from baseline
+  union all select 'provisioningSource', state, jsonb_set(state, '{provisioningSource}', '"other"'), '["provisioningSource"]' from baseline
+  union all select 'provisioningStatus', state, jsonb_set(state, '{provisioningStatus}', '"planned"'), '["provisioningStatus"]' from baseline
+  union all select 'active', state, jsonb_set(state, '{active}', 'false'), '["active"]' from baseline
+  union all select 'operationalStatus', state, jsonb_set(state, '{operationalStatus}', '"offline"'), '["operationalStatus"]' from baseline
+  union all select 'agentId', state, jsonb_set(state, '{agentId}', '"agent-1"'), '["agentId"]' from baseline
+  union all select 'defaultWorkstationId', state, jsonb_set(state, '{defaultWorkstationId}', '"workstation-1"'), '["defaultWorkstationId"]' from baseline
+  union all select 'currentWorkstationId', state, jsonb_set(state, '{currentWorkstationId}', '"workstation-2"'), '["currentWorkstationId"]' from baseline
+  union all select 'multiple', state, jsonb_set(jsonb_set(state, '{active}', 'false'), '{operationalStatus}', '"offline"'), '["active","operationalStatus"]' from baseline
+), observed as (
+  select cases.case_name, cases.expected_differences,
+    coalesce(jsonb_agg(field.field_name order by field.ordinal) filter (where field.expected_value is distinct from field.actual_value), '[]'::jsonb) as differing_fields
+  from cases
+  cross join lateral (values
+    (1, 'deploymentHardwareKey', expected_state -> 'deploymentHardwareKey', actual_state -> 'deploymentHardwareKey'),
+    (2, 'provisioningSource', expected_state -> 'provisioningSource', actual_state -> 'provisioningSource'),
+    (3, 'provisioningStatus', expected_state -> 'provisioningStatus', actual_state -> 'provisioningStatus'),
+    (4, 'active', expected_state -> 'active', actual_state -> 'active'),
+    (5, 'operationalStatus', expected_state -> 'operationalStatus', actual_state -> 'operationalStatus'),
+    (6, 'agentId', expected_state -> 'agentId', actual_state -> 'agentId'),
+    (7, 'defaultWorkstationId', expected_state -> 'defaultWorkstationId', actual_state -> 'defaultWorkstationId'),
+    (8, 'currentWorkstationId', expected_state -> 'currentWorkstationId', actual_state -> 'currentWorkstationId')
+  ) field(ordinal, field_name, expected_value, actual_value)
+  group by cases.case_name, cases.expected_differences
+)
+select 'valid_completion_durable_state_reports_no_differences' as check_name,
+  bool_and(differing_fields = expected_differences) filter (where case_name = 'valid_durable_state') as passed,
+  jsonb_object_agg(case_name, differing_fields) filter (where case_name = 'valid_durable_state') as details
+from observed
+union all
+select 'each_completion_durable_state_mismatch_is_identified',
+  bool_and(differing_fields = expected_differences) filter (where case_name not in ('valid_durable_state', 'multiple')),
+  jsonb_object_agg(case_name, differing_fields) filter (where case_name not in ('valid_durable_state', 'multiple'))
+from observed
+union all
+select 'multiple_completion_durable_state_mismatches_are_reported_together',
+  bool_and(differing_fields = expected_differences) filter (where case_name = 'multiple'),
+  jsonb_object_agg(case_name, differing_fields) filter (where case_name = 'multiple')
+from observed;

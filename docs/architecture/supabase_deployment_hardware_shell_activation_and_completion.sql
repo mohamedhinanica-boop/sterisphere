@@ -559,6 +559,9 @@ declare
   v_later_drift_count integer := 0;
   v_running_or_ready_other_count integer := 0;
   v_rows_updated integer := 0;
+  v_completion_hardware_state jsonb;
+  v_completion_differing_fields jsonb;
+  v_completion_differences jsonb;
 begin
   if p_hardware_id is null or p_expected_deployment_hardware_key is null or length(btrim(p_expected_deployment_hardware_key)) = 0
      or p_expected_entity_id is null or length(btrim(p_expected_entity_id)) = 0
@@ -757,6 +760,40 @@ begin
     return;
   end if;
 
+  v_completion_hardware_state := jsonb_build_object(
+    'deploymentHardwareKey', v_hardware.deployment_hardware_key,
+    'provisioningSource', v_hardware.provisioning_source,
+    'provisioningStatus', v_hardware.provisioning_status,
+    'active', v_hardware.active,
+    'operationalStatus', v_hardware.status,
+    'agentId', v_hardware.agent_id,
+    'defaultWorkstationId', v_hardware.default_workstation_id,
+    'currentWorkstationId', v_hardware.current_workstation_id
+  );
+
+  select
+    coalesce(jsonb_agg(comparison.field_name order by comparison.ordinal), '[]'::jsonb),
+    coalesce(jsonb_object_agg(
+      comparison.field_name,
+      jsonb_build_object('expected', comparison.expected_value, 'actual', comparison.actual_value)
+    ), '{}'::jsonb)
+    into v_completion_differing_fields, v_completion_differences
+    from (values
+      (1, 'deploymentHardwareKey', p_expected_hardware_state -> 'deploymentHardwareKey', v_completion_hardware_state -> 'deploymentHardwareKey'),
+      (2, 'provisioningSource', p_expected_hardware_state -> 'provisioningSource', v_completion_hardware_state -> 'provisioningSource'),
+      (3, 'provisioningStatus', p_expected_hardware_state -> 'provisioningStatus', v_completion_hardware_state -> 'provisioningStatus'),
+      (4, 'active', p_expected_hardware_state -> 'active', v_completion_hardware_state -> 'active'),
+      (5, 'operationalStatus', p_expected_hardware_state -> 'operationalStatus', v_completion_hardware_state -> 'operationalStatus'),
+      (6, 'agentId', p_expected_hardware_state -> 'agentId', v_completion_hardware_state -> 'agentId'),
+      (7, 'defaultWorkstationId', p_expected_hardware_state -> 'defaultWorkstationId', v_completion_hardware_state -> 'defaultWorkstationId'),
+      (8, 'currentWorkstationId', p_expected_hardware_state -> 'currentWorkstationId', v_completion_hardware_state -> 'currentWorkstationId'),
+      (9, 'executionItemTargetState', p_expected_target_state, v_item.target_state),
+      (10, 'requiredTargetState', jsonb_build_object('provisioningStatus', 'active', 'active', true), p_expected_target_state),
+      (11, 'requiredProvisioningSource', to_jsonb('setup_draft'::text), to_jsonb(v_hardware.provisioning_source)),
+      (12, 'requiredProvisioningStatus', to_jsonb('active'::text), to_jsonb(v_hardware.provisioning_status)),
+      (13, 'requiredActive', to_jsonb(true), to_jsonb(v_hardware.active))
+    ) comparison(ordinal, field_name, expected_value, actual_value)
+   where comparison.expected_value is distinct from comparison.actual_value;
   if jsonb_build_object('deploymentHardwareKey', v_hardware.deployment_hardware_key, 'provisioningSource', v_hardware.provisioning_source, 'provisioningStatus', v_hardware.provisioning_status, 'active', v_hardware.active, 'operationalStatus', v_hardware.status, 'agentId', v_hardware.agent_id, 'defaultWorkstationId', v_hardware.default_workstation_id, 'currentWorkstationId', v_hardware.current_workstation_id)
        is distinct from p_expected_hardware_state
      or v_item.target_state is distinct from p_expected_target_state
@@ -768,7 +805,17 @@ begin
       v_item.id, v_item.execution_item_key, v_item.plan_item_key, v_item.sequence, v_item.entity_type,
       v_item.entity_id, v_hardware.deployment_hardware_key, v_item.action, v_hardware.id,
       v_item.execution_status, v_item.execution_status, v_item.started_at, v_item.completed_at, v_item.attempt_count,
-      'hardware_state_invalid'::text, 'Hardware shell durable state is not completion-safe.'::text;
+      'hardware_state_invalid'::text,
+      jsonb_build_object(
+        'message', 'Hardware shell durable state is not completion-safe.',
+        'completionDiagnostics', jsonb_build_object(
+          'requiredDurableHardwareState', p_expected_hardware_state,
+          'actualPersistedHardwareState', v_completion_hardware_state,
+          'differingFields', v_completion_differing_fields,
+          'differences', v_completion_differences,
+          'failingCompletionPreconditions', v_completion_differing_fields
+        )
+      )::text;
     return;
   end if;
 
