@@ -184,6 +184,13 @@ export interface DeploymentHardwareShellActivationIssue {
 }
 
 export interface DeploymentHardwareShellActivationIssueDiagnostics {
+  differingFields?: readonly string[];
+  expectedPlannerState?: Record<string, unknown>;
+  repositoryCurrentState?: Record<string, unknown>;
+  differences?: Record<string, {
+    expected: { present: boolean; value?: unknown };
+    actual: { present: boolean; value?: unknown };
+  }>;
   layer?: string | null;
   rpcAttempted?: boolean | null;
   hardwareLookupAttempted?: boolean | null;

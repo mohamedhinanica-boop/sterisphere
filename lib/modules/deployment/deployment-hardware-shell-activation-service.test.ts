@@ -1,5 +1,6 @@
 import {
   DeploymentHardwareShellActivationService,
+  hardwareImmutableStateDiagnostics,
 } from "./deployment-hardware-shell-activation-service";
 import {
   buildAlreadyActivatedHardwareShellActivationSnapshot,
@@ -33,6 +34,12 @@ const WRONG_TOKEN = "wrong-sensitive-hardware-shell-activation-token";
 
 export async function runDeploymentHardwareShellActivationServiceHarness(): Promise<DeploymentHardwareShellActivationServiceHarnessResult> {
   const scenarios = [
+    scenarioIdenticalStateDiagnostics(),
+    scenarioSingleFieldDiagnostics(),
+    scenarioMultipleFieldDiagnostics(),
+    scenarioOmittedVersusNullDiagnostics(),
+    scenarioDiagnosticsExcludeSecrets(),
+    await scenarioIssueExposesFieldDiagnostics(),
     await scenarioActivatable(),
     await scenarioUuidEntityIdWithDeploymentHardwareKeyState(),
     await scenarioAlreadyActivated(),
@@ -104,6 +111,48 @@ export async function runDeploymentHardwareShellActivationServiceHarness(): Prom
   };
 }
 
+function scenarioIdenticalStateDiagnostics() {
+  const state = immutableState();
+  const diagnostics = hardwareImmutableStateDiagnostics(state, { ...state });
+  return expectScenario("identical immutable states produce no differences", diagnostics.differingFields?.length === 0 && Object.keys(diagnostics.differences ?? {}).length === 0, JSON.stringify(diagnostics));
+}
+
+function scenarioSingleFieldDiagnostics() {
+  const expected = immutableState();
+  const diagnostics = hardwareImmutableStateDiagnostics(expected, { ...expected, operationalStatus: "offline" });
+  const difference = diagnostics.differences?.operationalStatus;
+  return expectScenario("one immutable field difference is exact", diagnostics.differingFields?.join(",") === "operationalStatus" && difference?.expected.value === "discovered" && difference.actual.value === "offline", JSON.stringify(diagnostics));
+}
+
+function scenarioMultipleFieldDiagnostics() {
+  const expected = immutableState();
+  const diagnostics = hardwareImmutableStateDiagnostics(expected, { ...expected, active: true, agentId: "agent-001" });
+  return expectScenario("multiple immutable differences are complete", diagnostics.differingFields?.join(",") === "active,agentId" && Object.keys(diagnostics.differences ?? {}).length === 2, JSON.stringify(diagnostics));
+}
+
+function scenarioOmittedVersusNullDiagnostics() {
+  const expected = immutableState();
+  delete expected.agentId;
+  const diagnostics = hardwareImmutableStateDiagnostics(expected, { ...immutableState(), agentId: null });
+  const difference = diagnostics.differences?.agentId;
+  return expectScenario("omitted and null remain distinguishable", diagnostics.differingFields?.join(",") === "agentId" && difference?.expected.present === false && !("value" in (difference?.expected ?? {})) && difference?.actual.present === true && difference.actual.value === null, JSON.stringify(diagnostics));
+}
+
+function scenarioDiagnosticsExcludeSecrets() {
+  const expected = { ...immutableState(), ownershipToken: "secret-owner-token", serviceRoleKey: "secret-service-role" };
+  const actual = { ...immutableState(), ownershipToken: "other-secret", serviceRoleKey: "other-service-role", active: true };
+  const serialized = JSON.stringify(hardwareImmutableStateDiagnostics(expected, actual));
+  return expectScenario("diagnostics contain only immutable Hardware fields", !serialized.includes("secret") && !serialized.includes("ownershipToken") && !serialized.includes("serviceRoleKey"), serialized);
+}
+
+function immutableState(): Record<string, unknown> {
+  return { ...(item(2).expectedCurrentState ?? {}) };
+}
+async function scenarioIssueExposesFieldDiagnostics() {
+  const result = await assess(snapshot({ itemPatches: { 2: { expectedCurrentState: { ...immutableState(), operationalStatus: "offline" } } } }));
+  const issue = result.issues.find((candidate) => candidate.code === "hardware_current_state_invalid");
+  return expectScenario("blocking issue exposes field diagnostics", issue?.diagnostics?.differingFields?.join(",") === "operationalStatus" && issue.diagnostics.differences?.operationalStatus?.actual.value === "discovered", JSON.stringify(issue));
+}
 async function scenarioActivatable() {
   const result = await assess();
   return expectScenario(

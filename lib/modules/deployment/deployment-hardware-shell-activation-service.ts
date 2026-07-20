@@ -419,7 +419,15 @@ function validateHardwareShell(
   }
 
   if (!matchesImmutableCurrentState(item?.expectedCurrentState ?? null, hardware)) {
-    issues.push(hardwareIssue("hardware_current_state_invalid", session, item, hardware, "Hardware immutable current-state evidence does not match the selected shell."));
+    issues.push(hardwareIssue(
+      "hardware_current_state_invalid",
+      session,
+      item,
+      hardware,
+      "Hardware immutable current-state evidence does not match the selected shell.",
+      "blocker",
+      hardwareImmutableStateDiagnostics(item?.expectedCurrentState ?? null, hardware.currentState ?? null),
+    ));
   }
 
   if (hardware.planned !== true) {
@@ -445,6 +453,48 @@ function deploymentHardwareKeyFromItem(
 }
 
 
+const HARDWARE_IMMUTABLE_STATE_FIELDS = [
+  "id", "clinicId", "deploymentHardwareKey", "provisioningSource", "provisioningStatus",
+  "active", "operationalStatus", "agentId", "defaultWorkstationId", "currentWorkstationId",
+] as const;
+
+export function hardwareImmutableStateDiagnostics(
+  expectedPlannerState: Record<string, unknown> | null,
+  repositoryCurrentState: Record<string, unknown> | null,
+): NonNullable<DeploymentHardwareShellActivationIssue["diagnostics"]> {
+  const expected = immutableStateSnapshot(expectedPlannerState);
+  const actual = immutableStateSnapshot(repositoryCurrentState);
+  const differingFields: string[] = [];
+  const differences: Record<string, { expected: { present: boolean; value?: unknown }; actual: { present: boolean; value?: unknown } }> = {};
+
+  for (const field of HARDWARE_IMMUTABLE_STATE_FIELDS) {
+    const expectedValue = fieldValue(expectedPlannerState, field);
+    const actualValue = fieldValue(repositoryCurrentState, field);
+    if (expectedValue.present !== actualValue.present || !Object.is(expectedValue.value, actualValue.value)) {
+      differingFields.push(field);
+      differences[field] = { expected: evidenceValue(expectedValue), actual: evidenceValue(actualValue) };
+    }
+  }
+
+  return { differingFields, expectedPlannerState: expected, repositoryCurrentState: actual, differences };
+}
+
+function immutableStateSnapshot(state: Record<string, unknown> | null): Record<string, unknown> {
+  const snapshot: Record<string, unknown> = {};
+  for (const field of HARDWARE_IMMUTABLE_STATE_FIELDS) {
+    if (state && Object.prototype.hasOwnProperty.call(state, field)) snapshot[field] = state[field];
+  }
+  return snapshot;
+}
+
+function fieldValue(state: Record<string, unknown> | null, field: string): { present: boolean; value: unknown } {
+  const present = state !== null && Object.prototype.hasOwnProperty.call(state, field);
+  return { present, value: present ? state[field] : undefined };
+}
+
+function evidenceValue(input: { present: boolean; value: unknown }): { present: boolean; value?: unknown } {
+  return input.present ? { present: true, value: input.value } : { present: false };
+}
 function matchesImmutableCurrentState(
   state: Record<string, unknown> | null,
   hardware: DeploymentHardwareShellActivationHardwareSnapshot,
@@ -669,6 +719,7 @@ function blocker(
   hardware: DeploymentHardwareShellActivationHardwareSnapshot | null,
   message: string,
   severity: DeploymentHardwareShellActivationIssueSeverity = "blocker",
+  diagnostics: DeploymentHardwareShellActivationIssue["diagnostics"] = null,
 ): DeploymentHardwareShellActivationIssue {
   return {
     code,
@@ -681,6 +732,7 @@ function blocker(
     hardwareId: hardware?.hardwareId ?? null,
     deploymentHardwareKey: hardware?.deploymentHardwareKey ?? null,
     sequence: item?.sequence ?? null,
+    diagnostics,
   };
 }
 
@@ -691,8 +743,9 @@ function hardwareIssue(
   hardware: DeploymentHardwareShellActivationHardwareSnapshot | null,
   message: string,
   severity: DeploymentHardwareShellActivationIssueSeverity = "blocker",
+  diagnostics: DeploymentHardwareShellActivationIssue["diagnostics"] = null,
 ): DeploymentHardwareShellActivationIssue {
-  return blocker(code, session, item, hardware, message, severity);
+  return blocker(code, session, item, hardware, message, severity, diagnostics);
 }
 
 function compareItems(
