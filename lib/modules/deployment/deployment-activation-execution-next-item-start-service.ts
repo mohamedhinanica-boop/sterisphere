@@ -674,14 +674,14 @@ function hardwareBindingLifecycleRejectionReasons(item: DeploymentActivationExec
   if (!isDeploymentKey(expected.deploymentHardwareKey, "hardware")) reasons.push("expectedCurrentState.deploymentHardwareKey must be a deterministic hardware deployment key");
   if (!isBindingTargetType(expected.targetType)) reasons.push("expectedCurrentState.targetType must be workstation or sterilizer");
   if (isBindingTargetType(expected.targetType) && !isDeploymentKey(expected.targetDeploymentKey, expected.targetType)) reasons.push("expectedCurrentState.targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
-  if (!isUuidValue(expected.targetId)) reasons.push("expectedCurrentState.targetId must be a valid UUID");
+  if (expected.targetId !== null) reasons.push("expectedCurrentState.targetId must be null for a new hardware binding");
   if (!isUuidValue(target.hardwareId)) reasons.push("targetState.hardwareId must be a valid UUID");
   if (!isBindingTargetType(target.targetType)) reasons.push("targetState.targetType must be workstation or sterilizer");
   if (isBindingTargetType(target.targetType) && !isDeploymentKey(target.targetDeploymentKey, target.targetType)) reasons.push("targetState.targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
   if (!isUuidValue(target.targetId)) reasons.push("targetState.targetId must be a valid UUID");
   if (item.entityId !== expected.hardwareId) reasons.push("entityId must match expectedCurrentState.hardwareId");
   if (expected.hardwareId !== target.hardwareId) reasons.push("hardwareId must match across expectedCurrentState and targetState");
-  if (expected.targetId !== target.targetId) reasons.push("targetId must match across expectedCurrentState and targetState");
+
   if (expected.targetType !== target.targetType) reasons.push("targetType must match across expectedCurrentState and targetState");
   if (expected.targetDeploymentKey !== target.targetDeploymentKey) reasons.push("targetDeploymentKey must match across expectedCurrentState and targetState");
   return reasons;
@@ -752,6 +752,9 @@ function lifecycleDispatch(
     targetStateKeys: Object.keys(item.targetState ?? {}).sort(),
     authoritativeExpectedState: projectHardwareBindingExpectedState(item.expectedCurrentState),
     authoritativeTargetState: projectHardwareBindingTargetState(item.targetState),
+    expectedTargetId: item.expectedCurrentState?.targetId,
+    targetTargetId: item.targetState?.targetId,
+    targetIdTransition: hardwareBindingTargetIdTransition(item),
     crossStateConsistency: hardwareBindingCrossStateConsistency(item),
     rejectionReasons,
   };
@@ -778,13 +781,22 @@ function projectHardwareBindingTargetState(state: Record<string, unknown> | null
   };
 }
 
+function hardwareBindingTargetIdTransition(item: DeploymentActivationExecutionNextItemStartItemSnapshot): "unbound_to_bound" | "already_bound_reuse" | "conflicting_rebind" | "invalid" {
+  const expectedTargetId = item.expectedCurrentState?.targetId;
+  const targetTargetId = item.targetState?.targetId;
+  if (expectedTargetId === null && isUuidValue(targetTargetId)) return "unbound_to_bound";
+  if (isUuidValue(expectedTargetId) && isUuidValue(targetTargetId)) {
+    return expectedTargetId === targetTargetId ? "already_bound_reuse" : "conflicting_rebind";
+  }
+  return "invalid";
+}
 function hardwareBindingCrossStateConsistency(item: DeploymentActivationExecutionNextItemStartItemSnapshot) {
   const expected = item.expectedCurrentState;
   const target = item.targetState;
   return {
     entityIdMatchesHardwareId: Boolean(expected && item.entityId === expected.hardwareId),
     hardwareIdMatches: Boolean(expected && target && expected.hardwareId === target.hardwareId),
-    targetIdMatches: Boolean(expected && target && expected.targetId === target.targetId),
+    targetIdTransitionValid: hardwareBindingTargetIdTransition(item) === "unbound_to_bound",
     targetTypeMatches: Boolean(expected && target && expected.targetType === target.targetType),
     targetDeploymentKeyMatches: Boolean(expected && target && expected.targetDeploymentKey === target.targetDeploymentKey),
   };

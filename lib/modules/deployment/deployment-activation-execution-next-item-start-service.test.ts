@@ -42,7 +42,9 @@ export async function runDeploymentActivationExecutionNextItemStartServiceHarnes
     await scenarioHardwareBindingMalformedTargetUuid(),
     await scenarioHardwareBindingEntityIdMismatch(),
     await scenarioHardwareBindingHardwareIdMismatch(),
-    await scenarioHardwareBindingTargetIdMismatch(),
+    await scenarioHardwareBindingAlreadyBoundSameTargetRejected(),
+    await scenarioHardwareBindingConflictingRebind(),
+    await scenarioHardwareBindingMissingTargetId(),
     await scenarioHardwareBindingTargetTypeMismatch(),
     await scenarioHardwareBindingTargetDeploymentKeyMismatch(),
     await scenarioHardwareBindingTargetKeyShapeMismatch(),
@@ -170,7 +172,9 @@ async function scenarioHardwareBindingMalformedHardwareUuid() { return expectIss
 async function scenarioHardwareBindingMalformedTargetUuid() { return expectIssue("Hardware Binding malformed target UUID blocks", hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ targetId: "not-a-uuid" }) }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareBindingEntityIdMismatch() { return expectIssue("Hardware Binding entityId and hardwareId mismatch blocks", hardwareBindingSnapshot({ entityId: OTHER_HARDWARE_ID }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareBindingHardwareIdMismatch() { return expectIssue("Hardware Binding cross-state hardwareId mismatch blocks", hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ hardwareId: OTHER_HARDWARE_ID }) }), "unsupported_entity_action_lifecycle", "blocked"); }
-async function scenarioHardwareBindingTargetIdMismatch() { return expectIssue("Hardware Binding cross-state targetId mismatch blocks", hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ targetId: OTHER_TARGET_ID }) }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareBindingAlreadyBoundSameTargetRejected() { return expectIssue("Hardware Binding already-bound same-target evidence remains blocked without a documented reuse contract", hardwareBindingSnapshot({ expectedCurrentState: hardwareBindingExpectedState({ targetId: BINDING_TARGET_ID }) }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareBindingConflictingRebind() { return expectIssue("Hardware Binding conflicting rebind blocks", hardwareBindingSnapshot({ expectedCurrentState: hardwareBindingExpectedState({ targetId: OTHER_TARGET_ID }) }), "unsupported_entity_action_lifecycle", "blocked"); }
+async function scenarioHardwareBindingMissingTargetId() { return expectIssue("Hardware Binding missing target targetId blocks", hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ targetId: null }) }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareBindingTargetTypeMismatch() { return expectIssue("Hardware Binding cross-state targetType mismatch blocks", hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ targetType: "sterilizer", targetDeploymentKey: "sterilizer-001" }) }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareBindingTargetDeploymentKeyMismatch() { return expectIssue("Hardware Binding cross-state target key mismatch blocks", hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ targetDeploymentKey: "workstation-002" }) }), "unsupported_entity_action_lifecycle", "blocked"); }
 async function scenarioHardwareBindingTargetKeyShapeMismatch() { return expectIssue("Hardware Binding target key incompatible with targetType blocks", hardwareBindingSnapshot({ expectedCurrentState: hardwareBindingExpectedState({ targetDeploymentKey: "sterilizer-001" }), targetState: hardwareBindingTargetState({ targetDeploymentKey: "sterilizer-001" }) }), "unsupported_entity_action_lifecycle", "blocked"); }
@@ -181,19 +185,18 @@ async function scenarioHardwareBindingOwnershipGuards() {
   return expectScenario("Hardware Binding claimant token and lease guards remain enforced", hasIssue(owner, "session_owned_by_another_executor") && hasIssue(token, "ownership_token_mismatch") && hasIssue(lease, "lease_expired"), JSON.stringify([owner.status, token.status, lease.status]));
 }
 async function scenarioHardwareBindingDiagnostics() {
-  const result = await assess(hardwareBindingSnapshot({ targetState: hardwareBindingTargetState({ targetId: OTHER_TARGET_ID }) }));
+  const result = await assess(hardwareBindingSnapshot({ expectedCurrentState: hardwareBindingExpectedState({ targetId: OTHER_TARGET_ID }) }));
   const dispatch = result.issues.find((issue) => issue.code === "unsupported_entity_action_lifecycle")?.lifecycleDispatch;
-  return expectScenario("Hardware Binding diagnostics expose authoritative states and cross-state mismatch", dispatch?.runtimeEntityType === "hardware_binding" && dispatch.selectedBranch === "hardware_binding_bind" && dispatch.hardwareBindingBranchReached === true && dispatch.expectedCurrentStateKeys.includes("deploymentHardwareKey") && dispatch.targetStateKeys.includes("targetId") && dispatch.authoritativeExpectedState?.hardwareId === BINDING_HARDWARE_ID && dispatch.authoritativeTargetState.targetId === OTHER_TARGET_ID && dispatch.crossStateConsistency.targetIdMatches === false && dispatch.rejectionReasons.includes("targetId must match across expectedCurrentState and targetState"), JSON.stringify(dispatch));
+  return expectScenario("Hardware Binding diagnostics expose authoritative states and cross-state mismatch", dispatch?.runtimeEntityType === "hardware_binding" && dispatch.selectedBranch === "hardware_binding_bind" && dispatch.hardwareBindingBranchReached === true && dispatch.expectedCurrentStateKeys.includes("deploymentHardwareKey") && dispatch.targetStateKeys.includes("targetId") && dispatch.authoritativeExpectedState?.hardwareId === BINDING_HARDWARE_ID && dispatch.expectedTargetId === OTHER_TARGET_ID && dispatch.targetTargetId === BINDING_TARGET_ID && dispatch.targetIdTransition === "conflicting_rebind" && dispatch.crossStateConsistency.targetIdTransitionValid === false && dispatch.rejectionReasons.includes("expectedCurrentState.targetId must be null for a new hardware binding"), JSON.stringify(dispatch));
 }
 
 function hardwareBindingExpectedState(patch: Record<string, unknown> = {}): Record<string, unknown> {
-  return { deploymentHardwareKey: "hardware-001", hardwareId: BINDING_HARDWARE_ID, targetDeploymentKey: "workstation-001", targetId: BINDING_TARGET_ID, targetType: "workstation", ...patch };
+  return { deploymentHardwareKey: "hardware-001", hardwareId: BINDING_HARDWARE_ID, targetDeploymentKey: "workstation-001", targetId: null, targetType: "workstation", ...patch };
 }
 
 function hardwareBindingTargetState(patch: Record<string, unknown> = {}): Record<string, unknown> {
   return { hardwareId: BINDING_HARDWARE_ID, targetDeploymentKey: "workstation-001", targetId: BINDING_TARGET_ID, targetType: "workstation", ...patch };
 }
-
 function hardwareBindingSnapshot(
   candidatePatch: Partial<ReturnType<typeof item>> = {},
   sessionPatch: Parameters<typeof buildNextItemStartSnapshot>[0]["session"] = {},

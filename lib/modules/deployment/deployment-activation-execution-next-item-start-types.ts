@@ -161,10 +161,13 @@ export interface DeploymentActivationExecutionNextItemStartIssue {
     targetStateKeys: readonly string[];
     authoritativeExpectedState: Record<string, unknown> | null;
     authoritativeTargetState: Record<string, unknown>;
+    expectedTargetId: unknown;
+    targetTargetId: unknown;
+    targetIdTransition: "unbound_to_bound" | "already_bound_reuse" | "conflicting_rebind" | "invalid";
     crossStateConsistency: {
       entityIdMatchesHardwareId: boolean;
       hardwareIdMatches: boolean;
-      targetIdMatches: boolean;
+      targetIdTransitionValid: boolean;
       targetTypeMatches: boolean;
       targetDeploymentKeyMatches: boolean;
     };
