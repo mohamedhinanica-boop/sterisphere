@@ -161,6 +161,13 @@ export interface DeploymentActivationExecutionNextItemStartIssue {
     targetStateKeys: readonly string[];
     authoritativeExpectedState: Record<string, unknown> | null;
     authoritativeTargetState: Record<string, unknown>;
+    crossStateConsistency: {
+      entityIdMatchesHardwareId: boolean;
+      hardwareIdMatches: boolean;
+      targetIdMatches: boolean;
+      targetTypeMatches: boolean;
+      targetDeploymentKeyMatches: boolean;
+    };
     rejectionReasons: readonly string[];
   } | null;
 }

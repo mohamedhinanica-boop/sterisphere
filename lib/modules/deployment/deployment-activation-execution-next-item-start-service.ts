@@ -668,22 +668,49 @@ function hardwareBindingLifecycleRejectionReasons(item: DeploymentActivationExec
   if (!target) reasons.push("targetState is missing");
   if (!expected || !target) return reasons;
 
-  const unexpectedExpectedKeys = Object.keys(expected).filter((key) =>
-    !HARDWARE_BINDING_EXPECTED_STATE_FIELDS.includes(key as (typeof HARDWARE_BINDING_EXPECTED_STATE_FIELDS)[number]) &&
-    !isSerializationMetadataKey(key)
-  );
-  if (unexpectedExpectedKeys.length > 0) reasons.push(`expectedCurrentState contains non-authoritative fields: ${unexpectedExpectedKeys.sort().join(", ")}`);
-  if (!Object.prototype.hasOwnProperty.call(expected, "deploymentHardwareKey") || !isDeploymentKey(expected.deploymentHardwareKey, "hardware")) reasons.push("deploymentHardwareKey must be a deterministic hardware deployment key");
-  if (!Object.prototype.hasOwnProperty.call(expected, "targetType") || (expected.targetType !== "workstation" && expected.targetType !== "sterilizer")) reasons.push("targetType must be workstation or sterilizer");
-  if (!Object.prototype.hasOwnProperty.call(expected, "targetDeploymentKey") || ((expected.targetType === "workstation" || expected.targetType === "sterilizer") && !isDeploymentKey(expected.targetDeploymentKey, expected.targetType))) reasons.push("targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
-
-  const authoritativeTargetKeys = Object.keys(target).filter((key) => !isSerializationMetadataKey(key));
-  if (authoritativeTargetKeys.length > 0) reasons.push(`targetState contains binding mutation fields: ${authoritativeTargetKeys.sort().join(", ")}`);
+  validateAuthoritativeFieldSet(expected, HARDWARE_BINDING_EXPECTED_STATE_FIELDS, "expectedCurrentState", reasons);
+  validateAuthoritativeFieldSet(target, HARDWARE_BINDING_TARGET_STATE_FIELDS, "targetState", reasons);
+  if (!isUuidValue(expected.hardwareId)) reasons.push("expectedCurrentState.hardwareId must be a valid UUID");
+  if (!isDeploymentKey(expected.deploymentHardwareKey, "hardware")) reasons.push("expectedCurrentState.deploymentHardwareKey must be a deterministic hardware deployment key");
+  if (!isBindingTargetType(expected.targetType)) reasons.push("expectedCurrentState.targetType must be workstation or sterilizer");
+  if (isBindingTargetType(expected.targetType) && !isDeploymentKey(expected.targetDeploymentKey, expected.targetType)) reasons.push("expectedCurrentState.targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
+  if (!isUuidValue(expected.targetId)) reasons.push("expectedCurrentState.targetId must be a valid UUID");
+  if (!isUuidValue(target.hardwareId)) reasons.push("targetState.hardwareId must be a valid UUID");
+  if (!isBindingTargetType(target.targetType)) reasons.push("targetState.targetType must be workstation or sterilizer");
+  if (isBindingTargetType(target.targetType) && !isDeploymentKey(target.targetDeploymentKey, target.targetType)) reasons.push("targetState.targetDeploymentKey must match targetType and use its deterministic deployment-key shape");
+  if (!isUuidValue(target.targetId)) reasons.push("targetState.targetId must be a valid UUID");
+  if (item.entityId !== expected.hardwareId) reasons.push("entityId must match expectedCurrentState.hardwareId");
+  if (expected.hardwareId !== target.hardwareId) reasons.push("hardwareId must match across expectedCurrentState and targetState");
+  if (expected.targetId !== target.targetId) reasons.push("targetId must match across expectedCurrentState and targetState");
+  if (expected.targetType !== target.targetType) reasons.push("targetType must match across expectedCurrentState and targetState");
+  if (expected.targetDeploymentKey !== target.targetDeploymentKey) reasons.push("targetDeploymentKey must match across expectedCurrentState and targetState");
   return reasons;
+}
+
+function validateAuthoritativeFieldSet(
+  state: Record<string, unknown>,
+  fields: readonly string[],
+  label: string,
+  reasons: string[],
+): void {
+  const keys = Object.keys(state).filter((key) => !isSerializationMetadataKey(key)).sort();
+  const required = [...fields].sort();
+  const missing = required.filter((key) => !Object.prototype.hasOwnProperty.call(state, key));
+  const extras = keys.filter((key) => !fields.includes(key));
+  if (missing.length > 0) reasons.push(`${label} is missing authoritative fields: ${missing.join(", ")}`);
+  if (extras.length > 0) reasons.push(`${label} contains unsupported fields: ${extras.join(", ")}`);
 }
 
 function isSerializationMetadataKey(key: string): boolean {
   return key === "__typename";
+}
+
+function isBindingTargetType(value: unknown): value is "workstation" | "sterilizer" {
+  return value === "workstation" || value === "sterilizer";
+}
+
+function isUuidValue(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 function hardwareAssignmentLifecycleRejectionReasons(item: DeploymentActivationExecutionNextItemStartItemSnapshot, clinicId: string): string[] {
   const reasons: string[] = [];
@@ -725,6 +752,7 @@ function lifecycleDispatch(
     targetStateKeys: Object.keys(item.targetState ?? {}).sort(),
     authoritativeExpectedState: projectHardwareBindingExpectedState(item.expectedCurrentState),
     authoritativeTargetState: projectHardwareBindingTargetState(item.targetState),
+    crossStateConsistency: hardwareBindingCrossStateConsistency(item),
     rejectionReasons,
   };
 }
@@ -733,14 +761,33 @@ function projectHardwareBindingExpectedState(state: Record<string, unknown> | nu
   if (!state) return null;
   return {
     deploymentHardwareKey: state.deploymentHardwareKey,
-    targetType: state.targetType,
+    hardwareId: state.hardwareId,
     targetDeploymentKey: state.targetDeploymentKey,
+    targetId: state.targetId,
+    targetType: state.targetType,
   };
 }
 
 function projectHardwareBindingTargetState(state: Record<string, unknown> | null): Record<string, unknown> {
   if (!state) return {};
-  return Object.fromEntries(Object.entries(state).filter(([key]) => !isSerializationMetadataKey(key)));
+  return {
+    hardwareId: state.hardwareId,
+    targetDeploymentKey: state.targetDeploymentKey,
+    targetId: state.targetId,
+    targetType: state.targetType,
+  };
+}
+
+function hardwareBindingCrossStateConsistency(item: DeploymentActivationExecutionNextItemStartItemSnapshot) {
+  const expected = item.expectedCurrentState;
+  const target = item.targetState;
+  return {
+    entityIdMatchesHardwareId: Boolean(expected && item.entityId === expected.hardwareId),
+    hardwareIdMatches: Boolean(expected && target && expected.hardwareId === target.hardwareId),
+    targetIdMatches: Boolean(expected && target && expected.targetId === target.targetId),
+    targetTypeMatches: Boolean(expected && target && expected.targetType === target.targetType),
+    targetDeploymentKeyMatches: Boolean(expected && target && expected.targetDeploymentKey === target.targetDeploymentKey),
+  };
 }
 function safeLifecycleState(state: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!state) return null;
@@ -766,7 +813,11 @@ function isSupportedEntityAction(item: DeploymentActivationExecutionNextItemStar
 }
 
 const HARDWARE_BINDING_EXPECTED_STATE_FIELDS = [
-  "deploymentHardwareKey", "targetType", "targetDeploymentKey",
+  "deploymentHardwareKey", "hardwareId", "targetDeploymentKey", "targetId", "targetType",
+] as const;
+
+const HARDWARE_BINDING_TARGET_STATE_FIELDS = [
+  "hardwareId", "targetDeploymentKey", "targetId", "targetType",
 ] as const;
 
 function isHardwareBindingBindLifecycle(item: DeploymentActivationExecutionNextItemStartItemSnapshot): boolean {
