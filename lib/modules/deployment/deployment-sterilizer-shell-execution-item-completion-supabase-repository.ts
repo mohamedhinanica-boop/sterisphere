@@ -60,7 +60,6 @@ const STERILIZER_COLUMNS = [
   "provisioning_source",
   "provisioning_status",
   "active",
-  "updated_at",
 ].join(",");
 
 const RPC_NAME = "complete_deployment_sterilizer_shell_execution_item";
@@ -112,7 +111,6 @@ export type SterilizerShellItemCompletionSterilizerRow = {
   provisioning_source: string | null;
   provisioning_status: string | null;
   active: boolean | null;
-  updated_at: string | null;
 };
 
 type SterilizerShellItemCompletionRpcRow = {
@@ -333,7 +331,6 @@ export function mapSterilizerShellItemCompletionSterilizerRow(
     provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,
     active: row.active,
-    updatedAt: row.updated_at,
   };
 }
 

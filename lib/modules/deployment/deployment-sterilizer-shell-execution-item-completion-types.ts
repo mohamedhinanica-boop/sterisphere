@@ -131,7 +131,6 @@ export interface DeploymentSterilizerShellExecutionItemCompletionSterilizerSnaps
   provisioningSource: string | null;
   provisioningStatus: string | null;
   active: boolean | null;
-  updatedAt: string | null;
 }
 
 export interface DeploymentSterilizerShellExecutionItemCompletionAggregateSnapshot {

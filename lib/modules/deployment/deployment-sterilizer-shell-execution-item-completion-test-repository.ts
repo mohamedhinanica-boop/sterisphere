@@ -230,7 +230,6 @@ export function sterilizer(
     provisioningSource: "setup_draft",
     provisioningStatus: "active",
     active: true,
-    updatedAt: "2026-01-01T12:07:00.000Z",
     ...input,
   };
 }

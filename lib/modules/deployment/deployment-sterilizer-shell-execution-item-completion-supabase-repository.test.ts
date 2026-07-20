@@ -76,6 +76,7 @@ export async function runDeploymentSterilizerShellExecutionItemCompletionSupabas
     scenarioNoGenericMutationMethods(),
     await scenarioNoRetryFallbackPath(),
     scenarioSqlMutationBoundarySourceAssertions(),
+    scenarioSterilizerSchemaContract(),
     scenarioExecutionItemSchemaContract(),
   ];
 
@@ -195,13 +196,23 @@ async function scenarioNoRetryFallbackPath() {
 }
 
 function scenarioSqlMutationBoundarySourceAssertions() {
-  const source = require("fs").readFileSync("docs/architecture/supabase_deployment_sterilizer_shell_execution_item_completion.sql", "utf8").toLowerCase();
+  const sql = require("fs").readFileSync("docs/architecture/supabase_deployment_sterilizer_shell_activation_and_completion.sql", "utf8").toLowerCase();
+  const source = sql.slice(sql.indexOf("create or replace function public.complete_deployment_sterilizer_shell_execution_item"));
   const selectedItemOnly = source.includes("update public.deployment_activation_execution_items update_item") && source.includes("where update_item.id = v_item.id") && source.includes("and update_item.session_id = v_session.id");
   const writesOnlyCompletion = source.includes("set execution_status = 'succeeded'") && source.includes("completed_at = p_proposed_completed_at") && !source.includes("started_at =") && !source.includes("attempt_count = attempt_count") && !source.includes("update public.sterilizers") && !source.includes("update public.deployment_activation_execution_sessions") && !source.includes("update public.clinics");
   const identitySafe = source.includes("v_item.entity_id is distinct from p_expected_entity_id") && source.includes("v_sterilizer.id is distinct from p_sterilizer_id") && source.includes("v_sterilizer.deployment_sterilizer_key is distinct from p_expected_deployment_sterilizer_key") && !source.includes("p_sterilizer_id::text = p_expected_deployment_sterilizer_key");
   return expectScenario("SQL mutation-boundary source assertions", selectedItemOnly && writesOnlyCompletion && identitySafe, JSON.stringify({ selectedItemOnly, writesOnlyCompletion, identitySafe }));
 }
 
+function scenarioSterilizerSchemaContract() {
+  const source = require("fs").readFileSync("lib/modules/deployment/deployment-sterilizer-shell-execution-item-completion-supabase-repository.ts", "utf8").toLowerCase();
+  const mapped = mapSterilizerShellItemCompletionSterilizerRow(sterilizerRow());
+  return expectScenario(
+    "actual nine-column sterilizer schema contract",
+    !source.includes('"updated_at"') && !source.includes("row.updated_at") && mapped.active === true && mapped.provisioningStatus === "active",
+    JSON.stringify(mapped),
+  );
+}
 function scenarioExecutionItemSchemaContract() {
   const fs = require("fs") as typeof import("fs");
   const schema = fs.readFileSync("docs/architecture/supabase_deployment_activation_execution.sql", "utf8").toLowerCase();
@@ -229,7 +240,7 @@ function command(input: Partial<DeploymentSterilizerShellExecutionAtomicItemComp
 function sterilizerState() { return { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "active", active: true }; }
 function sessionRow(input: Partial<Record<string, unknown>> = {}) { return { id: SESSION_ID, clinic_id: CLINIC_ID, deployment_run_key: DEPLOYMENT_RUN_KEY, execution_key: EXECUTION_KEY, preparation_status: "ready", execution_status: "running", execution_owner: CLAIMANT_ID, ownership_token: TOKEN, lease_expires_at: LEASE, started_at: "2026-01-01T12:00:00.000Z", completed_at: null, failed_at: null, items_requested: 3, created_at: "2026-01-01T00:00:00.000Z", ...input }; }
 function itemRow(sequence = 2, input: Partial<SterilizerShellItemCompletionItemRow> = {}): SterilizerShellItemCompletionItemRow { const isClinic = sequence === 1; return { id: isClinic ? "55555555-5555-4555-8555-555555555555" : ITEM_ID, session_id: SESSION_ID, execution_item_key: isClinic ? `${EXECUTION_KEY}:${PLAN_KEY}:clinic` : sequence === 2 ? EXECUTION_ITEM_KEY : `${EXECUTION_KEY}:${PLAN_KEY}:sterilizer-002`, plan_item_key: isClinic ? `${PLAN_KEY}:clinic` : sequence === 2 ? PLAN_ITEM_KEY : `${PLAN_KEY}:sterilizer-002`, sequence, entity_type: isClinic ? "clinic" : "sterilizer_shell", entity_id: isClinic ? CLINIC_ID : STERILIZER_ID, deployment_key: isClinic ? CLINIC_ID : STERILIZER_KEY, action: "activate", execution_status: isClinic ? "succeeded" : sequence === 2 ? "running" : "pending", attempt_count: sequence === 3 ? 0 : 1, started_at: isClinic ? "2026-01-01T12:01:00.000Z" : sequence === 2 ? STARTED_AT : null, completed_at: isClinic ? "2026-01-01T12:02:00.000Z" : null, rolled_back_at: null, error_code: null, error_message: null, expected_current_state: isClinic ? { deploymentStatus: "draft" } : { deploymentSterilizerKey: STERILIZER_KEY, provisioningSource: "setup_draft", provisioningStatus: "placeholder", active: false }, target_state: isClinic ? { deploymentStatus: "deployed" } : { provisioningStatus: "active", active: true }, dependency_keys: isClinic ? [] : [`${PLAN_KEY}:clinic`], reversible: true, ...input }; }
-function sterilizerRow(input: Partial<SterilizerShellItemCompletionSterilizerRow> = {}): SterilizerShellItemCompletionSterilizerRow { return { id: STERILIZER_ID, clinic_id: CLINIC_ID, deployment_sterilizer_key: STERILIZER_KEY, provisioning_source: "setup_draft", provisioning_status: "active", active: true, updated_at: "2026-01-01T12:07:00.000Z", ...input }; }
+function sterilizerRow(input: Partial<SterilizerShellItemCompletionSterilizerRow> = {}): SterilizerShellItemCompletionSterilizerRow { return { id: STERILIZER_ID, clinic_id: CLINIC_ID, deployment_sterilizer_key: STERILIZER_KEY, provisioning_source: "setup_draft", provisioning_status: "active", active: true, ...input }; }
 function rpcRow(input: Partial<Record<string, unknown>> = {}) { return { status: "completed", claimant_id: CLAIMANT_ID, clinic_id: CLINIC_ID, deployment_run_key: DEPLOYMENT_RUN_KEY, session_id: SESSION_ID, execution_key: EXECUTION_KEY, item_id: ITEM_ID, execution_item_key: EXECUTION_ITEM_KEY, plan_item_key: PLAN_ITEM_KEY, sequence: 2, entity_type: "sterilizer_shell", entity_id: STERILIZER_ID, deployment_sterilizer_key: STERILIZER_KEY, action: "activate", sterilizer_id: STERILIZER_ID, item_status_before: "running", item_status_after: "succeeded", started_at: STARTED_AT, completed_at: COMPLETED_AT, attempt_count: 1, issue_code: null, message: "Sterilizer-shell item completed.", ...input }; }
 
 function expectThrows(name: string, action: () => unknown | Promise<unknown>, expected: string) { try { const value = action(); if (value instanceof Promise) return value.then(() => expectScenario(name, false, "expected exception"), (error) => expectScenario(name, error instanceof Error && error.message.includes(expected), String(error))); } catch (error) { return expectScenario(name, error instanceof Error && error.message.includes(expected), String(error)); } return expectScenario(name, false, "expected exception"); }

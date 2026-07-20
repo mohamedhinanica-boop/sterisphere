@@ -109,7 +109,7 @@ with required_tables as (
     body !~ 'v_item\.expected_current_state\s+is\s+distinct\s+from\s+p_expected_current_state' as does_not_compare_unprojected_item_state,
     body ~ 'set\s+active\s*=\s*true' as writes_active_true,
     body ~ 'provisioning_status\s*=\s*''active''' as writes_provisioning_status_active,
-    body !~ 'updated_at\s*=' as does_not_write_updated_at,
+    body !~ '(update_sterilizer|sterilizer_row|v_sterilizer|public\.sterilizers)\.updated_at|updated_at\s*=' as does_not_reference_or_write_sterilizer_updated_at,
     body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_items([^a-z_]|$)' as does_not_update_execution_items,
     body !~ '(^|[^a-z_])update\s+public\.deployment_activation_execution_sessions([^a-z_]|$)' as does_not_update_execution_sessions,
     body !~ '(^|[^a-z_])update\s+public\.clinics([^a-z_]|$)' as does_not_update_clinics,
@@ -130,7 +130,7 @@ with required_tables as (
     and constrains_sterilizer_key
     and writes_active_true
     and writes_provisioning_status_active
-    and does_not_write_updated_at
+    and does_not_reference_or_write_sterilizer_updated_at
     and does_not_update_execution_items
     and does_not_update_execution_sessions
     and does_not_update_clinics
@@ -149,7 +149,7 @@ with required_tables as (
       'constrains_sterilizer_key', constrains_sterilizer_key,
       'writes_active_true', writes_active_true,
       'writes_provisioning_status_active', writes_provisioning_status_active,
-      'does_not_write_updated_at', does_not_write_updated_at,
+      'does_not_reference_or_write_sterilizer_updated_at', does_not_reference_or_write_sterilizer_updated_at,
       'does_not_update_execution_items', does_not_update_execution_items,
       'does_not_update_execution_sessions', does_not_update_execution_sessions,
       'does_not_update_clinics', does_not_update_clinics,
@@ -207,13 +207,13 @@ with required_tables as (
   select 'function_writes_supported_target_fields',
     writes_active_true
     and writes_provisioning_status_active
-    and does_not_write_updated_at
+    and does_not_reference_or_write_sterilizer_updated_at
     and does_not_insert
     and does_not_delete,
     jsonb_build_object(
       'writes_active_true', writes_active_true,
       'writes_provisioning_status_active', writes_provisioning_status_active,
-      'does_not_write_updated_at', does_not_write_updated_at,
+      'does_not_reference_or_write_sterilizer_updated_at', does_not_reference_or_write_sterilizer_updated_at,
       'does_not_insert', does_not_insert,
       'does_not_delete', does_not_delete
     )
@@ -324,11 +324,12 @@ with required_tables as (
     body ~ 'v_item\.entity_id\s+is\s+distinct\s+from\s+p_expected_entity_id' as compares_sterilizer_uuid_as_text,
     body ~ 'v_sterilizer\.id\s+is\s+distinct\s+from\s+p_sterilizer_id' as compares_sterilizer_uuid_to_sterilizer_id,
     body ~ 'v_sterilizer\.deployment_sterilizer_key\s+is\s+distinct\s+from\s+p_expected_deployment_sterilizer_key' as compares_sterilizer_key_to_key,
-    body !~ 'p_sterilizer_id(::text)?\s*=\s*p_expected_deployment_sterilizer_key' as does_not_conflate_uuid_and_key
+    body !~ 'p_sterilizer_id(::text)?\s*=\s*p_expected_deployment_sterilizer_key' as does_not_conflate_uuid_and_key,
+    body !~ '(sterilizer_row|v_sterilizer|public\.sterilizers)\.updated_at' as does_not_reference_sterilizer_updated_at
   from update_parts
 ), source_checks as (
   select 'function_mutates_only_selected_execution_item' as check_name,
-    updates_execution_items and updates_selected_item_alias and updates_only_one_public_table and constrains_item_id and constrains_session_id and constrains_execution_item_key and constrains_plan_item_key and writes_succeeded_status and writes_completed_at and does_not_write_started_at and does_not_increment_attempt_count and does_not_update_sessions and does_not_update_sterilizers and does_not_update_clinics and does_not_write_lease and does_not_write_token and does_not_progress_dependencies and does_not_start_another_item and does_not_insert and does_not_delete as passed,
+    updates_execution_items and updates_selected_item_alias and updates_only_one_public_table and constrains_item_id and constrains_session_id and constrains_execution_item_key and constrains_plan_item_key and writes_succeeded_status and writes_completed_at and does_not_write_started_at and does_not_increment_attempt_count and does_not_update_sessions and does_not_update_sterilizers and does_not_update_clinics and does_not_write_lease and does_not_write_token and does_not_progress_dependencies and does_not_start_another_item and does_not_insert and does_not_delete and does_not_reference_sterilizer_updated_at as passed,
     jsonb_build_object(
       'updates_execution_items', updates_execution_items,
       'updates_selected_item_alias', updates_selected_item_alias,
@@ -348,7 +349,8 @@ with required_tables as (
       'does_not_progress_dependencies', does_not_progress_dependencies,
       'does_not_start_another_item', does_not_start_another_item,
       'does_not_insert', does_not_insert,
-      'does_not_delete', does_not_delete
+      'does_not_delete', does_not_delete,
+      'does_not_reference_sterilizer_updated_at', does_not_reference_sterilizer_updated_at
     ) as details
   from source_diagnostics
   union all
