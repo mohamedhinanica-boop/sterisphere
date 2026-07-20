@@ -215,9 +215,10 @@ export function hardware(
   input: Partial<DeploymentHardwareShellActivationHardwareSnapshot> = {},
 ): DeploymentHardwareShellActivationHardwareSnapshot {
   const deploymentHardwareKey = input.deploymentHardwareKey ?? HARDWARE_KEY;
+  const hardwareId = deploymentHardwareKey === HARDWARE_KEY ? HARDWARE_ID : NEXT_HARDWARE_ID;
 
   return {
-    hardwareId: deploymentHardwareKey === HARDWARE_KEY ? HARDWARE_ID : NEXT_HARDWARE_ID,
+    hardwareId,
     clinicId: CLINIC_ID,
     deploymentHardwareKey,
     active: false,
@@ -229,6 +230,8 @@ export function hardware(
     defaultWorkstationId: null,
     currentWorkstationId: null,
     currentState: {
+      id: hardwareId,
+      clinicId: CLINIC_ID,
       deploymentHardwareKey,
       provisioningSource: input.provisioningSource ?? "setup_draft",
       provisioningStatus: input.provisioningStatus ?? "planned",
@@ -262,7 +265,7 @@ export function item(
     errorCode: null,
     errorMessage: null,
     dependencyKeys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
-    expectedCurrentState: { deploymentHardwareKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false, operationalStatus: "discovered", agentId: null, defaultWorkstationId: null, currentWorkstationId: null },
+    expectedCurrentState: { id: sequence === 2 ? HARDWARE_ID : NEXT_HARDWARE_ID, clinicId: CLINIC_ID, deploymentHardwareKey: `dentist-${String(sequence - 1).padStart(3, "0")}`, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false, operationalStatus: "discovered", agentId: null, defaultWorkstationId: null, currentWorkstationId: null },
     targetState: { provisioningStatus: "active", active: true },
     ...input,
   };

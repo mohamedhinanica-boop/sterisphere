@@ -102,7 +102,7 @@ function scenarioItemMapping() {
 
 function scenarioHardwareMapping() {
   const mapped = mapHardwareShellActivationHardwareRow(hardwareRow());
-  return expectScenario("hardware mapping", mapped.hardwareId === HARDWARE_ID && mapped.clinicId === CLINIC_ID && mapped.deploymentHardwareKey === HARDWARE_KEY && mapped.currentState?.provisioningStatus === "planned", JSON.stringify(mapped));
+  return expectScenario("hardware mapping", mapped.hardwareId === HARDWARE_ID && mapped.clinicId === CLINIC_ID && mapped.deploymentHardwareKey === HARDWARE_KEY && mapped.currentState?.id === HARDWARE_ID && mapped.currentState?.clinicId === CLINIC_ID && mapped.currentState?.provisioningStatus === "planned", JSON.stringify(mapped));
 }
 
 function scenarioHardwareLookupUsesStateKeyWithUuidEntity() {
@@ -391,7 +391,7 @@ function itemRow(sequence: number, input: Partial<HardwareShellActivationItemRow
     error_code: null,
     error_message: null,
     dependency_keys: sequence === 1 ? [] : [planItemKey(sequence - 1)],
-    expected_current_state: { deploymentHardwareKey: HARDWARE_KEY, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false, operationalStatus: "discovered", agentId: null, defaultWorkstationId: null, currentWorkstationId: null },
+    expected_current_state: { id: HARDWARE_ID, clinicId: CLINIC_ID, deploymentHardwareKey: HARDWARE_KEY, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false, operationalStatus: "discovered", agentId: null, defaultWorkstationId: null, currentWorkstationId: null },
     target_state: { provisioningStatus: "active", active: true },
     ...input,
   };

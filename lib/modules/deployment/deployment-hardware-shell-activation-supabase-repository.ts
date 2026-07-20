@@ -533,6 +533,8 @@ function readStringField(source: unknown, key: string): string | null {
 
 function hardwareState(row: HardwareShellActivationHardwareRow): Record<string, unknown> {
   return {
+    id: row.id,
+    clinicId: row.clinic_id,
     deploymentHardwareKey: row.deployment_hardware_key,
     provisioningSource: row.provisioning_source,
     provisioningStatus: row.provisioning_status,

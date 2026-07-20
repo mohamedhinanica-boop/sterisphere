@@ -80,6 +80,8 @@ export async function runDeploymentHardwareShellActivationServiceHarness(): Prom
     await scenarioHardwareIdentityMismatch(),
     await scenarioHardwareUuidInvalid(),
     await scenarioImmutableCurrentStateInvalid(),
+    await scenarioOperationalStateProtected(),
+    await scenarioBindingStateProtected(),
     await scenarioTransitionTargetInvalid(),
     await scenarioHardwareNotPlanned(),
     await scenarioHardwareActiveInvalid(),
@@ -220,6 +222,12 @@ async function scenarioHardwareIdentityMismatch() { return expectIssue("hardware
 async function scenarioHardwareNotPlanned() { return expectIssue("hardware not planned", snapshot({ hardwareShell: { planned: false } }), "hardware_planned_invalid", "blocked"); }
 async function scenarioHardwareUuidInvalid() { return expectIssue("hardware UUID invalid", snapshot({ hardwareShell: { hardwareId: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareKey } }), "hardware_uuid_invalid", "blocked"); }
 async function scenarioImmutableCurrentStateInvalid() { return expectIssue("immutable current state invalid", snapshot({ itemPatches: { 2: { expectedCurrentState: { deploymentHardwareKey: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareKey, provisioningSource: "setup_draft", provisioningStatus: "archived", active: false } } } }), "hardware_current_state_invalid", "blocked"); }
+async function scenarioOperationalStateProtected() {
+  return expectIssue("operational state protected", snapshot({ itemPatches: { 2: { expectedCurrentState: { id: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareId, clinicId: HARDWARE_SHELL_ACTIVATION_TEST_IDS.clinicId, deploymentHardwareKey: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareKey, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false, operationalStatus: "offline", agentId: null, defaultWorkstationId: null, currentWorkstationId: null } } } }), "hardware_current_state_invalid", "blocked");
+}
+async function scenarioBindingStateProtected() {
+  return expectIssue("binding state protected", snapshot({ itemPatches: { 2: { expectedCurrentState: { id: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareId, clinicId: HARDWARE_SHELL_ACTIVATION_TEST_IDS.clinicId, deploymentHardwareKey: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareKey, provisioningSource: "setup_draft", provisioningStatus: "planned", active: false, operationalStatus: "discovered", agentId: "agent-unexpected", defaultWorkstationId: null, currentWorkstationId: null } } } }), "hardware_current_state_invalid", "blocked");
+}
 async function scenarioTransitionTargetInvalid() { return expectIssue("transition target invalid", snapshot({ itemPatches: { 2: { targetState: { deploymentHardwareKey: HARDWARE_SHELL_ACTIVATION_TEST_IDS.hardwareKey, provisioningStatus: "active", active: true } } } }), "hardware_target_state_invalid", "blocked"); }
 async function scenarioHardwareActiveInvalid() { return expectIssue("hardware active but not compatible", snapshot({ hardwareShell: { active: true, provisioningStatus: "planned" } }), "hardware_provisioning_status_invalid", "blocked"); }
 async function scenarioHardwareSourceInvalid() { return expectIssue("hardware source invalid", snapshot({ hardwareShell: { provisioningSource: "legacy" } }), "hardware_provisioning_source_invalid", "blocked"); }

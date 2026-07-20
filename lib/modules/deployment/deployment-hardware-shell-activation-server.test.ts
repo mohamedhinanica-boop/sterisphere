@@ -73,6 +73,9 @@ async function scenarioActivatableCallsRpcOnce() {
       result.reusedCount === 0 &&
       repository.calls.load === 1 &&
       repository.calls.atomic === 1 &&
+      Object.keys(repository.lastAtomicCommand?.expectedCurrentState ?? {}).sort().join(",") === "active,agentId,currentWorkstationId,defaultWorkstationId,deploymentHardwareKey,operationalStatus,provisioningSource,provisioningStatus" &&
+      repository.lastAtomicCommand?.expectedCurrentState.operationalStatus === "discovered" &&
+      repository.lastAtomicCommand?.expectedCurrentState.agentId === null &&
       result.provisioningStatusBefore === "planned" &&
       result.provisioningStatusAfter === "active" &&
       result.activeBefore === false &&
@@ -258,6 +261,8 @@ class RuntimeHardwareShellActivationTestRepository implements DeploymentHardware
     fallback: 0,
   };
 
+  lastAtomicCommand: DeploymentHardwareShellActivationAtomicCommand | null = null;
+
   private readonly snapshot: DeploymentHardwareShellActivationSnapshot;
   private readonly atomicResult: DeploymentHardwareShellActivationAtomicResult;
   private readonly throwOnAtomic: unknown;
@@ -278,9 +283,10 @@ class RuntimeHardwareShellActivationTestRepository implements DeploymentHardware
   }
 
   async activateHardwareShellAtomically(
-    _command: DeploymentHardwareShellActivationAtomicCommand,
+    command: DeploymentHardwareShellActivationAtomicCommand,
   ): Promise<DeploymentHardwareShellActivationAtomicResult> {
     this.calls.atomic += 1;
+    this.lastAtomicCommand = JSON.parse(JSON.stringify(command)) as DeploymentHardwareShellActivationAtomicCommand;
 
     if (this.throwOnAtomic) {
       throw this.throwOnAtomic;

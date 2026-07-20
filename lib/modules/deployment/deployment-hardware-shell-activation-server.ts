@@ -382,12 +382,7 @@ function buildAtomicCommand(
       expectedAttemptCount: assessment.attemptCount,
       hardwareId: assessment.hardwareId,
       expectedHardwareKey: assessment.deploymentHardwareKey,
-      expectedCurrentState: assessment.expectedCurrentState ?? {
-        deploymentHardwareKey: assessment.deploymentHardwareKey,
-        provisioningSource: assessment.hardwareProvisioningSource,
-        provisioningStatus: assessment.hardwareProvisioningStatus,
-        active: assessment.hardwareActive,
-      },
+      expectedCurrentState: hardwareTransitionState(assessment.expectedCurrentState),
       targetState: {
         provisioningStatus: "active",
         active: true,
@@ -701,6 +696,18 @@ function zeroDownstream(): DeploymentHardwareShellActivationDownstreamCounts {
   };
 }
 
+function hardwareTransitionState(state: Record<string, unknown> | null): Record<string, unknown> {
+  return {
+    deploymentHardwareKey: state?.deploymentHardwareKey ?? null,
+    provisioningSource: state?.provisioningSource ?? null,
+    provisioningStatus: state?.provisioningStatus ?? null,
+    active: state?.active ?? null,
+    operationalStatus: state?.operationalStatus ?? null,
+    agentId: state?.agentId ?? null,
+    defaultWorkstationId: state?.defaultWorkstationId ?? null,
+    currentWorkstationId: state?.currentWorkstationId ?? null,
+  };
+}
 function readString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
