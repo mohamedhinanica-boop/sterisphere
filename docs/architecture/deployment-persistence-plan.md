@@ -1668,7 +1668,7 @@ provider shell active
 -> atomic running-to-succeeded item completion
 -> future dependency progression
 
-Fresh completion updates only the selected execution item to `execution_status = succeeded` and `completed_at = proposed_completed_at`. `already_completed` reuses compatible succeeded evidence without rewriting `completed_at`. The SQL does not mutate providers, sessions, clinics, leases, ownership tokens, dependency keys, rollback/error evidence, or other execution items.
+Fresh completion updates only the selected execution item to `execution_status = succeeded` and stores one authoritative database `clock_timestamp()` as `completed_at`; the caller timestamp cannot set the durable completion time. `already_completed` reuses compatible succeeded evidence without rewriting `completed_at`. The SQL does not mutate providers, sessions, clinics, leases, ownership tokens, dependency keys, rollback/error evidence, or other execution items.
 
 ## RC8 Slice 11D - Runtime Post-Provider Dependency Progression
 

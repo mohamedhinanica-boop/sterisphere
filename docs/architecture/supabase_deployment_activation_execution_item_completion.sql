@@ -53,6 +53,7 @@ declare
   v_duplicate_plan_item_keys integer := 0;
   v_duplicate_sequences integer := 0;
   v_rows_updated integer := 0;
+  v_completion_timestamp timestamptz;
 begin
   select session_row.*
     into v_session
@@ -271,9 +272,13 @@ begin
     return;
   end if;
 
+  -- Capture one authoritative database mutation-time value. The caller timestamp remains
+  -- in the RPC signature for compatibility but cannot determine persisted completion time.
+  v_completion_timestamp := clock_timestamp();
+
   if v_session.lease_expires_at is null
      or v_session.lease_expires_at is distinct from p_expected_lease_expires_at
-     or v_session.lease_expires_at <= p_proposed_completed_at
+     or v_session.lease_expires_at <= v_completion_timestamp
   then
     return query select
       'blocked'::text,
@@ -357,7 +362,7 @@ begin
 
   update public.deployment_activation_execution_items update_item
      set execution_status = 'succeeded',
-         completed_at = p_proposed_completed_at
+         completed_at = v_completion_timestamp
    where update_item.id = v_item.id
      and update_item.session_id = v_session.id
      and update_item.execution_item_key = p_execution_item_key
@@ -413,7 +418,7 @@ begin
     v_item.entity_type,
     v_item.action,
     v_item.started_at,
-    p_proposed_completed_at,
+    v_completion_timestamp,
     v_item.attempt_count,
     v_item.execution_status,
     'succeeded'::text,

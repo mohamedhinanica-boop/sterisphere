@@ -142,6 +142,7 @@ function validate(input: DeploymentHardwareBindingItemCompletionInput): string |
     Number.isNaN(Date.parse(input.expectedLeaseExpiresAt)) ||
     Number.isNaN(Date.parse(input.startedAt)) ||
     Number.isNaN(Date.parse(input.proposedCompletedAt)) ||
+    Number.isNaN(Date.parse(binding.bindingTimestamp!)) ||
     Date.parse(input.expectedLeaseExpiresAt) <= Date.parse(input.proposedCompletedAt)
   ) return "Hardware Binding completion lease or timestamp evidence is stale or malformed.";
   if (
@@ -179,6 +180,13 @@ function mapResult(
   const success = result.status === "completed" || result.status === "already_completed";
   if (success && (!result.completedAt || result.executionStatusAfter !== "succeeded")) {
     return failure(input, "error", "completion_response_malformed", "Hardware Binding completion returned incomplete success evidence.");
+  }
+  if (
+    success &&
+    (Number.isNaN(Date.parse(result.completedAt!)) ||
+      Date.parse(result.completedAt!) < Date.parse(binding.bindingTimestamp!))
+  ) {
+    return failure(input, "error", "completion_timestamp_causality_invalid", "Hardware Binding completion timestamp predates the durable binding timestamp.");
   }
   const safeMessage = redact(result.message, input.ownershipToken);
   return {

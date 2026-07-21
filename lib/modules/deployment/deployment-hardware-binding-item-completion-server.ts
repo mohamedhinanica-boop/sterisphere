@@ -18,7 +18,7 @@ export async function completeHardwareBindingItemForServerDeployment(
     runningItem: ServerDeploymentActivationExecutionNextItemStartResult;
     claim: ServerDeploymentActivationExecutionClaimResult;
     preparedExecutionItems: readonly DeploymentActivationExecutionItem[];
-    completedAt: string;
+    completionRequestedAt: string;
   },
 ): Promise<DeploymentHardwareBindingItemCompletionResult> {
   const plannerMatches = input.preparedExecutionItems.filter((item) =>
@@ -49,6 +49,6 @@ export async function completeHardwareBindingItemForServerDeployment(
     plannerDeploymentHardwareKey: planner?.deploymentKey ?? null,
     plannerExpectedState: planner?.currentState ?? null,
     plannerTargetState: planner?.targetState ?? null,
-    proposedCompletedAt: input.completedAt,
+    proposedCompletedAt: input.completionRequestedAt,
   });
 }

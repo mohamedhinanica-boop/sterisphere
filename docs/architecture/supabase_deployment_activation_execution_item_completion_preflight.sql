@@ -36,7 +36,11 @@ select
   function_source not like '%unlock%' as does_not_unlock_dependencies,
   function_source like '%duplicate_item.execution_item_key%' as qualified_duplicate_execution_item_key_check,
   function_source like '%duplicate_item.plan_item_key%' as qualified_duplicate_plan_item_key_check,
-  function_source like '%duplicate_item.sequence%' as qualified_duplicate_sequence_check
+  function_source like '%duplicate_item.sequence%' as qualified_duplicate_sequence_check,
+  function_source like '%v_completion_timestamp := clock_timestamp()%' as uses_database_mutation_clock,
+  function_source like '%completed_at = v_completion_timestamp%' as persists_database_mutation_time,
+  function_source like '%lease_expires_at <= v_completion_timestamp%' as validates_lease_at_mutation_time,
+  function_source not like '%completed_at = p_proposed_completed_at%' as caller_cannot_set_completed_at
 from rpc_args;
 
 select
@@ -44,3 +48,9 @@ select
   count(*) filter (where item.execution_status = 'running' and item.completed_at is not null) as running_with_completed_at,
   count(*) filter (where item.sequence = 1 and item.entity_type = 'clinic' and item.action = 'activate' and item.execution_status in ('running', 'succeeded')) as sequence_one_clinic_activation_items
 from public.deployment_activation_execution_items item;
+
+-- Causality audit: completed items must never predate their own start.
+select
+  count(*) filter (where item.completed_at < item.started_at) as completion_before_start
+from public.deployment_activation_execution_items item
+where item.completed_at is not null;

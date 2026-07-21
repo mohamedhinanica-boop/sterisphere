@@ -2279,7 +2279,7 @@ function KnownLimitations() {
   const limitations = [
     "Rollback execution is unavailable.",
     "Heartbeat and background worker orchestration are unavailable.",
-    "Item completion evidence is not exposed as a separate page result yet.",
+    "Hardware Binding item completion evidence is exposed as a separate terminal stage.",
     "Dependency progression and next-item start remain single-boundary controls.",
     "Entity activation is limited to the explicit clinic and provider-shell stages shown.",
     "Deployment finalization is unavailable.",
@@ -2704,7 +2704,7 @@ function CompleteStep({
               public.clinical_workstations planned shells,
               public.clinical_hardware_devices planned shells,
               public.deployment_hardware_assignments planned logical relationships,
-              activation readiness and planning evidence, and prepared activation execution evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. Execution item boundaries and entity activation remain explicit stage controls; no hardware bindings are written, no devices activate, and no users, packs, cycles, traces, audit logs, rollback work, or deployment finalization occurs from this page rendering.
+              activation readiness and planning evidence, and prepared activation execution evidence only. A prepared session may be claimed for exclusive ownership, then atomically marked running on the session row only. Execution item boundaries and entity activation remain explicit stage controls; the Hardware Binding stage may write its selected durable binding and complete that same item, while no downstream item starts and no users, packs, cycles, traces, audit logs, rollback work, or deployment finalization occurs from this page rendering.
             </p>
           </div>
 

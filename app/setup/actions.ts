@@ -2756,7 +2756,7 @@ export async function persistDeploymentRunAction(
             runningItem: deploymentHardwareShellExecutionNextItemStart,
             claim: deploymentActivationExecutionClaim,
             preparedExecutionItems: deploymentActivationExecution.executionItems,
-            completedAt: persistedAt,
+            completionRequestedAt: new Date().toISOString(),
           })
         : null;
 

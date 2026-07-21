@@ -17,6 +17,7 @@ const IDS = {
   workstation: "50000000-0000-4000-8000-000000000001",
   sterilizer: "60000000-0000-4000-8000-000000000001",
   token: "server-only-completion-token",
+  databaseCompletedAt: "2026-07-21T12:06:00.000Z",
 };
 
 export async function runDeploymentHardwareBindingItemCompletionHarness() {
@@ -38,6 +39,8 @@ export async function runDeploymentHardwareBindingItemCompletionHarness() {
     await rejectedBinding("mismatched target", { targetId: IDS.sterilizer }),
     await malformedResponse("malformed completion", { completedAt: null }),
     await malformedResponse("unknown completion status", { status: "future" as "completed" }),
+    await authoritativeCompletionTimestamp(),
+    await causalMismatchRejected(),
     await tokenExcluded(),
     await exactlyOnceAndNoDownstream(),
   ];
@@ -96,6 +99,25 @@ async function malformedResponse(name: string, override: Partial<DeploymentActiv
   const repository = new TestRepository({ ...atomic(input, "completed"), ...override });
   const result = await new DeploymentHardwareBindingItemCompletionService(repository).complete(input);
   return scenario(name, !result.ok && result.status === "error" && repository.calls === 1);
+}
+
+async function authoritativeCompletionTimestamp() {
+  const input = { ...validInput(), proposedCompletedAt: "2026-07-21T11:00:00.000Z" };
+  const repository = new TestRepository(atomic(input, "completed"));
+  const result = await new DeploymentHardwareBindingItemCompletionService(repository).complete(input);
+  return scenario(
+    "database completion timestamp cannot be forged by request session or item time",
+    result.ok && result.completedAt === IDS.databaseCompletedAt &&
+      result.completedAt !== input.proposedCompletedAt && result.completedAt !== input.startedAt &&
+      Date.parse(result.completedAt) >= Date.parse(input.binding.bindingTimestamp!),
+  );
+}
+
+async function causalMismatchRejected() {
+  const input = validInput();
+  const repository = new TestRepository({ ...atomic(input, "completed"), completedAt: "2026-07-21T12:04:59.000Z" });
+  const result = await new DeploymentHardwareBindingItemCompletionService(repository).complete(input);
+  return scenario("binding completion causal mismatch is rejected safely", !result.ok && result.issueCode === "completion_timestamp_causality_invalid" && repository.calls === 1 && result.downstream.dependenciesProgressed === 0 && result.downstream.itemsStarted === 0);
 }
 
 async function tokenExcluded() {
@@ -170,7 +192,7 @@ function atomic(input: DeploymentHardwareBindingItemCompletionInput, status: Dep
     executionKey: input.binding.executionKey, itemId: input.binding.itemId,
     executionItemKey: input.binding.executionItemKey, planItemKey: input.binding.planItemKey,
     sequence: input.binding.sequence, entityType: "hardware_binding", action: "bind",
-    startedAt: input.startedAt, completedAt: success ? input.proposedCompletedAt : null,
+    startedAt: input.startedAt, completedAt: success ? IDS.databaseCompletedAt : null,
     attemptCount: input.attemptCount, executionStatusBefore: status === "already_completed" ? "succeeded" : "running",
     executionStatusAfter: success ? "succeeded" : "running", issueCode: success ? null : `completion_${status}`,
     message: `Completion ${status}.`,
