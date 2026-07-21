@@ -71,6 +71,12 @@ import type {
   DeploymentHardwareBindingExecutionResult,
 } from "@/lib/modules/deployment/deployment-hardware-binding-execution-adapter";
 import {
+  completeHardwareBindingItemForServerDeployment,
+} from "@/lib/modules/deployment/deployment-hardware-binding-item-completion-server";
+import type {
+  DeploymentHardwareBindingItemCompletionResult,
+} from "@/lib/modules/deployment/deployment-hardware-binding-item-completion";
+import {
   startActivationExecutionForServerDeployment,
 } from "@/lib/modules/deployment/deployment-activation-execution-start-server";
 import {
@@ -999,6 +1005,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentHardwareShellExecutionDependencyProgression?: ServerDeploymentActivationExecutionDependencyProgressionResult;
   deploymentHardwareShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
   deploymentHardwareBindingExecution?: DeploymentHardwareBindingExecutionResult;
+  deploymentHardwareBindingItemCompletion?: DeploymentHardwareBindingItemCompletionResult;
   message: string;
 }
 
@@ -2739,6 +2746,19 @@ export async function persistDeploymentRunAction(
             bindingExecutedAt: persistedAt,
           })
         : null;
+    const deploymentHardwareBindingItemCompletion =
+      deploymentHardwareBindingExecution?.ok &&
+      deploymentHardwareShellExecutionNextItemStart &&
+      deploymentActivationExecution &&
+      deploymentActivationExecutionClaim
+        ? await completeHardwareBindingItemForServerDeployment(client, {
+            binding: deploymentHardwareBindingExecution,
+            runningItem: deploymentHardwareShellExecutionNextItemStart,
+            claim: deploymentActivationExecutionClaim,
+            preparedExecutionItems: deploymentActivationExecution.executionItems,
+            completedAt: persistedAt,
+          })
+        : null;
 
     return {
       ok:
@@ -2757,7 +2777,7 @@ export async function persistDeploymentRunAction(
         (!deploymentHardwareShellExecutionNextItemStart?.ok ||
           deploymentHardwareShellExecutionNextItemStart.entityType !== "hardware_binding" ||
           deploymentHardwareShellExecutionNextItemStart.action !== "bind" ||
-          Boolean(deploymentHardwareBindingExecution?.ok)),
+          Boolean(deploymentHardwareBindingItemCompletion?.ok)),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -3118,8 +3138,11 @@ export async function persistDeploymentRunAction(
       deploymentHardwareShellExecutionDependencyProgression: deploymentHardwareShellExecutionDependencyProgression ?? undefined,
       deploymentHardwareShellExecutionNextItemStart: deploymentHardwareShellExecutionNextItemStart ?? undefined,
       deploymentHardwareBindingExecution: deploymentHardwareBindingExecution ?? undefined,
-      message: deploymentHardwareBindingExecution?.ok
-        ? "Deployment run activation completed all deterministic hardware items and atomically persisted the running Hardware Binding item. The binding item remains running; no item completion, dependency progression, rollback, session completion, or finalization occurred."
+      deploymentHardwareBindingItemCompletion: deploymentHardwareBindingItemCompletion ?? undefined,
+      message: deploymentHardwareBindingItemCompletion?.ok
+        ? "Deployment run atomically persisted the Hardware Binding and completed that same execution item. No dependency progression, next-item start, rollback, session completion, or finalization occurred."
+        : deploymentHardwareBindingExecution?.ok
+        ? "Deployment run atomically persisted the running Hardware Binding, but same-item completion did not succeed. No dependency progression, next-item start, rollback, session completion, or finalization occurred."
         : deploymentHardwareShellExecutionNextItemStart?.ok
         ? "Deployment run activation completed all deterministic provider, sterilizer, workstation, and hardware items. The next item may now be running, but Hardware Binding execution did not succeed. No item completion, rollback, session completion, or finalization occurred."
         : deploymentWorkstationShellExecutionNextItemStart?.ok

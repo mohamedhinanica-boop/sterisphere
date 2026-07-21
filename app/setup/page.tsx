@@ -1894,6 +1894,11 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Reused", value: readField(readField(input.deploymentHardwareBindingExecution, "downstream"), "bindingsReused") ?? 0 },
           { label: "Target", value: readField(input.deploymentHardwareBindingExecution, "targetDeploymentKey") ?? "none" },
         ]),
+        stage("hardware-binding-item-completion", "Hardware Binding Item Completion", input.deploymentHardwareBindingItemCompletion, "not_attempted", "Hardware Binding completion marks only the successfully bound running item succeeded and stops.", [
+          { label: "Completed", value: readField(input.deploymentHardwareBindingItemCompletion, "completedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentHardwareBindingItemCompletion, "reusedCount") ?? 0 },
+          { label: "Status", value: readField(input.deploymentHardwareBindingItemCompletion, "completionStatus") ?? "not_attempted" },
+        ]),
       ],
     },
     {
@@ -2389,6 +2394,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentHardwareShellExecutionNextItemStart ?? null;
   const deploymentHardwareBindingExecution =
     deploymentRunResult?.deploymentHardwareBindingExecution ?? null;
+  const deploymentHardwareBindingItemCompletion =
+    deploymentRunResult?.deploymentHardwareBindingItemCompletion ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2457,6 +2464,7 @@ function CompleteStep({
     deploymentHardwareShellExecutionDependencyProgression,
     deploymentHardwareShellExecutionNextItemStart,
     deploymentHardwareBindingExecution,
+    deploymentHardwareBindingItemCompletion,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
