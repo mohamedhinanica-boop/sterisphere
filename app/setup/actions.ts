@@ -77,6 +77,12 @@ import type {
   DeploymentHardwareBindingItemCompletionResult,
 } from "@/lib/modules/deployment/deployment-hardware-binding-item-completion";
 import {
+  progressHardwareBindingDependencyForServerDeployment,
+} from "@/lib/modules/deployment/deployment-hardware-binding-dependency-progression-server";
+import type {
+  DeploymentHardwareBindingDependencyProgressionResult,
+} from "@/lib/modules/deployment/deployment-hardware-binding-dependency-progression";
+import {
   startActivationExecutionForServerDeployment,
 } from "@/lib/modules/deployment/deployment-activation-execution-start-server";
 import {
@@ -1006,6 +1012,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentHardwareShellExecutionNextItemStart?: ServerDeploymentActivationExecutionNextItemStartResult;
   deploymentHardwareBindingExecution?: DeploymentHardwareBindingExecutionResult;
   deploymentHardwareBindingItemCompletion?: DeploymentHardwareBindingItemCompletionResult;
+  deploymentHardwareBindingDependencyProgression?: DeploymentHardwareBindingDependencyProgressionResult;
   message: string;
 }
 
@@ -2759,6 +2766,17 @@ export async function persistDeploymentRunAction(
             completionRequestedAt: new Date().toISOString(),
           })
         : null;
+    const deploymentHardwareBindingDependencyProgression =
+      deploymentHardwareBindingExecution?.ok &&
+      deploymentHardwareBindingItemCompletion?.ok &&
+      deploymentActivationExecutionClaim
+        ? await progressHardwareBindingDependencyForServerDeployment(client, {
+            binding: deploymentHardwareBindingExecution,
+            completion: deploymentHardwareBindingItemCompletion,
+            claim: deploymentActivationExecutionClaim,
+            requestedAt: new Date().toISOString(),
+          })
+        : null;
 
     return {
       ok:
@@ -2777,7 +2795,7 @@ export async function persistDeploymentRunAction(
         (!deploymentHardwareShellExecutionNextItemStart?.ok ||
           deploymentHardwareShellExecutionNextItemStart.entityType !== "hardware_binding" ||
           deploymentHardwareShellExecutionNextItemStart.action !== "bind" ||
-          Boolean(deploymentHardwareBindingItemCompletion?.ok)),
+          Boolean(deploymentHardwareBindingDependencyProgression?.ok)),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -3139,8 +3157,11 @@ export async function persistDeploymentRunAction(
       deploymentHardwareShellExecutionNextItemStart: deploymentHardwareShellExecutionNextItemStart ?? undefined,
       deploymentHardwareBindingExecution: deploymentHardwareBindingExecution ?? undefined,
       deploymentHardwareBindingItemCompletion: deploymentHardwareBindingItemCompletion ?? undefined,
-      message: deploymentHardwareBindingItemCompletion?.ok
-        ? "Deployment run atomically persisted the Hardware Binding and completed that same execution item. No dependency progression, next-item start, rollback, session completion, or finalization occurred."
+      deploymentHardwareBindingDependencyProgression: deploymentHardwareBindingDependencyProgression ?? undefined,
+      message: deploymentHardwareBindingDependencyProgression?.ok
+        ? "Deployment run atomically persisted the Hardware Binding, completed that same item, and marked its deterministic successor ready. The successor was not started; rollback, session completion, and finalization remain unwired."
+        : deploymentHardwareBindingItemCompletion?.ok
+        ? "Deployment run atomically persisted and completed the Hardware Binding item, but dependency progression did not succeed. No next-item start, rollback, session completion, or finalization occurred."
         : deploymentHardwareBindingExecution?.ok
         ? "Deployment run atomically persisted the running Hardware Binding, but same-item completion did not succeed. No dependency progression, next-item start, rollback, session completion, or finalization occurred."
         : deploymentHardwareShellExecutionNextItemStart?.ok

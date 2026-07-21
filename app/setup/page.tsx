@@ -1899,6 +1899,11 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Reused", value: readField(input.deploymentHardwareBindingItemCompletion, "reusedCount") ?? 0 },
           { label: "Status", value: readField(input.deploymentHardwareBindingItemCompletion, "completionStatus") ?? "not_attempted" },
         ]),
+        stage("hardware-binding-dependency-progression", "Hardware Binding Dependency Progression", input.deploymentHardwareBindingDependencyProgression, "not_attempted", "Hardware Binding dependency progression marks only the deterministic successor ready and stops before starting it.", [
+          { label: "Progressed", value: readField(input.deploymentHardwareBindingDependencyProgression, "progressedCount") ?? 0 },
+          { label: "Reused", value: readField(input.deploymentHardwareBindingDependencyProgression, "reusedCount") ?? 0 },
+          { label: "Successor", value: readField(input.deploymentHardwareBindingDependencyProgression, "successorSequence") ?? "none" },
+        ]),
       ],
     },
     {
@@ -2396,6 +2401,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentHardwareBindingExecution ?? null;
   const deploymentHardwareBindingItemCompletion =
     deploymentRunResult?.deploymentHardwareBindingItemCompletion ?? null;
+  const deploymentHardwareBindingDependencyProgression =
+    deploymentRunResult?.deploymentHardwareBindingDependencyProgression ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2465,6 +2472,7 @@ function CompleteStep({
     deploymentHardwareShellExecutionNextItemStart,
     deploymentHardwareBindingExecution,
     deploymentHardwareBindingItemCompletion,
+    deploymentHardwareBindingDependencyProgression,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
