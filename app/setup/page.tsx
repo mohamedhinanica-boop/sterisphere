@@ -1885,10 +1885,16 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Progressed", value: readField(input.deploymentHardwareShellExecutionDependencyProgression, "progressedCount") ?? 0 },
           { label: "Next", value: readField(input.deploymentHardwareShellExecutionDependencyProgression, "nextSequence") ?? "none" },
         ]),
-        stage("post-hardware-next-item-start", "Post-Hardware Next Item Start", input.deploymentHardwareShellExecutionNextItemStart, "not_attempted", "Post-hardware next-item start may start the first hardware-assignment item but does not dispatch or execute it.", [
+        stage("post-hardware-next-item-start", "Post-Hardware Next Item Start", input.deploymentHardwareShellExecutionNextItemStart, "not_attempted", "Post-hardware next-item start may start the first Hardware Binding item but does not execute it.", [
           { label: "Started", value: readField(input.deploymentHardwareShellExecutionNextItemStart, "startedCount") ?? 0 },
           { label: "Sequence", value: readField(input.deploymentHardwareShellExecutionNextItemStart, "sequence") ?? "none" },
-        ]),      ],
+        ]),
+        stage("hardware-binding-execution", "Hardware Binding Execution", input.deploymentHardwareBindingExecution, "not_attempted", "Hardware Binding execution writes only the durable binding and stops before item completion.", [
+          { label: "Written", value: readField(input.deploymentHardwareBindingExecution, "bindingWritten") === true ? 1 : 0 },
+          { label: "Reused", value: readField(readField(input.deploymentHardwareBindingExecution, "downstream"), "bindingsReused") ?? 0 },
+          { label: "Target", value: readField(input.deploymentHardwareBindingExecution, "targetDeploymentKey") ?? "none" },
+        ]),
+      ],
     },
     {
       name: "Entity Activation",
@@ -2381,6 +2387,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentHardwareShellExecutionDependencyProgression ?? null;
   const deploymentHardwareShellExecutionNextItemStart =
     deploymentRunResult?.deploymentHardwareShellExecutionNextItemStart ?? null;
+  const deploymentHardwareBindingExecution =
+    deploymentRunResult?.deploymentHardwareBindingExecution ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2448,6 +2456,7 @@ function CompleteStep({
     deploymentHardwareShellExecutionItemCompletion,
     deploymentHardwareShellExecutionDependencyProgression,
     deploymentHardwareShellExecutionNextItemStart,
+    deploymentHardwareBindingExecution,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
