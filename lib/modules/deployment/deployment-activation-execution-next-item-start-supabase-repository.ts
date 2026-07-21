@@ -206,7 +206,7 @@ export class SupabaseDeploymentActivationExecutionNextItemStartRepository
       .limit(2);
 
     if (error) {
-      throw toRepositoryError(error, null, "snapshot_session_lookup");
+      throw toSnapshotRepositoryError(error, "snapshot_session_lookup");
     }
 
     const rows = (data ?? []) as unknown as NextItemStartSessionRow[];
@@ -224,7 +224,7 @@ export class SupabaseDeploymentActivationExecutionNextItemStartRepository
       .order("execution_item_key", { ascending: true });
 
     if (error) {
-      throw toRepositoryError(error, null, "snapshot_item_listing");
+      throw toSnapshotRepositoryError(error, "snapshot_item_listing");
     }
 
     return (data ?? []) as unknown as NextItemStartItemRow[];
@@ -463,6 +463,19 @@ function toRepositoryError(
     code: sanitizeDiagnostic(error.code ?? null, sensitiveToken),
     details: sanitizeDiagnostic(error.details ?? null, sensitiveToken),
     hint: sanitizeDiagnostic(error.hint ?? null, sensitiveToken),
+    layer,
+  });
+}
+
+function toSnapshotRepositoryError(
+  error: SupabaseErrorLike,
+  layer: string,
+): DeploymentActivationExecutionNextItemStartRepositoryError {
+  return new DeploymentActivationExecutionNextItemStartRepositoryError({
+    message: "Activation execution next-item start snapshot query failed.",
+    code: error.code ?? null,
+    details: null,
+    hint: null,
     layer,
   });
 }

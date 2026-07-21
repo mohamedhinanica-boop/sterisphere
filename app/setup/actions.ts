@@ -83,6 +83,12 @@ import type {
   DeploymentHardwareBindingDependencyProgressionResult,
 } from "@/lib/modules/deployment/deployment-hardware-binding-dependency-progression";
 import {
+  startHardwareBindingSuccessorForServerDeployment,
+} from "@/lib/modules/deployment/deployment-hardware-binding-successor-start-server";
+import type {
+  DeploymentHardwareBindingSuccessorStartResult,
+} from "@/lib/modules/deployment/deployment-hardware-binding-successor-start";
+import {
   startActivationExecutionForServerDeployment,
 } from "@/lib/modules/deployment/deployment-activation-execution-start-server";
 import {
@@ -1013,6 +1019,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentHardwareBindingExecution?: DeploymentHardwareBindingExecutionResult;
   deploymentHardwareBindingItemCompletion?: DeploymentHardwareBindingItemCompletionResult;
   deploymentHardwareBindingDependencyProgression?: DeploymentHardwareBindingDependencyProgressionResult;
+  deploymentHardwareBindingSuccessorStart?: DeploymentHardwareBindingSuccessorStartResult;
   message: string;
 }
 
@@ -2777,6 +2784,20 @@ export async function persistDeploymentRunAction(
             requestedAt: new Date().toISOString(),
           })
         : null;
+    const deploymentHardwareBindingSuccessorStart =
+      deploymentHardwareBindingExecution?.ok &&
+      deploymentHardwareBindingItemCompletion?.ok &&
+      deploymentHardwareBindingDependencyProgression?.ok &&
+      deploymentHardwareBindingDependencyProgression.successorStatus === "ready" &&
+      deploymentActivationExecutionClaim
+        ? await startHardwareBindingSuccessorForServerDeployment(client, {
+            binding: deploymentHardwareBindingExecution,
+            completion: deploymentHardwareBindingItemCompletion,
+            progression: deploymentHardwareBindingDependencyProgression,
+            claim: deploymentActivationExecutionClaim,
+            requestedAt: new Date().toISOString(),
+          })
+        : null;
 
     return {
       ok:
@@ -2795,7 +2816,7 @@ export async function persistDeploymentRunAction(
         (!deploymentHardwareShellExecutionNextItemStart?.ok ||
           deploymentHardwareShellExecutionNextItemStart.entityType !== "hardware_binding" ||
           deploymentHardwareShellExecutionNextItemStart.action !== "bind" ||
-          Boolean(deploymentHardwareBindingDependencyProgression?.ok)),
+          Boolean(deploymentHardwareBindingSuccessorStart?.ok)),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -3158,8 +3179,11 @@ export async function persistDeploymentRunAction(
       deploymentHardwareBindingExecution: deploymentHardwareBindingExecution ?? undefined,
       deploymentHardwareBindingItemCompletion: deploymentHardwareBindingItemCompletion ?? undefined,
       deploymentHardwareBindingDependencyProgression: deploymentHardwareBindingDependencyProgression ?? undefined,
-      message: deploymentHardwareBindingDependencyProgression?.ok
-        ? "Deployment run atomically persisted the Hardware Binding, completed that same item, and marked its deterministic successor ready. The successor was not started; rollback, session completion, and finalization remain unwired."
+      deploymentHardwareBindingSuccessorStart: deploymentHardwareBindingSuccessorStart ?? undefined,
+      message: deploymentHardwareBindingSuccessorStart?.ok
+        ? "Deployment run persisted and completed the Hardware Binding, readied its deterministic successor, and atomically started that exact successor. The successor remains running; its binding execution, completion, further progression, rollback, session completion, and finalization remain unwired."
+        : deploymentHardwareBindingDependencyProgression?.ok
+        ? "Deployment run persisted and completed the Hardware Binding and readied its deterministic successor, but successor start did not succeed. No successor binding execution, rollback, session completion, or finalization occurred."
         : deploymentHardwareBindingItemCompletion?.ok
         ? "Deployment run atomically persisted and completed the Hardware Binding item, but dependency progression did not succeed. No next-item start, rollback, session completion, or finalization occurred."
         : deploymentHardwareBindingExecution?.ok

@@ -197,7 +197,14 @@ async function scenarioSnapshotErrorSanitization() {
     return expectScenario("Supabase snapshot error sanitization", false, "did not throw");
   } catch (caught) {
     const serialized = JSON.stringify(caught);
-    return expectScenario("Supabase snapshot error sanitization", caught instanceof DeploymentActivationExecutionNextItemStartRepositoryError && !serialized.includes(TOKEN), serialized);
+    const passed = caught instanceof DeploymentActivationExecutionNextItemStartRepositoryError
+      && caught.message === "Activation execution next-item start snapshot query failed."
+      && caught.code === "PGRST100"
+      && caught.details === null
+      && caught.hint === null
+      && caught.layer === "snapshot_session_lookup"
+      && !`${caught.message}:${serialized}`.includes(TOKEN);
+    return expectScenario("Supabase snapshot error sanitization", passed, `${caught instanceof Error ? caught.message : String(caught)} ${serialized}`);
   }
 }
 
@@ -363,13 +370,63 @@ function mockClient(input: { sessions?: unknown[]; items?: unknown[]; sessionErr
 }
 
 function queryBuilder(response: { data: unknown; error: unknown }) {
+  const orders: Array<{ column: string; ascending: boolean }> = [];
+  const orderedResponse = () => ({
+    ...response,
+    data: Array.isArray(response.data)
+      ? [...response.data].sort((left, right) => compareMockRows(left, right, orders))
+      : response.data,
+  });
+
   return {
     select() { return this; },
     eq() { return this; },
-    order() { return this; },
-    limit() { return Promise.resolve(response); },
-    then(resolve: (value: { data: unknown; error: unknown }) => unknown) { return Promise.resolve(response).then(resolve); },
+    order(column: string, options?: { ascending?: boolean }) {
+      orders.push({ column, ascending: options?.ascending !== false });
+      return this;
+    },
+    limit() { return Promise.resolve(orderedResponse()); },
+    then(resolve: (value: { data: unknown; error: unknown }) => unknown) { return Promise.resolve(orderedResponse()).then(resolve); },
   };
+}
+
+function compareMockRows(
+  left: unknown,
+  right: unknown,
+  orders: readonly { column: string; ascending: boolean }[],
+): number {
+  if (!isRecord(left) || !isRecord(right)) {
+    return 0;
+  }
+
+  for (const { column, ascending } of orders) {
+    const comparison = compareMockValues(left[column], right[column]);
+    if (comparison !== 0) {
+      return ascending ? comparison : -comparison;
+    }
+  }
+
+  return 0;
+}
+
+function compareMockValues(left: unknown, right: unknown): number {
+  if (left === right) {
+    return 0;
+  }
+  if (left === null || left === undefined) {
+    return -1;
+  }
+  if (right === null || right === undefined) {
+    return 1;
+  }
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+  return String(left).localeCompare(String(right));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function itemId(sequence: number): string { return `00000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`; }
