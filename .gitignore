@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# local schema-capture evidence (review before any later promotion)
+/.tmp/schema-captures/
+
 # next.js
 /.next/
 /out/
