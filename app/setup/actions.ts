@@ -89,6 +89,12 @@ import type {
   DeploymentHardwareBindingSuccessorStartResult,
 } from "@/lib/modules/deployment/deployment-hardware-binding-successor-start";
 import {
+  executeHardwareBindingExecutionStepForServerDeployment,
+} from "@/lib/modules/deployment/deployment-hardware-binding-execution-step-server";
+import type {
+  DeploymentHardwareBindingExecutionStepResult,
+} from "@/lib/modules/deployment/deployment-hardware-binding-execution-step";
+import {
   startActivationExecutionForServerDeployment,
 } from "@/lib/modules/deployment/deployment-activation-execution-start-server";
 import {
@@ -1020,6 +1026,7 @@ export interface PersistDeploymentRunActionResult {
   deploymentHardwareBindingItemCompletion?: DeploymentHardwareBindingItemCompletionResult;
   deploymentHardwareBindingDependencyProgression?: DeploymentHardwareBindingDependencyProgressionResult;
   deploymentHardwareBindingSuccessorStart?: DeploymentHardwareBindingSuccessorStartResult;
+  deploymentHardwareBindingExecutionStep?: DeploymentHardwareBindingExecutionStepResult;
   message: string;
 }
 
@@ -2798,6 +2805,22 @@ export async function persistDeploymentRunAction(
             requestedAt: new Date().toISOString(),
           })
         : null;
+    const deploymentHardwareBindingExecutionStep =
+      deploymentHardwareBindingSuccessorStart?.ok &&
+      deploymentActivationExecution &&
+      deploymentActivationExecutionClaim?.planKey
+        ? await executeHardwareBindingExecutionStepForServerDeployment(client, {
+            clinicId,
+            deploymentRunKey: result.deploymentRun.deploymentRunId,
+            sessionId: deploymentHardwareBindingSuccessorStart.sessionId!,
+            executionKey: deploymentHardwareBindingSuccessorStart.executionKey!,
+            planKey: deploymentActivationExecutionClaim.planKey,
+            claim: deploymentActivationExecutionClaim,
+            runningSuccessor: deploymentHardwareBindingSuccessorStart,
+            preparedExecutionItems: deploymentActivationExecution.executionItems,
+            requestedAt: new Date().toISOString(),
+          })
+        : null;
 
     return {
       ok:
@@ -2816,7 +2839,7 @@ export async function persistDeploymentRunAction(
         (!deploymentHardwareShellExecutionNextItemStart?.ok ||
           deploymentHardwareShellExecutionNextItemStart.entityType !== "hardware_binding" ||
           deploymentHardwareShellExecutionNextItemStart.action !== "bind" ||
-          Boolean(deploymentHardwareBindingSuccessorStart?.ok)),
+          Boolean(deploymentHardwareBindingExecutionStep?.ok)),
       status: result.status,
       deploymentRunId: result.deploymentRun.deploymentRunId,
       deploymentSessionId: normalizedDeploymentSessionId,
@@ -3180,8 +3203,13 @@ export async function persistDeploymentRunAction(
       deploymentHardwareBindingItemCompletion: deploymentHardwareBindingItemCompletion ?? undefined,
       deploymentHardwareBindingDependencyProgression: deploymentHardwareBindingDependencyProgression ?? undefined,
       deploymentHardwareBindingSuccessorStart: deploymentHardwareBindingSuccessorStart ?? undefined,
-      message: deploymentHardwareBindingSuccessorStart?.ok
-        ? "Deployment run persisted and completed the Hardware Binding, readied its deterministic successor, and atomically started that exact successor. The successor remains running; its binding execution, completion, further progression, rollback, session completion, and finalization remain unwired."
+      deploymentHardwareBindingExecutionStep: deploymentHardwareBindingExecutionStep ?? undefined,
+      message: deploymentHardwareBindingExecutionStep?.ok
+        ? deploymentHardwareBindingExecutionStep.status === "completed_terminal_step"
+          ? "Deployment run completed one terminal Hardware Binding execution step. No successor was started; session completion, rollback, and finalization remain unwired."
+          : "Deployment run completed exactly one additional Hardware Binding lifecycle and started its exact successor. That successor remains running and unexecuted; session completion, rollback, and finalization remain unwired."
+        : deploymentHardwareBindingSuccessorStart?.ok
+        ? "Deployment run persisted and completed the Hardware Binding, readied and started its deterministic successor, but the bounded Hardware Binding Execution Step did not succeed. The running successor remains unexecuted; rollback, session completion, and finalization remain unwired."
         : deploymentHardwareBindingDependencyProgression?.ok
         ? "Deployment run persisted and completed the Hardware Binding and readied its deterministic successor, but successor start did not succeed. No successor binding execution, rollback, session completion, or finalization occurred."
         : deploymentHardwareBindingItemCompletion?.ok

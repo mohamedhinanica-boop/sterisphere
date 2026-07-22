@@ -1909,6 +1909,19 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Reused", value: readField(input.deploymentHardwareBindingSuccessorStart, "reusedCount") ?? 0 },
           { label: "Sequence", value: readField(input.deploymentHardwareBindingSuccessorStart, "successorSequence") ?? "none" },
         ]),
+        stage("hardware-binding-execution-step", "Hardware Binding Execution Step", input.deploymentHardwareBindingExecutionStep, "not_attempted", "One bounded Hardware Binding step executes, completes, progresses, and may start exactly one successor without executing it.", [
+          { label: "Status", value: readField(input.deploymentHardwareBindingExecutionStep, "status") ?? "not_attempted" },
+          { label: "Source", value: readField(input.deploymentHardwareBindingExecutionStep, "sequence") ?? "none" },
+          { label: "Binding", value: readField(input.deploymentHardwareBindingExecutionStep, "bindingStatus") ?? "not_attempted" },
+          { label: "Completion", value: readField(input.deploymentHardwareBindingExecutionStep, "completionStatus") ?? "not_attempted" },
+          { label: "Progression", value: readField(input.deploymentHardwareBindingExecutionStep, "progressionStatus") ?? "not_attempted" },
+          { label: "Successor", value: readField(input.deploymentHardwareBindingExecutionStep, "successorSequence") ?? "none" },
+          { label: "Successor status", value: readField(input.deploymentHardwareBindingExecutionStep, "successorStatus") ?? "none" },
+          { label: "Bindings written", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "bindingsWritten") ?? 0 },
+          { label: "Items completed", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "itemsCompleted") ?? 0 },
+          { label: "Dependencies progressed", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "dependenciesProgressed") ?? 0 },
+          { label: "Items started", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "itemsStarted") ?? 0 },
+        ]),
       ],
     },
     {
@@ -2410,6 +2423,8 @@ function CompleteStep({
     deploymentRunResult?.deploymentHardwareBindingDependencyProgression ?? null;
   const deploymentHardwareBindingSuccessorStart =
     deploymentRunResult?.deploymentHardwareBindingSuccessorStart ?? null;
+  const deploymentHardwareBindingExecutionStep =
+    deploymentRunResult?.deploymentHardwareBindingExecutionStep ?? null;
   const statusTone = deploymentRunResult?.ok
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
     : deploymentRunResult
@@ -2481,6 +2496,7 @@ function CompleteStep({
     deploymentHardwareBindingItemCompletion,
     deploymentHardwareBindingDependencyProgression,
     deploymentHardwareBindingSuccessorStart,
+    deploymentHardwareBindingExecutionStep,
   });
   const stageSummary = summarizeCompleteStageGroups(stageGroups);
   const defaultExpandedStageIds = stageSummary.currentStage ? [stageSummary.currentStage.id] : [];
