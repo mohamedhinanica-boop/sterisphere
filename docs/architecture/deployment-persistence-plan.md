@@ -1764,3 +1764,13 @@ Activation and completion remain authoritative RPC mutations; dependency progres
 The production workstation adapter consumes only prepared `workstation_shell:activate` execution items and uses their exact count as the Generic Entity Sequence Driver safety bound. The sterilizer handoff supplies the already-running initial item. Workstation UUID and deterministic deployment key remain separate, and clinic, deployment-run, session, execution, plan, claimant, ownership-token, lease, current-state, transition-target, dependency, and rollback evidence remain server-side through the one-step executor.
 
 Activation and completion remain the authoritative workstation RPC mutations; dependency progression and next-item start remain existing outer boundaries. The first hardware item may become running after all prepared workstations complete, but no hardware activation, direct fallback update, rollback, session completion, finalization, retry, recovery, or background path is introduced.
+
+## RC10.9B - Immutable Recovery-Plan Persistence
+
+The additive recovery persistence boundary normalizes RC10.9A output into `public.deployment_recovery_plans` and `public.deployment_recovery_plan_items`. The parent stores exact execution scope, deterministic recovery/idempotency/payload identity, sanitized failure evidence, unsupported compensation classifications, running execution-control items, and planning-only counters. Child rows store immutable rollback item identity, authoritative rollback sequence, descending source sequence, entity/action identity, prior/current state, and supported-or-blocked compensation evidence.
+
+`public.persist_deployment_recovery_plan(...)` inserts the parent and every rollback item in one transaction-scoped function call. Compatible immutable replay is reused, conflicting identity or payload evidence is rejected, and no partial child set is retained. The function never updates execution sessions, execution items, deployment runs, operational entities, or bindings. No repository, server composition, recovery execution, compensation, session recovery, or finalization is part of RC10.9B.
+
+## RC10.9C - Recovery Persistence Repository and Service
+
+The TypeScript persistence boundary maps one validated, normalized RC10.9A decision to one atomic `persist_deployment_recovery_plan` RPC call. It preserves deterministic rollback ordering, immutable replay identity, safe created/reused/conflict outcomes, and repository diagnostics reduced to an approved code, layer, generic message, and retry classification. Server-only composition is available for a later wiring slice; the unapplied SQL has not been live-tested and no direct-table fallback exists.

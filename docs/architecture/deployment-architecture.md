@@ -1251,3 +1251,25 @@ The authoritative production handler registry now composes `hardware_shell:activ
 The generic driver retains bounded serial iteration, deterministic ordering, duplicate and exactly-once checks, execution identity and lease validation, malformed-evidence blocking, aggregate counters, and first non-matching-item handoff. The hardware adapter supplies only hardware entity/action matching, UUID and deterministic deployment-key validation, evidence mapping, and response projection. Each hardware step performs activation, completion of the same item, outer dependency progression, and outer next-item start.
 
 After all prepared hardware items complete, the first non-hardware item may be started and is returned without dispatch. With current planner ordering this is the first hardware-assignment item. Hardware-assignment execution, rollback, execution-session completion, and deployment finalization remain future work.
+
+## RC10.9A - Recovery decision and rollback planning foundation
+
+The deployment domain now exposes a pure, deterministic decision boundary for classifying failed or interrupted execution snapshots as `rollback_required`, `rollback_not_required`, `blocked`, or `not_found`. It reuses prepared execution items and current session/item snapshots, validates exact clinic, run, session, execution, plan, claimant, lease, and item identity, sanitizes failure evidence through an explicit primitive allowlist, and orders completed durable mutations by descending source sequence.
+
+The compensation matrix is intentionally conservative. Activation compensations remain unsupported because no atomic deactivation boundary exists. A newly written Hardware Binding is conditionally plan-able for future removal only when exact hardware, target, and prior-unbound evidence is present; reused bindings are excluded. Running successors are reported separately as execution-control recovery evidence and are never represented as completed entity mutations.
+
+RC10.9A is read-only planning only. It adds no persistence, rollback execution, binding removal, entity deactivation, item or session mutation, session recovery, deployment finalization, server composition, or runtime wiring.
+
+## RC10.9B - Recovery decision persistence foundation
+
+`public.deployment_recovery_plans` and `public.deployment_recovery_plan_items` store one immutable normalized RC10.9A decision and its deterministic rollback-plan items. `public.persist_deployment_recovery_plan(...)` validates the exact deployment run/session/execution/plan scope, normalized sanitized failure evidence, decision consistency, zero execution counters, strict reverse source-sequence ordering, and conditionally executable Hardware Binding identity before inserting the parent and all children atomically.
+
+Stable recovery, scoped idempotency, and normalized payload identities make compatible replay return `reused`; incompatible reuse returns `conflict` without overwriting or merging evidence. Running successors remain parent-level execution-control evidence and are not inserted as entity rollback items. RLS is enabled deny-by-default, direct client access is revoked, and only `service_role` may execute the fixed-search-path security-definer RPC.
+
+RC10.9B persists planning evidence only. It adds no TypeScript repository or service, runtime wiring, rollback execution, compensation, entity deactivation, binding removal, item reset, session recovery, deployment-run mutation, or finalization.
+
+## RC10.9C - Recovery persistence application boundary
+
+The application layer now provides a narrow recovery persistence repository, a Supabase implementation that calls only `public.persist_deployment_recovery_plan(...)`, a validation and normalization service, and server-only composition for later runtime wiring. The service consumes an existing RC10.9A decision, validates identity and planning invariants, derives stable recovery and idempotency identity, canonicalizes the immutable RPC payload, and stops after mapping `created`, `reused`, `conflict`, `blocked`, `not_found`, or sanitized repository failure evidence.
+
+The RC10.9B SQL still requires manual application in Supabase and has not been live-database validated. RC10.9C adds no Setup wiring, recovery decision generation, rollback execution, compensation, entity or binding mutation, execution-state mutation, session recovery, deployment finalization, retry, recursion, or background work.

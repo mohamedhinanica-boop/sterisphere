@@ -176,7 +176,14 @@ export function hashDeploymentDraftInput(draft: DeploymentDraft): string {
     policies: draft.policies,
     hardwarePlan: draft.hardwarePlan,
   };
-  const input = stableSerialize(deploymentInput);
+  return hashDeploymentCanonicalPayload(deploymentInput, "draft");
+}
+
+export function hashDeploymentCanonicalPayload(
+  value: unknown,
+  prefix = "payload",
+): string {
+  const input = stableSerialize(value);
   let hash = 0x811c9dc5;
 
   for (let index = 0; index < input.length; index += 1) {
@@ -184,7 +191,7 @@ export function hashDeploymentDraftInput(draft: DeploymentDraft): string {
     hash = Math.imul(hash, 0x01000193);
   }
 
-  return `draft-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  return `${prefix}-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 function stableSerialize(value: unknown): string {
