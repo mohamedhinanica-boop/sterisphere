@@ -1762,6 +1762,8 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
   };
 
   const deploymentRunResult = readRecord(input.deploymentRunResult);
+  const hardwareBindingExecutionStepRecord = readRecord(input.deploymentHardwareBindingExecutionStep);
+  const hardwareBindingExecutionStepDownstream = readRecord(hardwareBindingExecutionStepRecord?.downstream);
 
   return [
     {
@@ -1917,10 +1919,10 @@ function buildCompleteStageGroups(input: Record<string, unknown>): CompleteStage
           { label: "Progression", value: readField(input.deploymentHardwareBindingExecutionStep, "progressionStatus") ?? "not_attempted" },
           { label: "Successor", value: readField(input.deploymentHardwareBindingExecutionStep, "successorSequence") ?? "none" },
           { label: "Successor status", value: readField(input.deploymentHardwareBindingExecutionStep, "successorStatus") ?? "none" },
-          { label: "Bindings written", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "bindingsWritten") ?? 0 },
-          { label: "Items completed", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "itemsCompleted") ?? 0 },
-          { label: "Dependencies progressed", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "dependenciesProgressed") ?? 0 },
-          { label: "Items started", value: readField(readField(input.deploymentHardwareBindingExecutionStep, "downstream"), "itemsStarted") ?? 0 },
+          { label: "Bindings written", value: readNumber(hardwareBindingExecutionStepDownstream, "bindingsWritten") ?? 0 },
+          { label: "Items completed", value: readNumber(hardwareBindingExecutionStepDownstream, "itemsCompleted") ?? 0 },
+          { label: "Dependencies progressed", value: readNumber(hardwareBindingExecutionStepDownstream, "dependenciesProgressed") ?? 0 },
+          { label: "Items started", value: readNumber(hardwareBindingExecutionStepDownstream, "itemsStarted") ?? 0 },
         ]),
       ],
     },
