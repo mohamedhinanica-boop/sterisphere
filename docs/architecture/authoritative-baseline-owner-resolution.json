@@ -1,0 +1,704 @@
+{
+  "formatVersion": 1,
+  "sourceOwnerApproval": "docs/architecture/authoritative-baseline-owner-approval.json",
+  "protectedArtifactSha256": {
+    "docs/architecture/authoritative-baseline-object-registry.json": "8A0CFEADAC660BAD9797BBB81C87920D3A9C89C8241BBCE96DDF03033B100E9F",
+    "docs/architecture/authoritative-baseline-design.md": "5CD8117FD42040C0912FAD8ABA40F01EB4E5DF385EE477DF05972C2722AE39B4",
+    "docs/architecture/authoritative-baseline-decision-record.json": "CF5112BA7B80EB7FB93A8E3BF849DE432CAA06ECE0FBC6E9526F3BCDC99D1871",
+    "docs/architecture/authoritative-baseline-decision-record.md": "31B70138B38BD747ECE77A8A8FF6A6420CBCB82103E8B44CCE66B4E8433F625B",
+    "docs/architecture/authoritative-baseline-owner-approval.json": "E44A248B3B4C4616863AB76A98F6121C3C5AB706E6F80DCF44C703B7CC53E99D",
+    "docs/architecture/authoritative-baseline-owner-approval.md": "8BDFAD2B6107D49273713ABFCDB8C889F7560B5C2D6ABB95210CF575F945E2BB"
+  },
+  "readinessConclusion": "READY_FOR_AUTHORITATIVE_BASELINE_GENERATION",
+  "counts": {
+    "approvalGroups": 15,
+    "decisionsCovered": 76,
+    "finalStatus": {
+      "APPROVE_RECOMMENDATION": 6,
+      "APPROVE_WITH_REFINEMENT": 9
+    },
+    "baselineGenerationReady": 15,
+    "baselineGenerationNotReady": 0,
+    "groupsWithApplicationPrerequisites": 11,
+    "groupsWithDataPreflight": 9,
+    "groupsWithSecurityPrerequisites": 13,
+    "groupsRequiringProductionMigration": 11
+  },
+  "futureIntegrationCompatibility": [
+    "Patient external identity uses a normalized clinic/source-instance mapping to avoid vendor coupling.",
+    "Future connectors may resolve patients and reference durable patient/mapping IDs.",
+    "Future note delivery, retry, failure and audit evidence can reference durable identities without changing the core patient uniqueness model.",
+    "No connector, note synchronization, outbox or vendor API design is included."
+  ],
+  "approvalGroups": [
+    {
+      "approvalGroupId": "APPROVAL-001",
+      "title": "Tenant identity and clinic membership model",
+      "mappedDecisionIds": [
+        "AUTH-001"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Use separate global platform-operator authorization and clinic memberships. super_admin is global and restricted to the platform owner/authorized technicians. admin, clinical_staff, doctor and auditor are clinic-scoped. A user may have multiple clinics and different roles per clinic. Authorization keys use auth.users.id, never email alone.",
+      "approvedRefinements": [
+        "Add application-owned platform_operator_roles (or equivalently named global operator authority) keyed to auth.users.id; do not represent global scope with a nullable clinic membership.",
+        "Add clinic_memberships keyed to auth.users.id and clinics.id with role, lifecycle status, invitation/activation/suspension/revocation timestamps and audit actors.",
+        "Controlled one-time global-super-admin bootstrap.",
+        "Global super_admin creates clinics; clinic creation and initial admin membership are atomic or recoverably idempotent.",
+        "Clinic admins manage allowed memberships only in their active clinics and cannot grant super_admin."
+      ],
+      "productionBehaviorImpact": "Replaces Production email-keyed global user_roles and client-side role authority with durable global-operator and multi-clinic membership authorities.",
+      "applicationPrerequisites": [
+        "Authorization-context resolver returning global operator status plus active clinic memberships.",
+        "Server membership administration, invitation acceptance, suspension/reactivation/revocation and break-glass services.",
+        "Update AuthGuard, AppShell, settings, assistant and investigation consumers.",
+        "Idempotent clinic/bootstrap orchestration and owner-only bootstrap command/process."
+      ],
+      "dataPrerequisites": [
+        "Inventory user_roles and auth.users email matches, duplicates, orphans, inactive users and unknown roles.",
+        "Create an owner-approved mapping of every current role to global operator or clinic membership; do not infer clinic scope."
+      ],
+      "securityPrerequisites": [
+        "Audit every membership lifecycle event.",
+        "Protect first/last global super_admin and prohibit clinic admins from global grants.",
+        "Document and test break-glass recovery."
+      ],
+      "migrationPrerequisites": [
+        "Forward schema and data migration from user_roles after mapping approval.",
+        "Coordinate policy replacement and application rollout."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Multiple clinics and different roles per clinic.",
+        "Global super_admin access and audit.",
+        "Clinic-admin delegation boundaries.",
+        "Bootstrap idempotency, last-admin protection, suspension and revocation."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-002",
+      "title": "Anonymous and PUBLIC application access removal",
+      "mappedDecisionIds": [
+        "AUTH-002"
+      ],
+      "finalStatus": "APPROVE_RECOMMENDATION",
+      "ownerResolution": "Remove anonymous direct access to every SteriSphere application table. Browsers require authenticated sessions and authorization. Future public workflows use narrow server/API boundaries only.",
+      "approvedRefinements": [
+        "Shared workstation/scanner/kiosk workflows are not exempt from authentication; their specific authentication mechanism must be designed before release.",
+        "Service-role use requires explicit caller authorization."
+      ],
+      "productionBehaviorImpact": "Tightens Production by replacing broad PUBLIC policies and may stop anon-key browser queries that currently succeed.",
+      "applicationPrerequisites": [
+        "Inventory and replace any browser flow that depends on an unauthenticated session.",
+        "Define authenticated shared-workstation and scanner behavior."
+      ],
+      "dataPrerequisites": [],
+      "securityPrerequisites": [
+        "Anonymous denial regression suite for clinical and deployment data.",
+        "Review every NEXT_PUBLIC anon-client query under authenticated and membership-scoped policies."
+      ],
+      "migrationPrerequisites": [
+        "Deploy compatible application authentication before or atomically with Production policy removal."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Anonymous SELECT/INSERT/UPDATE/DELETE denial on all application tables.",
+        "Authenticated member success, non-member/cross-clinic denial, login continuity."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": false,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-003",
+      "title": "Role authorization and privilege administration",
+      "mappedDecisionIds": [
+        "RLS-025",
+        "RLS-026",
+        "RLS-027"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "All role and membership changes are audited server operations. Global super_admin manages platform roles and memberships; clinic admin manages only permitted clinic memberships and cannot grant super_admin.",
+      "approvedRefinements": [
+        "Invitation acceptance, role assignment/removal, suspension/reactivation and revocation emit audit evidence.",
+        "Document a break-glass process for loss of all global administrators."
+      ],
+      "productionBehaviorImpact": "Eliminates Production PUBLIC role administration and replaces direct user_roles browser access.",
+      "applicationPrerequisites": [
+        "Server authorization and membership-management services.",
+        "Replace settings direct role queries/mutations with authorized APIs.",
+        "UI for invitation and lifecycle state with bounded delegation."
+      ],
+      "dataPrerequisites": [
+        "Map current user_roles records before transition."
+      ],
+      "securityPrerequisites": [
+        "Authorization checks for every membership operation.",
+        "Immutable/auditable evidence and last-global-admin safeguards."
+      ],
+      "migrationPrerequisites": [
+        "Migrate role policies and records only after server/UI readiness."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Global and clinic delegation matrix.",
+        "Unauthorized grant, self-escalation, cross-clinic and last-admin negative tests."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-004",
+      "title": "Patient and traceability access",
+      "mappedDecisionIds": [
+        "RLS-015",
+        "RLS-016",
+        "RLS-017",
+        "RLS-018"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Each ordinary patient belongs to exactly one clinic. Each trace uses the same clinic as its patient and pack/cycle evidence. Access is clinic-scoped; global support access is super_admin-only and audited.",
+      "approvedRefinements": [
+        "Do not guess ambiguous historical ownership. Classify rows as resolved, quarantined, or explicitly global only where valid.",
+        "Strict tenant constraints wait for preflight resolution."
+      ],
+      "productionBehaviorImpact": "Adds tenant ownership and replaces Production PUBLIC patient/trace access.",
+      "applicationPrerequisites": [
+        "Pass trusted clinic context through patient import/create and trace workflows.",
+        "Update patient, history, trace, pack-detail and report queries for authorized clinic context.",
+        "Provide reviewed quarantine/resolution operations."
+      ],
+      "dataPrerequisites": [
+        "Read-only ownership preflight joining patients, traces, packs and cycles.",
+        "Report missing, conflicting, cross-clinic, orphan and duplicate ownership.",
+        "Quarantine manifest with row identity, evidence, reason and resolution status; no automatic backfill."
+      ],
+      "securityPrerequisites": [
+        "Clinic membership policies and audited super_admin support access."
+      ],
+      "migrationPrerequisites": [
+        "Backfill only owner-resolved mappings, then enforce clinic keys/FKs/policies."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Patient/trace same-clinic invariants.",
+        "Ambiguous row rejection/quarantine.",
+        "Role and cross-clinic access matrix."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-005",
+      "title": "Cycle, load, and pack access",
+      "mappedDecisionIds": [
+        "RLS-006",
+        "RLS-007",
+        "RLS-008",
+        "RLS-009",
+        "RLS-010",
+        "RLS-011",
+        "RLS-012",
+        "RLS-013",
+        "RLS-014"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Every cycle belongs to one clinic; load items and packs derive clinic ownership from authoritative durable cycle/deployment context. Reads/writes are clinic-scoped and trusted server transitions follow caller authorization.",
+      "approvedRefinements": [
+        "Never prefer client clinic input over durable relationships.",
+        "Historical conflicts require explicit resolution."
+      ],
+      "productionBehaviorImpact": "Adds cycle tenant ownership and replaces broad Production cycle/load/pack policies.",
+      "applicationPrerequisites": [
+        "Update CycleWizard, cycle, pack generation/review, inventory, dashboard and investigation workflows.",
+        "Move privileged state transitions to authorized server workflows where required."
+      ],
+      "dataPrerequisites": [
+        "Read-only preflight for cycles, loads and packs with missing/orphan/conflicting ownership and nullable pack-cycle relationships.",
+        "Resolution/quarantine plan; no inferred backfill from untrusted fields."
+      ],
+      "securityPrerequisites": [
+        "Clinic membership policies and server caller authorization."
+      ],
+      "migrationPrerequisites": [
+        "Resolve/backfill ownership before non-null/FK/policy enforcement."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Ownership derivation, lifecycle, pack generation concurrency, role matrix and cross-clinic denial."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-006",
+      "title": "Deployment, setup, provider, sterilizer, and clinic-settings authorization",
+      "mappedDecisionIds": [
+        "RLS-003",
+        "RLS-004",
+        "RLS-005",
+        "RLS-019",
+        "RLS-020",
+        "RLS-021",
+        "RLS-022",
+        "RLS-023",
+        "RLS-024"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Only global super_admin creates clinic tenants and deployments. Clinic admins manage allowed configuration inside active memberships only. Every service-role setup/deployment call requires authenticated caller authorization and durable clinic-scope verification.",
+      "approvedRefinements": [
+        "Client clinic IDs are assertions, not authorization.",
+        "Preserve deployment idempotency and audit evidence.",
+        "Current persistDeploymentRunAction has no authenticated caller/membership/super_admin check before constructing its service-role client; this gate is required."
+      ],
+      "productionBehaviorImpact": "Tightens Production setup/settings/provider/sterilizer authorization while preserving service-role deployment mechanics.",
+      "applicationPrerequisites": [
+        "Add authenticated caller resolution and global-super-admin/clinic-admin authorization before service client construction.",
+        "Separate new-clinic creation from permitted existing-clinic administration.",
+        "Propagate trusted caller/clinic authorization evidence through setup services."
+      ],
+      "dataPrerequisites": [
+        "Verify clinic_id completeness and active membership for existing setup/configuration records."
+      ],
+      "securityPrerequisites": [
+        "Deny unauthenticated, non-member and cross-clinic setup.",
+        "Audit actor, target clinic and deployment identity."
+      ],
+      "migrationPrerequisites": [
+        "Application authorization gate first; then align Production policies before release."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "New-clinic global-admin only.",
+        "Existing-clinic bounded admin operations.",
+        "Direct action invocation, forged clinic ID, cross-clinic and idempotency tests."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-007",
+      "title": "Runtime RPC and service-role execution",
+      "mappedDecisionIds": [
+        "RPC-001",
+        "RPC-002",
+        "RPC-003",
+        "RPC-004",
+        "RPC-005",
+        "RPC-006",
+        "RPC-007",
+        "RPC-008",
+        "RPC-009",
+        "RPC-010",
+        "RPC-011",
+        "RPC-012",
+        "RPC-013",
+        "RPC-014",
+        "RPC-015",
+        "RPC-016",
+        "RPC-017"
+      ],
+      "finalStatus": "APPROVE_RECOMMENDATION",
+      "ownerResolution": "All 17 runtime RPCs remain server-side service-role operations with minimum ACLs, trusted search paths and durable clinic/deployment validation.",
+      "approvedRefinements": [
+        "Reconfirmed: all non-test .rpc calls are in deployment Supabase repositories; no browser-side RPC call exists.",
+        "Caller-supplied p_clinic_id is never sufficient authorization."
+      ],
+      "productionBehaviorImpact": "Preserves current server execution; tightens only ACL/search-path attributes where drift exists.",
+      "applicationPrerequisites": [
+        "Complete the setup caller-authorization gate described by APPROVAL-006; no RPC call-site redesign is required."
+      ],
+      "dataPrerequisites": [],
+      "securityPrerequisites": [
+        "Revoke PUBLIC/anon/authenticated execute.",
+        "Compare durable clinic/run/session/item/entity/target identities."
+      ],
+      "migrationPrerequisites": [
+        "Apply ACL/attribute migration only where Production differs."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "All 17 positive paths and execute-denial, tenant mismatch, stale lease/token, replay, malformed input and concurrency negatives."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": false,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": false,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-008",
+      "title": "Trigger-helper permissions",
+      "mappedDecisionIds": [
+        "RPC-H01",
+        "RPC-H02",
+        "RPC-H03",
+        "RPC-H04",
+        "RPC-H05",
+        "RPC-H06",
+        "RPC-H07",
+        "RPC-H08"
+      ],
+      "finalStatus": "APPROVE_RECOMMENDATION",
+      "ownerResolution": "Eight timestamp helpers remain trigger-only infrastructure with trusted search paths and no direct browser execution; preserve all live attachments and behavior.",
+      "approvedRefinements": [],
+      "productionBehaviorImpact": "Preserves trigger behavior and may tighten Production function ACL/search_path.",
+      "applicationPrerequisites": [],
+      "dataPrerequisites": [],
+      "securityPrerequisites": [
+        "Restrict direct execute without impairing trigger invocation."
+      ],
+      "migrationPrerequisites": [
+        "Forward ACL/search-path correction only where Production differs."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Trigger attachment/event/timestamp/NEW behavior and browser-role execute denial."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": false,
+        "dataPreflightRequired": false,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-009",
+      "title": "Patient external-ID uniqueness",
+      "mappedDecisionIds": [
+        "UNIQUE-001"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "External patient identity is not global. Prefer a normalized patient_external_identifiers mapping owned by clinic and SteriSphere patient, with source-system type, external ID, optional source-instance/connection ID, lifecycle and integration metadata.",
+      "approvedRefinements": [
+        "Uniqueness is clinic + source instance (or source system when only one instance) + external patient ID.",
+        "Core patients may have no external mapping.",
+        "Keep schema compatible with future practice-management connectors without designing connector, outbox, API client or note synchronization."
+      ],
+      "productionBehaviorImpact": "Replaces duplicate global Production external_id uniqueness with integration-ready clinic/source identity mappings.",
+      "applicationPrerequisites": [
+        "Patient import/resolution services must use external mappings rather than treat patients.external_id as global."
+      ],
+      "dataPrerequisites": [
+        "Inventory duplicates, nulls, source systems, clinic ownership and possible multiple source instances.",
+        "Do not enforce until ambiguous identity/ownership is resolved."
+      ],
+      "securityPrerequisites": [
+        "External mappings inherit patient clinic access and protect connector metadata."
+      ],
+      "migrationPrerequisites": [
+        "Introduce mapping, migrate verified identities, then retire/relax legacy global constraints."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Same external ID across clinics/instances.",
+        "Same-instance collision.",
+        "Null/no mapping and lifecycle transitions.",
+        "Future connector can resolve patient identity and reference delivery/audit records by durable IDs."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-010",
+      "title": "Provider and sterilizer uniqueness",
+      "mappedDecisionIds": [
+        "UNIQUE-002",
+        "UNIQUE-003"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Provider and sterilizer names are clinic-scoped, never global. Deployment keys are immutable and clinic-scoped. Historical relationships use durable IDs. Archived records remain addressable and their normalized names remain reserved within the clinic.",
+      "approvedRefinements": [
+        "Safest archived-name rule: no reuse while an archived record exists. This avoids ambiguous support/history and accidental reactivation collisions; a future explicit merge/rename process may release a name."
+      ],
+      "productionBehaviorImpact": "Replaces Production global name uniqueness with clinic-scoped all-lifecycle name reservation.",
+      "applicationPrerequisites": [
+        "Update setup/settings duplicate validation and error handling to include clinic and lifecycle."
+      ],
+      "dataPrerequisites": [
+        "Inventory normalized collisions per clinic and lifecycle before migration."
+      ],
+      "securityPrerequisites": [],
+      "migrationPrerequisites": [
+        "Create clinic-scoped normalized indexes only after collision resolution; preserve immutable keys and IDs."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Cross-clinic reuse, same-clinic rejection including archived rows, reactivation, immutable keys and concurrency."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": false,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-011",
+      "title": "Workstation ordering",
+      "mappedDecisionIds": [
+        "UNIQUE-004"
+      ],
+      "finalStatus": "APPROVE_RECOMMENDATION",
+      "ownerResolution": "Use the Production-compatible non-unique (display_order, name) workstation index. It provides deterministic ordering but no uniqueness rule.",
+      "approvedRefinements": [],
+      "productionBehaviorImpact": "No intended Production or application behavior change.",
+      "applicationPrerequisites": [],
+      "dataPrerequisites": [],
+      "securityPrerequisites": [],
+      "migrationPrerequisites": [
+        "No migration unless normalized definition comparison finds drift."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Index definition, plan use, ties and null display order."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": false,
+        "dataPreflightRequired": false,
+        "securityReviewRequired": false,
+        "productionMigrationRequired": false,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-012",
+      "title": "Hardware, printer, agent, and provisioning defaults",
+      "mappedDecisionIds": [
+        "HARDWARE-001",
+        "HARDWARE-002",
+        "HARDWARE-003",
+        "HARDWARE-004",
+        "HARDWARE-005"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Database owns durable valid hardware state; deployment owns idempotent planned defaults/templates/associations; application presents and validates product choices; environment configuration owns endpoints, protocols, ports, secrets and agent locations.",
+      "approvedRefinements": [
+        "Planned/inactive rows may be incomplete; active rows must satisfy operational constraints.",
+        "Loopback/private HTTP is allowed only when an explicit local deployment mode is enabled.",
+        "Cloud/public mode never silently defaults to localhost or arbitrary HTTP.",
+        "Local-mode boundaries and validation rules are activation prerequisites, not unresolved baseline architecture."
+      ],
+      "productionBehaviorImpact": "Removes environment-specific Production defaults and validates lifecycle-dependent hardware state.",
+      "applicationPrerequisites": [
+        "Define local-mode configuration UX and activation validation.",
+        "Stop relying on database localhost/Wi-Fi/port defaults as product truth."
+      ],
+      "dataPrerequisites": [
+        "Inventory NOT VALID printer checks, localhost/private/HTTP URLs, connection settings and active incomplete hardware."
+      ],
+      "securityPrerequisites": [
+        "Validate scheme/host by mode; keep secrets out of durable public configuration; authorize device provisioning by clinic."
+      ],
+      "migrationPrerequisites": [
+        "Application/environment support first, then forward default/check cleanup."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Local/private/cloud URL matrix, USB/network printer, planned/active/archived transitions and idempotent provisioning."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-013",
+      "title": "Platform and Supabase prerequisites",
+      "mappedDecisionIds": [
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
+        "PLATFORM-005",
+        "PLATFORM-006"
+      ],
+      "finalStatus": "APPROVE_RECOMMENDATION",
+      "ownerResolution": "Supabase owns auth, storage, managed extensions and platform roles. The application baseline asserts prerequisites, references required objects and never recreates platform internals. Storage is excluded absent runtime evidence.",
+      "approvedRefinements": [],
+      "productionBehaviorImpact": "Preserves Production platform ownership and adds fail-fast baseline assertions.",
+      "applicationPrerequisites": [],
+      "dataPrerequisites": [],
+      "securityPrerequisites": [
+        "Verify required roles and auth helpers without granting platform ownership."
+      ],
+      "migrationPrerequisites": [
+        "No application Production migration unless prerequisite drift is discovered."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Compatible/incompatible prerequisite checks and proof no platform objects are created."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": false,
+        "dataPreflightRequired": false,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": false,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-014",
+      "title": "Function, index, constraint, trigger, and default normalization",
+      "mappedDecisionIds": [
+        "NORMALIZE-001",
+        "NORMALIZE-002",
+        "NORMALIZE-003",
+        "NORMALIZE-004",
+        "NORMALIZE-005",
+        "NORMALIZE-006",
+        "NORMALIZE-007"
+      ],
+      "finalStatus": "APPROVE_RECOMMENDATION",
+      "ownerResolution": "Use normalized Production-compatible evolved definitions; ignore identifier truncation only when semantics match; treat genuine differences as explicit migrations; exclude executable superseded/history while preserving provenance.",
+      "approvedRefinements": [],
+      "productionBehaviorImpact": "Preserves deployed semantics except separately approved changes and prevents superseded objects entering the baseline.",
+      "applicationPrerequisites": [],
+      "dataPrerequisites": [],
+      "securityPrerequisites": [
+        "Normalize function security/search_path/ACL attributes exactly."
+      ],
+      "migrationPrerequisites": [
+        "Forward migration for genuine semantic differences only."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Normalized definitions/hashes, dependencies, signatures, constraints, indexes, triggers, defaults and counts."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": false,
+        "dataPreflightRequired": false,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": false,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    },
+    {
+      "approvalGroupId": "APPROVAL-015",
+      "title": "Audit access and tenant ownership",
+      "mappedDecisionIds": [
+        "RLS-001",
+        "RLS-002"
+      ],
+      "finalStatus": "APPROVE_WITH_REFINEMENT",
+      "ownerResolution": "Clinic audit events have one clinic; explicit global/system events may omit clinic only with a scope classification. Trusted server/database paths write audits. Clinic admin/auditor read permitted clinic events; global super_admin has audited platform-wide support access.",
+      "approvedRefinements": [
+        "Nullable clinic_id never implies global scope.",
+        "Preserve actor, clinic/scope, action, target, timestamp and relevant metadata.",
+        "Service-role bypass does not excuse tenant attribution."
+      ],
+      "productionBehaviorImpact": "Adds audit scope/tenant attribution and replaces broad authenticated Production insert/read.",
+      "applicationPrerequisites": [
+        "Central trusted audit-write service/context.",
+        "Update audit page, reports, dashboard and assistant activity for scoped reads."
+      ],
+      "dataPrerequisites": [
+        "Classify historical rows as clinic, explicit global/system, or quarantined unknown; do not guess."
+      ],
+      "securityPrerequisites": [
+        "Append-only controls, role-scoped reads and audited global support access."
+      ],
+      "migrationPrerequisites": [
+        "Resolve/quarantine history, add scope/clinic invariants, then replace policies."
+      ],
+      "baselineGenerationReady": true,
+      "unresolvedItems": [],
+      "validationRequirements": [
+        "Tenant/global/unknown classification, append-only writes, role matrix, cross-clinic denial and service attribution."
+      ],
+      "ownerApproved": true,
+      "gates": {
+        "applicationChangeRequired": true,
+        "dataPreflightRequired": true,
+        "securityReviewRequired": true,
+        "productionMigrationRequired": true,
+        "stagingValidationRequired": true,
+        "blockingUnresolvedArchitecture": false
+      }
+    }
+  ]
+}
