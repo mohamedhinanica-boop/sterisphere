@@ -1,0 +1,268 @@
+{
+  "freezeVersion": "1.0.0",
+  "freezeStatus": "LOCKED",
+  "createdAt": "2026-07-23T04:39:44.000Z",
+  "repository": {
+    "branch": "main",
+    "headCommit": "2373ad80d6a86510acde0010ea1bfb1f82d0fe02",
+    "shortHeadCommit": "2373ad8",
+    "headSubject": "Phase 10.5D: Resolve authoritative baseline owner decisions",
+    "upstream": "origin/main",
+    "synchronizedWithUpstream": true,
+    "upstreamStatus": "SYNCHRONIZED_USING_LOCAL_TRACKING_REF",
+    "workingTreeCleanBeforeFreeze": true
+  },
+  "frozenInputs": [
+    {
+      "path": "docs/architecture/authoritative-baseline-decision-record.json",
+      "type": "application/json",
+      "sizeBytes": 121974,
+      "sha256": "CF5112BA7B80EB7FB93A8E3BF849DE432CAA06ECE0FBC6E9526F3BCDC99D1871",
+      "gitTracked": true,
+      "gitBlobHash": "1a38d00903a05ff38b4c91c29212982e0f934a87",
+      "role": "Structured 76-decision authority and validation contract",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-decision-record.md",
+      "type": "text/markdown",
+      "sizeBytes": 24041,
+      "sha256": "31B70138B38BD747ECE77A8A8FF6A6420CBCB82103E8B44CCE66B4E8433F625B",
+      "gitTracked": true,
+      "gitBlobHash": "eed75ce593e42e00a89358013b8a5258a13559e7",
+      "role": "Human-readable detailed decision authority",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-design.md",
+      "type": "text/markdown",
+      "sizeBytes": 24849,
+      "sha256": "5CD8117FD42040C0912FAD8ABA40F01EB4E5DF385EE477DF05972C2722AE39B4",
+      "gitTracked": true,
+      "gitBlobHash": "a35be40efc3098d5cbddcae2463a7fa85c0995e0",
+      "role": "Baseline scope, object strategy, ordering, and validation design",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-object-registry.json",
+      "type": "application/json",
+      "sizeBytes": 763678,
+      "sha256": "8A0CFEADAC660BAD9797BBB81C87920D3A9C89C8241BBCE96DDF03033B100E9F",
+      "gitTracked": true,
+      "gitBlobHash": "77896ab1c84233111c052b183af881477852d866",
+      "role": "Factual structured object inventory",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-owner-approval.json",
+      "type": "application/json",
+      "sizeBytes": 34350,
+      "sha256": "E44A248B3B4C4616863AB76A98F6121C3C5AB706E6F80DCF44C703B7CC53E99D",
+      "gitTracked": true,
+      "gitBlobHash": "0570b5c643c45930047fbd1f26c28ae779d4ae29",
+      "role": "Structured 15-group approval package and traceability",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-owner-approval.md",
+      "type": "text/markdown",
+      "sizeBytes": 22733,
+      "sha256": "8BDFAD2B6107D49273713ABFCDB8C889F7560B5C2D6ABB95210CF575F945E2BB",
+      "gitTracked": true,
+      "gitBlobHash": "1ddce591209ca51a43c4eb4f2486d0fc1adb6f41",
+      "role": "Owner-readable approval grouping and risk review",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-owner-resolution.json",
+      "type": "application/json",
+      "sizeBytes": 33333,
+      "sha256": "D0CE3D8910EBAA73AF87FD3903851D1207969764473281D5D14715120F26CB1B",
+      "gitTracked": true,
+      "gitBlobHash": "06bebb1090223537a9d954f423d769abcf1c5367",
+      "role": "Structured final owner resolutions and readiness gates",
+      "mutability": "FROZEN"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-owner-resolution.md",
+      "type": "text/markdown",
+      "sizeBytes": 19635,
+      "sha256": "B4255526CACC880371C1C0BC544DFAE92DA696D3193DB71F7DBCC28FC6B9A8A1",
+      "gitTracked": true,
+      "gitBlobHash": "8a65b732e2e1a6f7925e9da4170eb2a0337f9321",
+      "role": "Human-readable final approved architecture and gates",
+      "mutability": "FROZEN"
+    }
+  ],
+  "supportingEvidence": [
+    {
+      "path": "docs/architecture/deployment-architecture.md",
+      "role": "Deployment architecture/release sequencing evidence",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    },
+    {
+      "path": "docs/architecture/deployment-sequence.md",
+      "role": "Deployment architecture/release sequencing evidence",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    },
+    {
+      "path": "docs/architecture/environment-management.md",
+      "role": "Environment/release-management evidence",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    },
+    {
+      "path": "docs/architecture/environment-synchronization.md",
+      "role": "Environment/release-management evidence",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    },
+    {
+      "path": "docs/architecture/production-schema-capture.md",
+      "role": "Capture method and validation contract",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    },
+    {
+      "path": "docs/architecture/production-schema-reconciliation-report.md",
+      "role": "Production-to-repository reconciliation evidence",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    },
+    {
+      "path": "docs/architecture/staging-schema-synchronization-plan.md",
+      "role": "Staging synchronization and release-gate evidence",
+      "authority": "SUPPORTING_EVIDENCE_ONLY",
+      "mayOverrideOwnerResolution": false
+    }
+  ],
+  "excludedArtifacts": [
+    {
+      "category": "Superseded SQL",
+      "examples": [
+        "supabase_deployment_core.sql"
+      ],
+      "rule": "Never use as executable baseline authority."
+    },
+    {
+      "category": "Historical SQL and preflights",
+      "examples": [
+        "docs/architecture/deployment-activation-execution-preflight.sql",
+        "**/*_preflight.sql"
+      ],
+      "rule": "Validation/history only; never baseline mutation input."
+    },
+    {
+      "category": "Repair-only SQL",
+      "examples": [
+        "supabase_investigation_lifecycle.sql"
+      ],
+      "rule": "Do not replay repair DML in a clean baseline."
+    },
+    {
+      "category": "Production capture SQL",
+      "examples": [
+        ".tmp/schema-captures/20260723T031930Z/production-public-schema.sql",
+        ".tmp/schema-captures/20260723T031930Z/production-auth-storage-schema.sql"
+      ],
+      "rule": "Supporting fidelity evidence only; never copy mechanically or override owner resolutions."
+    },
+    {
+      "category": "Application source and runtime configuration",
+      "examples": [
+        "app/**",
+        "lib/**",
+        ".env*"
+      ],
+      "rule": "Not authoritative baseline-generation input; never copy secrets or infer owner decisions from runtime defaults."
+    }
+  ],
+  "productionCaptureReference": {
+    "relativeDirectory": ".tmp/schema-captures/20260723T031930Z",
+    "captureTimestamp": "2026-07-23T03:19:30Z",
+    "captureId": "20260723T031930Z",
+    "validationStatus": "VALIDATED_SCHEMA_ONLY",
+    "schemaMode": "schema-only",
+    "projectReference": null,
+    "projectReferenceNote": "No non-sensitive project reference is recorded in the approved architecture artifacts; intentionally omitted.",
+    "manifestPath": ".tmp/schema-captures/20260723T031930Z/production-schema-manifest.json",
+    "manifestSha256": "A83855277A55A0B9E67D8028774E9D620A0BF9F06A319B60943C76C0421F299D",
+    "validatorSummaryCounts": {
+      "schemas": 4,
+      "extensions": 0,
+      "tables": 52,
+      "views": 0,
+      "materializedViews": 0,
+      "sequences": 1,
+      "functions": 52,
+      "triggers": 14,
+      "indexes": 143,
+      "constraints": 355,
+      "rlsEnabledTables": 45,
+      "policies": 27,
+      "grants": 91,
+      "revokes": 19,
+      "rpcCandidates": 25
+    },
+    "sourceFiles": [
+      "production-auth-storage-schema.sql",
+      "production-public-schema.sql"
+    ],
+    "authority": "SUPPORTING_EVIDENCE_ONLY"
+  },
+  "securityRequirements": [
+    {
+      "requirementId": "SECURITY-REQ-001",
+      "classification": "RELEASE_BLOCKING_IMPLEMENTATION_REQUIREMENT",
+      "baselineGenerationBlocker": false,
+      "stagingReleaseBlocker": true,
+      "versionOneReleaseBlocker": true,
+      "requirement": "Every user-triggered server action or service that constructs or uses a Supabase service-role client must authenticate the caller, authorize the caller, resolve permitted clinic scope from durable records, validate the requested target against that scope, then execute the privileged operation and emit audit evidence.",
+      "knownFinding": "persistDeploymentRunAction constructs its service-role client without first verifying the authenticated caller, global operator status, or clinic membership.",
+      "requiredValidation": [
+        "Unauthenticated denial",
+        "Unauthorized-role denial",
+        "Cross-clinic denial",
+        "Forged target-clinic denial",
+        "Authorized global-operator and clinic-admin positive paths",
+        "Audit evidence for privileged execution"
+      ]
+    }
+  ],
+  "baselineGenerationStatus": "AUTHORIZED",
+  "productionMigrationStatus": "NOT_AUTHORIZED",
+  "authorizedActions": [
+    "Generate a proposed authoritative baseline from exactly the eight frozen inputs.",
+    "Use supporting Production evidence to verify fidelity without overriding owner resolutions.",
+    "Produce baseline traceability and validation artifacts in a separately authorized phase."
+  ],
+  "unauthorizedActions": [
+    "Initialize Staging.",
+    "Migrate or otherwise modify Production.",
+    "Replace Production RLS policies.",
+    "Release application changes.",
+    "Authorize Version 1.0 release.",
+    "Reinterpret owner-approved decisions.",
+    "Reintroduce historical, superseded, repair-only, or planning-only SQL."
+  ],
+  "invalidationRules": [
+    "Any byte change to a frozen input invalidates freeze 1.0.0.",
+    "Any architecture change requires a new decision record or amendment, explicit owner approval, and a new architecture-freeze version.",
+    "A missing, untracked, modified, or hash-mismatched frozen input invalidates the freeze.",
+    "Supporting evidence may verify fidelity but cannot override frozen owner resolutions.",
+    "Baseline generation must not reinterpret owner-approved decisions.",
+    "Production migration gates remain separate from baseline-generation readiness."
+  ],
+  "requiredBaselineTraceability": [
+    "freezeVersion 1.0.0",
+    "externally recorded freeze manifest SHA-256",
+    "frozen owner-resolution SHA-256",
+    "source Production capture reference .tmp/schema-captures/20260723T031930Z/"
+  ],
+  "manifestHashAlgorithm": "SHA-256",
+  "manifestHashRecordedExternally": true,
+  "manifestHashRepresentation": "Exact UTF-8 bytes of authoritative-architecture-freeze.json, including two-space indentation and one trailing LF, with no BOM.",
+  "readinessConclusion": "AUTHORITATIVE_ARCHITECTURE_FREEZE_LOCKED"
+}
