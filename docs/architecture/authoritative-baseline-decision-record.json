@@ -1,0 +1,2191 @@
+{
+  "formatVersion": 1,
+  "sourceRegistry": "docs/architecture/authoritative-baseline-object-registry.json",
+  "sourceRegistrySha256": "8A0CFEADAC660BAD9797BBB81C87920D3A9C89C8241BBCE96DDF03033B100E9F",
+  "readinessConclusion": "READY_PENDING_HUMAN_APPROVAL",
+  "counts": {
+    "total": 76,
+    "byCategory": {
+      "AUTH": 2,
+      "HARDWARE": 5,
+      "NORMALIZE": 7,
+      "PLATFORM": 6,
+      "RLS": 27,
+      "RPC": 25,
+      "UNIQUE": 4
+    },
+    "byRisk": {
+      "critical": 28,
+      "high": 27,
+      "low": 1,
+      "medium": 20
+    },
+    "policyDisposition": {
+      "REPLACE_IN_BASELINE": 27
+    },
+    "runtimeRpcAclDecisions": 17,
+    "helperAclDecisions": 8,
+    "humanApprovalRequired": 76
+  },
+  "decisions": [
+    {
+      "decisionId": "RLS-001",
+      "category": "RLS",
+      "subject": "audit_logs: Allow authenticated users to insert audit logs",
+      "relatedObjects": [
+        "public.audit_logs.Allow authenticated users to insert audit logs",
+        "public.audit_logs:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert and read every audit row; no tenant predicate.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add a tenant key; service-role-only insert; clinic-scoped SELECT for super_admin/admin/auditor; no direct client update/delete.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for audit_logs.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Audit writer, audit page, dashboard, reports, assistant activity.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-002",
+      "category": "RLS",
+      "subject": "audit_logs: Allow authenticated users to read audit logs",
+      "relatedObjects": [
+        "public.audit_logs.Allow authenticated users to read audit logs",
+        "public.audit_logs:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert and read every audit row; no tenant predicate.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add a tenant key; service-role-only insert; clinic-scoped SELECT for super_admin/admin/auditor; no direct client update/delete.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for audit_logs.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Audit writer, audit page, dashboard, reports, assistant activity.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-003",
+      "category": "RLS",
+      "subject": "clinic_settings: Allow admins to insert clinic settings",
+      "relatedObjects": [
+        "public.clinic_settings.Allow admins to insert clinic settings",
+        "public.clinic_settings:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, update, and read all settings.",
+      "recommendation": "REPLACE_IN_BASELINE ? Membership-scoped SELECT; admin/super_admin clinic-scoped INSERT/UPDATE; service role allowed; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for clinic_settings.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore it; policies named admins do not check role.",
+        "Runtime dependency: Settings UI, printer agent, deployment readiness/plan/settings.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-004",
+      "category": "RLS",
+      "subject": "clinic_settings: Allow admins to update clinic settings",
+      "relatedObjects": [
+        "public.clinic_settings.Allow admins to update clinic settings",
+        "public.clinic_settings:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, update, and read all settings.",
+      "recommendation": "REPLACE_IN_BASELINE ? Membership-scoped SELECT; admin/super_admin clinic-scoped INSERT/UPDATE; service role allowed; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for clinic_settings.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore it; policies named admins do not check role.",
+        "Runtime dependency: Settings UI, printer agent, deployment readiness/plan/settings.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-005",
+      "category": "RLS",
+      "subject": "clinic_settings: Allow authenticated users to read clinic settings",
+      "relatedObjects": [
+        "public.clinic_settings.Allow authenticated users to read clinic settings",
+        "public.clinic_settings:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, update, and read all settings.",
+      "recommendation": "REPLACE_IN_BASELINE ? Membership-scoped SELECT; admin/super_admin clinic-scoped INSERT/UPDATE; service role allowed; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for clinic_settings.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore it; policies named admins do not check role.",
+        "Runtime dependency: Settings UI, printer agent, deployment readiness/plan/settings.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-006",
+      "category": "RLS",
+      "subject": "cycles: Allow public insert cycles",
+      "relatedObjects": [
+        "public.cycles.Allow public insert cycles",
+        "public.cycles:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert, read, and update every cycle.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add clinic_id; authenticated clinic members may read; clinical_staff/admin/super_admin may create/update; doctors/auditors read only; service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for cycles.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Cycle, investigation, pack, patient, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-007",
+      "category": "RLS",
+      "subject": "cycles: Allow public read cycles",
+      "relatedObjects": [
+        "public.cycles.Allow public read cycles",
+        "public.cycles:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update every cycle.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add clinic_id; authenticated clinic members may read; clinical_staff/admin/super_admin may create/update; doctors/auditors read only; service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for cycles.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Cycle, investigation, pack, patient, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-008",
+      "category": "RLS",
+      "subject": "cycles: Allow public update cycles",
+      "relatedObjects": [
+        "public.cycles.Allow public update cycles",
+        "public.cycles:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles PUBLIC; USING=true; WITH CHECK=true. PUBLIC can insert, read, and update every cycle.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add clinic_id; authenticated clinic members may read; clinical_staff/admin/super_admin may create/update; doctors/auditors read only; service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for cycles.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Cycle, investigation, pack, patient, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-009",
+      "category": "RLS",
+      "subject": "load_items: Allow authenticated users to insert load items",
+      "relatedObjects": [
+        "public.load_items.Allow authenticated users to insert load items",
+        "public.load_items:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update all load items.",
+      "recommendation": "REPLACE_IN_BASELINE ? Enforce clinic membership through parent cycle (or denormalized clinic_id); clinical_staff/admin write, permitted clinic roles read; service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for load_items.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: Tenant is only derivable through cycle_id; policy does not derive it.",
+        "Runtime dependency: Cycle creation, pack generation, investigation.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-010",
+      "category": "RLS",
+      "subject": "load_items: Allow authenticated users to read load items",
+      "relatedObjects": [
+        "public.load_items.Allow authenticated users to read load items",
+        "public.load_items:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update all load items.",
+      "recommendation": "REPLACE_IN_BASELINE ? Enforce clinic membership through parent cycle (or denormalized clinic_id); clinical_staff/admin write, permitted clinic roles read; service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for load_items.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: Tenant is only derivable through cycle_id; policy does not derive it.",
+        "Runtime dependency: Cycle creation, pack generation, investigation.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-011",
+      "category": "RLS",
+      "subject": "load_items: Allow authenticated users to update load items",
+      "relatedObjects": [
+        "public.load_items.Allow authenticated users to update load items",
+        "public.load_items:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update all load items.",
+      "recommendation": "REPLACE_IN_BASELINE ? Enforce clinic membership through parent cycle (or denormalized clinic_id); clinical_staff/admin write, permitted clinic roles read; service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for load_items.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: Tenant is only derivable through cycle_id; policy does not derive it.",
+        "Runtime dependency: Cycle creation, pack generation, investigation.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-012",
+      "category": "RLS",
+      "subject": "packs: Allow authenticated users to review expired packs",
+      "relatedObjects": [
+        "public.packs.Allow authenticated users to review expired packs",
+        "public.packs:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. PUBLIC can insert/read all packs; authenticated users can update any expired review.",
+      "recommendation": "REPLACE_IN_BASELINE ? No public access; enforce clinic membership using non-null tenant ownership; clinical_staff/admin write/review, doctor/auditor read as approved, service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for packs.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: Tenant is only derivable through cycle_id and nullable cycle links.",
+        "Runtime dependency: Inventory, labels, patients, traceability, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-013",
+      "category": "RLS",
+      "subject": "packs: Allow public insert packs",
+      "relatedObjects": [
+        "public.packs.Allow public insert packs",
+        "public.packs:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert/read all packs; authenticated users can update any expired review.",
+      "recommendation": "REPLACE_IN_BASELINE ? No public access; enforce clinic membership using non-null tenant ownership; clinical_staff/admin write/review, doctor/auditor read as approved, service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for packs.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: Tenant is only derivable through cycle_id and nullable cycle links.",
+        "Runtime dependency: Inventory, labels, patients, traceability, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-014",
+      "category": "RLS",
+      "subject": "packs: Allow public read packs",
+      "relatedObjects": [
+        "public.packs.Allow public read packs",
+        "public.packs:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert/read all packs; authenticated users can update any expired review.",
+      "recommendation": "REPLACE_IN_BASELINE ? No public access; enforce clinic membership using non-null tenant ownership; clinical_staff/admin write/review, doctor/auditor read as approved, service role allowed.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for packs.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: Tenant is only derivable through cycle_id and nullable cycle links.",
+        "Runtime dependency: Inventory, labels, patients, traceability, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-015",
+      "category": "RLS",
+      "subject": "patient_traces: Allow public insert patient traces",
+      "relatedObjects": [
+        "public.patient_traces.Allow public insert patient traces",
+        "public.patient_traces:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all trace rows.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add/enforce clinic ownership; authenticated clinic roles read; clinical_staff/doctor/admin create; service role allowed; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for patient_traces.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id; relationships do not enforce tenant membership.",
+        "Runtime dependency: Patient history, traceability, pack details, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-016",
+      "category": "RLS",
+      "subject": "patient_traces: Allow public read patient traces",
+      "relatedObjects": [
+        "public.patient_traces.Allow public read patient traces",
+        "public.patient_traces:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert and read all trace rows.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add/enforce clinic ownership; authenticated clinic roles read; clinical_staff/doctor/admin create; service role allowed; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for patient_traces.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id; relationships do not enforce tenant membership.",
+        "Runtime dependency: Patient history, traceability, pack details, dashboard and reports.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-017",
+      "category": "RLS",
+      "subject": "patients: Allow public insert patients",
+      "relatedObjects": [
+        "public.patients.Allow public insert patients",
+        "public.patients:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all patient rows.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add clinic_id and clinic-scoped external identity; authenticated authorized clinic roles read; clinical_staff/doctor/admin create; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for patients.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Patient pages/import and traceability.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-018",
+      "category": "RLS",
+      "subject": "patients: Allow public read patients",
+      "relatedObjects": [
+        "public.patients.Allow public read patients",
+        "public.patients:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert and read all patient rows.",
+      "recommendation": "REPLACE_IN_BASELINE ? Add clinic_id and clinic-scoped external identity; authenticated authorized clinic roles read; clinical_staff/doctor/admin create; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for patients.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id exists.",
+        "Runtime dependency: Patient pages/import and traceability.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-019",
+      "category": "RLS",
+      "subject": "providers: Allow authenticated users to insert providers",
+      "relatedObjects": [
+        "public.providers.Allow authenticated users to insert providers",
+        "public.providers:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update providers across all clinics.",
+      "recommendation": "REPLACE_IN_BASELINE ? Clinic membership-scoped read; admin/super_admin write; service role deployment operations; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for providers.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore membership.",
+        "Runtime dependency: Settings, traceability and deployment provider flows.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-020",
+      "category": "RLS",
+      "subject": "providers: Allow authenticated users to read providers",
+      "relatedObjects": [
+        "public.providers.Allow authenticated users to read providers",
+        "public.providers:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update providers across all clinics.",
+      "recommendation": "REPLACE_IN_BASELINE ? Clinic membership-scoped read; admin/super_admin write; service role deployment operations; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for providers.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore membership.",
+        "Runtime dependency: Settings, traceability and deployment provider flows.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-021",
+      "category": "RLS",
+      "subject": "providers: Allow authenticated users to update providers",
+      "relatedObjects": [
+        "public.providers.Allow authenticated users to update providers",
+        "public.providers:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update providers across all clinics.",
+      "recommendation": "REPLACE_IN_BASELINE ? Clinic membership-scoped read; admin/super_admin write; service role deployment operations; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for providers.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore membership.",
+        "Runtime dependency: Settings, traceability and deployment provider flows.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-022",
+      "category": "RLS",
+      "subject": "sterilizers: Allow authenticated users to insert sterilizers",
+      "relatedObjects": [
+        "public.sterilizers.Allow authenticated users to insert sterilizers",
+        "public.sterilizers:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update sterilizers across all clinics.",
+      "recommendation": "REPLACE_IN_BASELINE ? Clinic membership-scoped read; admin/super_admin write; service role deployment operations; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for sterilizers.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore membership.",
+        "Runtime dependency: Cycle/settings and deployment/hardware flows.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-023",
+      "category": "RLS",
+      "subject": "sterilizers: Allow authenticated users to read sterilizers",
+      "relatedObjects": [
+        "public.sterilizers.Allow authenticated users to read sterilizers",
+        "public.sterilizers:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update sterilizers across all clinics.",
+      "recommendation": "REPLACE_IN_BASELINE ? Clinic membership-scoped read; admin/super_admin write; service role deployment operations; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for sterilizers.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore membership.",
+        "Runtime dependency: Cycle/settings and deployment/hardware flows.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-024",
+      "category": "RLS",
+      "subject": "sterilizers: Allow authenticated users to update sterilizers",
+      "relatedObjects": [
+        "public.sterilizers.Allow authenticated users to update sterilizers",
+        "public.sterilizers:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update sterilizers across all clinics.",
+      "recommendation": "REPLACE_IN_BASELINE ? Clinic membership-scoped read; admin/super_admin write; service role deployment operations; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for sterilizers.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: clinic_id exists but policies ignore membership.",
+        "Runtime dependency: Cycle/settings and deployment/hardware flows.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-025",
+      "category": "RLS",
+      "subject": "user_roles: Allow public insert user roles",
+      "relatedObjects": [
+        "public.user_roles.Allow public insert user roles",
+        "public.user_roles:rls"
+      ],
+      "productionBehavior": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert, read, and update all role assignments.",
+      "recommendation": "REPLACE_IN_BASELINE ? Replace email-only roles with server-managed auth-user clinic memberships; service role or super_admin-controlled mutation; users may read only authorized membership; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify INSERT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for user_roles.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id or auth user FK; identity is mutable email.",
+        "Runtime dependency: AuthGuard, AppShell, settings and investigation UI checks.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-026",
+      "category": "RLS",
+      "subject": "user_roles: Allow public read user roles",
+      "relatedObjects": [
+        "public.user_roles.Allow public read user roles",
+        "public.user_roles:rls"
+      ],
+      "productionBehavior": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update all role assignments.",
+      "recommendation": "REPLACE_IN_BASELINE ? Replace email-only roles with server-managed auth-user clinic memberships; service role or super_admin-controlled mutation; users may read only authorized membership; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify SELECT as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for user_roles.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id or auth user FK; identity is mutable email.",
+        "Runtime dependency: AuthGuard, AppShell, settings and investigation UI checks.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "RLS-027",
+      "category": "RLS",
+      "subject": "user_roles: Allow public update user roles",
+      "relatedObjects": [
+        "public.user_roles.Allow public update user roles",
+        "public.user_roles:rls"
+      ],
+      "productionBehavior": "PERMISSIVE UPDATE policy for roles PUBLIC; USING=true; WITH CHECK=true. PUBLIC can insert, read, and update all role assignments.",
+      "recommendation": "REPLACE_IN_BASELINE ? Replace email-only roles with server-managed auth-user clinic memberships; service role or super_admin-controlled mutation; users may read only authorized membership; no public access.",
+      "alternatives": [
+        "ACCEPT_AS_BASELINE to preserve current broad access.",
+        "EXCLUDE_FROM_BASELINE and rely on deny-by-default RLS until a replacement is approved."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify UPDATE as anon, authenticated non-member, authorized member roles, and service_role.",
+        "Verify cross-clinic access is denied for user_roles.",
+        "Verify USING and WITH CHECK prevent tenant-key reassignment."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Tenant boundary: No clinic_id or auth user FK; identity is mutable email.",
+        "Runtime dependency: AuthGuard, AppShell, settings and investigation UI checks.",
+        "Recommended disposition: REPLACE_IN_BASELINE."
+      ]
+    },
+    {
+      "decisionId": "AUTH-001",
+      "category": "AUTH",
+      "subject": "Authoritative role and clinic-membership model",
+      "relatedObjects": [
+        "public.user_roles",
+        "auth.users"
+      ],
+      "productionBehavior": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership.",
+      "recommendation": "Adopt auth-user-linked clinic memberships as database authority: super_admin is platform-wide and tightly assigned; admin manages one or more clinics; clinical_staff operates clinical workflows in member clinics; doctor reads/creates patient traceability in member clinics; auditor is read-only in member clinics. Derive authorization from auth.uid() through a membership relation. Never trust client-supplied role or email.",
+      "alternatives": [
+        "Keep email-keyed global roles and accept no database tenant boundary.",
+        "Store roles only in JWT custom claims; requires controlled claim refresh and still needs clinic membership."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "changes and tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Test every role against every command class.",
+        "Test users with zero, one, and multiple clinic memberships.",
+        "Test disabled memberships and role changes without stale privilege.",
+        "Test that client-side UI checks are not the security boundary."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "Single source of truth: server-managed database membership keyed to auth.users.id."
+      ]
+    },
+    {
+      "decisionId": "AUTH-002",
+      "category": "AUTH",
+      "subject": "Unauthenticated and service-role access",
+      "relatedObjects": [
+        "public:*:rls",
+        "service_role",
+        "anon",
+        "authenticated"
+      ],
+      "productionBehavior": "Several policies grant PUBLIC access; deployment tables are deny-by-default and deployment RPCs are service-role oriented.",
+      "recommendation": "Grant anon no application-table access. Authenticated access is membership and role scoped. Service role may bypass/directly access only in trusted server processes and execute deployment RPCs. Browser clients must never receive service-role credentials.",
+      "alternatives": [
+        "Preserve selected public workflows.",
+        "Expose narrowly scoped SECURITY DEFINER RPCs for specific anonymous workflows after threat review."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Assert anon SELECT/INSERT/UPDATE/DELETE denial on all 21 tables.",
+        "Assert service role is available only in server modules.",
+        "Scan browser bundles and environment exposure for service credentials."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "UNIQUE-001",
+      "category": "UNIQUE",
+      "subject": "Patient external identity",
+      "relatedObjects": [
+        "public.patients.patients_external_id_unique",
+        "public.patients.unique_patient_external_id"
+      ],
+      "productionBehavior": "Production has two equivalent UNIQUE constraints on nullable external_id, globally scoped.",
+      "recommendation": "Keep one named unique rule and make identity clinic-scoped: unique (clinic_id, source_system, external_id) for non-null external_id; allow multiple nulls and setup drafts.",
+      "alternatives": [
+        "Preserve current Production definition.",
+        "Enforce global uniqueness."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "changes Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Validate duplicate nulls are allowed.",
+        "Reject duplicate non-null external identity within a clinic/source.",
+        "Allow the same external identity in different clinics or source systems.",
+        "Inventory Production duplicates before migration."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "UNIQUE-002",
+      "category": "UNIQUE",
+      "subject": "Provider identity",
+      "relatedObjects": [
+        "public.providers.providers_full_name_unique_idx",
+        "public.providers.providers_normalized_name_unique_idx",
+        "public.providers.providers_clinic_deployment_key_unique_idx"
+      ],
+      "productionBehavior": "Production globally enforces two normalized full-name variants and separately clinic-scopes deployment keys.",
+      "recommendation": "Retain clinic-scoped deployment-key uniqueness; replace global name uniqueness with clinic-scoped normalized-name uniqueness for active/non-archived providers. Permit null deployment keys and setup drafts.",
+      "alternatives": [
+        "Preserve current Production definition.",
+        "Enforce global uniqueness."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "changes Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Inventory cross-clinic and same-clinic normalized duplicates.",
+        "Test Dr/Dre normalization, inactive/archive transitions, null keys, and concurrent inserts."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "UNIQUE-003",
+      "category": "UNIQUE",
+      "subject": "Sterilizer identity",
+      "relatedObjects": [
+        "public.sterilizers.sterilizers_name_unique_idx",
+        "public.sterilizers.sterilizers_clinic_deployment_key_unique_idx"
+      ],
+      "productionBehavior": "Production globally enforces lower/trimmed name uniqueness and clinic-scopes non-null deployment keys.",
+      "recommendation": "Retain clinic-scoped deployment-key uniqueness; make normalized name unique per clinic for non-archived rows. Permit planned drafts with null deployment keys.",
+      "alternatives": [
+        "Preserve current Production definition.",
+        "Enforce global uniqueness."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "changes Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Inventory normalized duplicates by clinic.",
+        "Allow equal names in different clinics.",
+        "Test planned, active, archived, null-key, and concurrent insert behavior."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "UNIQUE-004",
+      "category": "UNIQUE",
+      "subject": "Workstation ordering index",
+      "relatedObjects": [
+        "public.clinical_workstations.clinical_workstations_display_order_name_idx"
+      ],
+      "productionBehavior": "Production has a non-unique composite index (display_order, name); repository has a non-unique display_order-only index. Neither enforces ordering uniqueness.",
+      "recommendation": "Use the Production composite index as authoritative for deterministic ordering; do not add a uniqueness constraint unless product rules later require unique display positions per clinic.",
+      "alternatives": [
+        "Preserve current Production definition.",
+        "Enforce global uniqueness."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "preserves Production behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare query plans for ORDER BY display_order,name.",
+        "Allow tied and null display_order values.",
+        "Verify stable name ordering within ties."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "HARDWARE-001",
+      "category": "HARDWARE",
+      "subject": "Printer model and connection checks",
+      "relatedObjects": [
+        "public.clinic_settings.clinic_settings_printer_model_check",
+        "public.clinic_settings.clinic_settings_printer_connection_type_check"
+      ],
+      "productionBehavior": "Checks are present but NOT VALID; new/updated rows are checked while pre-existing violations may remain.",
+      "recommendation": "Use validated constraints in a clean baseline after enumerating supported values in one shared application/domain contract. Production needs preflight cleanup then VALIDATE or replacement.",
+      "alternatives": [
+        "Preserve all Production defaults and nullable behavior.",
+        "Make all fields non-null regardless of lifecycle state."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Test planned, active, inactive/archived and local deployment cases.",
+        "Test invalid combinations and transition boundaries.",
+        "Confirm application, deployment engine, environment, and database each have one non-overlapping source-of-truth responsibility."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "HARDWARE-002",
+      "category": "HARDWARE",
+      "subject": "Local print-agent URL default",
+      "relatedObjects": [
+        "public.clinic_settings.local_print_agent_url"
+      ],
+      "productionBehavior": "Database defaults to http://localhost:8787.",
+      "recommendation": "Remove the database default. Deployment engine/application configuration chooses an agent endpoint; environment configuration supplies host/port. Store an explicit per-clinic value only after provisioning.",
+      "alternatives": [
+        "Preserve all Production defaults and nullable behavior.",
+        "Make all fields non-null regardless of lifecycle state."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "changes Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Test planned, active, inactive/archived and local deployment cases.",
+        "Test invalid combinations and transition boundaries.",
+        "Confirm application, deployment engine, environment, and database each have one non-overlapping source-of-truth responsibility."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "HARDWARE-003",
+      "category": "HARDWARE",
+      "subject": "Printer network defaults",
+      "relatedObjects": [
+        "public.clinic_settings.printer_ip",
+        "public.clinic_settings.printer_port",
+        "public.clinic_settings.printer_connection_type"
+      ],
+      "productionBehavior": "Connection defaults to wifi and port 9100; IP is nullable.",
+      "recommendation": "Keep port/model suggestions in deployment/application defaults, not schema defaults; require connection-specific validation and allow null network fields for USB/unplanned printers.",
+      "alternatives": [
+        "Preserve all Production defaults and nullable behavior.",
+        "Make all fields non-null regardless of lifecycle state."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "changes Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Test planned, active, inactive/archived and local deployment cases.",
+        "Test invalid combinations and transition boundaries.",
+        "Confirm application, deployment engine, environment, and database each have one non-overlapping source-of-truth responsibility."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "HARDWARE-004",
+      "category": "HARDWARE",
+      "subject": "Agent URL expectations",
+      "relatedObjects": [
+        "public.clinical_agents",
+        "public.clinical_workstations"
+      ],
+      "productionBehavior": "Agent URL checks accept http or https and permit null.",
+      "recommendation": "Keep nullable for planned/inactive rows; require a normalized HTTPS URL for active remote agents, with explicitly approved loopback HTTP only for local deployment mode. Deployment engine is source of provisioning state; environment config is source of endpoint discovery.",
+      "alternatives": [
+        "Preserve all Production defaults and nullable behavior.",
+        "Make all fields non-null regardless of lifecycle state."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Test planned, active, inactive/archived and local deployment cases.",
+        "Test invalid combinations and transition boundaries.",
+        "Confirm application, deployment engine, environment, and database each have one non-overlapping source-of-truth responsibility."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "HARDWARE-005",
+      "category": "HARDWARE",
+      "subject": "Planned and inactive provisioning",
+      "relatedObjects": [
+        "public.clinical_hardware_devices",
+        "public.clinical_workstations",
+        "public.providers",
+        "public.sterilizers"
+      ],
+      "productionBehavior": "Production supports planned/placeholder/active/archived-like states with several nullable deployment fields.",
+      "recommendation": "Preserve nullable identifiers for planned drafts, but enforce state-dependent checks: active objects require clinic ownership and required operational identity; archived objects cannot receive new assignments.",
+      "alternatives": [
+        "Preserve all Production defaults and nullable behavior.",
+        "Make all fields non-null regardless of lifecycle state."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Test planned, active, inactive/archived and local deployment cases.",
+        "Test invalid combinations and transition boundaries.",
+        "Confirm application, deployment engine, environment, and database each have one non-overlapping source-of-truth responsibility."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-001",
+      "category": "RPC",
+      "subject": "activate_deployment_clinic",
+      "relatedObjects": [
+        "public.activate_deployment_clinic(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_expected_current_state jsonb, p_target_state jsonb, p_proposed_activated_at timestamp with time zone)",
+        "public.clinics",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions",
+        "public.deployment_runs"
+      ],
+      "productionBehavior": "Captured as SECURITY INVOKER; search_path='public', 'pg_temp'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-002",
+      "category": "RPC",
+      "subject": "activate_deployment_hardware_shell",
+      "relatedObjects": [
+        "public.activate_deployment_hardware_shell(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_hardware_id uuid, p_expected_hardware_key text, p_expected_current_state jsonb, p_target_state jsonb, p_proposed_activated_at timestamp with time zone)",
+        "public.clinical_hardware_devices",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-003",
+      "category": "RPC",
+      "subject": "activate_deployment_provider_shell",
+      "relatedObjects": [
+        "public.activate_deployment_provider_shell(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_provider_id uuid, p_expected_provider_key text, p_expected_current_state jsonb, p_target_state jsonb, p_proposed_activated_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions",
+        "public.providers"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-004",
+      "category": "RPC",
+      "subject": "activate_deployment_sterilizer_shell",
+      "relatedObjects": [
+        "public.activate_deployment_sterilizer_shell(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_sterilizer_id uuid, p_expected_sterilizer_key text, p_expected_current_state jsonb, p_target_state jsonb, p_proposed_activated_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions",
+        "public.sterilizers"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-005",
+      "category": "RPC",
+      "subject": "activate_deployment_workstation_shell",
+      "relatedObjects": [
+        "public.activate_deployment_workstation_shell(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_workstation_id uuid, p_expected_workstation_key text, p_expected_current_state jsonb, p_target_state jsonb, p_proposed_activated_at timestamp with time zone)",
+        "public.clinical_workstations",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-006",
+      "category": "RPC",
+      "subject": "bind_deployment_hardware_target",
+      "relatedObjects": [
+        "public.bind_deployment_hardware_target(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_hardware_id uuid, p_expected_hardware_key text, p_target_type text, p_target_id uuid, p_expected_target_deployment_key text, p_expected_current_state jsonb, p_target_state jsonb, p_proposed_bound_at timestamp with time zone)",
+        "public.clinical_hardware_devices",
+        "public.clinical_workstations",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions",
+        "public.deployment_hardware_assignments",
+        "public.sterilizers"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-007",
+      "category": "RPC",
+      "subject": "claim_deployment_activation_execution_session",
+      "relatedObjects": [
+        "public.claim_deployment_activation_execution_session(p_claim_mode text, p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_proposed_ownership_token text, p_claimed_at timestamp with time zone, p_lease_expires_at timestamp with time zone, p_expected_item_count integer, p_expected_previous_owner text DEFAULT NULL::text, p_expected_previous_ownership_token text DEFAULT NULL::text, p_expected_previous_lease_expires_at timestamp with time zone DEFAULT NULL::timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY INVOKER; search_path='public', 'pg_temp'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "No ownership token argument; validate equivalent durable authorization state."
+      ]
+    },
+    {
+      "decisionId": "RPC-008",
+      "category": "RPC",
+      "subject": "complete_deployment_activation_execution_item",
+      "relatedObjects": [
+        "public.complete_deployment_activation_execution_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_action text, p_expected_started_at timestamp with time zone, p_expected_attempt_count integer, p_proposed_completed_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-009",
+      "category": "RPC",
+      "subject": "complete_deployment_hardware_shell_execution_item",
+      "relatedObjects": [
+        "public.complete_deployment_hardware_shell_execution_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_deployment_hardware_key text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_hardware_id uuid, p_expected_hardware_state jsonb, p_expected_target_state jsonb, p_proposed_completed_at timestamp with time zone)",
+        "public.clinical_hardware_devices",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-010",
+      "category": "RPC",
+      "subject": "complete_deployment_provider_shell_execution_item",
+      "relatedObjects": [
+        "public.complete_deployment_provider_shell_execution_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_deployment_provider_key text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_provider_id uuid, p_expected_provider_state jsonb, p_expected_target_state jsonb, p_proposed_completed_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions",
+        "public.providers"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-011",
+      "category": "RPC",
+      "subject": "complete_deployment_sterilizer_shell_execution_item",
+      "relatedObjects": [
+        "public.complete_deployment_sterilizer_shell_execution_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_deployment_sterilizer_key text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_sterilizer_id uuid, p_expected_sterilizer_state jsonb, p_expected_target_state jsonb, p_proposed_completed_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions",
+        "public.sterilizers"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-012",
+      "category": "RPC",
+      "subject": "complete_deployment_workstation_shell_execution_item",
+      "relatedObjects": [
+        "public.complete_deployment_workstation_shell_execution_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_deployment_workstation_key text, p_expected_action text, p_expected_item_started_at timestamp with time zone, p_expected_attempt_count integer, p_workstation_id uuid, p_expected_workstation_state jsonb, p_expected_target_state jsonb, p_proposed_completed_at timestamp with time zone)",
+        "public.clinical_workstations",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-013",
+      "category": "RPC",
+      "subject": "persist_deployment_recovery_plan",
+      "relatedObjects": [
+        "public.persist_deployment_recovery_plan(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_plan_key text, p_recovery_key text, p_idempotency_key text, p_payload_hash text, p_recovery_status text, p_rollback_required boolean, p_rollback_executable boolean, p_sanitized_failure jsonb, p_unsupported_compensations jsonb, p_running_items_to_recover jsonb, p_completed_mutation_count integer, p_reversible_mutation_count integer, p_downstream jsonb, p_evidence jsonb, p_rollback_items jsonb)",
+        "public.deployment_activation_execution_sessions",
+        "public.deployment_recovery_plan_items",
+        "public.deployment_recovery_plans",
+        "public.deployment_runs"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "No ownership token argument; validate equivalent durable authorization state."
+      ]
+    },
+    {
+      "decisionId": "RPC-014",
+      "category": "RPC",
+      "subject": "progress_deployment_activation_execution_dependency",
+      "relatedObjects": [
+        "public.progress_deployment_activation_execution_dependency(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_completed_item_id uuid, p_completed_execution_item_key text, p_completed_plan_item_key text, p_completed_sequence integer, p_completed_started_at timestamp with time zone, p_completed_completed_at timestamp with time zone, p_completed_attempt_count integer, p_next_item_id uuid, p_next_execution_item_key text, p_next_plan_item_key text, p_next_sequence integer, p_next_entity_type text, p_next_entity_id text, p_next_action text, p_expected_next_status text, p_expected_next_attempt_count integer, p_expected_dependency_keys text[], p_progressed_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY INVOKER; search_path='public', 'pg_temp'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-015",
+      "category": "RPC",
+      "subject": "start_deployment_activation_execution_item",
+      "relatedObjects": [
+        "public.start_deployment_activation_execution_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_action text, p_expected_entity_type text, p_expected_entity_key text, p_proposed_started_at timestamp with time zone, p_expected_attempt_count integer)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY INVOKER; search_path='public', 'pg_temp'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-016",
+      "category": "RPC",
+      "subject": "start_deployment_activation_execution_next_item",
+      "relatedObjects": [
+        "public.start_deployment_activation_execution_next_item(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_item_id uuid, p_execution_item_key text, p_plan_item_key text, p_expected_sequence integer, p_expected_entity_type text, p_expected_entity_id text, p_expected_action text, p_expected_attempt_count integer, p_expected_dependency_keys text[], p_proposed_started_at timestamp with time zone)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY DEFINER; search_path='pg_catalog', 'public'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-017",
+      "category": "RPC",
+      "subject": "start_deployment_activation_execution_session",
+      "relatedObjects": [
+        "public.start_deployment_activation_execution_session(p_clinic_id uuid, p_deployment_run_key text, p_session_id uuid, p_execution_key text, p_claimant_id text, p_ownership_token text, p_expected_lease_expires_at timestamp with time zone, p_proposed_started_at timestamp with time zone, p_expected_item_count integer)",
+        "public.deployment_activation_execution_items",
+        "public.deployment_activation_execution_sessions"
+      ],
+      "productionBehavior": "Captured as SECURITY INVOKER; search_path='public', 'pg_temp'; Production ACL revokes PUBLIC and grants service_role. Runtime calls the RPC from a server repository.",
+      "recommendation": "Include the exact normalized Production/repository signature as a service-role-only RPC. Revoke PUBLIC/anon/authenticated EXECUTE. Require fixed trusted search_path, fully qualified objects, tenant equality across clinic/run/session/item/entity rows, ownership/lease/idempotency checks, and strict input/JSON shape validation.",
+      "alternatives": [
+        "Allow authenticated direct execution with membership checks.",
+        "Replace with direct table mutations."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves and codifies Production service-role behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare identity arguments, defaults, result columns, body hash and function attributes.",
+        "Assert PUBLIC, anon and authenticated cannot execute; service_role can.",
+        "Test cross-clinic identifiers, stale lease/token, replay, malformed JSON, wrong entity identity and concurrent calls."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": [
+        "FLAG: accepts client-supplied p_clinic_id; authorization must not rely on it alone.",
+        "Ownership token is part of the contract."
+      ]
+    },
+    {
+      "decisionId": "RPC-H01",
+      "category": "RPC",
+      "subject": "Trigger helper set_clinical_agents_updated_at",
+      "relatedObjects": [
+        "public.set_clinical_agents_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path=not fixed in parsed metadata.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H02",
+      "category": "RPC",
+      "subject": "Trigger helper set_clinical_hardware_devices_updated_at",
+      "relatedObjects": [
+        "public.set_clinical_hardware_devices_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path=not fixed in parsed metadata.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H03",
+      "category": "RPC",
+      "subject": "Trigger helper set_clinical_workstations_updated_at",
+      "relatedObjects": [
+        "public.set_clinical_workstations_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path=not fixed in parsed metadata.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H04",
+      "category": "RPC",
+      "subject": "Trigger helper set_clinics_updated_at",
+      "relatedObjects": [
+        "public.set_clinics_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path='public'.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H05",
+      "category": "RPC",
+      "subject": "Trigger helper set_deployment_activation_execution_updated_at",
+      "relatedObjects": [
+        "public.set_deployment_activation_execution_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path=not fixed in parsed metadata.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H06",
+      "category": "RPC",
+      "subject": "Trigger helper set_deployment_hardware_assignments_updated_at",
+      "relatedObjects": [
+        "public.set_deployment_hardware_assignments_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path=not fixed in parsed metadata.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H07",
+      "category": "RPC",
+      "subject": "Trigger helper set_deployment_recovery_plan_updated_at",
+      "relatedObjects": [
+        "public.set_deployment_recovery_plan_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path='pg_catalog', 'public'.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "RPC-H08",
+      "category": "RPC",
+      "subject": "Trigger helper set_workstation_sessions_updated_at",
+      "relatedObjects": [
+        "public.set_workstation_sessions_updated_at()"
+      ],
+      "productionBehavior": "Captured trigger helper, SECURITY INVOKER, search_path=not fixed in parsed metadata.",
+      "recommendation": "Include as a non-client-callable trigger helper. Revoke PUBLIC/anon/authenticated EXECUTE, use SECURITY INVOKER unless a reviewed need requires definer, set a fixed trusted search_path, and attach only to its named trigger.",
+      "alternatives": [
+        "Rely on default function EXECUTE privileges.",
+        "Inline timestamp behavior in clients."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "tightens function ACL while preserving trigger behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Verify trigger fires on intended events only.",
+        "Verify timestamp mutation and returned NEW row.",
+        "Verify direct browser-role execution is denied."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "PLATFORM-001",
+      "category": "PLATFORM",
+      "subject": "PostgreSQL and extension prerequisites",
+      "relatedObjects": [
+        "extensions:captured-explicit",
+        "gen_random_uuid()"
+      ],
+      "productionBehavior": "Filtered capture emits no CREATE EXTENSION objects although defaults use gen_random_uuid().",
+      "recommendation": "Treat compatible PostgreSQL/Supabase version and gen_random_uuid() availability as environment assertions; do not guess or application-own an extension without platform confirmation.",
+      "alternatives": [
+        "Copy platform objects into application baseline.",
+        "Leave prerequisite implicit."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves platform behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Fail baseline preflight when prerequisite identity/version/function/role is missing.",
+        "Verify application baseline creates no Supabase-managed object."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "PLATFORM-002",
+      "category": "PLATFORM",
+      "subject": "Supabase-managed schemas",
+      "relatedObjects": [
+        "auth",
+        "storage",
+        "extensions"
+      ],
+      "productionBehavior": "Capture contains platform-managed schemas and objects.",
+      "recommendation": "Assert auth, storage and extensions schemas exist at compatible versions; never recreate their internal tables/functions/triggers in the application baseline.",
+      "alternatives": [
+        "Copy platform objects into application baseline.",
+        "Leave prerequisite implicit."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves platform behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Fail baseline preflight when prerequisite identity/version/function/role is missing.",
+        "Verify application baseline creates no Supabase-managed object."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "PLATFORM-003",
+      "category": "PLATFORM",
+      "subject": "Authentication dependencies",
+      "relatedObjects": [
+        "auth.users",
+        "auth.uid()"
+      ],
+      "productionBehavior": "Application tables reference auth.users and authorization should use authenticated identity.",
+      "recommendation": "Reference but do not create auth.users/auth helpers. Membership records must FK to auth.users.id and policies must derive identity from auth.uid().",
+      "alternatives": [
+        "Copy platform objects into application baseline.",
+        "Leave prerequisite implicit."
+      ],
+      "riskLevel": "critical",
+      "productionCompatibility": "changes application authorization behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Fail baseline preflight when prerequisite identity/version/function/role is missing.",
+        "Verify application baseline creates no Supabase-managed object."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "PLATFORM-004",
+      "category": "PLATFORM",
+      "subject": "Storage dependency",
+      "relatedObjects": [
+        "storage"
+      ],
+      "productionBehavior": "Storage structures exist but no SteriSphere bucket or storage policy source/usage was established.",
+      "recommendation": "Exclude storage objects from application baseline; add separate configuration only if an explicit runtime storage dependency is later proven.",
+      "alternatives": [
+        "Copy platform objects into application baseline.",
+        "Leave prerequisite implicit."
+      ],
+      "riskLevel": "low",
+      "productionCompatibility": "preserves current application scope",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Fail baseline preflight when prerequisite identity/version/function/role is missing.",
+        "Verify application baseline creates no Supabase-managed object."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "PLATFORM-005",
+      "category": "PLATFORM",
+      "subject": "Required roles",
+      "relatedObjects": [
+        "postgres",
+        "anon",
+        "authenticated",
+        "service_role"
+      ],
+      "productionBehavior": "Capture ACLs reference Supabase roles.",
+      "recommendation": "Assert roles are platform-provided. Application baseline grants no role creation and uses an approved least-privilege ACL matrix.",
+      "alternatives": [
+        "Copy platform objects into application baseline.",
+        "Leave prerequisite implicit."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "tightens ACL specification",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Fail baseline preflight when prerequisite identity/version/function/role is missing.",
+        "Verify application baseline creates no Supabase-managed object."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "PLATFORM-006",
+      "category": "PLATFORM",
+      "subject": "Cryptographic functions",
+      "relatedObjects": [
+        "gen_random_uuid()"
+      ],
+      "productionBehavior": "UUID generation is the only identified cryptographic function dependency.",
+      "recommendation": "Assert function availability and UUID v4 behavior; no other cryptographic extension is application-owned unless normalized function analysis proves a dependency.",
+      "alternatives": [
+        "Copy platform objects into application baseline.",
+        "Leave prerequisite implicit."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "preserves Production behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Fail baseline preflight when prerequisite identity/version/function/role is missing.",
+        "Verify application baseline creates no Supabase-managed object."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-001",
+      "category": "NORMALIZE",
+      "subject": "Clinics definition",
+      "relatedObjects": [
+        "public.clinics",
+        "public.set_clinics_updated_at"
+      ],
+      "productionBehavior": "Production and supabase_clinics.sql represent the evolved clinic lifecycle; supabase_deployment_core.sql conflicts.",
+      "recommendation": "Use normalized Production plus supabase_clinics.sql; exclude core definition and duplicate helper.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "preserves Production behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-002",
+      "category": "NORMALIZE",
+      "subject": "Deployment runs definition",
+      "relatedObjects": [
+        "public.deployment_runs"
+      ],
+      "productionBehavior": "Production and supabase_deployment_runs.sql represent evolved identity/lifecycle/recovery; core conflicts.",
+      "recommendation": "Use normalized Production plus evolved repository definition; exclude core fields/indexes.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "preserves Production behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-003",
+      "category": "NORMALIZE",
+      "subject": "set_clinics_updated_at",
+      "relatedObjects": [
+        "public.set_clinics_updated_at()"
+      ],
+      "productionBehavior": "Production sets NEW.updated_at=now(), returns NEW, and fixes search_path to public.",
+      "recommendation": "Use the evolved Production helper once, with fixed trusted search_path and restricted direct execute ACL.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "preserves and tightens ACL",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-004",
+      "category": "NORMALIZE",
+      "subject": "Long PostgreSQL identifiers",
+      "relatedObjects": [
+        "public.deployment_activation_execution_items_session_execution_item_ui",
+        "public.deployment_activation_execution_sessions_clinic_execution_key_u",
+        "public.deployment_hardware_assignments_clinic_assignment_key_unique_id"
+      ],
+      "productionBehavior": "Catalog names reflect identifier-length outcomes while definitions correspond to repository intentions.",
+      "recommendation": "Treat equivalent normalized definitions as equal; choose explicit <=63-byte canonical names for baseline metadata.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "naming-only change",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-005",
+      "category": "NORMALIZE",
+      "subject": "Function and RPC attributes",
+      "relatedObjects": [
+        "public functions"
+      ],
+      "productionBehavior": "Names match, but complete attribute equality must include signatures, defaults, results, volatility, security, search_path, body and ACL.",
+      "recommendation": "Production-normalize every attribute; repository body is accepted only when normalized equality is proven. Any mismatch is an explicit forward-migration decision.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "high",
+      "productionCompatibility": "preserves Production behavior",
+      "migrationRequired": false,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-006",
+      "category": "NORMALIZE",
+      "subject": "Constraints and validation state",
+      "relatedObjects": [
+        "public constraints"
+      ],
+      "productionBehavior": "Most constraints match evolved sources; missing-base constraints come only from Production; printer checks are NOT VALID and patient external identity is duplicated.",
+      "recommendation": "Use Production definitions except approved UNIQUE/HARDWARE decisions; all clean-baseline checks should be valid after zero-row creation.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "changes selected Production behavior",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    },
+    {
+      "decisionId": "NORMALIZE-007",
+      "category": "NORMALIZE",
+      "subject": "Triggers and defaults",
+      "relatedObjects": [
+        "public triggers",
+        "public column defaults"
+      ],
+      "productionBehavior": "Ten Production triggers match current active objects; repository-only planning triggers are absent. Defaults include schema and environment policy choices.",
+      "recommendation": "Include the ten live triggers, exclude planning triggers, preserve deterministic domain defaults, and move environment/deployment defaults out of the database as decided in HARDWARE items.",
+      "alternatives": [
+        "Prefer repository text without Production normalization.",
+        "Copy raw dump definitions including environment noise."
+      ],
+      "riskLevel": "medium",
+      "productionCompatibility": "changes selected defaults",
+      "migrationRequired": true,
+      "validationRequirements": [
+        "Compare normalized catalog definitions and dependency graph.",
+        "Ignore identifier spelling only when semantic definition is equivalent.",
+        "Require explicit review for every genuine difference."
+      ],
+      "humanApprovalRequired": true,
+      "baselineBlocker": true,
+      "notes": []
+    }
+  ]
+}
