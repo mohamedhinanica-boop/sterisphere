@@ -1,0 +1,694 @@
+{
+  "formatVersion": 1,
+  "sourceDecisionRecord": "docs/architecture/authoritative-baseline-decision-record.json",
+  "sourceDecisionRecordSha256": "CF5112BA7B80EB7FB93A8E3BF849DE432CAA06ECE0FBC6E9526F3BCDC99D1871",
+  "sourceRegistry": "docs/architecture/authoritative-baseline-object-registry.json",
+  "sourceRegistrySha256": "8A0CFEADAC660BAD9797BBB81C87920D3A9C89C8241BBCE96DDF03033B100E9F",
+  "readinessConclusion": "OWNER_APPROVAL_PACKAGE_READY",
+  "counts": {
+    "approvalGroups": 15,
+    "decisionsCovered": 76,
+    "groupsByRisk": {
+      "critical": 9,
+      "high": 4,
+      "medium": 2
+    },
+    "groupsByMigrationClassification": {
+      "BASELINE_AND_PRODUCTION_MUST_ALIGN_BEFORE_RELEASE": 1,
+      "BASELINE_FIRST_PRODUCTION_MIGRATION_LATER": 2,
+      "BASELINE_ONLY_NO_PRODUCTION_CHANGE": 3,
+      "REQUIRES_APPLICATION_CHANGE_FIRST": 3,
+      "REQUIRES_DATA_PREFLIGHT_FIRST": 2,
+      "REQUIRES_SECURITY_REVIEW_FIRST": 4
+    }
+  },
+  "unsupportedAssumptions": [
+    "Whether super_admin is intended to be global is not represented in the database.",
+    "Whether one user may belong to multiple clinics is not represented.",
+    "No clinic membership table or equivalent database object exists.",
+    "Clinic ownership for historical patients, traces, cycles, packs, audit rows and roles is not always derivable from captured schema alone.",
+    "Scanner/workstation authentication requirements are not fully specified by the schema.",
+    "No SteriSphere Storage bucket dependency is proven.",
+    "Exact authorization performed before app/setup/actions.ts constructs the service-role client requires dedicated review."
+  ],
+  "approvalGroups": [
+    {
+      "approvalGroupId": "APPROVAL-001",
+      "title": "Tenant identity and clinic membership model",
+      "mappedDecisionIds": [
+        "AUTH-001"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "user_roles maps one globally unique email to one role. It has no auth.users foreign key, clinic_id, or membership rows; multi-clinic scope is not representable.",
+      "recommendation": "Create an auth-user-linked active clinic-membership authority; treat super_admin as explicitly global and every other role as membership-scoped. Update TypeScript to consume server-authoritative membership.",
+      "impact": {
+        "security": "Replaces client/email trust with database identity.",
+        "tenantIsolation": "Establishes the missing tenant boundary.",
+        "applicationRuntime": "AuthGuard, AppShell, settings, assistant and investigation role reads must change.",
+        "compatibilityRisk": "Existing email role records need deterministic mapping; unsupported assumptions must not drive backfill.",
+        "productionMigration": "New membership objects and user_roles transition are required.",
+        "rollbackRecovery": "Retain a reversible mapping and emergency audited owner bootstrap; never fall back to public role mutation."
+      },
+      "migrationClassification": "REQUIRES_APPLICATION_CHANGE_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_DATA_PREFLIGHT_FIRST",
+        "REQUIRES_SECURITY_REVIEW_FIRST"
+      ],
+      "preflightRequirements": [
+        "Inventory auth users and user_roles by normalized email.",
+        "Identify orphan, duplicate, inactive and unknown-role records.",
+        "Owner must decide global super_admin and multi-clinic semantics."
+      ],
+      "validationRequirements": [
+        "Zero/one/multiple clinic memberships.",
+        "Disabled membership and role changes.",
+        "Cross-clinic denial and global super_admin audit."
+      ],
+      "codexRecommendation": "Approve the membership model only with explicit bootstrap and migration mapping.",
+      "strongestAlternative": "JWT-only roles avoid a membership table but introduce claim-staleness and still need clinic scope.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-002",
+      "title": "Anonymous and PUBLIC application access removal",
+      "mappedDecisionIds": [
+        "AUTH-002"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "cycles, packs, patients, patient_traces and user_roles have PUBLIC policies; the browser also uses an anon-key Supabase client for direct table access.",
+      "recommendation": "Remove anon/PUBLIC application-table access. Authenticated access must be membership/role scoped; service role remains server-only.",
+      "impact": {
+        "security": "Closes anonymous read/write and privilege-escalation paths.",
+        "tenantIsolation": "Prevents unscoped cross-tenant access.",
+        "applicationRuntime": "Direct browser queries will fail until authenticated policies and membership-aware code ship.",
+        "compatibilityRisk": "Login can remain public through Supabase Auth, but data pages/setup/scanner/workstation flows may break if they currently operate without a session.",
+        "productionMigration": "Policy migration and coordinated application rollout required.",
+        "rollbackRecovery": "Feature-gated rollout; rollback may restore narrowly scoped authenticated access, never broad PUBLIC role mutation."
+      },
+      "migrationClassification": "REQUIRES_SECURITY_REVIEW_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_APPLICATION_CHANGE_FIRST",
+        "BASELINE_AND_PRODUCTION_MUST_ALIGN_BEFORE_RELEASE"
+      ],
+      "preflightRequirements": [
+        "Trace every browser query and session expectation.",
+        "Confirm scanner/workstation authentication design.",
+        "Confirm setup/onboarding bootstrap path."
+      ],
+      "validationRequirements": [
+        "Anonymous denial on all 21 tables.",
+        "Authenticated member success and non-member denial.",
+        "Login remains functional without table access."
+      ],
+      "codexRecommendation": "Approve removal, conditional on application compatibility work before enforcement.",
+      "strongestAlternative": "Keep narrowly scoped anonymous RPCs for proven kiosk workflows; do not retain direct table access.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-003",
+      "title": "Role authorization and privilege administration",
+      "mappedDecisionIds": [
+        "RLS-025",
+        "RLS-026",
+        "RLS-027"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "PUBLIC can insert, read and update user_roles. Client components interpret five role strings by email.",
+      "recommendation": "Replace user_roles policies with server-controlled membership mutation; permit self/authorized membership reads; only audited super_admin bootstrap and delegated clinic-admin operations may change roles.",
+      "impact": {
+        "security": "Eliminates anonymous privilege escalation and role enumeration.",
+        "tenantIsolation": "Scopes non-global roles to clinics.",
+        "applicationRuntime": "Settings user management and client role lookups need server APIs/membership responses.",
+        "compatibilityRisk": "Current direct .from(\"user_roles\") queries will not survive unchanged.",
+        "productionMigration": "Application and Production policy/schema migration required.",
+        "rollbackRecovery": "Maintain an audited break-glass owner process, not a PUBLIC policy."
+      },
+      "migrationClassification": "REQUIRES_APPLICATION_CHANGE_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_SECURITY_REVIEW_FIRST"
+      ],
+      "preflightRequirements": [
+        "Inventory every user_roles consumer and mutation.",
+        "Define role delegation matrix and first-super-admin owner."
+      ],
+      "validationRequirements": [
+        "Unauthorized role read/write denial.",
+        "Delegation boundaries by role and clinic.",
+        "Self-demotion, last-super-admin and inactive-user safeguards."
+      ],
+      "codexRecommendation": "Approve replacement and require a server authorization API before policy enforcement.",
+      "strongestAlternative": "JWT claims can feed UI role display but should be issued from the same membership authority.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-004",
+      "title": "Patient and traceability access",
+      "mappedDecisionIds": [
+        "RLS-015",
+        "RLS-016",
+        "RLS-017",
+        "RLS-018"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "PUBLIC can insert/read patients and patient_traces. Neither table has clinic_id; trace relations do not establish an explicit tenant policy.",
+      "recommendation": "Add enforceable clinic ownership; allow clinic-member clinical roles to read and doctor/clinical_staff/admin roles to create; deny anon and cross-clinic access.",
+      "impact": {
+        "security": "Protects patient and trace data from anonymous disclosure/mutation.",
+        "tenantIsolation": "Requires new tenant keys or a proven immutable ownership chain.",
+        "applicationRuntime": "Patient pages/import, trace creation/history, reports and pack detail need authenticated membership context.",
+        "compatibilityRisk": "Current browser-direct queries will break until new policies and code are coordinated.",
+        "productionMigration": "Schema, data backfill and policy migration required.",
+        "rollbackRecovery": "Preserve trace integrity and reversible tenant backfill; do not roll back to PUBLIC access."
+      },
+      "migrationClassification": "REQUIRES_SECURITY_REVIEW_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_DATA_PREFLIGHT_FIRST",
+        "REQUIRES_APPLICATION_CHANGE_FIRST"
+      ],
+      "preflightRequirements": [
+        "Derive/verify clinic ownership for every patient and trace.",
+        "Identify ambiguous/orphan records and nullable links."
+      ],
+      "validationRequirements": [
+        "Role matrix and cross-clinic denial.",
+        "Patient import/create and trace workflows.",
+        "Reports/history restricted to clinic."
+      ],
+      "codexRecommendation": "Approve only with a complete tenant backfill plan.",
+      "strongestAlternative": "Derive trace tenant through a mandatory parent chain, but only if every path is non-null and indexed.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-005",
+      "title": "Cycle, load, and pack access",
+      "mappedDecisionIds": [
+        "RLS-006",
+        "RLS-007",
+        "RLS-008",
+        "RLS-009",
+        "RLS-010",
+        "RLS-011",
+        "RLS-012",
+        "RLS-013",
+        "RLS-014"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "cycles and packs allow broad PUBLIC operations; load_items allows all authenticated users. cycles lacks clinic_id and pack ownership can be ambiguous when cycle_id is nullable.",
+      "recommendation": "Require clinic ownership and membership; clinical_staff/admin perform mutations, approved clinical/auditor roles read, and trusted generation uses authenticated server/service workflows.",
+      "impact": {
+        "security": "Removes anonymous operational mutation and inventory disclosure.",
+        "tenantIsolation": "Adds/derives clinic ownership through mandatory indexed relationships.",
+        "applicationRuntime": "CycleWizard, cycle pages, pack generation/review, inventory, dashboard and investigations are affected.",
+        "compatibilityRisk": "Direct anon-key browser operations may fail; pack generation boundaries may need server actions.",
+        "productionMigration": "Schema/backfill, policy and application migration required.",
+        "rollbackRecovery": "Feature-gate writes and preserve cycle/pack consistency; never restore unrestricted anonymous update."
+      },
+      "migrationClassification": "REQUIRES_SECURITY_REVIEW_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_DATA_PREFLIGHT_FIRST",
+        "REQUIRES_APPLICATION_CHANGE_FIRST"
+      ],
+      "preflightRequirements": [
+        "Inventory null/orphan cycle and pack links.",
+        "Map each UI operation to authenticated browser or server execution."
+      ],
+      "validationRequirements": [
+        "Full cycle/load/pack workflow by role.",
+        "Cross-clinic and anonymous denial.",
+        "Concurrent pack generation and expired-review authorization."
+      ],
+      "codexRecommendation": "Approve with coordinated server/browser workflow changes.",
+      "strongestAlternative": "Use narrowly scoped workflow RPCs rather than direct client writes.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-006",
+      "title": "Deployment, setup, provider, sterilizer, and clinic-settings authorization",
+      "mappedDecisionIds": [
+        "RLS-003",
+        "RLS-004",
+        "RLS-005",
+        "RLS-019",
+        "RLS-020",
+        "RLS-021",
+        "RLS-022",
+        "RLS-023",
+        "RLS-024"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "Authenticated users can read/write clinic settings, providers and sterilizers across clinics. Setup deployment server action uses service_role; policy names do not enforce admin.",
+      "recommendation": "Membership-scoped reads; admin/super_admin writes; deployment mutations remain service-role server operations with durable clinic checks.",
+      "impact": {
+        "security": "Prevents cross-clinic setup and configuration changes.",
+        "tenantIsolation": "Uses existing clinic_id but requires membership enforcement.",
+        "applicationRuntime": "Settings and setup browser reads plus server deployment flows are affected.",
+        "compatibilityRisk": "Service-role setup should continue; browser settings queries require membership-aware policies.",
+        "productionMigration": "Production policies must align before releasing membership-dependent setup UI.",
+        "rollbackRecovery": "Keep deployment recovery/idempotency evidence; roll back application feature flags, not tenant checks."
+      },
+      "migrationClassification": "BASELINE_AND_PRODUCTION_MUST_ALIGN_BEFORE_RELEASE",
+      "secondaryClassifications": [
+        "REQUIRES_SECURITY_REVIEW_FIRST"
+      ],
+      "preflightRequirements": [
+        "Confirm clinic_id completeness and valid settings/provider/sterilizer ownership.",
+        "Confirm setup server action authentication/authorization before it constructs service client."
+      ],
+      "validationRequirements": [
+        "Admin/member/non-member matrix.",
+        "Cross-clinic setup denial.",
+        "End-to-end deployment and recovery under service role."
+      ],
+      "codexRecommendation": "Approve with an explicit server-action caller authorization gate.",
+      "strongestAlternative": "Move all setup/configuration reads and writes behind server APIs.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-007",
+      "title": "Runtime RPC and service-role execution",
+      "mappedDecisionIds": [
+        "RPC-001",
+        "RPC-002",
+        "RPC-003",
+        "RPC-004",
+        "RPC-005",
+        "RPC-006",
+        "RPC-007",
+        "RPC-008",
+        "RPC-009",
+        "RPC-010",
+        "RPC-011",
+        "RPC-012",
+        "RPC-013",
+        "RPC-014",
+        "RPC-015",
+        "RPC-016",
+        "RPC-017"
+      ],
+      "riskLevel": "high",
+      "currentBehavior": "All 17 deployment RPCs are called by Supabase repositories composed through server modules and app/setup/actions.ts, which creates a client from SUPABASE_SERVICE_ROLE_KEY. No browser-side .rpc call was found.",
+      "recommendation": "Preserve service-role-only execution; revoke PUBLIC/anon/authenticated; fixed trusted search_path; validate tenant identity from durable rows rather than p_clinic_id alone.",
+      "impact": {
+        "security": "Keeps ownership tokens and deployment mutations off the browser.",
+        "tenantIsolation": "Every RPC must compare clinic across run/session/item/entity/target rows.",
+        "applicationRuntime": "Current server flow is preserved if caller authorization and service credentials remain server-only.",
+        "compatibilityRisk": "No RPC call-site redesign expected; exact ACL and signature tests required.",
+        "productionMigration": "Baseline can encode current ACL; Production change only if attribute comparison finds drift.",
+        "rollbackRecovery": "Use existing idempotency/recovery semantics; never broaden execute roles as rollback."
+      },
+      "migrationClassification": "BASELINE_ONLY_NO_PRODUCTION_CHANGE",
+      "secondaryClassifications": [
+        "REQUIRES_SECURITY_REVIEW_FIRST"
+      ],
+      "preflightRequirements": [
+        "Confirm exact function ACLs/security/search_path.",
+        "Trace server-action authorization before service-role construction."
+      ],
+      "validationRequirements": [
+        "All 17 success paths.",
+        "PUBLIC/anon/authenticated execute denial.",
+        "Cross-clinic, stale token/lease, replay, malformed input and concurrency tests."
+      ],
+      "codexRecommendation": "Approve the service-role ACL matrix; require caller authorization audit.",
+      "strongestAlternative": "Authenticated SECURITY DEFINER RPCs are possible but materially expand policy complexity.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-008",
+      "title": "Trigger-helper permissions",
+      "mappedDecisionIds": [
+        "RPC-H01",
+        "RPC-H02",
+        "RPC-H03",
+        "RPC-H04",
+        "RPC-H05",
+        "RPC-H06",
+        "RPC-H07",
+        "RPC-H08"
+      ],
+      "riskLevel": "medium",
+      "currentBehavior": "Eight live updated-at helpers execute as trigger functions; direct execute privileges/search paths require normalization.",
+      "recommendation": "Keep invoker trigger behavior, fixed trusted search_path, and deny direct PUBLIC/anon/authenticated execute.",
+      "impact": {
+        "security": "Reduces direct function surface.",
+        "tenantIsolation": "No tenant authorization is delegated to helpers.",
+        "applicationRuntime": "Transparent to application if triggers remain attached.",
+        "compatibilityRisk": "Trigger behavior preserved; ACL tightening may require Production migration.",
+        "productionMigration": "Later Production ACL/search_path migration expected where drift exists.",
+        "rollbackRecovery": "Restore only verified trigger attachment/behavior, not broad execute."
+      },
+      "migrationClassification": "BASELINE_FIRST_PRODUCTION_MIGRATION_LATER",
+      "secondaryClassifications": [],
+      "preflightRequirements": [
+        "Compare helper definitions, ACLs and trigger attachments."
+      ],
+      "validationRequirements": [
+        "Timestamp update and returned NEW row.",
+        "Direct browser-role execute denial."
+      ],
+      "codexRecommendation": "Approve normalized helper ACLs.",
+      "strongestAlternative": "Keep default execute ACLs, with unnecessary attack surface.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-009",
+      "title": "Patient external-ID uniqueness",
+      "mappedDecisionIds": [
+        "UNIQUE-001"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "Two equivalent global unique constraints cover nullable patients.external_id; no clinic key participates.",
+      "recommendation": "Use one non-null clinic/source/external-id uniqueness rule; allow null draft identities.",
+      "impact": {
+        "security": "Prevents accidental cross-tenant identity coupling.",
+        "tenantIsolation": "Scopes external identity to clinic and source.",
+        "applicationRuntime": "Patient import and manual creation conflict handling changes.",
+        "compatibilityRisk": "Requires clinic_id and duplicate inventory/backfill.",
+        "productionMigration": "Data preflight and later Production constraint migration required.",
+        "rollbackRecovery": "Retain duplicate-resolution evidence and reversible constraint transition."
+      },
+      "migrationClassification": "REQUIRES_DATA_PREFLIGHT_FIRST",
+      "secondaryClassifications": [],
+      "preflightRequirements": [
+        "Find duplicate/null external IDs by clinic/source.",
+        "Resolve records without derivable clinic."
+      ],
+      "validationRequirements": [
+        "Same-clinic collision, cross-clinic reuse, different-source reuse, null drafts, concurrency."
+      ],
+      "codexRecommendation": "Approve clinic/source-scoped uniqueness after data inventory.",
+      "strongestAlternative": "Keep global identity only if external IDs are proven globally issued.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-010",
+      "title": "Provider and sterilizer uniqueness",
+      "mappedDecisionIds": [
+        "UNIQUE-002",
+        "UNIQUE-003"
+      ],
+      "riskLevel": "high",
+      "currentBehavior": "Normalized provider and sterilizer names are globally unique; non-null deployment keys are clinic-scoped.",
+      "recommendation": "Keep clinic-scoped deployment keys and make normalized names clinic-scoped for active/non-archived rows; permit planned null-key drafts.",
+      "impact": {
+        "security": "Avoids cross-clinic information coupling through uniqueness errors.",
+        "tenantIsolation": "Aligns identity with clinic ownership.",
+        "applicationRuntime": "Setup/settings duplicate validation changes.",
+        "compatibilityRisk": "Existing same-clinic collisions and lifecycle transitions need preflight.",
+        "productionMigration": "Data preflight and later index migration required.",
+        "rollbackRecovery": "Preserve resolved identity mappings; avoid recreating global uniqueness."
+      },
+      "migrationClassification": "REQUIRES_DATA_PREFLIGHT_FIRST",
+      "secondaryClassifications": [],
+      "preflightRequirements": [
+        "Inventory normalized names per clinic/lifecycle.",
+        "Check null deployment keys and archived rows."
+      ],
+      "validationRequirements": [
+        "Cross-clinic same names.",
+        "Same-clinic conflicts, lifecycle transitions and concurrent inserts."
+      ],
+      "codexRecommendation": "Approve clinic-scoped active uniqueness.",
+      "strongestAlternative": "Use stable provider/device IDs only and permit duplicate display names.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-011",
+      "title": "Workstation ordering",
+      "mappedDecisionIds": [
+        "UNIQUE-004"
+      ],
+      "riskLevel": "medium",
+      "currentBehavior": "Production has non-unique (display_order,name); repository has display_order only.",
+      "recommendation": "Use Production composite index; allow ties/nulls and do not invent uniqueness.",
+      "impact": {
+        "security": "None.",
+        "tenantIsolation": "Ordering remains within query filtering; no tenant constraint change.",
+        "applicationRuntime": "Improves deterministic workstation lists.",
+        "compatibilityRisk": "Preserves Production behavior.",
+        "productionMigration": "No Production change for baseline authority.",
+        "rollbackRecovery": "Drop/recreate only after query-plan evidence if needed."
+      },
+      "migrationClassification": "BASELINE_ONLY_NO_PRODUCTION_CHANGE",
+      "secondaryClassifications": [],
+      "preflightRequirements": [
+        "Confirm normalized Production index definition."
+      ],
+      "validationRequirements": [
+        "Query plans and stable tie ordering.",
+        "Null/tied display positions."
+      ],
+      "codexRecommendation": "Approve Production composite index.",
+      "strongestAlternative": "Retain display_order-only index with less deterministic support.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-012",
+      "title": "Hardware, printer, agent, and provisioning defaults",
+      "mappedDecisionIds": [
+        "HARDWARE-001",
+        "HARDWARE-002",
+        "HARDWARE-003",
+        "HARDWARE-004",
+        "HARDWARE-005"
+      ],
+      "riskLevel": "high",
+      "currentBehavior": "Printer checks are NOT VALID; database defaults include localhost agent URL, Wi-Fi and port 9100; URLs and deployment identities are nullable across lifecycle states.",
+      "recommendation": "Valid clean-baseline constraints; environment owns endpoints/topology; deployment engine owns provisioning transitions; application owns product defaults; database enforces state-dependent valid persisted state.",
+      "impact": {
+        "security": "Reduces unsafe loopback/HTTP assumptions and invalid active states.",
+        "tenantIsolation": "Active hardware must have clinic ownership.",
+        "applicationRuntime": "Setup, print agent, local workstation and hardware deployment configuration change.",
+        "compatibilityRisk": "Local installs need explicit configuration; planned drafts remain nullable.",
+        "productionMigration": "Application/configuration change must precede Production default/constraint changes.",
+        "rollbackRecovery": "Retain last known explicit device config and deployment recovery plan."
+      },
+      "migrationClassification": "REQUIRES_APPLICATION_CHANGE_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_DATA_PREFLIGHT_FIRST"
+      ],
+      "preflightRequirements": [
+        "Inventory invalid checks, localhost values, HTTP URLs and active rows missing identity.",
+        "Define local deployment mode."
+      ],
+      "validationRequirements": [
+        "Local/remote, USB/network, planned/active/archived transitions and invalid combinations."
+      ],
+      "codexRecommendation": "Approve source-of-truth split with explicit local-mode support.",
+      "strongestAlternative": "Preserve DB defaults for single-machine deployments, accepting portability risk.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-013",
+      "title": "Platform and Supabase prerequisites",
+      "mappedDecisionIds": [
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
+        "PLATFORM-005",
+        "PLATFORM-006"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "Supabase provides auth/storage/extensions schemas, platform roles and gen_random_uuid(); filtered capture emits no application-owned extension declaration.",
+      "recommendation": "Assert compatible platform schemas/roles/functions; reference auth.users/auth.uid(); never recreate platform internals or roles; exclude Storage until usage is proven.",
+      "impact": {
+        "security": "Keeps platform ownership and auth trust boundaries intact.",
+        "tenantIsolation": "Membership depends on auth identity availability.",
+        "applicationRuntime": "Login remains Supabase Auth; no current Storage application dependency is proven.",
+        "compatibilityRisk": "Fails fast on incompatible environment rather than partially initializing.",
+        "productionMigration": "No application Production schema change; baseline preflight requirement.",
+        "rollbackRecovery": "Abort initialization before mutation when assertions fail."
+      },
+      "migrationClassification": "BASELINE_ONLY_NO_PRODUCTION_CHANGE",
+      "secondaryClassifications": [],
+      "preflightRequirements": [
+        "Verify versions, schemas, roles, auth helpers and UUID generation."
+      ],
+      "validationRequirements": [
+        "Baseline refuses missing/incompatible prerequisites.",
+        "Baseline creates no platform-owned object."
+      ],
+      "codexRecommendation": "Approve assertion-only platform contract.",
+      "strongestAlternative": "Application-own extensions only after platform documentation confirms necessity.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-014",
+      "title": "Function, index, constraint, trigger, and default normalization",
+      "mappedDecisionIds": [
+        "NORMALIZE-001",
+        "NORMALIZE-002",
+        "NORMALIZE-003",
+        "NORMALIZE-004",
+        "NORMALIZE-005",
+        "NORMALIZE-006",
+        "NORMALIZE-007"
+      ],
+      "riskLevel": "high",
+      "currentBehavior": "Evolved and superseded definitions coexist; long identifiers truncate; function attributes need normalized comparison; selected constraints/defaults genuinely differ.",
+      "recommendation": "Use evolved Production-normalized clinics/runs/functions/triggers; ignore naming-only truncation; explicitly migrate genuine ACL, constraint and default differences; exclude core/planning history.",
+      "impact": {
+        "security": "Normalizes function ACL/search_path and avoids accidental superseded objects.",
+        "tenantIsolation": "Preserves evolved clinic/deployment relationships.",
+        "applicationRuntime": "Should preserve deployed behavior except separately approved uniqueness/default changes.",
+        "compatibilityRisk": "Raw text concatenation is prohibited; attribute equality must be proven.",
+        "productionMigration": "Later Production migration for genuine differences only.",
+        "rollbackRecovery": "Version normalized definitions and use forward correction, not raw baseline replay."
+      },
+      "migrationClassification": "BASELINE_FIRST_PRODUCTION_MIGRATION_LATER",
+      "secondaryClassifications": [],
+      "preflightRequirements": [
+        "Catalog-normalize every function/index/constraint/trigger/default.",
+        "Separate truncation from semantic drift."
+      ],
+      "validationRequirements": [
+        "Definition hashes, dependency graph, RPC signatures, triggers, constraints and counts."
+      ],
+      "codexRecommendation": "Approve Production-normalized evolved authority.",
+      "strongestAlternative": "Raw dump copying preserves noise and platform coupling and is not recommended.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    },
+    {
+      "approvalGroupId": "APPROVAL-015",
+      "title": "Audit access and tenant ownership",
+      "mappedDecisionIds": [
+        "RLS-001",
+        "RLS-002"
+      ],
+      "riskLevel": "critical",
+      "currentBehavior": "Any authenticated user may insert and read all audit rows; audit_logs has no clinic_id.",
+      "recommendation": "Add tenant ownership; service-role/trusted server insert only; clinic-scoped super_admin/admin/auditor read; no client update/delete.",
+      "impact": {
+        "security": "Protects audit integrity and confidentiality.",
+        "tenantIsolation": "Requires clinic ownership plus an explicit global/system audit treatment.",
+        "applicationRuntime": "Audit writer, audit page, dashboard, reports and assistant activity change.",
+        "compatibilityRisk": "Current browser audit writes/reads may fail and historical rows need tenant classification.",
+        "productionMigration": "Security review, data backfill and later Production migration required.",
+        "rollbackRecovery": "Keep append-only evidence and quarantine unassigned historical rows; do not restore broad writes."
+      },
+      "migrationClassification": "REQUIRES_SECURITY_REVIEW_FIRST",
+      "secondaryClassifications": [
+        "REQUIRES_DATA_PREFLIGHT_FIRST",
+        "REQUIRES_APPLICATION_CHANGE_FIRST"
+      ],
+      "preflightRequirements": [
+        "Inventory audit writers and historical tenant derivability.",
+        "Define global/system event ownership."
+      ],
+      "validationRequirements": [
+        "Append-only integrity.",
+        "Role/clinic reads and cross-clinic denial.",
+        "Server insert and browser mutation denial."
+      ],
+      "codexRecommendation": "Approve only with a historical audit ownership plan.",
+      "strongestAlternative": "Keep global audit table accessible only to global super_admin/auditor.",
+      "ownerApprovalOptions": [
+        "APPROVE_RECOMMENDATION",
+        "REJECT_RECOMMENDATION",
+        "DEFER",
+        "REQUIRE_REVISION"
+      ],
+      "ownerDecision": "PENDING",
+      "ownerNotes": ""
+    }
+  ]
+}
