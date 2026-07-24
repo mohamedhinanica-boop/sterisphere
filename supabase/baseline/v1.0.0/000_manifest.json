@@ -1,0 +1,2426 @@
+{
+  "baselineVersion": "1.0.0",
+  "architectureFreezeVersion": "1.0.0",
+  "architectureFreezeManifestSha256": "0B0B1B157035F12AB210ECBD1DC6B7E55FF6DAFFDF652966ACB0396E66963619",
+  "architectureInputCommit": "2373ad80d6a86510acde0010ea1bfb1f82d0fe02",
+  "freezeArtifactCommit": "12b6b7e2729d95f47c77cb04e1db87130a05adc9",
+  "generatedAt": "2026-07-24T18:15:09.579Z",
+  "productionCaptureReference": ".tmp/schema-captures/20260723T031930Z/",
+  "ownerResolutionSha256": "D0CE3D8910EBAA73AF87FD3903851D1207969764473281D5D14715120F26CB1B",
+  "artifacts": [
+    {
+      "path": "001_prerequisites.sql",
+      "role": "Platform prerequisite assertions",
+      "executionOrder": 1,
+      "sizeBytes": 2471,
+      "sha256": "C43BC8F45CD15A8886EF182CAFCC09E1D323D575163F815B0228857C245D2DF8",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "010_schemas.sql",
+      "role": "Application schema boundary",
+      "executionOrder": 2,
+      "sizeBytes": 1148,
+      "sha256": "EF8E40901C39483DFA13E2615505589DC82E17C9EC68D6D98D88521A27A14CB7",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "020_tables.sql",
+      "role": "Application tables",
+      "executionOrder": 3,
+      "sizeBytes": 17832,
+      "sha256": "68AE5AAB6B2F6C95E52C8918595376C34A169C2CD43775F8AFA1E44F7DF12B30",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "030_constraints.sql",
+      "role": "Constraints",
+      "executionOrder": 4,
+      "sizeBytes": 30897,
+      "sha256": "4AA876125C75A22FBC30848824822555CF3B99621EF2BF244F03E52AFFF4FED4",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "040_indexes.sql",
+      "role": "Indexes",
+      "executionOrder": 5,
+      "sizeBytes": 13955,
+      "sha256": "79C60AEE749A6D6807A7BF109290729A947746ACA6619CC2B0DA6C79FC80B64B",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "050_functions.sql",
+      "role": "Functions and RPCs",
+      "executionOrder": 6,
+      "sizeBytes": 319756,
+      "sha256": "B30CB7CA0BEDB32DE5F6DC9AE269C425343CAA2702088A5D3986A5C71D4D4DF8",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "060_triggers.sql",
+      "role": "Trigger attachments",
+      "executionOrder": 7,
+      "sizeBytes": 2621,
+      "sha256": "F0542253D3BEFDD7C6371ECC7A3930D324EEC786A4FA733D69DF870BAEF346F2",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "070_rls.sql",
+      "role": "RLS enablement",
+      "executionOrder": 8,
+      "sizeBytes": 2277,
+      "sha256": "3FE625B4B5E35C662FBD94452F196BE997D8FF937497668F418F4A68665A3CB0",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "080_policies.sql",
+      "role": "Replacement policies",
+      "executionOrder": 9,
+      "sizeBytes": 8478,
+      "sha256": "776923932B9425FEC8A7AB25A1A1434BBC1BEB3CAE93D522ADA3D227A9D4BC96",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "090_acl.sql",
+      "role": "Least-privilege ACLs",
+      "executionOrder": 10,
+      "sizeBytes": 14933,
+      "sha256": "C7CEB526F8301BB2950F35424582851568909F74D5637F5C35894BBDFC0525DC",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "100_validation.sql",
+      "role": "Read-only validation",
+      "executionOrder": 11,
+      "sizeBytes": 161887,
+      "sha256": "8F62B49890A29107BB4CBA8888CB7F7DA0F76EEE9F75BFB654E41BAF5BD9D783",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "EXECUTABLE_SQL",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "EXACT_UTF8_BYTES"
+    },
+    {
+      "path": "README.md",
+      "role": "Baseline review, boundary, ordering, and safety contract",
+      "executionOrder": null,
+      "sizeBytes": 24725,
+      "sha256": "49785B6FE1E286B4A25B9A032DEA2B586CBDBB7C381D55933ED316B0CBAC93B0",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "DOCUMENTATION",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "REFERENCE_NORMALIZED_UTF8_BYTES"
+    },
+    {
+      "path": "docs/architecture/authoritative-baseline-generation-report.md",
+      "role": "Generation, traceability, and readiness report",
+      "executionOrder": null,
+      "sizeBytes": 36720,
+      "sha256": "DA0A9435A95EA0043C27ADDD5AE0119C9114D5F9F488CD8F5BAED4EA73B76643",
+      "hashAlgorithm": "SHA-256",
+      "contentStatus": "DOCUMENTATION",
+      "generatedFromFreezeVersion": "1.0.0",
+      "hashRepresentation": "REFERENCE_NORMALIZED_UTF8_BYTES"
+    }
+  ],
+  "objectCounts": {
+    "schemasCreated": 0,
+    "tables": 23,
+    "constraints": 153,
+    "indexes": 90,
+    "authorizationHelpers": 3,
+    "triggerHelpers": 8,
+    "runtimeRpcs": 17,
+    "functionsTotal": 28,
+    "securityDefinerFunctions": 15,
+    "securityInvokerFunctions": 13,
+    "triggers": 10,
+    "rlsEnabledTables": 23,
+    "policies": 33,
+    "aclStatements": 54
+  },
+  "sourceDecisionCoverage": {
+    "totalDecisions": 76,
+    "rlsDecisions": 27,
+    "generatedPolicies": 33,
+    "policyForwardMappings": 33,
+    "policyReverseMappings": 27,
+    "runtimeRpcDecisions": 17,
+    "triggerHelperDecisions": 8,
+    "approvalGroups": 15
+  },
+  "functionSecurityPosture": {
+    "total": 28,
+    "securityDefiner": 15,
+    "securityInvoker": 13,
+    "explicitVolatility": 28,
+    "runtimeRpcs": 17
+  },
+  "policyTraceability": [
+    {
+      "generatedPolicyName": "audit_logs_select_authorized",
+      "targetTable": "audit_logs",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-002"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-015"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-015",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-002",
+          "productionPolicyAreaTitle": "audit_logs: Allow authenticated users to read audit logs",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert and read every audit row; no tenant predicate."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinic_memberships_select_authorized",
+      "targetTable": "clinic_memberships",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001",
+        "RLS-026"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001",
+        "APPROVAL-003"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        },
+        {
+          "approvalGroupId": "APPROVAL-003",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "INTENTIONAL_SPLIT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        },
+        {
+          "decisionId": "RLS-026",
+          "productionPolicyAreaTitle": "user_roles: Allow public read user roles",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update all role assignments."
+        }
+      ],
+      "justification": "Separates approved commands or replacement structures so each policy has one bounded purpose.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinic_settings_insert_admin",
+      "targetTable": "clinic_settings",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-003"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-003",
+          "productionPolicyAreaTitle": "clinic_settings: Allow admins to insert clinic settings",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, update, and read all settings."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinic_settings_select_members",
+      "targetTable": "clinic_settings",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-005"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-005",
+          "productionPolicyAreaTitle": "clinic_settings: Allow authenticated users to read clinic settings",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, update, and read all settings."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinic_settings_update_admin",
+      "targetTable": "clinic_settings",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-004"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-004",
+          "productionPolicyAreaTitle": "clinic_settings: Allow admins to update clinic settings",
+          "productionPolicyAreaDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, update, and read all settings."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinical_agents_select_admin",
+      "targetTable": "clinical_agents",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinical_hardware_devices_select_admin",
+      "targetTable": "clinical_hardware_devices",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinical_workstations_select_members",
+      "targetTable": "clinical_workstations",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "clinics_select_members",
+      "targetTable": "clinics",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "cycles_insert_clinical",
+      "targetTable": "cycles",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-006"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-006",
+          "productionPolicyAreaTitle": "cycles: Allow public insert cycles",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert, read, and update every cycle."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "cycles_select_members",
+      "targetTable": "cycles",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-007"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-007",
+          "productionPolicyAreaTitle": "cycles: Allow public read cycles",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update every cycle."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "cycles_update_clinical",
+      "targetTable": "cycles",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-008"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-008",
+          "productionPolicyAreaTitle": "cycles: Allow public update cycles",
+          "productionPolicyAreaDescription": "PERMISSIVE UPDATE policy for roles PUBLIC; USING=true; WITH CHECK=true. PUBLIC can insert, read, and update every cycle."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "load_items_insert_clinical",
+      "targetTable": "load_items",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-009"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-009",
+          "productionPolicyAreaTitle": "load_items: Allow authenticated users to insert load items",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update all load items."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "load_items_select_members",
+      "targetTable": "load_items",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-010"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-010",
+          "productionPolicyAreaTitle": "load_items: Allow authenticated users to read load items",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update all load items."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "load_items_update_clinical",
+      "targetTable": "load_items",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-011"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-011",
+          "productionPolicyAreaTitle": "load_items: Allow authenticated users to update load items",
+          "productionPolicyAreaDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update all load items."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "packs_insert_clinical",
+      "targetTable": "packs",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-013"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-013",
+          "productionPolicyAreaTitle": "packs: Allow public insert packs",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert/read all packs; authenticated users can update any expired review."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "packs_select_members",
+      "targetTable": "packs",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-014"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-014",
+          "productionPolicyAreaTitle": "packs: Allow public read packs",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert/read all packs; authenticated users can update any expired review."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "packs_update_clinical",
+      "targetTable": "packs",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-012"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-005"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-005",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-012",
+          "productionPolicyAreaTitle": "packs: Allow authenticated users to review expired packs",
+          "productionPolicyAreaDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. PUBLIC can insert/read all packs; authenticated users can update any expired review."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patient_external_identifiers_select_clinical",
+      "targetTable": "patient_external_identifiers",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "UNIQUE-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-009"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-009",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "UNIQUE-001",
+          "productionPolicyAreaTitle": "Patient external identity",
+          "productionPolicyAreaDescription": "Production has two equivalent UNIQUE constraints on nullable external_id, globally scoped."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patient_external_identifiers_write_clinical",
+      "targetTable": "patient_external_identifiers",
+      "command": "ALL",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "UNIQUE-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-009"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-009",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "UNIQUE-001",
+          "productionPolicyAreaTitle": "Patient external identity",
+          "productionPolicyAreaDescription": "Production has two equivalent UNIQUE constraints on nullable external_id, globally scoped."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patient_traces_insert_clinical",
+      "targetTable": "patient_traces",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-015"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-004"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-004",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-015",
+          "productionPolicyAreaTitle": "patient_traces: Allow public insert patient traces",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all trace rows."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patient_traces_select_clinical",
+      "targetTable": "patient_traces",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-016"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-004"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-004",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-016",
+          "productionPolicyAreaTitle": "patient_traces: Allow public read patient traces",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert and read all trace rows."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patients_insert_clinical",
+      "targetTable": "patients",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-017"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-004"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-004",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-017",
+          "productionPolicyAreaTitle": "patients: Allow public insert patients",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all patient rows."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patients_select_clinical",
+      "targetTable": "patients",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-018"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-004"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-004",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-018",
+          "productionPolicyAreaTitle": "patients: Allow public read patients",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert and read all patient rows."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "patients_update_clinical",
+      "targetTable": "patients",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-017"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-004"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-004",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "INTENTIONAL_SPLIT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-017",
+          "productionPolicyAreaTitle": "patients: Allow public insert patients",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all patient rows."
+        }
+      ],
+      "justification": "Separates approved commands or replacement structures so each policy has one bounded purpose.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "platform_operator_roles_select_authorized",
+      "targetTable": "platform_operator_roles",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001",
+        "RLS-026"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001",
+        "APPROVAL-003"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        },
+        {
+          "approvalGroupId": "APPROVAL-003",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "INTENTIONAL_SPLIT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        },
+        {
+          "decisionId": "RLS-026",
+          "productionPolicyAreaTitle": "user_roles: Allow public read user roles",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update all role assignments."
+        }
+      ],
+      "justification": "Separates approved commands or replacement structures so each policy has one bounded purpose.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "providers_insert_admin",
+      "targetTable": "providers",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-019"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-019",
+          "productionPolicyAreaTitle": "providers: Allow authenticated users to insert providers",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update providers across all clinics."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "providers_select_members",
+      "targetTable": "providers",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-020"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-020",
+          "productionPolicyAreaTitle": "providers: Allow authenticated users to read providers",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update providers across all clinics."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "providers_update_admin",
+      "targetTable": "providers",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-021"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-021",
+          "productionPolicyAreaTitle": "providers: Allow authenticated users to update providers",
+          "productionPolicyAreaDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update providers across all clinics."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "sterilizers_insert_admin",
+      "targetTable": "sterilizers",
+      "command": "INSERT",
+      "applicableRoles": [
+        "authenticated WITH CHECK"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-022"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-022",
+          "productionPolicyAreaTitle": "sterilizers: Allow authenticated users to insert sterilizers",
+          "productionPolicyAreaDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update sterilizers across all clinics."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "sterilizers_select_members",
+      "targetTable": "sterilizers",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "RLS-023"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-023",
+          "productionPolicyAreaTitle": "sterilizers: Allow authenticated users to read sterilizers",
+          "productionPolicyAreaDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update sterilizers across all clinics."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "sterilizers_update_admin",
+      "targetTable": "sterilizers",
+      "command": "UPDATE",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Restrict proposed row state to the approved durable global or clinic scope.",
+      "sourceDecisionIds": [
+        "RLS-024"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-006"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-006",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "DIRECT_REPLACEMENT",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "RLS-024",
+          "productionPolicyAreaTitle": "sterilizers: Allow authenticated users to update sterilizers",
+          "productionPolicyAreaDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update sterilizers across all clinics."
+        }
+      ],
+      "justification": "Direct tenant-scoped replacement for the approved Production policy area.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    },
+    {
+      "generatedPolicyName": "workstation_sessions_select_authorized",
+      "targetTable": "workstation_sessions",
+      "command": "SELECT",
+      "applicableRoles": [
+        "authenticated USING"
+      ],
+      "usingClausePurpose": "Not applicable to this command.",
+      "withCheckClausePurpose": "Not applicable to this command.",
+      "sourceDecisionIds": [
+        "AUTH-001"
+      ],
+      "sourceApprovalGroupIds": [
+        "APPROVAL-001"
+      ],
+      "approvalGroupDispositions": [
+        {
+          "approvalGroupId": "APPROVAL-001",
+          "ownerApprovalDisposition": "PENDING",
+          "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT"
+        }
+      ],
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "classification": "NEW_SUPPORTING_POLICY",
+      "predecessorProductionPolicyAreas": [
+        {
+          "decisionId": "AUTH-001",
+          "productionPolicyAreaTitle": "Authoritative role and clinic-membership model",
+          "productionPolicyAreaDescription": "Five application role strings are read from user_roles by email and enforced mainly in client components; database policies do not enforce roles or membership."
+        }
+      ],
+      "justification": "Required to make an owner-approved new membership or external-identity structure usable without broad access.",
+      "tenantIsolationEffect": "Uses durable active membership/global operator authorization instead of broad or caller-asserted scope.",
+      "privilegeTighteningEffect": "Removes PUBLIC/anonymous or cross-clinic behavior and limits access to authenticated approved roles."
+    }
+  ],
+  "productionPolicyDecisionCoverage": [
+    {
+      "decisionId": "RLS-001",
+      "productionPolicyAreaTitle": "audit_logs: Allow authenticated users to insert audit logs",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert and read every audit row; no tenant predicate.",
+      "sourceApprovalGroupId": "APPROVAL-015",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [],
+      "coverageStatus": "COVERED_BY_DENY_SERVER_ONLY",
+      "splitRationale": null,
+      "omissionRationale": "No client INSERT policy: trusted service/database audit writing is the approved replacement."
+    },
+    {
+      "decisionId": "RLS-002",
+      "productionPolicyAreaTitle": "audit_logs: Allow authenticated users to read audit logs",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert and read every audit row; no tenant predicate.",
+      "sourceApprovalGroupId": "APPROVAL-015",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "audit_logs_select_authorized"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-003",
+      "productionPolicyAreaTitle": "clinic_settings: Allow admins to insert clinic settings",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, update, and read all settings.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "clinic_settings_insert_admin"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-004",
+      "productionPolicyAreaTitle": "clinic_settings: Allow admins to update clinic settings",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, update, and read all settings.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "clinic_settings_update_admin"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-005",
+      "productionPolicyAreaTitle": "clinic_settings: Allow authenticated users to read clinic settings",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, update, and read all settings.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "clinic_settings_select_members"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-006",
+      "productionPolicyAreaTitle": "cycles: Allow public insert cycles",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert, read, and update every cycle.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "cycles_insert_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-007",
+      "productionPolicyAreaTitle": "cycles: Allow public read cycles",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update every cycle.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "cycles_select_members"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-008",
+      "productionPolicyAreaTitle": "cycles: Allow public update cycles",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles PUBLIC; USING=true; WITH CHECK=true. PUBLIC can insert, read, and update every cycle.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "cycles_update_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-009",
+      "productionPolicyAreaTitle": "load_items: Allow authenticated users to insert load items",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update all load items.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "load_items_insert_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-010",
+      "productionPolicyAreaTitle": "load_items: Allow authenticated users to read load items",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update all load items.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "load_items_select_members"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-011",
+      "productionPolicyAreaTitle": "load_items: Allow authenticated users to update load items",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update all load items.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "load_items_update_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-012",
+      "productionPolicyAreaTitle": "packs: Allow authenticated users to review expired packs",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. PUBLIC can insert/read all packs; authenticated users can update any expired review.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "packs_update_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-013",
+      "productionPolicyAreaTitle": "packs: Allow public insert packs",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert/read all packs; authenticated users can update any expired review.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "packs_insert_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-014",
+      "productionPolicyAreaTitle": "packs: Allow public read packs",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert/read all packs; authenticated users can update any expired review.",
+      "sourceApprovalGroupId": "APPROVAL-005",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "packs_select_members"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-015",
+      "productionPolicyAreaTitle": "patient_traces: Allow public insert patient traces",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all trace rows.",
+      "sourceApprovalGroupId": "APPROVAL-004",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "patient_traces_insert_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-016",
+      "productionPolicyAreaTitle": "patient_traces: Allow public read patient traces",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert and read all trace rows.",
+      "sourceApprovalGroupId": "APPROVAL-004",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "patient_traces_select_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-017",
+      "productionPolicyAreaTitle": "patients: Allow public insert patients",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert and read all patient rows.",
+      "sourceApprovalGroupId": "APPROVAL-004",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "patients_insert_clinical",
+        "patients_update_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": "The approved replacement is split across distinct authoritative structures or commands.",
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-018",
+      "productionPolicyAreaTitle": "patients: Allow public read patients",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert and read all patient rows.",
+      "sourceApprovalGroupId": "APPROVAL-004",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "patients_select_clinical"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-019",
+      "productionPolicyAreaTitle": "providers: Allow authenticated users to insert providers",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update providers across all clinics.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "providers_insert_admin"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-020",
+      "productionPolicyAreaTitle": "providers: Allow authenticated users to read providers",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update providers across all clinics.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "providers_select_members"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-021",
+      "productionPolicyAreaTitle": "providers: Allow authenticated users to update providers",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update providers across all clinics.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "providers_update_admin"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-022",
+      "productionPolicyAreaTitle": "sterilizers: Allow authenticated users to insert sterilizers",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles authenticated; USING=none; WITH CHECK=true. Authenticated users can insert, read, and update sterilizers across all clinics.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "sterilizers_insert_admin"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-023",
+      "productionPolicyAreaTitle": "sterilizers: Allow authenticated users to read sterilizers",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles authenticated; USING=true; WITH CHECK=none. Authenticated users can insert, read, and update sterilizers across all clinics.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "sterilizers_select_members"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-024",
+      "productionPolicyAreaTitle": "sterilizers: Allow authenticated users to update sterilizers",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles authenticated; USING=true; WITH CHECK=true. Authenticated users can insert, read, and update sterilizers across all clinics.",
+      "sourceApprovalGroupId": "APPROVAL-006",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "sterilizers_update_admin"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": null,
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-025",
+      "productionPolicyAreaTitle": "user_roles: Allow public insert user roles",
+      "productionBehaviorDescription": "PERMISSIVE INSERT policy for roles PUBLIC; USING=none; WITH CHECK=true. PUBLIC can insert, read, and update all role assignments.",
+      "sourceApprovalGroupId": "APPROVAL-003",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [],
+      "coverageStatus": "COVERED_BY_DENY_SERVER_ONLY",
+      "splitRationale": null,
+      "omissionRationale": "No client INSERT policy: role and membership mutation is an audited server operation."
+    },
+    {
+      "decisionId": "RLS-026",
+      "productionPolicyAreaTitle": "user_roles: Allow public read user roles",
+      "productionBehaviorDescription": "PERMISSIVE SELECT policy for roles PUBLIC; USING=true; WITH CHECK=none. PUBLIC can insert, read, and update all role assignments.",
+      "sourceApprovalGroupId": "APPROVAL-003",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [
+        "clinic_memberships_select_authorized",
+        "platform_operator_roles_select_authorized"
+      ],
+      "coverageStatus": "COVERED_BY_POLICY",
+      "splitRationale": "The approved replacement is split across distinct authoritative structures or commands.",
+      "omissionRationale": null
+    },
+    {
+      "decisionId": "RLS-027",
+      "productionPolicyAreaTitle": "user_roles: Allow public update user roles",
+      "productionBehaviorDescription": "PERMISSIVE UPDATE policy for roles PUBLIC; USING=true; WITH CHECK=true. PUBLIC can insert, read, and update all role assignments.",
+      "sourceApprovalGroupId": "APPROVAL-003",
+      "ownerApprovalDisposition": "PENDING",
+      "ownerResolutionDisposition": "APPROVE_WITH_REFINEMENT",
+      "generatedPolicies": [],
+      "coverageStatus": "COVERED_BY_DENY_SERVER_ONLY",
+      "splitRationale": null,
+      "omissionRationale": "No client UPDATE policy: role and membership mutation is an audited server operation."
+    }
+  ],
+  "baselineStatus": "GENERATED_FOR_REVIEW",
+  "executionAuthorization": "NOT_AUTHORIZED",
+  "stagingAuthorization": "NOT_AUTHORIZED",
+  "productionAuthorization": "NOT_AUTHORIZED",
+  "productionMigrationStatus": "NOT_AUTHORIZED",
+  "securityRequirements": [
+    {
+      "requirementId": "SECURITY-REQ-001",
+      "baselineGenerationBlocker": false,
+      "stagingReleaseBlocker": true,
+      "versionOneReleaseBlocker": true,
+      "knownViolation": "persistDeploymentRunAction"
+    }
+  ],
+  "knownReleaseGates": [
+    "Independent Phase 10.6C acceptance review.",
+    "Implement and test durable membership and global operator authorization.",
+    "Remediate SECURITY-REQ-001 before Staging release.",
+    "Complete tenant-ownership and collision data preflights.",
+    "Pass isolated fresh-database parsing/execution and validation.",
+    "Create separately reviewed forward Production migrations."
+  ],
+  "manifestHashAlgorithm": "SHA-256",
+  "manifestHashRecordedExternally": true,
+  "manifestSelfHashExcluded": true,
+  "canonicalizationMethod": "UTF-8 without BOM; LF line endings; deterministic JSON insertion-key and array order; two-space indentation; one final LF. For README.md and the generation report only, the embedded manifest hash is replaced by the literal __AUTHORITATIVE_BASELINE_MANIFEST_SHA256__ before hashing to avoid a cryptographic reference cycle. sizeBytes always records final file bytes.",
+  "generationConclusion": "AUTHORITATIVE_BASELINE_GENERATED_FOR_REVIEW",
+  "functionMatrix": [
+    {
+      "schema": "public",
+      "functionName": "activate_deployment_clinic",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, timestamp with time zone, integer, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.activate_deployment_clinic(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, timestamp with time zone, integer, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, clinic_state_before jsonb, clinic_state_after jsonb, activated_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "activate_deployment_clinic",
+      "sourceDecisionId": "RPC-001",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "activate_deployment_hardware_shell",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.activate_deployment_hardware_shell(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, hardware_id uuid, deployment_hardware_key text, hardware_state_before jsonb, hardware_state_after jsonb, activated_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "activate_deployment_hardware_shell",
+      "sourceDecisionId": "RPC-002",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "activate_deployment_provider_shell",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.activate_deployment_provider_shell(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, provider_id uuid, deployment_provider_key text, provider_state_before jsonb, provider_state_after jsonb, activated_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "activate_deployment_provider_shell",
+      "sourceDecisionId": "RPC-003",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "activate_deployment_sterilizer_shell",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.activate_deployment_sterilizer_shell(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, sterilizer_id uuid, deployment_sterilizer_key text, sterilizer_state_before jsonb, sterilizer_state_after jsonb, activated_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "activate_deployment_sterilizer_shell",
+      "sourceDecisionId": "RPC-004",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "activate_deployment_workstation_shell",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.activate_deployment_workstation_shell(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, workstation_id uuid, deployment_workstation_key text, workstation_state_before jsonb, workstation_state_after jsonb, activated_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "activate_deployment_workstation_shell",
+      "sourceDecisionId": "RPC-005",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "bind_deployment_hardware_target",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, text, uuid, text, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.bind_deployment_hardware_target(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer, uuid, text, text, uuid, text, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, binding_written boolean, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, hardware_id uuid, deployment_hardware_key text, target_id uuid, target_type text, target_deployment_key text, previous_state jsonb, resulting_state jsonb, binding_timestamp timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "bind_deployment_hardware_target",
+      "sourceDecisionId": "RPC-006",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "claim_deployment_activation_execution_session",
+      "identityArguments": "text, uuid, text, uuid, text, text, text, timestamp with time zone, timestamp with time zone, integer, text, text, timestamp with time zone",
+      "canonicalSignature": "public.claim_deployment_activation_execution_session(text, uuid, text, uuid, text, text, text, timestamp with time zone, timestamp with time zone, integer, text, text, timestamp with time zone)",
+      "returnType": "TABLE(status text, session_id uuid, execution_key text, execution_owner text, ownership_token text, lease_expires_at timestamp with time zone, execution_status text, item_count integer, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "claim_deployment_activation_execution_session",
+      "sourceDecisionId": "RPC-007",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "complete_deployment_activation_execution_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, timestamp with time zone, integer, timestamp with time zone",
+      "canonicalSignature": "public.complete_deployment_activation_execution_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, timestamp with time zone, integer, timestamp with time zone)",
+      "returnType": "TABLE(status text, claimant_id text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, entity_type text, action text, started_at timestamp with time zone, completed_at timestamp with time zone, attempt_count integer, execution_status_before text, execution_status_after text, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "complete_deployment_activation_execution_item",
+      "sourceDecisionId": "RPC-008",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "complete_deployment_hardware_shell_execution_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.complete_deployment_hardware_shell_execution_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, claimant_id text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, entity_type text, entity_id text, deployment_hardware_key text, action text, hardware_id uuid, item_status_before text, item_status_after text, started_at timestamp with time zone, completed_at timestamp with time zone, attempt_count integer, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "complete_deployment_hardware_shell_execution_item",
+      "sourceDecisionId": "RPC-009",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "complete_deployment_provider_shell_execution_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.complete_deployment_provider_shell_execution_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, claimant_id text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, entity_type text, entity_id text, deployment_provider_key text, action text, provider_id uuid, item_status_before text, item_status_after text, started_at timestamp with time zone, completed_at timestamp with time zone, attempt_count integer, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "complete_deployment_provider_shell_execution_item",
+      "sourceDecisionId": "RPC-010",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "complete_deployment_sterilizer_shell_execution_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.complete_deployment_sterilizer_shell_execution_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, claimant_id text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, entity_type text, entity_id text, deployment_sterilizer_key text, action text, sterilizer_id uuid, item_status_before text, item_status_after text, started_at timestamp with time zone, completed_at timestamp with time zone, attempt_count integer, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "complete_deployment_sterilizer_shell_execution_item",
+      "sourceDecisionId": "RPC-011",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "complete_deployment_workstation_shell_execution_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone",
+      "canonicalSignature": "public.complete_deployment_workstation_shell_execution_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, text, timestamp with time zone, integer, uuid, jsonb, jsonb, timestamp with time zone)",
+      "returnType": "TABLE(status text, claimant_id text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, entity_type text, entity_id text, deployment_workstation_key text, action text, workstation_id uuid, item_status_before text, item_status_after text, started_at timestamp with time zone, completed_at timestamp with time zone, attempt_count integer, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "complete_deployment_workstation_shell_execution_item",
+      "sourceDecisionId": "RPC-012",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "current_actor_has_clinic_role",
+      "identityArguments": "uuid, text[]",
+      "canonicalSignature": "public.current_actor_has_clinic_role(uuid, text[])",
+      "returnType": "boolean",
+      "category": "AUTHORIZATION_HELPER",
+      "language": "sql",
+      "volatility": "STABLE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "authenticated",
+        "service_role"
+      ],
+      "approvedPurpose": "Authoritative role and clinic-membership model",
+      "sourceDecisionId": "AUTH-001",
+      "dependencySummary": [
+        "auth.uid()",
+        "public.current_actor_is_global_super_admin()",
+        "public.clinic_memberships"
+      ],
+      "tenantScopeBehavior": "Resolves auth.uid() against durable global or active clinic membership.",
+      "callerInputTrustPosture": "Caller clinic/role inputs are constrained by auth.uid() and durable records."
+    },
+    {
+      "schema": "public",
+      "functionName": "current_actor_is_clinic_member",
+      "identityArguments": "uuid",
+      "canonicalSignature": "public.current_actor_is_clinic_member(uuid)",
+      "returnType": "boolean",
+      "category": "AUTHORIZATION_HELPER",
+      "language": "sql",
+      "volatility": "STABLE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "authenticated",
+        "service_role"
+      ],
+      "approvedPurpose": "Authoritative role and clinic-membership model",
+      "sourceDecisionId": "AUTH-001",
+      "dependencySummary": [
+        "public.current_actor_has_clinic_role(uuid,text[])"
+      ],
+      "tenantScopeBehavior": "Resolves auth.uid() against durable global or active clinic membership.",
+      "callerInputTrustPosture": "Caller clinic/role inputs are constrained by auth.uid() and durable records."
+    },
+    {
+      "schema": "public",
+      "functionName": "current_actor_is_global_super_admin",
+      "identityArguments": "",
+      "canonicalSignature": "public.current_actor_is_global_super_admin()",
+      "returnType": "boolean",
+      "category": "AUTHORIZATION_HELPER",
+      "language": "sql",
+      "volatility": "STABLE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "authenticated",
+        "service_role"
+      ],
+      "approvedPurpose": "Authoritative role and clinic-membership model",
+      "sourceDecisionId": "AUTH-001",
+      "dependencySummary": [
+        "auth.uid()",
+        "public.platform_operator_roles"
+      ],
+      "tenantScopeBehavior": "Resolves auth.uid() against durable global or active clinic membership.",
+      "callerInputTrustPosture": "Caller clinic/role inputs are constrained by auth.uid() and durable records."
+    },
+    {
+      "schema": "public",
+      "functionName": "persist_deployment_recovery_plan",
+      "identityArguments": "uuid, text, uuid, text, text, text, text, text, text, boolean, boolean, jsonb, jsonb, jsonb, integer, integer, jsonb, jsonb, jsonb",
+      "canonicalSignature": "public.persist_deployment_recovery_plan(uuid, text, uuid, text, text, text, text, text, text, boolean, boolean, jsonb, jsonb, jsonb, integer, integer, jsonb, jsonb, jsonb)",
+      "returnType": "TABLE(persistence_status text, recovery_plan_id uuid, recovery_key text, recovery_status text, rollback_required boolean, rollback_executable boolean, rollback_items_persisted integer, rollback_items_reused integer, issue_code text, message text, persisted_at timestamp with time zone)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "persist_deployment_recovery_plan",
+      "sourceDecisionId": "RPC-013",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "progress_deployment_activation_execution_dependency",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, timestamp with time zone, timestamp with time zone, integer, uuid, text, text, integer, text, text, text, text, integer, text[], timestamp with time zone",
+      "canonicalSignature": "public.progress_deployment_activation_execution_dependency(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, timestamp with time zone, timestamp with time zone, integer, uuid, text, text, integer, text, text, text, text, integer, text[], timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, completed_item_id uuid, completed_execution_item_key text, completed_plan_item_key text, completed_sequence integer, next_item_id uuid, next_execution_item_key text, next_plan_item_key text, next_sequence integer, next_entity_type text, next_entity_id text, next_action text, next_status_before text, next_status_after text, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "progress_deployment_activation_execution_dependency",
+      "sourceDecisionId": "RPC-014",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_clinical_agents_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_clinical_agents_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_clinical_agents_updated_at",
+      "sourceDecisionId": "RPC-H01",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_clinical_hardware_devices_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_clinical_hardware_devices_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_clinical_hardware_devices_updated_at",
+      "sourceDecisionId": "RPC-H02",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_clinical_workstations_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_clinical_workstations_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_clinical_workstations_updated_at",
+      "sourceDecisionId": "RPC-H03",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_clinics_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_clinics_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_clinics_updated_at",
+      "sourceDecisionId": "RPC-H04",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_deployment_activation_execution_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_deployment_activation_execution_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_deployment_activation_execution_updated_at",
+      "sourceDecisionId": "RPC-H05",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_deployment_hardware_assignments_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_deployment_hardware_assignments_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_deployment_hardware_assignments_updated_at",
+      "sourceDecisionId": "RPC-H06",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_deployment_recovery_plan_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_deployment_recovery_plan_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_deployment_recovery_plan_updated_at",
+      "sourceDecisionId": "RPC-H07",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "set_workstation_sessions_updated_at",
+      "identityArguments": "",
+      "canonicalSignature": "public.set_workstation_sessions_updated_at()",
+      "returnType": "trigger",
+      "category": "TRIGGER_HELPER",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [],
+      "approvedPurpose": "Trigger helper set_workstation_sessions_updated_at",
+      "sourceDecisionId": "RPC-H08",
+      "dependencySummary": [
+        "trigger NEW row"
+      ],
+      "tenantScopeBehavior": "No authorization decision; operates only on the triggering row.",
+      "callerInputTrustPosture": "Does not accept caller arguments."
+    },
+    {
+      "schema": "public",
+      "functionName": "start_deployment_activation_execution_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer",
+      "canonicalSignature": "public.start_deployment_activation_execution_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, timestamp with time zone, integer)",
+      "returnType": "TABLE(status text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, action text, entity_type text, entity_key text, execution_status text, attempt_count integer, started_at timestamp with time zone, lease_expires_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "start_deployment_activation_execution_item",
+      "sourceDecisionId": "RPC-015",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "start_deployment_activation_execution_next_item",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, integer, text[], timestamp with time zone",
+      "canonicalSignature": "public.start_deployment_activation_execution_next_item(uuid, text, uuid, text, text, text, timestamp with time zone, uuid, text, text, integer, text, text, text, integer, text[], timestamp with time zone)",
+      "returnType": "TABLE(status text, clinic_id uuid, deployment_run_key text, session_id uuid, execution_key text, item_id uuid, execution_item_key text, plan_item_key text, sequence integer, entity_type text, entity_id text, action text, attempt_count integer, started_at timestamp with time zone, lease_expires_at timestamp with time zone, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_DEFINER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "start_deployment_activation_execution_next_item",
+      "sourceDecisionId": "RPC-016",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    },
+    {
+      "schema": "public",
+      "functionName": "start_deployment_activation_execution_session",
+      "identityArguments": "uuid, text, uuid, text, text, text, timestamp with time zone, timestamp with time zone, integer",
+      "canonicalSignature": "public.start_deployment_activation_execution_session(uuid, text, uuid, text, text, text, timestamp with time zone, timestamp with time zone, integer)",
+      "returnType": "TABLE(status text, session_id uuid, execution_key text, execution_owner text, lease_expires_at timestamp with time zone, execution_status text, started_at timestamp with time zone, item_count integer, issue_code text, message text)",
+      "category": "RUNTIME_RPC",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "securityPosture": "SECURITY_INVOKER",
+      "searchPathPosture": "FIXED_PG_CATALOG_PUBLIC",
+      "strictness": "CALLED_ON_NULL_INPUT",
+      "executionGrantees": [
+        "service_role"
+      ],
+      "approvedPurpose": "start_deployment_activation_execution_session",
+      "sourceDecisionId": "RPC-017",
+      "dependencySummary": [
+        "public deployment/clinic entity tables",
+        "durable run/session/item/entity identity"
+      ],
+      "tenantScopeBehavior": "Validates clinic across durable deployment/run/session/item/entity relationships.",
+      "callerInputTrustPosture": "Caller-supplied clinic and identity values are assertions, not sole authorization."
+    }
+  ],
+  "repositoryAcceptance": "NOT_YET_AUTHORIZED"
+}

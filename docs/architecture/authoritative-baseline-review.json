@@ -1,0 +1,128 @@
+{
+  "reviewVersion": "1.0.0",
+  "baselineVersion": "1.0.0",
+  "freezeVersion": "1.0.0",
+  "reviewStatus": "REQUIRES_REVISION",
+  "reviewAreas": [
+    "freeze",
+    "manifest",
+    "fileStructure",
+    "dependencies",
+    "schema",
+    "constraints",
+    "indexes",
+    "functions",
+    "triggers",
+    "rls",
+    "policies",
+    "acl",
+    "platformBoundary",
+    "validation",
+    "security",
+    "determinism",
+    "architectureDrift",
+    "immutability"
+  ],
+  "findings": [
+    {
+      "findingId": "HIGH-001",
+      "severity": "High",
+      "area": "validation",
+      "title": "Fresh-database validation coverage is incomplete",
+      "evidence": "100_validation.sql validates names and selected structures but not every column definition, all constraint/index definitions, exact function signatures/attributes, trigger definitions, policy commands/expressions, or the full positive ACL model.",
+      "requiredResolution": "Regenerate 100_validation.sql with complete deterministic catalog assertions."
+    },
+    {
+      "findingId": "HIGH-002",
+      "severity": "High",
+      "area": "functions",
+      "title": "Runtime function attributes and generation report disagree",
+      "evidence": "Twelve SECURITY DEFINER runtime RPCs omit an explicit volatility clause. The generation report says all 17 RPCs have explicit invoker security, while SQL contains 12 definer and five invoker RPCs.",
+      "requiredResolution": "Regenerate with explicit approved volatility/security attributes and correct the generation report without changing owner-approved behavior."
+    },
+    {
+      "findingId": "HIGH-003",
+      "severity": "High",
+      "area": "manifest",
+      "title": "Generated documentation lacks complete manifest hash and size records",
+      "evidence": "The manifest fully hashes executable SQL, but does not record final size/SHA-256 fields for README.md and the generation report.",
+      "requiredResolution": "Use a documented non-recursive hashing contract that records final sizes and hashes for every generated artifact."
+    },
+    {
+      "findingId": "HIGH-004",
+      "severity": "High",
+      "area": "policyTraceability",
+      "title": "The 27-to-33 policy expansion is not fully documented in generated artifacts",
+      "evidence": "RLS-001, RLS-025, and RLS-027 intentionally create no browser policy; two decisions split; seven supporting policies use AUTH-001 or UNIQUE-001. The generation report instead says all 27 RLS decisions map immediately before replacement policies.",
+      "requiredResolution": "Record every generated policy source/approval/classification and the intentional no-policy outcomes for all 27 Production decision areas."
+    }
+  ],
+  "acceptedObjects": {
+    "tables": 23,
+    "constraints": 153,
+    "indexes": 90,
+    "functions": 28,
+    "runtimeRpcs": 17,
+    "triggers": 10,
+    "rlsEnabledTables": 23,
+    "policies": 33,
+    "aclStatements": 54,
+    "status": "Structurally accounted for; repository acceptance withheld pending High finding resolution."
+  },
+  "unexpectedObjects": [],
+  "securityReview": {
+    "status": "BLOCKED_BY_HIGH_FINDINGS",
+    "anonymousPoliciesFound": 0,
+    "publicRpcExecutionFound": 0,
+    "emailOnlyAuthorizationFound": false,
+    "clientClinicOnlyAuthorizationFound": false,
+    "securityRequirement": "SECURITY-REQ-001",
+    "knownViolation": "persistDeploymentRunAction",
+    "knownViolationClassification": "Staging-release and Version 1.0 blocker; not a baseline-generation blocker."
+  },
+  "architectureDrift": {
+    "status": "NO_UNEXPECTED_OBJECTS_FOUND",
+    "expectedNewStructures": [
+      "platform_operator_roles",
+      "clinic_memberships",
+      "patient_external_identifiers",
+      "clinic ownership columns",
+      "audit scope and ownership",
+      "authorization helper functions",
+      "supporting membership and external-identity policies"
+    ]
+  },
+  "criticalFindings": [],
+  "highFindings": [
+    "HIGH-001",
+    "HIGH-002",
+    "HIGH-003",
+    "HIGH-004"
+  ],
+  "mediumFindings": [],
+  "lowFindings": [],
+  "recommendations": [
+    "Regenerate only through the locked baseline process.",
+    "Expand read-only validation to exact object definitions and ACL posture.",
+    "Make every function attribute explicit and align the report with SQL.",
+    "Complete the non-recursive documentation hashing contract.",
+    "Embed the complete 27-to-33 policy traceability rationale.",
+    "Keep isolated PostgreSQL execution as a staging blocker."
+  ],
+  "repositoryAcceptance": "NOT_ACCEPTED_REQUIRES_REVISION",
+  "stagingReadiness": "NOT_READY_NOT_AUTHORIZED",
+  "productionReadiness": "NOT_READY_NOT_AUTHORIZED",
+  "sqlValidation": {
+    "textualStaticValidation": "PERFORMED",
+    "offlineParserValidation": "NOT_PERFORMED_NO_SUITABLE_LOCAL_PARSER",
+    "postgresqlExecutionValidation": "NOT_PERFORMED",
+    "executionBlockerCarriedForward": true
+  },
+  "immutabilityReview": {
+    "preReviewSnapshotRecorded": true,
+    "postReviewSnapshotRequired": true,
+    "baselineArtifactsChangedDuringReview": false,
+    "generationReportChangedDuringReview": false
+  },
+  "reviewConclusion": "AUTHORITATIVE_BASELINE_REQUIRES_REVISION"
+}

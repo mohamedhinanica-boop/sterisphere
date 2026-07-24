@@ -1,0 +1,157 @@
+{
+  "reviewVersion": "1.0.0",
+  "baselineVersion": "1.0.0",
+  "freezeVersion": "1.0.0",
+  "reviewType": "INDEPENDENT_CORRECTION_REVERIFICATION",
+  "sourceReviewVersion": "Phase 10.6A",
+  "correctionPhase": "Phase 10.6B",
+  "reviewStatus": "REQUIRES_REVISION",
+  "provenance": {
+    "architectureInputCommit": "2373ad80d6a86510acde0010ea1bfb1f82d0fe02",
+    "freezeArtifactCommit": "12b6b7e2729d95f47c77cb04e1db87130a05adc9",
+    "architectureFreezeManifestSha256": "0B0B1B157035F12AB210ECBD1DC6B7E55FF6DAFFDF652966ACB0396E66963619",
+    "ownerResolutionSha256": "D0CE3D8910EBAA73AF87FD3903851D1207969764473281D5D14715120F26CB1B",
+    "correctedManifestSha256": "2D17CCA2DEE8A76EDCB1D105C451A8760B40771907B7EC70C9BDEBAB6512506D",
+    "frozenInputHashesMatched": 8
+  },
+  "immutableSubjects": {
+    "preReviewSnapshotRecorded": true,
+    "postReviewSnapshotRecorded": true,
+    "reviewSubjectsUnchanged": true,
+    "protectedArtifactsUnchanged": true,
+    "onlyAuthorizedDeliverablesCreated": true
+  },
+  "independentCounts": {
+    "tables": 23,
+    "constraints": 153,
+    "indexes": 90,
+    "functions": 28,
+    "runtimeRpcs": 17,
+    "triggers": 10,
+    "rlsEnabledTables": 23,
+    "policies": 33,
+    "aclStatements": 54
+  },
+  "previousHighFindings": [
+    "HIGH-001",
+    "HIGH-002",
+    "HIGH-003",
+    "HIGH-004"
+  ],
+  "highFindingResolutions": [
+    {
+      "findingId": "HIGH-001",
+      "status": "PARTIALLY_RESOLVED",
+      "reason": "Validation materially expanded but does not reject unexpected tables, constraints, indexes, functions, triggers, or RLS objects and does not prove required positive authenticated/service-role ACLs."
+    },
+    {
+      "findingId": "HIGH-002",
+      "status": "PARTIALLY_RESOLVED",
+      "reason": "SQL and generation-report attributes are accurate, but the required complete per-function matrix is absent from the manifest and README."
+    },
+    {
+      "findingId": "HIGH-003",
+      "status": "RESOLVED",
+      "reason": "All 13 artifacts, canonical hashes, sizes, ordering, and external manifest hash independently verify."
+    },
+    {
+      "findingId": "HIGH-004",
+      "status": "PARTIALLY_RESOLVED",
+      "reason": "Forward/reverse counts are complete, but all 33 owner dispositions are generic rather than authoritative and all 27 Production policy areas are generic IDs rather than decision-record subjects."
+    }
+  ],
+  "manifestVerification": {
+    "status": "PASSED",
+    "artifactCount": 13,
+    "duplicatePaths": 0,
+    "missingArtifacts": 0,
+    "sizeMismatches": 0,
+    "hashMismatches": 0,
+    "canonicalManifestHashMatched": true,
+    "externalHashReferencesMatched": true
+  },
+  "functionVerification": {
+    "status": "PARTIALLY_PASSED",
+    "total": 28,
+    "runtimeRpcs": 17,
+    "securityDefiner": 15,
+    "securityInvoker": 13,
+    "explicitVolatility": 28,
+    "generationReportMatrixRows": 28,
+    "manifestMatrixRows": 0,
+    "readmeMatrixRows": 0
+  },
+  "validationCoverageVerification": {
+    "status": "MATERIALLY_INCOMPLETE",
+    "readOnly": true,
+    "definitionCoverageExpanded": true,
+    "exactActualSetCoverageComplete": false,
+    "positiveAclCoverageComplete": false,
+    "postgresqlExecutionTested": false
+  },
+  "policyTraceabilityVerification": {
+    "status": "PARTIALLY_PASSED",
+    "generatedPolicies": 33,
+    "forwardMappings": 33,
+    "reverseMappings": 27,
+    "uncoveredDecisionIds": [],
+    "policiesWithoutSource": [],
+    "ownerDispositionMismatches": 33,
+    "genericProductionPolicyAreas": 27
+  },
+  "dependencyVerification": {
+    "status": "PASSED_STATICALLY",
+    "crossFileOrderValid": true,
+    "unresolvedDependenciesFound": 0,
+    "cyclesFound": 0
+  },
+  "securityReview": {
+    "status": "PASSED_STATICALLY_WITH_RELEASE_GATE",
+    "securityRequirement": "SECURITY-REQ-001",
+    "knownApplicationBlocker": "persistDeploymentRunAction",
+    "anonymousPolicyAccessFound": false,
+    "publicRuntimeRpcExecutionFound": false,
+    "emailOnlyAuthorizationFound": false,
+    "clientClinicOnlyAuthorizationFound": false,
+    "privilegeExpansionIntroduced": false
+  },
+  "supabaseBoundaryReview": {
+    "status": "PASSED",
+    "platformObjectsCreated": []
+  },
+  "architectureDrift": {
+    "status": "NONE_FOUND",
+    "unexpectedObjects": [],
+    "unexpectedBehavior": []
+  },
+  "determinismReview": {
+    "status": "PASSED_STATICALLY",
+    "stableOrdering": true,
+    "timestampsInExecutableSql": false,
+    "localhostDefaults": false,
+    "forbiddenIdempotentCreation": false,
+    "unresolvedPlaceholders": false,
+    "executableTodoMarkers": false
+  },
+  "newFindings": [],
+  "criticalFindings": [],
+  "highFindings": [
+    "HIGH-001",
+    "HIGH-002",
+    "HIGH-004"
+  ],
+  "mediumFindings": [],
+  "lowFindings": [],
+  "repositoryAcceptance": "NOT_ACCEPTED_REQUIRES_REVISION",
+  "stagingReadiness": "NOT_READY_NOT_AUTHORIZED",
+  "productionReadiness": "NOT_READY_NOT_AUTHORIZED",
+  "remainingReleaseGates": [
+    "Resolve HIGH-001 exact-set and positive ACL validation gaps.",
+    "Resolve HIGH-002 manifest and README function-matrix gaps.",
+    "Resolve HIGH-004 owner-disposition and Production-area traceability inaccuracies.",
+    "Complete a new independent acceptance review.",
+    "Perform separately authorized isolated PostgreSQL parsing/execution and security validation.",
+    "Remediate SECURITY-REQ-001 and complete application/data prerequisites."
+  ],
+  "reviewConclusion": "AUTHORITATIVE_BASELINE_REQUIRES_REVISION"
+}
